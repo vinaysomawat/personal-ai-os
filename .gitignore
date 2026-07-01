@@ -4,10 +4,15 @@ node_modules/
 # Build output
 dist/
 dist-ssr/
+.next/
+out/
 
 # Vite
 *.local
 .vite/
+
+# Next.js
+next-env.d.ts
 
 # TypeScript
 *.tsbuildinfo

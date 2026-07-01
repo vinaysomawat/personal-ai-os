@@ -1,7 +1,0 @@
-{
-  "/dashboard/page": "app/dashboard/page.js",
-  "/page": "app/page.js",
-  "/career/page": "app/career/page.js",
-  "/planner/page": "app/planner/page.js",
-  "/health/page": "app/health/page.js"
-}
