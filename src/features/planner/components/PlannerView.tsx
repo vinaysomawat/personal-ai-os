@@ -1,9 +1,10 @@
 'use client'
 
 import { useState, useOptimistic, useTransition } from 'react'
-import { Plus, CheckCircle2, Circle, Trash2 } from 'lucide-react'
+import { Plus, CheckCircle2, Circle, Trash2, Sparkles } from 'lucide-react'
 import Card from '@/components/Card'
 import { addTask, toggleTask, deleteTask } from '../actions'
+import { smartSortTasks, getFocusTask } from '@/features/ai/smart-sort'
 import type { Task, Priority } from '../types'
 
 const priorityDot: Record<Priority, string> = {
@@ -24,13 +25,25 @@ export default function PlannerView({ initialTasks }: Props) {
   const [priority, setPriority] = useState<Priority>('medium')
   const [area, setArea] = useState('General')
   const [isPending, startTransition] = useTransition()
+  const [aiSorting, setAiSorting] = useState(false)
+  const [focusHint, setFocusHint] = useState<string | null>(null)
 
   const [optimisticTasks, updateOptimisticTasks] = useOptimistic(
     initialTasks,
-    (state: Task[], action: { type: string; payload: Partial<Task> & { id?: string } }) => {
+    (state: Task[], action: { type: string; payload: Partial<Task> & { id?: string } | Task[] }) => {
       if (action.type === 'add') return [action.payload as Task, ...state]
-      if (action.type === 'toggle') return state.map(t => t.id === action.payload.id ? { ...t, done: action.payload.done! } : t)
-      if (action.type === 'delete') return state.filter(t => t.id !== action.payload.id)
+      if (action.type === 'toggle') {
+        const p = action.payload as Partial<Task>
+        return state.map(t => t.id === p.id ? { ...t, done: p.done! } : t)
+      }
+      if (action.type === 'delete') {
+        const p = action.payload as Partial<Task>
+        return state.filter(t => t.id !== p.id)
+      }
+      if (action.type === 'reorder') {
+        const ordered = action.payload as Task[]
+        return ordered
+      }
       return state
     }
   )
@@ -74,6 +87,25 @@ export default function PlannerView({ initialTasks }: Props) {
     })
   }
 
+  const handleSmartSort = async () => {
+    if (pending.length < 2) return
+    setAiSorting(true)
+    setFocusHint(null)
+    try {
+      const [sortedIds, focus] = await Promise.all([
+        smartSortTasks(pending),
+        getFocusTask(pending),
+      ])
+      const idToTask = new Map(pending.map(t => [t.id, t]))
+      const reordered = sortedIds.map(id => idToTask.get(id)).filter(Boolean) as Task[]
+      const missing = pending.filter(t => !sortedIds.includes(t.id))
+      updateOptimisticTasks({ type: 'reorder', payload: [...reordered, ...missing, ...done] })
+      setFocusHint(focus)
+    } finally {
+      setAiSorting(false)
+    }
+  }
+
   return (
     <div className="space-y-5">
       {/* Week strip */}
@@ -95,7 +127,32 @@ export default function PlannerView({ initialTasks }: Props) {
         ))}
       </div>
 
-      <Card title="Today's Tasks" action={<span className="text-xs text-slate-500">{pending.length} remaining</span>}>
+      {/* AI focus hint */}
+      {focusHint && (
+        <div className="flex items-start gap-2.5 px-4 py-3 bg-accent/10 border border-accent/20 rounded-xl">
+          <Sparkles size={14} className="text-accent mt-0.5 shrink-0" />
+          <p className="text-sm text-slate-300">{focusHint}</p>
+        </div>
+      )}
+
+      <Card
+        title="Today's Tasks"
+        action={
+          <div className="flex items-center gap-3">
+            <span className="text-xs text-slate-500">{pending.length} remaining</span>
+            {pending.length >= 2 && (
+              <button
+                onClick={handleSmartSort}
+                disabled={aiSorting}
+                className="flex items-center gap-1 text-xs text-accent hover:text-accent/80 transition-colors disabled:opacity-50"
+              >
+                <Sparkles size={11} />
+                {aiSorting ? 'Sorting...' : 'AI Sort'}
+              </button>
+            )}
+          </div>
+        }
+      >
         {/* Add task row */}
         <div className="flex gap-2 mb-4">
           <input
@@ -124,13 +181,15 @@ export default function PlannerView({ initialTasks }: Props) {
           </button>
         </div>
 
-        {/* Pending tasks */}
         {pending.length === 0 && (
           <p className="text-sm text-slate-600 text-center py-6">No tasks — add one above</p>
         )}
         <ul className="space-y-1.5">
-          {pending.map(task => (
+          {pending.map((task, i) => (
             <li key={task.id} className="flex items-center gap-3 p-2.5 rounded-lg hover:bg-surface-2 transition-colors group">
+              {aiSorting && (
+                <span className="text-xs text-accent/60 font-mono w-4 shrink-0">{i + 1}</span>
+              )}
               <button onClick={() => handleToggle(task.id, task.done)} className="shrink-0">
                 <Circle size={16} className="text-slate-600 group-hover:text-accent transition-colors" />
               </button>
@@ -149,7 +208,6 @@ export default function PlannerView({ initialTasks }: Props) {
           ))}
         </ul>
 
-        {/* Completed tasks */}
         {done.length > 0 && (
           <details className="mt-4">
             <summary className="flex items-center gap-2 text-xs text-slate-500 cursor-pointer select-none list-none">

@@ -1,9 +1,10 @@
 'use client'
 
 import { useState, useOptimistic, useTransition } from 'react'
-import { Plus, Trash2, ExternalLink, X } from 'lucide-react'
+import { Plus, Trash2, ExternalLink, X, Sparkles, ChevronDown } from 'lucide-react'
 import Card from '@/components/Card'
 import { addApplication, updateStatus, deleteApplication } from '../actions'
+import { getCareerAdvice } from '@/features/ai/career-coach'
 import type { Application, AppStatus } from '../types'
 
 const STATUS_CONFIG: Record<AppStatus, { label: string; color: string; bg: string }> = {
@@ -24,6 +25,9 @@ export default function CareerView({ initialApplications }: Props) {
   const [showForm, setShowForm] = useState(false)
   const [filterStatus, setFilterStatus] = useState<AppStatus | 'all'>('all')
   const [isPending, startTransition] = useTransition()
+  const [coachAdvice, setCoachAdvice] = useState<string | null>(null)
+  const [coachLoading, setCoachLoading] = useState(false)
+  const [showCoach, setShowCoach] = useState(false)
 
   const [optimisticApps, updateOptimistic] = useOptimistic(
     initialApplications,
@@ -73,6 +77,19 @@ export default function CareerView({ initialApplications }: Props) {
     })
   }
 
+  const handleCoach = async () => {
+    if (coachLoading) return
+    if (showCoach && coachAdvice) { setShowCoach(false); return }
+    setShowCoach(true)
+    setCoachLoading(true)
+    try {
+      const advice = await getCareerAdvice(optimisticApps)
+      setCoachAdvice(advice)
+    } finally {
+      setCoachLoading(false)
+    }
+  }
+
   return (
     <div className="space-y-5">
       {/* Pipeline summary */}
@@ -94,6 +111,36 @@ export default function CareerView({ initialApplications }: Props) {
             </button>
           )
         })}
+      </div>
+
+      {/* AI Coach */}
+      <div className="border border-surface-3 rounded-xl overflow-hidden">
+        <button
+          onClick={handleCoach}
+          className="w-full flex items-center justify-between px-4 py-3 bg-surface-1 hover:bg-surface-2 transition-colors"
+        >
+          <div className="flex items-center gap-2">
+            <Sparkles size={14} className="text-accent" />
+            <span className="text-sm font-medium text-slate-300">AI Career Coach</span>
+          </div>
+          <div className="flex items-center gap-2">
+            {coachLoading && <span className="text-xs text-slate-500">Thinking...</span>}
+            <ChevronDown size={14} className={`text-slate-500 transition-transform ${showCoach ? 'rotate-180' : ''}`} />
+          </div>
+        </button>
+        {showCoach && (
+          <div className="px-4 py-4 bg-surface-1 border-t border-surface-3">
+            {coachLoading ? (
+              <div className="space-y-2">
+                {[80, 65, 90, 70].map((w, i) => (
+                  <div key={i} className="h-3 rounded bg-surface-2 animate-pulse" style={{ width: `${w}%` }} />
+                ))}
+              </div>
+            ) : coachAdvice ? (
+              <p className="text-sm text-slate-300 leading-relaxed whitespace-pre-wrap">{coachAdvice}</p>
+            ) : null}
+          </div>
+        )}
       </div>
 
       {/* Applications list */}

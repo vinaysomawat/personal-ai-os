@@ -1,9 +1,9 @@
 'use client'
 
 import { useState, useOptimistic, useTransition } from 'react'
-import { Plus, Trash2, X, Search, FileText } from 'lucide-react'
-import Card from '@/components/Card'
+import { Plus, Trash2, X, Search, FileText, Sparkles, Send } from 'lucide-react'
 import { addDocument, updateDocument, deleteDocument } from '../actions'
+import { askDocument, summariseDocument } from '@/features/ai/doc-qa'
 import type { Document } from '../types'
 
 interface Props { initialDocuments: Document[] }
@@ -16,6 +16,9 @@ export default function DocumentsView({ initialDocuments }: Props) {
   const [editContent, setEditContent] = useState('')
   const [editTags, setEditTags] = useState('')
   const [isPending, startTransition] = useTransition()
+  const [aiQuestion, setAiQuestion] = useState('')
+  const [aiAnswer, setAiAnswer] = useState<string | null>(null)
+  const [aiLoading, setAiLoading] = useState(false)
 
   const [docs, updateDocs] = useOptimistic(
     initialDocuments,
@@ -73,7 +76,33 @@ export default function DocumentsView({ initialDocuments }: Props) {
     setEditTitle(doc.title)
     setEditContent(doc.content)
     setEditTags(doc.tags.join(', '))
+    setAiAnswer(null)
     setShowForm(false)
+  }
+
+  const handleAsk = async () => {
+    if (!editContent || !aiQuestion.trim()) return
+    setAiLoading(true)
+    setAiAnswer(null)
+    try {
+      const answer = await askDocument(editTitle, editContent, aiQuestion)
+      setAiAnswer(answer)
+    } finally {
+      setAiLoading(false)
+    }
+  }
+
+  const handleSummarise = async () => {
+    if (!editContent) return
+    setAiLoading(true)
+    setAiAnswer(null)
+    setAiQuestion('Summarise this document')
+    try {
+      const summary = await summariseDocument(editTitle, editContent)
+      setAiAnswer(summary)
+    } finally {
+      setAiLoading(false)
+    }
   }
 
   return (
@@ -84,7 +113,7 @@ export default function DocumentsView({ initialDocuments }: Props) {
           <Search size={13} className="text-slate-500 shrink-0" />
           <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search..." className="flex-1 bg-transparent text-sm text-slate-300 placeholder-slate-600 outline-none" />
         </div>
-        <button onClick={() => { setShowForm(true); setSelected(null); setEditTitle(''); setEditContent(''); setEditTags('') }}
+        <button onClick={() => { setShowForm(true); setSelected(null); setEditTitle(''); setEditContent(''); setEditTags(''); setAiAnswer(null) }}
           className="flex items-center justify-center gap-1.5 py-2 rounded-lg bg-accent text-white text-sm font-medium hover:bg-accent/80 transition-colors">
           <Plus size={13} /> New document
         </button>
@@ -129,7 +158,7 @@ export default function DocumentsView({ initialDocuments }: Props) {
                 value={editTags}
                 onChange={e => setEditTags(e.target.value)}
                 placeholder="tags, comma, separated"
-                className="bg-surface-2 border border-surface-3 rounded-lg px-3 py-1.5 text-xs text-slate-400 placeholder-slate-600 outline-none focus:border-accent transition-colors w-48"
+                className="bg-surface-2 border border-surface-3 rounded-lg px-3 py-1.5 text-xs text-slate-400 placeholder-slate-600 outline-none focus:border-accent transition-colors w-40"
               />
               <button
                 onClick={showForm ? handleAdd : handleSave}
@@ -148,6 +177,43 @@ export default function DocumentsView({ initialDocuments }: Props) {
               placeholder="Start writing..."
               className="flex-1 bg-transparent px-5 py-4 text-sm text-slate-300 placeholder-slate-600 outline-none resize-none leading-relaxed font-mono"
             />
+
+            {/* AI Q&A panel */}
+            {selected && (
+              <div className="border-t border-surface-3 px-4 py-3 space-y-2">
+                <div className="flex items-center gap-2 mb-1">
+                  <Sparkles size={12} className="text-accent" />
+                  <span className="text-xs font-medium text-accent uppercase tracking-widest">Ask AI</span>
+                  {editContent && (
+                    <button onClick={handleSummarise} disabled={aiLoading} className="ml-auto text-xs text-slate-500 hover:text-slate-300 transition-colors">
+                      Summarise
+                    </button>
+                  )}
+                </div>
+                {aiAnswer && (
+                  <div className="text-xs text-slate-300 bg-accent/5 border border-accent/15 rounded-lg p-3 whitespace-pre-wrap leading-relaxed max-h-32 overflow-y-auto">
+                    {aiAnswer}
+                  </div>
+                )}
+                <div className="flex gap-2">
+                  <input
+                    value={aiQuestion}
+                    onChange={e => setAiQuestion(e.target.value)}
+                    onKeyDown={e => e.key === 'Enter' && handleAsk()}
+                    placeholder="Ask a question about this document..."
+                    disabled={aiLoading}
+                    className="flex-1 bg-surface-2 border border-surface-3 rounded-lg px-3 py-1.5 text-xs text-slate-300 placeholder-slate-600 outline-none focus:border-accent transition-colors"
+                  />
+                  <button
+                    onClick={handleAsk}
+                    disabled={aiLoading || !aiQuestion.trim() || !editContent}
+                    className="px-3 py-1.5 rounded-lg bg-accent text-white hover:bg-accent/80 disabled:opacity-40 transition-colors"
+                  >
+                    {aiLoading ? <span className="text-xs">...</span> : <Send size={12} />}
+                  </button>
+                </div>
+              </div>
+            )}
           </>
         ) : (
           <div className="flex-1 flex flex-col items-center justify-center text-slate-600">
