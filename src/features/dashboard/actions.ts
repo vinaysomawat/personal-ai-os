@@ -10,7 +10,7 @@ export async function getDashboardData() {
   const today = new Date().toISOString().split('T')[0]
   const monthStart = today.slice(0, 7) + '-01'
 
-  const [tasksRes, appsRes, habitsRes, logsRes, expensesRes, resourcesRes, projectsRes, docsRes] = await Promise.all([
+  const [tasksRes, appsRes, habitsRes, logsRes, expensesRes, resourcesRes, projectsRes, docsRes, botLogsRes] = await Promise.all([
     supabase.from('tasks').select('id, text, done, priority').eq('user_id', user.id).eq('done', false).order('created_at', { ascending: false }).limit(5),
     supabase.from('applications').select('id, company, role, status, applied_at').eq('user_id', user.id).order('created_at', { ascending: false }).limit(5),
     supabase.from('habits').select('id').eq('user_id', user.id),
@@ -19,6 +19,7 @@ export async function getDashboardData() {
     supabase.from('resources').select('status').eq('user_id', user.id),
     supabase.from('projects').select('status').eq('user_id', user.id),
     supabase.from('documents').select('id', { count: 'exact', head: true }).eq('user_id', user.id),
+    supabase.from('telegram_logs').select('module, message, response, created_at').order('created_at', { ascending: false }).limit(20),
   ])
 
   const pendingTasks = tasksRes.data ?? []
@@ -37,6 +38,7 @@ export async function getDashboardData() {
   return {
     pendingTasks,
     recentApplications: applications.slice(0, 3),
+    botActivity: botLogsRes.data ?? [],
     stats: {
       pendingTaskCount: pendingTasks.length,
       activeApplications: activeApps,
