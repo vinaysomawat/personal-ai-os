@@ -1,6 +1,7 @@
 import { createServiceClient } from '@/lib/supabase/service'
 import { sendMessage } from '@/lib/telegram/send'
 import { aiText } from '@/lib/anthropic'
+import { transcribeVoice } from '@/lib/telegram/transcribe'
 import type { TelegramUpdate } from '@/lib/telegram/types'
 
 import * as planner   from './modules/planner'
@@ -30,7 +31,7 @@ export function isValidModule(m: string): m is ModuleName {
 
 export async function handleUpdate(moduleName: ModuleName, update: TelegramUpdate): Promise<void> {
   const msg = update.message
-  if (!msg?.text) return
+  if (!msg?.text && !msg?.voice) return
 
   const chatId = msg.chat.id
   const allowedId = process.env.TELEGRAM_ALLOWED_CHAT_ID
@@ -46,7 +47,24 @@ export async function handleUpdate(moduleName: ModuleName, update: TelegramUpdat
   }
 
   const mod = MODULES[moduleName]
-  const text = msg.text.trim()
+
+  // Transcribe voice to text if needed
+  let text: string
+  if (msg.voice) {
+    try {
+      await sendMessage(token, chatId, '🎙️ Transcribing...')
+      text = await transcribeVoice(token, msg.voice.file_id)
+      if (!text) {
+        await sendMessage(token, chatId, '❌ Could not understand the voice message.')
+        return
+      }
+    } catch {
+      await sendMessage(token, chatId, '❌ Voice transcription failed. Please check GROQ_API_KEY.')
+      return
+    }
+  } else {
+    text = msg.text!.trim()
+  }
 
   let action: Record<string, unknown> = { action: 'help' }
   let reply = ''
