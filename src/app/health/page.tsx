@@ -1,7 +1,10 @@
 import HealthView from '@/features/health/components/HealthView'
-import { getHabitsWithLogs } from '@/features/health/actions'
+import { getHabitsWithLogs, getHealthMetrics } from '@/features/health/actions'
 
 export default async function HealthPage() {
-  const habits = await getHabitsWithLogs()
-  return <HealthView initialHabits={habits} />
+  const [habits, metrics] = await Promise.all([
+    getHabitsWithLogs(),
+    getHealthMetrics(30),
+  ])
+  return <HealthView initialHabits={habits} initialMetrics={metrics} />
 }

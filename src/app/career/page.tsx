@@ -1,7 +1,7 @@
 import CareerView from '@/features/career/components/CareerView'
-import { getApplications } from '@/features/career/actions'
+import { getCareerData } from '@/features/career/actions'
 
 export default async function CareerPage() {
-  const applications = await getApplications()
-  return <CareerView initialApplications={applications} />
+  const data = await getCareerData()
+  return <CareerView {...data} />
 }

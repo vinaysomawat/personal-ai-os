@@ -18,35 +18,52 @@ const MODULE_META: Record<string, { label: string; emoji: string; color: string;
 }
 
 const PRIORITY_DOT: Record<string, string> = {
-  high: 'bg-red-400',
-  medium: 'bg-amber-400',
-  low: 'bg-slate-500',
+  high: 'bg-red-400', medium: 'bg-amber-400', low: 'bg-slate-500',
 }
 
 const STATUS_COLOR: Record<string, string> = {
-  applied:   'text-blue-400',
-  screening: 'text-amber-400',
-  interview: 'text-purple-400',
-  offer:     'text-green-400',
-  rejected:  'text-red-400',
+  applied: 'text-blue-400', screening: 'text-amber-400',
+  interview: 'text-purple-400', offer: 'text-green-400', rejected: 'text-red-400',
+}
+
+function scoreColor(s: number) {
+  if (s >= 75) return { bar: 'bg-green-400', text: 'text-green-400' }
+  if (s >= 50) return { bar: 'bg-amber-400', text: 'text-amber-400' }
+  return { bar: 'bg-red-400', text: 'text-red-400' }
 }
 
 type DashboardData = Awaited<ReturnType<typeof getDashboardData>>
 
 export default function DashboardView({ data, briefing }: { data: DashboardData; briefing?: string }) {
-  const { pendingTasks, recentApplications, botActivity, stats } = data
+  const { pendingTasks, recentApplications, botActivity, stats, scores, todayHealth } = data
   const today = new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })
   const hour = new Date().getHours()
   const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening'
 
+  const healthStat = (() => {
+    if (!todayHealth) return stats.totalHabits ? `${stats.habitsDoneToday}/${stats.totalHabits} habits` : 'No habits yet'
+    const parts = []
+    if (todayHealth.weight_kg) parts.push(`${todayHealth.weight_kg}kg`)
+    if (todayHealth.sleep_hours) parts.push(`${todayHealth.sleep_hours}h sleep`)
+    if (todayHealth.steps) parts.push(`${Math.round(Number(todayHealth.steps) / 1000 * 10) / 10}k steps`)
+    return parts.length ? parts.join(' · ') : `${stats.habitsDoneToday}/${stats.totalHabits} habits`
+  })()
+
   const modules = [
     { label: 'Planner',   to: '/planner',   icon: CalendarDays, color: 'text-blue-400',   bg: 'bg-blue-500/10',   stat: stats.pendingTaskCount ? `${stats.pendingTaskCount} pending` : 'All clear' },
     { label: 'Career',    to: '/career',    icon: Briefcase,    color: 'text-amber-400',  bg: 'bg-amber-500/10',  stat: stats.activeApplications ? `${stats.activeApplications} active` : 'No applications' },
-    { label: 'Health',    to: '/health',    icon: HeartPulse,   color: 'text-red-400',    bg: 'bg-red-500/10',    stat: stats.totalHabits ? `${stats.habitsDoneToday}/${stats.totalHabits} today` : 'No habits yet' },
+    { label: 'Health',    to: '/health',    icon: HeartPulse,   color: 'text-red-400',    bg: 'bg-red-500/10',    stat: healthStat },
     { label: 'Finance',   to: '/finance',   icon: DollarSign,   color: 'text-green-400',  bg: 'bg-green-500/10',  stat: stats.monthSpend ? `₹${Math.round(stats.monthSpend).toLocaleString('en-IN')} this month` : 'No expenses yet' },
     { label: 'Learning',  to: '/learning',  icon: BookOpen,     color: 'text-purple-400', bg: 'bg-purple-500/10', stat: stats.learningInProgress ? `${stats.learningInProgress} in progress` : 'No resources yet' },
     { label: 'Coding',    to: '/coding',    icon: Code2,        color: 'text-cyan-400',   bg: 'bg-cyan-500/10',   stat: stats.activeProjects ? `${stats.activeProjects} active` : 'No projects yet' },
     { label: 'Documents', to: '/documents', icon: FileText,     color: 'text-orange-400', bg: 'bg-orange-500/10', stat: stats.documentCount ? `${stats.documentCount} doc${stats.documentCount !== 1 ? 's' : ''}` : 'Empty' },
+  ]
+
+  const scoreItems = [
+    { label: 'Health',   score: scores.health,   emoji: '💪', to: '/health' },
+    { label: 'Finance',  score: scores.finance,  emoji: '💸', to: '/finance' },
+    { label: 'Career',   score: scores.career,   emoji: '💼', to: '/career' },
+    { label: 'Learning', score: scores.learning, emoji: '📚', to: '/learning' },
   ]
 
   return (
@@ -68,14 +85,33 @@ export default function DashboardView({ data, briefing }: { data: DashboardData;
         </div>
       )}
 
+      {/* Today's Score */}
+      <div>
+        <p className="text-xs text-slate-600 uppercase tracking-widest mb-3">Today&apos;s Score</p>
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+          {scoreItems.map(({ label, score, emoji, to }) => {
+            const c = scoreColor(score)
+            return (
+              <Link key={to} href={to} className="bg-surface-1 border border-surface-3 rounded-xl p-4 hover:border-accent/30 transition-colors group">
+                <div className="flex items-center justify-between mb-3">
+                  <span className="text-lg">{emoji}</span>
+                  <span className={`text-xl font-bold tabular-nums ${c.text}`}>{score}%</span>
+                </div>
+                <div className="h-1.5 bg-surface-3 rounded-full overflow-hidden mb-2">
+                  <div className={`h-full rounded-full transition-all ${c.bar}`} style={{ width: `${score}%` }} />
+                </div>
+                <p className="text-xs text-slate-500 group-hover:text-slate-400 transition-colors">{label}</p>
+              </Link>
+            )
+          })}
+        </div>
+      </div>
+
       {/* Module grid */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         {modules.map(({ label, to, icon: Icon, color, bg, stat }) => (
-          <Link
-            key={to}
-            href={to}
-            className="group flex flex-col gap-3 p-4 bg-surface-1 border border-surface-3 rounded-xl hover:border-accent/40 hover:bg-surface-2 transition-all"
-          >
+          <Link key={to} href={to}
+            className="group flex flex-col gap-3 p-4 bg-surface-1 border border-surface-3 rounded-xl hover:border-accent/40 hover:bg-surface-2 transition-all">
             <div className={`w-9 h-9 rounded-lg ${bg} flex items-center justify-center`}>
               <Icon size={18} className={color} />
             </div>
@@ -131,20 +167,16 @@ export default function DashboardView({ data, briefing }: { data: DashboardData;
       </div>
 
       {/* Bot Activity Log */}
-      <Card
-        title="Bot Activity"
-        action={
-          <div className="flex items-center gap-1.5 text-xs text-slate-500">
-            <Bot size={12} />
-            <span>Telegram</span>
-          </div>
-        }
-      >
+      <Card title="Bot Activity" action={
+        <div className="flex items-center gap-1.5 text-xs text-slate-500">
+          <Bot size={12} /><span>Telegram</span>
+        </div>
+      }>
         {!botActivity || botActivity.length === 0 ? (
           <div className="text-center py-8 space-y-2">
             <Bot size={24} className="mx-auto text-slate-700" />
             <p className="text-sm text-slate-600">No bot activity yet</p>
-            <p className="text-xs text-slate-700">Send a message to any of your Telegram bots and it will appear here</p>
+            <p className="text-xs text-slate-700">Send a message to any Telegram bot and it will appear here</p>
           </div>
         ) : (
           <ul className="space-y-px">
@@ -163,9 +195,7 @@ export default function DashboardView({ data, briefing }: { data: DashboardData;
                       <span className="text-xs text-slate-700">{timeAgo}</span>
                     </div>
                     <p className="text-sm text-slate-300 truncate">"{entry.message}"</p>
-                    {firstLine && (
-                      <p className="text-xs text-slate-500 mt-0.5 truncate">{firstLine}</p>
-                    )}
+                    {firstLine && <p className="text-xs text-slate-500 mt-0.5 truncate">{firstLine}</p>}
                   </div>
                 </li>
               )

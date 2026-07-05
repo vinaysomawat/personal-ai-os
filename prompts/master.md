@@ -55,7 +55,6 @@ of simply answering questions.
 5.  Health
 6.  Learning
 7.  Documents
-8.  Playwright Assistant
 9.  Knowledge Base
 10. AI Memory
 11. AI Agents
@@ -165,17 +164,6 @@ Features
 
 ------------------------------------------------------------------------
 
-# 12. Playwright Assistant
-
--   Generate test cases
--   Page Objects
--   Mock generation
--   Test review
--   Bug analysis
--   PR review
-
-------------------------------------------------------------------------
-
 # 13. AI Memory
 
 Store
@@ -216,8 +204,6 @@ AI - OpenAI - Anthropic
 Storage - Supabase Storage
 
 Deployment - Vercel
-
-Testing - Playwright - Vitest
 
 ------------------------------------------------------------------------
 
@@ -283,8 +269,6 @@ Phase 1 - Foundation - Dashboard - UI
 Phase 2 - Planner - Career
 
 Phase 3 - Finance - Health
-
-Phase 4 - Documents - Playwright
 
 Phase 5 - AI Memory - Knowledge Base
 
