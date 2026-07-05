@@ -5,7 +5,8 @@ import { Plus, CheckCircle2, Circle, Trash2, Sparkles } from 'lucide-react'
 import Card from '@/components/Card'
 import { addTask, toggleTask, deleteTask } from '../actions'
 import { smartSortTasks, getFocusTask } from '@/features/ai/smart-sort'
-import type { Task, Priority } from '../types'
+import { RefreshCw } from 'lucide-react'
+import type { Task, Priority, Recurrence } from '../types'
 
 const priorityDot: Record<Priority, string> = {
   high: 'bg-red-400',
@@ -24,6 +25,7 @@ export default function PlannerView({ initialTasks }: Props) {
   const [input, setInput] = useState('')
   const [priority, setPriority] = useState<Priority>('medium')
   const [area, setArea] = useState('General')
+  const [recurrence, setRecurrence] = useState<Recurrence | null>(null)
   const [isPending, startTransition] = useTransition()
   const [aiSorting, setAiSorting] = useState(false)
   const [focusHint, setFocusHint] = useState<string | null>(null)
@@ -64,12 +66,13 @@ export default function PlannerView({ initialTasks }: Props) {
       priority,
       area,
       due_date: null,
+      recurrence,
       created_at: new Date().toISOString(),
     }
 
     startTransition(async () => {
       updateOptimisticTasks({ type: 'add', payload: optimistic })
-      await addTask(text, priority, area)
+      await addTask(text, priority, area, recurrence)
     })
   }
 
@@ -171,6 +174,16 @@ export default function PlannerView({ initialTasks }: Props) {
             <option value="medium">Medium</option>
             <option value="low">Low</option>
           </select>
+          <select
+            value={recurrence ?? ''}
+            onChange={e => setRecurrence((e.target.value as Recurrence) || null)}
+            className="bg-surface-2 border border-surface-3 rounded-lg px-2 py-2 text-sm text-slate-300 outline-none focus:border-accent transition-colors"
+          >
+            <option value="">Once</option>
+            <option value="daily">Daily</option>
+            <option value="weekly">Weekly</option>
+            <option value="monthly">Monthly</option>
+          </select>
           <button
             onClick={handleAdd}
             disabled={isPending || !input.trim()}
@@ -195,7 +208,14 @@ export default function PlannerView({ initialTasks }: Props) {
               </button>
               <div className="flex-1 min-w-0">
                 <p className="text-sm text-slate-200">{task.text}</p>
-                <p className="text-xs text-slate-600">{task.area}</p>
+                <div className="flex items-center gap-2 mt-0.5">
+                  <p className="text-xs text-slate-600">{task.area}</p>
+                  {task.recurrence && (
+                    <span className="flex items-center gap-0.5 text-xs text-accent/70">
+                      <RefreshCw size={9} />{task.recurrence}
+                    </span>
+                  )}
+                </div>
               </div>
               <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${priorityDot[task.priority]}`} />
               <button

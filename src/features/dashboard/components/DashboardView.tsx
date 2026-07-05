@@ -6,6 +6,7 @@ import {
 import Card from '@/components/Card'
 import ScoreHero from './ScoreHero'
 import LifeScoreChart from './LifeScoreChart'
+import RealtimeRefresh from './RealtimeRefresh'
 import { formatDistanceToNow } from 'date-fns'
 import type { getDashboardData } from '../actions'
 
@@ -88,8 +89,10 @@ function computeInsights(
   return items.slice(0, 5)
 }
 
+const LEVEL_NAMES = ['', 'Novice', 'Explorer', 'Achiever', 'Champion', 'Master', 'Legend', 'Grandmaster', 'Immortal']
+
 export default function DashboardView({ data }: { data: DashboardData }) {
-  const { pendingTasks, recentApplications, botActivity, stats, scores, todayHealth, scoreHistory } = data
+  const { pendingTasks, recentApplications, botActivity, stats, scores, todayHealth, scoreHistory, gamification } = data
   const today = new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })
   const hour = new Date().getHours()
   const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening'
@@ -110,12 +113,13 @@ export default function DashboardView({ data }: { data: DashboardData }) {
     { label: 'Health',    to: '/health',    icon: HeartPulse,   color: 'text-red-400',    bg: 'bg-red-500/10',    stat: todayHealth?.steps ? `${(Number(todayHealth.steps)/1000).toFixed(1)}k steps` : `${stats.habitsDoneToday}/${stats.totalHabits} habits` },
     { label: 'Finance',   to: '/finance',   icon: DollarSign,   color: 'text-green-400',  bg: 'bg-green-500/10',  stat: stats.monthSpend ? `₹${Math.round(stats.monthSpend).toLocaleString('en-IN')} spent` : 'No expenses' },
     { label: 'Learning',  to: '/learning',  icon: BookOpen,     color: 'text-purple-400', bg: 'bg-purple-500/10', stat: stats.learningInProgress ? `${stats.learningInProgress} in progress` : 'No resources' },
-    { label: 'Coding',    to: '/coding',    icon: Code2,        color: 'text-cyan-400',   bg: 'bg-cyan-500/10',   stat: stats.activeProjects ? `${stats.activeProjects} active` : 'No projects' },
+    { label: 'Coding',    to: '/coding',    icon: Code2,        color: 'text-cyan-400',   bg: 'bg-cyan-500/10',   stat: stats.githubCommits ? `${stats.githubCommits} commits (30d)` : stats.activeProjects ? `${stats.activeProjects} active` : 'No projects' },
     { label: 'Documents', to: '/documents', icon: FileText,     color: 'text-orange-400', bg: 'bg-orange-500/10', stat: stats.documentCount ? `${stats.documentCount} doc${stats.documentCount !== 1 ? 's' : ''}` : 'Empty' },
   ]
 
   return (
     <div className="space-y-6">
+      <RealtimeRefresh />
       {/* Header */}
       <div>
         <p className="text-xs text-slate-500 font-medium uppercase tracking-widest mb-1">{today}</p>
@@ -163,6 +167,36 @@ export default function DashboardView({ data }: { data: DashboardData }) {
           </div>
         </div>
       </div>
+
+      {/* Gamification */}
+      {gamification && (
+        <Card title="Level & XP">
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-accent/15 flex items-center justify-center text-lg font-bold text-accent">
+                  {gamification.level}
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-slate-200">{LEVEL_NAMES[gamification.level] ?? `Level ${gamification.level}`}</p>
+                  <p className="text-xs text-slate-500">{gamification.xp.toLocaleString()} XP total · {gamification.streak} day streak</p>
+                </div>
+              </div>
+              <p className="text-xs text-slate-500">{gamification.xpProgress}% to next level</p>
+            </div>
+            <div className="h-2 bg-surface-3 rounded-full overflow-hidden">
+              <div className="h-full bg-gradient-to-r from-[#7c6af7] to-[#06b6d4] rounded-full transition-all" style={{ width: `${gamification.xpProgress}%` }} />
+            </div>
+            {gamification.badges.length > 0 && (
+              <div className="flex flex-wrap gap-1.5 pt-1">
+                {gamification.badges.map(b => (
+                  <span key={b} className="text-xs px-2 py-1 rounded-full bg-surface-2 border border-surface-3 text-slate-400">{b}</span>
+                ))}
+              </div>
+            )}
+          </div>
+        </Card>
+      )}
 
       {/* 30-day Score History */}
       <Card title="30-Day Score History">

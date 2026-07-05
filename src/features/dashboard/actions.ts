@@ -14,7 +14,8 @@ export async function getDashboardData() {
     scores: { health: 0, finance: 50, career: 0, learning: 0, projects: 0, life: 0 },
     todayHealth: null,
     scoreHistory: [] as { date: string; life: number; health: number; finance: number; career: number; learning: number; projects: number }[],
-    stats: { pendingTaskCount: 0, activeApplications: 0, habitsDoneToday: 0, totalHabits: 0, monthSpend: 0, monthBudget: 0, learningInProgress: 0, activeProjects: 0, completedProjects: 0, documentCount: 0 },
+    gamification: { xp: 0, level: 1, xpProgress: 0, streak: 0, badges: [] as string[] },
+    stats: { pendingTaskCount: 0, activeApplications: 0, habitsDoneToday: 0, totalHabits: 0, monthSpend: 0, monthBudget: 0, learningInProgress: 0, activeProjects: 0, completedProjects: 0, githubCommits: 0, documentCount: 0 },
   }
 
   const [
@@ -89,9 +90,25 @@ export async function getDashboardData() {
     ? Math.min(100, Math.round(((learningCompleted + learningInProgress * 0.5) / resources.length) * 100))
     : 0
 
-  // Projects: reward active + completed work
-  const projectsScore = projects.length === 0 ? 0
-    : Math.min(100, activeProjects * 25 + completedProjects * 20)
+  // Projects: reward active + completed work + GitHub activity
+  let githubCommits = 0
+  const githubUsername = process.env.GITHUB_USERNAME
+  if (githubUsername) {
+    try {
+      const ghRes = await fetch(
+        `https://api.github.com/users/${githubUsername}/events?per_page=100`,
+        { headers: { Authorization: `Bearer ${process.env.GITHUB_TOKEN ?? ''}`, 'X-GitHub-Api-Version': '2022-11-28' }, next: { revalidate: 3600 } }
+      )
+      if (ghRes.ok) {
+        const events = await ghRes.json() as { type: string; created_at: string }[]
+        const cutoff = new Date(Date.now() - 30 * 86400000).toISOString()
+        githubCommits = events.filter(e => e.type === 'PushEvent' && e.created_at > cutoff).length
+      }
+    } catch { /* GitHub unavailable — skip */ }
+  }
+  const githubBoost = Math.min(25, githubCommits * 2)
+  const projectsScore = projects.length === 0 && githubCommits === 0 ? 0
+    : Math.min(100, activeProjects * 20 + completedProjects * 15 + githubBoost)
 
   // Life Score: weighted aggregate
   const lifeScore = Math.round(
@@ -110,24 +127,61 @@ export async function getDashboardData() {
     projects_score: projectsScore, life_score: lifeScore,
   }, { onConflict: 'user_id,date' })
 
-  // Fetch 30-day history
+  // Fetch 30-day history + compute XP/gamification
   const since = new Date(Date.now() - 30 * 86400000).toISOString().split('T')[0]
-  const { data: historyRows } = await supabase
-    .from('life_score_logs')
-    .select('date, life_score, health_score, finance_score, career_score, learning_score, projects_score')
-    .eq('user_id', user.id)
-    .gte('date', since)
-    .order('date', { ascending: true })
+  const allTimeSince = new Date(Date.now() - 365 * 86400000).toISOString().split('T')[0]
 
-  const scoreHistory = (historyRows ?? []).map(r => ({
-    date: r.date as string,
-    life: r.life_score as number,
-    health: r.health_score as number,
-    finance: r.finance_score as number,
-    career: r.career_score as number,
-    learning: r.learning_score as number,
+  const [historyRes, allTimeRes] = await Promise.all([
+    supabase.from('life_score_logs')
+      .select('date, life_score, health_score, finance_score, career_score, learning_score, projects_score')
+      .eq('user_id', user.id).gte('date', since).order('date', { ascending: true }),
+    supabase.from('life_score_logs')
+      .select('date, life_score')
+      .eq('user_id', user.id).gte('date', allTimeSince).order('date', { ascending: true }),
+  ])
+
+  const scoreHistory = (historyRes.data ?? []).map(r => ({
+    date: r.date as string, life: r.life_score as number,
+    health: r.health_score as number, finance: r.finance_score as number,
+    career: r.career_score as number, learning: r.learning_score as number,
     projects: r.projects_score as number,
   }))
+
+  // --- Gamification ---
+  const allLogs = allTimeRes.data ?? []
+  const totalXP = allLogs.reduce((s, r) => s + (r.life_score as number), 0)
+  const LEVEL_THRESHOLDS = [0, 200, 500, 1000, 2000, 3500, 5000, 7500, 10000]
+  const level = LEVEL_THRESHOLDS.findIndex(t => totalXP < t) - 1
+  const xpLevel = level < 0 ? LEVEL_THRESHOLDS.length - 1 : Math.max(1, level)
+  const xpForNext = LEVEL_THRESHOLDS[xpLevel] ?? LEVEL_THRESHOLDS[LEVEL_THRESHOLDS.length - 1]
+  const xpForCurrent = LEVEL_THRESHOLDS[xpLevel - 1] ?? 0
+  const xpProgress = xpForNext > xpForCurrent ? Math.round(((totalXP - xpForCurrent) / (xpForNext - xpForCurrent)) * 100) : 100
+
+  // Streak: consecutive days from today backwards
+  const logDates = new Set(allLogs.map(r => r.date as string))
+  let streak = 0
+  const d = new Date(today)
+  while (logDates.has(d.toISOString().split('T')[0])) {
+    streak++
+    d.setDate(d.getDate() - 1)
+  }
+
+  const badges: string[] = []
+  if (allLogs.length >= 1)  badges.push('🌱 First Step')
+  if (allLogs.length >= 7)  badges.push('📅 Week Warrior')
+  if (allLogs.length >= 30) badges.push('💪 Month Master')
+  if (streak >= 7)          badges.push('🔥 7-Day Streak')
+  if (streak >= 30)         badges.push('⚡ 30-Day Streak')
+  if (lifeScore >= 50)      badges.push('⭐ Half Century')
+  if (lifeScore >= 70)      badges.push('🏆 Century Club')
+  if (lifeScore >= 90)      badges.push('💎 Elite')
+  if (totalXP >= 1000)      badges.push('🎯 1K XP Club')
+
+  // Upsert XP record
+  await supabase.from('user_xp').upsert(
+    { user_id: user.id, xp: totalXP, level: xpLevel, badges, updated_at: new Date().toISOString() },
+    { onConflict: 'user_id' }
+  )
 
   return {
     pendingTasks,
@@ -135,17 +189,16 @@ export async function getDashboardData() {
     botActivity: botLogsRes.data ?? [],
     todayHealth: todayMetric,
     scoreHistory,
+    gamification: { xp: totalXP, level: xpLevel, xpProgress, streak, badges },
     scores: { health: healthScore, finance: financeScore, career: careerScore, learning: learningScore, projects: projectsScore, life: lifeScore },
     stats: {
       pendingTaskCount: pendingTasks.length,
       activeApplications: activeApps,
       habitsDoneToday: todayLogs.length,
       totalHabits: habits.length,
-      monthSpend,
-      monthBudget,
-      learningInProgress,
-      activeProjects,
-      completedProjects,
+      monthSpend, monthBudget,
+      learningInProgress, activeProjects, completedProjects,
+      githubCommits,
       documentCount: docsRes.count ?? 0,
     },
   }

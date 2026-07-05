@@ -3,6 +3,10 @@
     {
       "path": "/api/cron/daily-briefing",
       "schedule": "0 3 * * *"
+    },
+    {
+      "path": "/api/cron/weekly-digest",
+      "schedule": "30 2 * * 0"
     }
   ]
 }
