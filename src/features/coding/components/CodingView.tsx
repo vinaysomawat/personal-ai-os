@@ -1,14 +1,10 @@
 'use client'
 
 import { useState, useOptimistic, useTransition } from 'react'
-import { Plus, Trash2, ExternalLink, Github, X, Wand2, Copy, Check } from 'lucide-react'
+import { Plus, Trash2, ExternalLink, Github, X } from 'lucide-react'
 import Card from '@/components/Card'
 import { addProject, updateProjectStatus, deleteProject } from '../actions'
-import { generatePlaywrightTests } from '@/features/ai/playwright-generator'
 import type { Project, ProjectStatus } from '../types'
-import type { PlaywrightOutput } from '@/features/ai/playwright-generator'
-
-type OutputTab = keyof PlaywrightOutput
 
 const STATUS_CONFIG: Record<ProjectStatus, { label: string; color: string; bg: string }> = {
   'idea':        { label: 'Idea',        color: 'text-slate-400',  bg: 'bg-slate-500/15' },
@@ -21,48 +17,10 @@ const STATUSES = Object.keys(STATUS_CONFIG) as ProjectStatus[]
 
 interface Props { initialProjects: Project[] }
 
-const TABS: { key: OutputTab; label: string }[] = [
-  { key: 'scenarios',  label: 'Scenarios' },
-  { key: 'pageObject', label: 'Page Object' },
-  { key: 'testFile',   label: 'Test File' },
-  { key: 'edgeCases',  label: 'Edge Cases' },
-]
-
-function CopyButton({ text }: { text: string }) {
-  const [copied, setCopied] = useState(false)
-  const handleCopy = () => {
-    navigator.clipboard.writeText(text)
-    setCopied(true)
-    setTimeout(() => setCopied(false), 1500)
-  }
-  return (
-    <button onClick={handleCopy} className="flex items-center gap-1 text-xs text-slate-500 hover:text-slate-300 transition-colors">
-      {copied ? <Check size={11} className="text-green-400" /> : <Copy size={11} />}
-      {copied ? 'Copied' : 'Copy'}
-    </button>
-  )
-}
-
 export default function CodingView({ initialProjects }: Props) {
   const [showForm, setShowForm] = useState(false)
   const [filter, setFilter] = useState<ProjectStatus | 'all'>('all')
   const [isPending, startTransition] = useTransition()
-
-  // Playwright generator
-  const [story, setStory] = useState('')
-  const [pwOutput, setPwOutput] = useState<PlaywrightOutput | null>(null)
-  const [pwLoading, setPwLoading] = useState(false)
-  const [activeTab, setActiveTab] = useState<OutputTab>('scenarios')
-
-  const handleGenerate = async () => {
-    if (!story.trim() || pwLoading) return
-    setPwLoading(true); setPwOutput(null)
-    try {
-      const result = await generatePlaywrightTests(story)
-      setPwOutput(result)
-      setActiveTab('scenarios')
-    } finally { setPwLoading(false) }
-  }
 
   const [projects, updateProjects] = useOptimistic(
     initialProjects,
@@ -112,54 +70,6 @@ export default function CodingView({ initialProjects }: Props) {
 
   return (
     <div className="space-y-5">
-      {/* Playwright Test Generator */}
-      <Card title="Playwright Test Generator" action={
-        <span className="text-xs text-slate-600">Paste a Jira story → AI writes tests</span>
-      }>
-        <div className="space-y-3">
-          <textarea
-            value={story}
-            onChange={e => setStory(e.target.value)}
-            placeholder={`Paste your user story or requirement here...\n\nExample:\nAs a user, I want to log in with my email and password\nso that I can access my dashboard.\n\nAC:\n- Valid credentials → redirect to /dashboard\n- Invalid password → show "Invalid credentials" error\n- Empty fields → show validation messages`}
-            rows={6}
-            className="w-full bg-surface-2 border border-surface-3 rounded-lg px-3 py-2.5 text-sm text-slate-200 placeholder-slate-600 outline-none focus:border-accent transition-colors resize-none font-mono"
-          />
-          <button onClick={handleGenerate} disabled={pwLoading || !story.trim()}
-            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-accent text-white text-sm font-medium hover:bg-accent/80 disabled:opacity-50 transition-colors">
-            <Wand2 size={14} /> {pwLoading ? 'Generating tests...' : 'Generate Tests'}
-          </button>
-
-          {pwLoading && (
-            <div className="space-y-2 pt-1">
-              {[75, 90, 60, 85, 70].map((w, i) => <div key={i} className="h-3 rounded bg-surface-2 animate-pulse" style={{ width: `${w}%` }} />)}
-            </div>
-          )}
-
-          {pwOutput && (
-            <div className="border border-surface-3 rounded-xl overflow-hidden">
-              {/* Tabs */}
-              <div className="flex border-b border-surface-3">
-                {TABS.map(t => (
-                  <button key={t.key} onClick={() => setActiveTab(t.key)}
-                    className={`px-4 py-2.5 text-xs font-medium transition-colors ${activeTab === t.key ? 'bg-surface-2 text-slate-200 border-b-2 border-accent' : 'text-slate-500 hover:text-slate-400'}`}>
-                    {t.label}
-                  </button>
-                ))}
-              </div>
-              {/* Content */}
-              <div className="relative bg-surface-2 p-4">
-                <div className="absolute top-3 right-3">
-                  <CopyButton text={pwOutput[activeTab]} />
-                </div>
-                <pre className="text-xs text-slate-300 font-mono leading-relaxed whitespace-pre-wrap overflow-x-auto max-h-96 pr-16">
-                  {pwOutput[activeTab] || '—'}
-                </pre>
-              </div>
-            </div>
-          )}
-        </div>
-      </Card>
-
       {/* Status filter */}
       <div className="flex gap-2 flex-wrap">
         <button onClick={() => setFilter('all')} className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${filter === 'all' ? 'bg-accent text-white' : 'bg-surface-1 border border-surface-3 text-slate-400 hover:bg-surface-2'}`}>
