@@ -13,3 +13,13 @@ export interface Resource {
   notes: string | null
   created_at: string
 }
+
+export interface StudyLog {
+  id: string
+  user_id: string
+  date: string
+  resource_id: string | null
+  duration_minutes: number
+  notes: string | null
+  created_at: string
+}

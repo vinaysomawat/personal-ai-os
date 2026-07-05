@@ -4,14 +4,38 @@ import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import type { ResourceStatus } from './types'
 
-export async function getResources() {
+export async function getLearningData() {
   const supabase = await createClient()
-  const { data, error } = await supabase
-    .from('resources')
-    .select('*')
-    .order('created_at', { ascending: false })
-  if (error) throw new Error(error.message)
-  return data
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { resources: [], studyLogs: [] }
+
+  const since = new Date(Date.now() - 30 * 86400000).toISOString().split('T')[0]
+
+  const [resourcesRes, logsRes] = await Promise.all([
+    supabase.from('resources').select('*').order('created_at', { ascending: false }),
+    supabase.from('study_logs').select('*').eq('user_id', user.id).gte('date', since).order('date', { ascending: false }),
+  ])
+
+  return {
+    resources: resourcesRes.data ?? [],
+    studyLogs: logsRes.data ?? [],
+  }
+}
+
+export async function logStudySession(resourceId: string | null, durationMinutes: number, notes: string | null) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return
+
+  const today = new Date().toISOString().split('T')[0]
+  await supabase.from('study_logs').insert({
+    user_id: user.id,
+    date: today,
+    resource_id: resourceId,
+    duration_minutes: durationMinutes,
+    notes,
+  })
+  revalidatePath('/learning')
 }
 
 export async function addResource(formData: FormData) {
@@ -33,7 +57,7 @@ export async function addResource(formData: FormData) {
   revalidatePath('/learning')
 }
 
-export async function updateResource(id: string, updates: { status?: ResourceStatus; progress?: number }) {
+export async function updateResource(id: string, updates: { status?: ResourceStatus; progress?: number; notes?: string }) {
   const supabase = await createClient()
   const { error } = await supabase.from('resources').update(updates).eq('id', id)
   if (error) throw new Error(error.message)
