@@ -7,7 +7,6 @@ import Card from '@/components/Card'
 import ScoreHero from './ScoreHero'
 import { formatDistanceToNow } from 'date-fns'
 import type { getDashboardData } from '../actions'
-import type { Recommendation } from '@/features/ai/recommendations'
 
 const MODULE_META: Record<string, { label: string; emoji: string; color: string; bg: string }> = {
   planner:   { label: 'Planner',   emoji: '📋', color: 'text-blue-400',   bg: 'bg-blue-500/10' },
@@ -88,13 +87,7 @@ function computeInsights(
   return items.slice(0, 5)
 }
 
-export default function DashboardView({
-  data,
-  recommendations,
-}: {
-  data: DashboardData
-  recommendations: Recommendation[]
-}) {
+export default function DashboardView({ data }: { data: DashboardData }) {
   const { pendingTasks, recentApplications, botActivity, stats, scores, todayHealth } = data
   const today = new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })
   const hour = new Date().getHours()
@@ -169,30 +162,6 @@ export default function DashboardView({
           </div>
         </div>
       </div>
-
-      {/* AI Recommendations */}
-      {recommendations.length > 0 && (
-        <Card title="Today&apos;s Recommendations" action={
-          <span className="text-xs text-slate-600">AI-powered · updates daily</span>
-        }>
-          <ul className="space-y-2">
-            {recommendations.map((rec, i) => {
-              const meta = MODULE_META[rec.module] ?? MODULE_META['planner']
-              return (
-                <li key={i} className="flex items-center gap-3 p-3 rounded-lg bg-surface-2 border border-surface-3">
-                  <div className={`w-8 h-8 rounded-lg ${meta.bg} flex items-center justify-center shrink-0 text-base`}>
-                    {rec.emoji || meta.emoji}
-                  </div>
-                  <p className="flex-1 text-sm text-slate-300">{rec.action}</p>
-                  <span className="text-xs font-semibold text-accent bg-accent/10 px-2 py-1 rounded-full shrink-0 whitespace-nowrap">
-                    {rec.impact}
-                  </span>
-                </li>
-              )
-            })}
-          </ul>
-        </Card>
-      )}
 
       {/* Insights */}
       {insights.length > 0 && (
