@@ -61,7 +61,7 @@ export default function QuickAdd() {
       {/* Floating button */}
       <button
         onClick={() => setOpen(true)}
-        className="fixed bottom-6 right-6 z-40 w-12 h-12 bg-accent rounded-full shadow-lg shadow-accent/30 flex items-center justify-center hover:bg-accent/80 transition-colors">
+        className="fixed bottom-20 right-4 md:bottom-6 md:right-6 z-40 w-12 h-12 bg-accent rounded-full shadow-lg shadow-accent/30 flex items-center justify-center hover:bg-accent/80 transition-colors">
         <Plus size={22} className="text-white" />
       </button>
 
