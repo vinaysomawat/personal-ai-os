@@ -9,7 +9,6 @@ import {
   CalendarDays,
   HeartPulse,
   DollarSign,
-  Search,
   MoreHorizontal,
   Briefcase,
   BookOpen,
@@ -22,7 +21,6 @@ const primaryNav = [
   { label: 'Planner', to: '/planner',   icon: CalendarDays },
   { label: 'Health',  to: '/health',    icon: HeartPulse },
   { label: 'Finance', to: '/finance',   icon: DollarSign },
-  { label: 'Search',  to: '/search',    icon: Search },
 ]
 
 const moreNav = [

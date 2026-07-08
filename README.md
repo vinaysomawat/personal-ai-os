@@ -107,11 +107,7 @@ A personal full-text knowledge base: `title`, `content`, `tags` (array), `summar
 - **AI document Q&A** (`doc-qa.ts`): ask a question about one specific document; Claude answers strictly from that document's content (truncated to 6000 chars) and says explicitly if the answer isn't in the text
 - **AI document summarization** — on-demand 3–5 bullet-point summary of a document (distinct code path from the auto-summary above, used interactively)
 
-## 9. Search (`/search`)
-
-Cross-module search input (`SearchInput.tsx`) — a single query surface over the modules above.
-
-## 10. Telegram bot — the interaction layer
+## 9. Telegram bot — the interaction layer
 
 This is the most distinctive part of the system: **each module is its own Telegram bot** (own `TELEGRAM_BOT_TOKEN_*`), all pointed at one webhook handler (`src/app/api/telegram`) that dispatches by module name to `src/features/telegram/handler.ts`.
 
@@ -136,7 +132,7 @@ How a message is processed:
 
 Any message the model can't confidently map to an action falls back to `{"action":"help"}`, which each bot answers with its own cheat-sheet of example phrases (shown in the table above).
 
-## 11. Scheduled jobs (Vercel Cron)
+## 10. Scheduled jobs (Vercel Cron)
 
 Defined in `vercel.json`, all protected by a shared-secret `Authorization: Bearer $CRON_SECRET` header, all resolving the single app user via `supabase.auth.admin.listUsers()[0]` (this is a single-user deployment, not multi-tenant):
 
