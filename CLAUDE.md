@@ -39,8 +39,38 @@ Required in `.env.local` (and Vercel project settings):
 ```
 NEXT_PUBLIC_SUPABASE_URL=
 NEXT_PUBLIC_SUPABASE_ANON_KEY=
+SUPABASE_SERVICE_ROLE_KEY=   # used by the AI Gateway, cron jobs, Telegram webhook
+SUPABASE_USER_ID=            # single-user app; fallback identity for the AI Gateway when no session exists
 ANTHROPIC_API_KEY=
+AI_DAILY_BUDGET_USD=         # optional, default 3 — AI Gateway daily spend ceiling
+AI_MONTHLY_BUDGET_USD=       # optional, default 50 — AI Gateway monthly spend ceiling
 ```
+
+This is a non-exhaustive list scoped to the AI Gateway — see `.env.local` for the full set (Telegram bot tokens, `GROQ_API_KEY`, `CRON_SECRET`, `GITHUB_USERNAME`/`GITHUB_TOKEN`, etc.), which this file doesn't fully document yet.
+
+## Product Principles
+
+This project is Vinay's personal execution system — not a CRUD app, not a dashboard, not a note-taking tool. Every feature should make him measurably better next week. Everything maps to one of four pillars: **Learn** (courses/research/architecture) → **Build** (coding/projects/OSS) → **Perform** (planner/habits/career) → **Recover** (health/sleep/nutrition).
+
+**Long-term goals the product should serve:** career growth toward Staff Frontend Engineer (JS/TS/React/Next.js/testing/system design/AI-assisted dev), continuous learning, coding consistency, health (current focus: weight loss), high-signal productivity, and a searchable "second brain" of notes/decisions.
+
+1. **Automation over manual work.** If something can be automated, automate it.
+2. **Rule engine before AI.** Before calling AI, ask "can deterministic code solve this?" If yes, don't call AI. Never use AI for calculations, sorting, filtering, score math, dashboards, reminders, charts, or notifications — only for mentoring, coaching, reviewing, explaining, brainstorming, summarizing, and generating plans.
+3. **AI is a premium feature, not a default.** Every AI request must go through the single gateway (`askAI()` — see AI Gateway below). No module calls Anthropic directly. An unnecessary AI call is a bug.
+4. **Modules should connect, not stay isolated** — e.g. health data should eventually inform productivity signals, learning should feed career readiness. Not yet built — needs its own spec before implementing, don't wire this ad hoc.
+5. **Reduce decisions, don't just surface data.** Prefer "these are the 3 highest-impact actions" over a wall of 25 tasks.
+6. **Every page should answer:** what happened, why, and what to do next.
+7. **Telegram exists to eliminate manual entry** — logging a workout/expense/habit/note should never require opening the app; voice input should work naturally.
+
+**Before building any feature, answer all of these — if any answer is "no," don't build it:**
+1. Is AI actually required?
+2. Can deterministic code solve it?
+3. Can existing modules be reused?
+4. Does this increase productivity?
+5. Does this reduce manual effort?
+6. Does this improve one of the long-term goals above?
+7. Is this worth maintaining for years?
+8. Is there a simpler solution?
 
 ## Architecture
 
@@ -58,13 +88,19 @@ ANTHROPIC_API_KEY=
 - `src/lib/supabase/middleware.ts` — session refresh + redirect logic
 - `middleware.ts` (root) — runs on every request
 
-**AI features** (`src/features/ai/`):
-- `briefing.ts` — daily morning summary shown on Dashboard (called server-side)
-- `smart-sort.ts` — AI reorders Planner tasks by priority/deadline
-- `career-coach.ts` — pipeline analysis with actionable next steps
-- `doc-qa.ts` — Q&A and summarisation for Documents
+**AI Gateway** (`src/lib/ai-gateway.ts`): the single entry point for every AI call — `askAI(task, prompt, system?)`. Per Product Principle 3, no module calls Anthropic directly. It handles:
+- **Model routing** — cheapest suitable model per task (Haiku for structured/mechanical tasks like Telegram intent parsing and doc summaries, Sonnet for reasoning tasks like coaching/advice)
+- **Response caching** — `ai_cache` table, keyed on `sha256(model + system + prompt)`; a changed prompt (i.e. changed underlying data) naturally busts the cache
+- **Budget enforcement** — `ai_usage_logs` table tracks cost per call; daily/monthly ceilings via `AI_DAILY_BUDGET_USD` / `AI_MONTHLY_BUDGET_USD` env vars; on exhaustion, calls return a friendly fallback string instead of erroring — no page or cron job can break from this
+- **Rule-engine-first**: `smart-sort.ts` (Planner task reordering) is deterministic, not AI — the one feature converted per Product Principle 2
 
-All AI calls go through `src/lib/anthropic.ts` → `aiText()` helper. They are wrapped in `.catch(() => '')` so a missing/invalid API key degrades gracefully without crashing pages.
+**AI features** (`src/features/ai/`), all going through the gateway:
+- `career-mentor.ts` — career Q&A + interview question generation
+- `finance-advisor.ts` — financial Q&A grounded in real salary/EMI/investment data
+- `health-report.ts` — weekly report + daily action plan
+- `study-plan.ts` — daily study plan + resource quizzes
+- `doc-qa.ts` — Q&A and summarisation for Documents
+- `recommendations.ts` — per-module "AI Recommendations" widget
 
 **Loading / error states:**
 - `src/app/[route]/loading.tsx` — skeleton shown by Next.js while server fetches data
