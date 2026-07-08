@@ -81,3 +81,36 @@ export async function updatePriority(id: string, priority: Priority) {
   if (error) throw new Error(error.message)
   revalidatePath('/planner')
 }
+
+export async function getTodaysFocusSessions() {
+  const supabase = await createClient()
+  const today = new Date().toISOString().split('T')[0]
+  const { data, error } = await supabase
+    .from('focus_sessions')
+    .select('*')
+    .eq('date', today)
+    .order('created_at', { ascending: false })
+
+  if (error) throw new Error(error.message)
+  return data
+}
+
+export async function logFocusSession(durationMinutes: number, label: string | null) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) throw new Error('Not authenticated')
+
+  const { error } = await supabase.from('focus_sessions').insert({
+    user_id: user.id, duration_minutes: durationMinutes, label,
+  })
+
+  if (error) throw new Error(error.message)
+  revalidatePath('/planner')
+}
+
+export async function deleteFocusSession(id: string) {
+  const supabase = await createClient()
+  const { error } = await supabase.from('focus_sessions').delete().eq('id', id)
+  if (error) throw new Error(error.message)
+  revalidatePath('/planner')
+}

@@ -1,13 +1,13 @@
 'use client'
 
 import { useState, useOptimistic, useTransition } from 'react'
-import { Plus, CheckCircle2, Circle, Trash2, Sparkles } from 'lucide-react'
+import { Plus, CheckCircle2, Circle, Trash2, Sparkles, Timer } from 'lucide-react'
 import Card from '@/components/Card'
 import ModuleRecommendations from '@/components/ModuleRecommendations'
-import { addTask, toggleTask, deleteTask } from '../actions'
+import { addTask, toggleTask, deleteTask, logFocusSession, deleteFocusSession } from '../actions'
 import { smartSortAndFocus } from '@/features/ai/smart-sort'
 import { RefreshCw } from 'lucide-react'
-import type { Task, Priority, Recurrence } from '../types'
+import type { Task, Priority, Recurrence, FocusSession } from '../types'
 
 const priorityDot: Record<Priority, string> = {
   high: 'bg-red-400',
@@ -20,9 +20,10 @@ const todayIdx = new Date().getDay() === 0 ? 6 : new Date().getDay() - 1
 
 interface Props {
   initialTasks: Task[]
+  initialFocusSessions: FocusSession[]
 }
 
-export default function PlannerView({ initialTasks }: Props) {
+export default function PlannerView({ initialTasks, initialFocusSessions }: Props) {
   const [input, setInput] = useState('')
   const [priority, setPriority] = useState<Priority>('medium')
   const [area, setArea] = useState('General')
@@ -30,6 +31,18 @@ export default function PlannerView({ initialTasks }: Props) {
   const [isPending, startTransition] = useTransition()
   const [aiSorting, setAiSorting] = useState(false)
   const [focusHint, setFocusHint] = useState<string | null>(null)
+  const [focusDuration, setFocusDuration] = useState('')
+  const [focusLabel, setFocusLabel] = useState('')
+
+  const [focusSessions, updateFocusSessions] = useOptimistic(
+    initialFocusSessions,
+    (state: FocusSession[], action: { type: 'add' | 'delete'; payload: FocusSession | { id: string } }) => {
+      if (action.type === 'add') return [action.payload as FocusSession, ...state]
+      if (action.type === 'delete') return state.filter(s => s.id !== (action.payload as { id: string }).id)
+      return state
+    }
+  )
+  const totalFocusMinutes = focusSessions.reduce((s, f) => s + f.duration_minutes, 0)
 
   const [optimisticTasks, updateOptimisticTasks] = useOptimistic(
     initialTasks,
@@ -91,6 +104,36 @@ export default function PlannerView({ initialTasks }: Props) {
     startTransition(async () => {
       updateOptimisticTasks({ type: 'delete', payload: { id } })
       await deleteTask(id)
+    })
+  }
+
+  const handleLogFocus = () => {
+    const minutes = parseInt(focusDuration, 10)
+    if (!minutes || minutes <= 0) return
+    const label = focusLabel.trim() || null
+    setFocusDuration('')
+    setFocusLabel('')
+
+    const optimistic: FocusSession = {
+      id: `temp-${Date.now()}`,
+      user_id: '',
+      duration_minutes: minutes,
+      label,
+      notes: null,
+      date: new Date().toISOString().split('T')[0],
+      created_at: new Date().toISOString(),
+    }
+
+    startTransition(async () => {
+      updateFocusSessions({ type: 'add', payload: optimistic })
+      await logFocusSession(minutes, label)
+    })
+  }
+
+  const handleDeleteFocus = (id: string) => {
+    startTransition(async () => {
+      updateFocusSessions({ type: 'delete', payload: { id } })
+      await deleteFocusSession(id)
     })
   }
 
@@ -251,6 +294,60 @@ export default function PlannerView({ initialTasks }: Props) {
               ))}
             </ul>
           </details>
+        )}
+      </Card>
+
+      {/* Deep work / focus sessions — PRD-v2 Productivity pillar, previously untracked */}
+      <Card
+        title="Focus Sessions"
+        action={<span className="text-xs text-slate-500">{totalFocusMinutes} min today</span>}
+      >
+        <div className="flex gap-2 mb-4">
+          <input
+            type="number"
+            min={1}
+            value={focusDuration}
+            onChange={e => setFocusDuration(e.target.value)}
+            onKeyDown={e => e.key === 'Enter' && handleLogFocus()}
+            placeholder="Minutes"
+            className="w-24 bg-surface-2 border border-surface-3 rounded-lg px-3 py-2 text-sm text-slate-200 placeholder-slate-600 outline-none focus:border-accent transition-colors"
+          />
+          <input
+            value={focusLabel}
+            onChange={e => setFocusLabel(e.target.value)}
+            onKeyDown={e => e.key === 'Enter' && handleLogFocus()}
+            placeholder="What on? (optional)"
+            className="flex-1 bg-surface-2 border border-surface-3 rounded-lg px-3 py-2 text-sm text-slate-200 placeholder-slate-600 outline-none focus:border-accent transition-colors"
+          />
+          <button
+            onClick={handleLogFocus}
+            disabled={!focusDuration}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-accent text-white text-sm font-medium hover:bg-accent/80 disabled:opacity-50 transition-colors"
+          >
+            <Timer size={14} />
+            Log
+          </button>
+        </div>
+
+        {focusSessions.length === 0 ? (
+          <p className="text-sm text-slate-600 text-center py-4">No focus sessions logged today</p>
+        ) : (
+          <ul className="space-y-1.5">
+            {focusSessions.map(session => (
+              <li key={session.id} className="flex items-center gap-3 p-2.5 rounded-lg hover:bg-surface-2 transition-colors group">
+                <Timer size={14} className="text-accent shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm text-slate-200">{session.duration_minutes} min{session.label ? ` — ${session.label}` : ''}</p>
+                </div>
+                <button
+                  onClick={() => handleDeleteFocus(session.id)}
+                  className="shrink-0 opacity-0 group-hover:opacity-100 text-slate-600 hover:text-red-400 transition-all"
+                >
+                  <Trash2 size={13} />
+                </button>
+              </li>
+            ))}
+          </ul>
         )}
       </Card>
 
