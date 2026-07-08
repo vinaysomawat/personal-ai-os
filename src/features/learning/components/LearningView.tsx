@@ -1,11 +1,12 @@
 'use client'
 
 import { useState, useTransition } from 'react'
-import { Plus, Trash2, ExternalLink, X, Sparkles, ChevronDown, ChevronRight, Flame, BookOpen } from 'lucide-react'
+import { Plus, Trash2, ExternalLink, X, Sparkles, ChevronDown, ChevronRight, Flame, BookOpen, RotateCcw } from 'lucide-react'
 import Card from '@/components/Card'
 import ModuleRecommendations from '@/components/ModuleRecommendations'
 import { addResource, updateResource, deleteResource, logStudySession } from '../actions'
 import { getDailyStudyPlan, generateResourceQuiz } from '@/features/ai/study-plan'
+import { getResourcesNeedingRevision } from '../calculations'
 import type { Resource, ResourceStatus, ResourceType, StudyLog } from '../types'
 
 const TYPE_ICON: Record<ResourceType, string> = {
@@ -73,6 +74,7 @@ export default function LearningView({ initialResources, initialStudyLogs }: Pro
 
   const filtered = filter === 'all' ? resources : resources.filter(r => r.status === filter)
   const counts = STATUSES.reduce((acc, s) => ({ ...acc, [s]: resources.filter(r => r.status === s).length }), {} as Record<ResourceStatus, number>)
+  const needsRevision = getResourcesNeedingRevision(resources, studyLogs)
 
   const handleStatus = (id: string, status: ResourceStatus) => {
     setResources(prev => prev.map(r => r.id === id ? { ...r, status, progress: status === 'completed' ? 100 : r.progress } : r))
@@ -167,7 +169,26 @@ export default function LearningView({ initialResources, initialStudyLogs }: Pro
         )}
       </div>
 
-      <ModuleRecommendations moduleLabel="Learning" context={`Resources tracked: ${resources.length} (${STATUSES.map(s => `${counts[s]} ${STATUS_CONFIG[s].label.toLowerCase()}`).join(', ')}). Study streak: ${getStreak(studyLogs)} days. Minutes studied this week: ${totalMinutesThisWeek(studyLogs)}. In-progress resources: ${resources.filter(r => r.status === 'in-progress').map(r => r.title).join(', ') || 'none'}.`} />
+      {/* Revision nudge — rule-based, not AI: completed resources with no study activity in 14+ days */}
+      {needsRevision.length > 0 && (
+        <Card title="Needs Revision" action={<RotateCcw size={13} className="text-amber-400" />}>
+          <p className="text-xs text-slate-500 mb-3">Completed, but no study activity in the last 14 days — worth a quick revisit.</p>
+          <ul className="space-y-1.5">
+            {needsRevision.map(r => (
+              <li key={r.id} className="flex items-center gap-3 p-2 rounded-lg hover:bg-surface-2 transition-colors group">
+                <span className="text-lg shrink-0">{TYPE_ICON[r.type]}</span>
+                <p className="flex-1 text-sm text-slate-300 truncate">{r.title}</p>
+                <button onClick={() => setShowLog(r)}
+                  className="text-xs px-2 py-0.5 rounded-lg border border-surface-3 text-slate-500 hover:text-slate-300 hover:border-slate-500 transition-colors opacity-0 group-hover:opacity-100">
+                  + Log session
+                </button>
+              </li>
+            ))}
+          </ul>
+        </Card>
+      )}
+
+      <ModuleRecommendations moduleLabel="Learning" context={`Resources tracked: ${resources.length} (${STATUSES.map(s => `${counts[s]} ${STATUS_CONFIG[s].label.toLowerCase()}`).join(', ')}). Study streak: ${getStreak(studyLogs)} days. Minutes studied this week: ${totalMinutesThisWeek(studyLogs)}. In-progress resources: ${resources.filter(r => r.status === 'in-progress').map(r => r.title).join(', ') || 'none'}. Needs revision (completed, no activity in 14+ days): ${needsRevision.map(r => r.title).join(', ') || 'none'}.`} />
 
       {/* Status filter + Resource list */}
       <div className="flex gap-2 flex-wrap">
