@@ -7,13 +7,16 @@ import type { AppStatus, SkillLevel, Difficulty } from './types'
 export async function getCareerData() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return { applications: [], profile: null, skills: [], qa: [] }
+  if (!user) return { applications: [], profile: null, skills: [], qa: [], codingStreak: 0 }
 
-  const [appsRes, profileRes, skillsRes, qaRes] = await Promise.all([
+  const { computeCodingStats } = await import('@/features/coding/daily-core')
+
+  const [appsRes, profileRes, skillsRes, qaRes, codingStats] = await Promise.all([
     supabase.from('applications').select('*').order('created_at', { ascending: false }),
     supabase.from('career_profile').select('*').eq('user_id', user.id).single(),
     supabase.from('skills').select('*').eq('user_id', user.id).order('category').order('level'),
     supabase.from('interview_qa').select('*').eq('user_id', user.id).order('created_at', { ascending: false }),
+    computeCodingStats(supabase, user.id),
   ])
 
   return {
@@ -21,6 +24,7 @@ export async function getCareerData() {
     profile: profileRes.data ?? null,
     skills: skillsRes.data ?? [],
     qa: qaRes.data ?? [],
+    codingStreak: codingStats.currentStreak,
   }
 }
 

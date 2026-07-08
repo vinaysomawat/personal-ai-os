@@ -15,14 +15,21 @@ import {
 } from 'lucide-react'
 import UserInfo from './UserInfo'
 
-const nav = [
-  { label: 'Dashboard',       to: '/dashboard',       icon: LayoutDashboard },
-  { label: 'Planner',         to: '/planner',         icon: CalendarDays },
-  { label: 'Career', to: '/career', icon: Briefcase },
+const topLevel = [
+  { label: 'Dashboard', to: '/dashboard', icon: LayoutDashboard },
+]
+
+// Growth Engine pillars, per PRD-v2: every feature maps to Learn/Build/Perform/Recover.
+// Finance and Documents don't map to a pillar in the PRD — kept ungrouped below.
+const pillars = [
+  { name: 'Learn',    items: [{ label: 'Learning', to: '/learning', icon: BookOpen }] },
+  { name: 'Build',    items: [{ label: 'Coding', to: '/coding', icon: Code2 }] },
+  { name: 'Perform',  items: [{ label: 'Planner', to: '/planner', icon: CalendarDays }, { label: 'Career', to: '/career', icon: Briefcase }] },
+  { name: 'Recover',  items: [{ label: 'Health', to: '/health', icon: HeartPulse }] },
+]
+
+const ungrouped = [
   { label: 'Finance', to: '/finance', icon: DollarSign },
-  { label: 'Health', to: '/health', icon: HeartPulse },
-  { label: 'Learning', to: '/learning', icon: BookOpen },
-  { label: 'Coding', to: '/coding', icon: Code2 },
   { label: 'Documents', to: '/documents', icon: FileText },
 ]
 
@@ -38,8 +45,8 @@ export default function Sidebar() {
         <span className="text-sm font-semibold tracking-wide text-white">Vinay AI OS</span>
       </div>
 
-      <nav className="flex-1 px-3 py-4 space-y-0.5">
-        {nav.map(({ label, to, icon: Icon }) => {
+      <nav className="flex-1 px-3 py-4 space-y-0.5 overflow-y-auto">
+        {topLevel.map(({ label, to, icon: Icon }) => {
           const isActive = pathname === to
           return (
             <Link
@@ -56,6 +63,49 @@ export default function Sidebar() {
             </Link>
           )
         })}
+
+        {pillars.map(pillar => (
+          <div key={pillar.name} className="pt-3">
+            <p className="px-3 pb-1 text-[10px] font-semibold tracking-wider text-slate-600 uppercase">{pillar.name}</p>
+            {pillar.items.map(({ label, to, icon: Icon }) => {
+              const isActive = pathname === to
+              return (
+                <Link
+                  key={to}
+                  href={to}
+                  className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                    isActive
+                      ? 'bg-accent/20 text-accent'
+                      : 'text-slate-400 hover:bg-surface-2 hover:text-slate-200'
+                  }`}
+                >
+                  <Icon size={16} />
+                  {label}
+                </Link>
+              )
+            })}
+          </div>
+        ))}
+
+        <div className="pt-3">
+          {ungrouped.map(({ label, to, icon: Icon }) => {
+            const isActive = pathname === to
+            return (
+              <Link
+                key={to}
+                href={to}
+                className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                  isActive
+                    ? 'bg-accent/20 text-accent'
+                    : 'text-slate-400 hover:bg-surface-2 hover:text-slate-200'
+                }`}
+              >
+                <Icon size={16} />
+                {label}
+              </Link>
+            )
+          })}
+        </div>
       </nav>
 
       <div className="px-3 py-3 border-t border-surface-3 space-y-2">

@@ -56,9 +56,10 @@ interface Props {
   profile: CareerProfile | null
   skills: Skill[]
   qa: InterviewQA[]
+  codingStreak: number
 }
 
-export default function CareerView({ applications, profile, skills, qa }: Props) {
+export default function CareerView({ applications, profile, skills, qa, codingStreak }: Props) {
   const [, startTransition] = useTransition()
 
   const [localApps, setLocalApps] = useState(applications)
@@ -90,7 +91,7 @@ export default function CareerView({ applications, profile, skills, qa }: Props)
     return acc
   }, {})
 
-  const careerContext = `Current role: ${localProfile?.current_role ?? 'not set'} at ${localProfile?.current_company ?? 'not set'}. Target role: ${localProfile?.target_role ?? 'not set'}. Years experience: ${localProfile?.years_experience ?? 'not set'}. Active applications: ${localApps.length} (${STATUSES.map(s => `${counts[s]} ${s}`).join(', ')}). Skills tracked: ${localSkills.length}. Interview Q&A prepared: ${localQA.length}.`
+  const careerContext = `Current role: ${localProfile?.current_role ?? 'not set'} at ${localProfile?.current_company ?? 'not set'}. Target role: ${localProfile?.target_role ?? 'not set'}. Years experience: ${localProfile?.years_experience ?? 'not set'}. Active applications: ${localApps.length} (${STATUSES.map(s => `${counts[s]} ${s}`).join(', ')}). Skills tracked: ${localSkills.length}. Interview Q&A prepared: ${localQA.length}. Coding practice streak: ${codingStreak} day${codingStreak === 1 ? '' : 's'} (consistent coding practice strengthens interview readiness).`
 
   const saveProfile = (field: keyof CareerProfile, raw: string) => {
     const value = ['current_salary', 'years_experience'].includes(field) ? (parseFloat(raw) || null) : raw
@@ -162,7 +163,11 @@ export default function CareerView({ applications, profile, skills, qa }: Props)
   return (
     <div className="space-y-5">
       {/* Career Profile */}
-      <Card title="Career Profile">
+      <Card title="Career Profile" action={
+        codingStreak > 0
+          ? <span className="text-xs text-slate-500 flex items-center gap-1">🔥 {codingStreak}-day coding streak <span className="text-slate-700">— feeds interview readiness</span></span>
+          : undefined
+      }>
         <div className="grid grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-4">
           <ProfileField label="Current Role" value={localProfile?.current_role ?? ''} onSave={v => saveProfile('current_role', v)} placeholder="Senior Frontend Engineer" />
           <ProfileField label="Company" value={localProfile?.current_company ?? ''} onSave={v => saveProfile('current_company', v)} placeholder="Accenture" />
