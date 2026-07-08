@@ -5,7 +5,6 @@ import {
 } from 'lucide-react'
 import Card from '@/components/Card'
 import ScoreHero from './ScoreHero'
-import LifeScoreChart from './LifeScoreChart'
 import RealtimeRefresh from './RealtimeRefresh'
 import { formatDistanceToNow } from 'date-fns'
 import type { getDashboardData } from '../actions'
@@ -89,8 +88,6 @@ function computeInsights(
   return items.slice(0, 5)
 }
 
-const LEVEL_NAMES = ['', 'Novice', 'Explorer', 'Achiever', 'Champion', 'Master', 'Legend', 'Grandmaster', 'Immortal']
-
 // Most AI Gateway calls cost fractions of a cent — 2 decimals rounds those to "$0.00".
 // Show more precision only when needed so small-but-nonzero spend stays visible.
 function formatUsd(n: number): string {
@@ -100,7 +97,7 @@ function formatUsd(n: number): string {
 }
 
 export default function DashboardView({ data }: { data: DashboardData }) {
-  const { pendingTasks, recentApplications, botActivity, stats, scores, todayHealth, scoreHistory, gamification, aiBudget, topActions } = data
+  const { pendingTasks, recentApplications, botActivity, stats, scores, todayHealth, aiBudget, topActions } = data
   const today = new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })
   const hour = new Date().getHours()
   const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening'
@@ -196,41 +193,6 @@ export default function DashboardView({ data }: { data: DashboardData }) {
           </div>
         </div>
       </div>
-
-      {/* Gamification */}
-      {gamification && (
-        <Card title="Level & XP">
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-accent/15 flex items-center justify-center text-lg font-bold text-accent">
-                  {gamification.level}
-                </div>
-                <div>
-                  <p className="text-sm font-semibold text-slate-200">{LEVEL_NAMES[gamification.level] ?? `Level ${gamification.level}`}</p>
-                  <p className="text-xs text-slate-500">{gamification.xp.toLocaleString()} XP total · {gamification.streak} day streak</p>
-                </div>
-              </div>
-              <p className="text-xs text-slate-500">{gamification.xpProgress}% to next level</p>
-            </div>
-            <div className="h-2 bg-surface-3 rounded-full overflow-hidden">
-              <div className="h-full bg-gradient-to-r from-[#7c6af7] to-[#06b6d4] rounded-full transition-all" style={{ width: `${gamification.xpProgress}%` }} />
-            </div>
-            {gamification.badges.length > 0 && (
-              <div className="flex flex-wrap gap-1.5 pt-1">
-                {gamification.badges.map(b => (
-                  <span key={b} className="text-xs px-2 py-1 rounded-full bg-surface-2 border border-surface-3 text-slate-400">{b}</span>
-                ))}
-              </div>
-            )}
-          </div>
-        </Card>
-      )}
-
-      {/* 30-day Score History */}
-      <Card title="30-Day Score History">
-        <LifeScoreChart data={scoreHistory} />
-      </Card>
 
       {/* Insights */}
       {insights.length > 0 && (
