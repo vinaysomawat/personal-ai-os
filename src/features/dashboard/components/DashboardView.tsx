@@ -91,6 +91,14 @@ function computeInsights(
 
 const LEVEL_NAMES = ['', 'Novice', 'Explorer', 'Achiever', 'Champion', 'Master', 'Legend', 'Grandmaster', 'Immortal']
 
+// Most AI Gateway calls cost fractions of a cent — 2 decimals rounds those to "$0.00".
+// Show more precision only when needed so small-but-nonzero spend stays visible.
+function formatUsd(n: number): string {
+  if (n === 0) return '0.00'
+  if (n < 0.01) return n.toFixed(4)
+  return n.toFixed(2)
+}
+
 export default function DashboardView({ data }: { data: DashboardData }) {
   const { pendingTasks, recentApplications, botActivity, stats, scores, todayHealth, scoreHistory, gamification, aiBudget, topActions } = data
   const today = new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })
@@ -307,7 +315,7 @@ export default function DashboardView({ data }: { data: DashboardData }) {
         <div className="flex items-center gap-3 text-xs text-slate-500">
           {aiBudget && (
             <span title={`${aiBudget.callsMonth} AI calls this month · ${aiBudget.cacheHitRateMonth}% served from cache`}>
-              💰 ${aiBudget.costTodayUsd.toFixed(2)} today · ${aiBudget.costMonthUsd.toFixed(2)} this month
+              💰 ${formatUsd(aiBudget.costTodayUsd)} today · ${formatUsd(aiBudget.costMonthUsd)} this month
             </span>
           )}
           <div className="flex items-center gap-1.5">
