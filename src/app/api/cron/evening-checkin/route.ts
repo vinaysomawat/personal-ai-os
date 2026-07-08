@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/service'
+import { getReminderLines } from '@/lib/reminders'
 import { sendMessage } from '@/lib/telegram/send'
 
 const CHAT_ID = process.env.TELEGRAM_ALLOWED_CHAT_ID!
@@ -18,12 +19,13 @@ export async function GET(req: Request) {
   const user = users?.users?.[0]
   if (!user) return NextResponse.json({ error: 'No user' }, { status: 404 })
 
-  const [habitsRes, logsRes, tasksRes, expensesRes, metricRes] = await Promise.all([
+  const [habitsRes, logsRes, tasksRes, expensesRes, metricRes, codingRes] = await Promise.all([
     supabase.from('habits').select('id, name, icon').eq('user_id', user.id),
     supabase.from('habit_logs').select('habit_id').eq('user_id', user.id).eq('date', today),
     supabase.from('tasks').select('text').eq('user_id', user.id).eq('done', false).eq('priority', 'high'),
     supabase.from('expenses').select('id').eq('user_id', user.id).eq('date', today).limit(1),
     supabase.from('health_metrics').select('weight_kg, calories, sleep_hours, steps').eq('user_id', user.id).eq('date', today).single(),
+    supabase.from('coding_daily_questions').select('completed').eq('user_id', user.id).eq('assigned_date', today),
   ])
 
   const habits = habitsRes.data ?? []
@@ -32,6 +34,8 @@ export async function GET(req: Request) {
   const highPriorityTasks = tasksRes.data ?? []
   const hasExpenseToday = (expensesRes.data ?? []).length > 0
   const metric = metricRes.data
+  const codingQuestions = codingRes.data ?? []
+  const streakAtRisk = codingQuestions.length > 0 && codingQuestions.some(q => !q.completed)
 
   const missingMetrics: string[] = []
   if (!metric?.weight_kg) missingMetrics.push('weight')
@@ -39,13 +43,17 @@ export async function GET(req: Request) {
   if (!metric?.steps) missingMetrics.push('steps')
   if (!metric?.calories) missingMetrics.push('calories')
 
-  const nothingPending = pendingHabits.length === 0 && highPriorityTasks.length === 0 && hasExpenseToday && missingMetrics.length === 0
+  const reminders = await getReminderLines(supabase, user.id, 'evening')
+  const nothingPending = pendingHabits.length === 0 && highPriorityTasks.length === 0 && hasExpenseToday && missingMetrics.length === 0 && !streakAtRisk
 
-  if (nothingPending) {
+  if (nothingPending && !reminders) {
     return NextResponse.json({ ok: true, sent: false, reason: 'Everything already logged today' })
   }
 
   const lines: string[] = []
+  if (streakAtRisk) {
+    lines.push(`🔥 *Your coding streak is at risk* — today's question isn't solved yet`)
+  }
   if (pendingHabits.length > 0) {
     lines.push(`💪 *Habits not done:*\n${pendingHabits.map(h => `${h.icon} ${h.name}`).join('\n')}`)
   }
@@ -59,7 +67,7 @@ export async function GET(req: Request) {
     lines.push(`📊 *Health metrics not logged:* ${missingMetrics.join(', ')}`)
   }
 
-  await sendMessage(BOT_TOKEN, Number(CHAT_ID), `🌙 *Evening Check-in*\n\n${lines.join('\n\n')}\n\n_Log these whenever you get a moment — I'll stop asking once everything's in._`)
+  await sendMessage(BOT_TOKEN, Number(CHAT_ID), `🌙 *Evening Check-in*\n\n${lines.join('\n\n')}${reminders}\n\n_Log these whenever you get a moment — I'll stop asking once everything's in._`)
 
-  return NextResponse.json({ ok: true, sent: true, pendingHabits: pendingHabits.length, highPriorityTasks: highPriorityTasks.length, hasExpenseToday, missingMetrics })
+  return NextResponse.json({ ok: true, sent: true, pendingHabits: pendingHabits.length, highPriorityTasks: highPriorityTasks.length, hasExpenseToday, missingMetrics, streakAtRisk })
 }

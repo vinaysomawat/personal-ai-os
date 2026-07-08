@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
+import type { ModuleReply } from '@/lib/telegram/types'
 
 export const SYSTEM_PROMPT = `You are the Finance bot for Vinay AI OS. Parse the user message and return ONLY a JSON action.
 
@@ -12,6 +13,8 @@ Actions:
 {"action":"set_salary","amount":100000}
 {"action":"add_investment","name":"fund name","type":"mutual_fund"|"stocks"|"fd"|"crypto"|"other","invested":100000,"current":120000}
 {"action":"ask","question":"free-form question about finances"}
+{"action":"amend_expense","amount":500}
+{"action":"undo_last"}
 {"action":"help"}
 
 Rules:
@@ -21,19 +24,45 @@ Rules:
 - For "net worth" or "how much do I have" → net_worth
 - For "my salary is X" or "I earn X" → set_salary
 - For "add loan" / "I have an EMI of" → add_loan
-- For "can I afford X", "should I invest", "retirement" → ask with the question`
+- For "can I afford X", "should I invest", "retirement" → ask with the question
+- For "actually make that X", "change it to X", "I meant X" (correcting the amount just logged) → amend_expense
+- For "undo that", "delete that", "remove the last one", "oops ignore that" → undo_last`
+
+export const VISION_PROMPT = `You are the Finance bot for Vinay AI OS, looking at a photo of a receipt or bill. Read the total amount and pick the best category. Return ONLY a JSON action:
+{"action":"add_expense","amount":<number>,"category":"Food"|"Transport"|"Housing"|"Health"|"Shopping"|"Entertainment"|"Learning"|"Utilities"|"Other","description":"merchant or item name","date":"YYYY-MM-DD"}
+Use today's date unless the receipt clearly shows a different one. If you cannot read a total amount, return {"action":"help"}.`
 
 const CE: Record<string, string> = { Food: '🍔', Transport: '🚗', Housing: '🏠', Health: '💊', Shopping: '🛍️', Entertainment: '🎬', Learning: '📚', Utilities: '💡', Other: '📦' }
 
-export async function execute(action: Record<string, unknown>, db: SupabaseClient, userId: string): Promise<string> {
+export async function execute(action: Record<string, unknown>, db: SupabaseClient, userId: string): Promise<ModuleReply> {
   const today = new Date().toISOString().split('T')[0]
   const month = today.slice(0, 7)
 
   switch (action.action) {
     case 'add_expense': {
-      const { error } = await db.from('expenses').insert({ user_id: userId, amount: Number(action.amount), category: action.category ?? 'Other', description: action.description ?? null, date: action.date ?? today })
+      const category = String(action.category ?? 'Other')
+      const amount = Number(action.amount)
+      const date = String(action.date ?? today)
+      const { error } = await db.from('expenses').insert({ user_id: userId, amount, category, description: action.description ?? null, date })
       if (error) return `❌ ${error.message}`
-      return `${CE[String(action.category ?? 'Other')] ?? '📦'} Added ₹${Number(action.amount).toLocaleString('en-IN')} for *${action.description ?? action.category}*`
+
+      // Proactive nudge — warn inline if this pushes the category over/near budget,
+      // using data already available in this call rather than a separate check.
+      let nudge = ''
+      const expenseMonth = date.slice(0, 7)
+      const { data: budgetRow } = await db.from('budgets').select('amount').eq('user_id', userId).eq('category', category).eq('month', expenseMonth).maybeSingle()
+      if (budgetRow?.amount) {
+        const { data: categoryExpenses } = await db.from('expenses').select('amount').eq('user_id', userId).eq('category', category).gte('date', `${expenseMonth}-01`)
+        const spent = (categoryExpenses ?? []).reduce((s, e) => s + Number(e.amount), 0)
+        const ratio = spent / Number(budgetRow.amount)
+        if (ratio >= 1) {
+          nudge = `\n⚠️ Over ${category} budget by ₹${Math.round(spent - Number(budgetRow.amount)).toLocaleString('en-IN')} this month`
+        } else if (ratio >= 0.9) {
+          nudge = `\n⚠️ ${Math.round(ratio * 100)}% of ${category} budget used this month`
+        }
+      }
+
+      return `${CE[category] ?? '📦'} Added ₹${amount.toLocaleString('en-IN')} for *${action.description ?? category}*${nudge}`
     }
 
     case 'list_expenses': {
@@ -116,7 +145,24 @@ export async function execute(action: Record<string, unknown>, db: SupabaseClien
       return `🤖 *Finance Advisor:*\n\n${answer}`
     }
 
+    case 'amend_expense': {
+      const { data } = await db.from('expenses').select('id, description, category, amount').eq('user_id', userId).order('created_at', { ascending: false }).limit(1)
+      const last = data?.[0]
+      if (!last) return `❌ No recent expense to amend.`
+      const newAmount = Number(action.amount)
+      await db.from('expenses').update({ amount: newAmount }).eq('id', last.id)
+      return `✏️ Updated *${last.description ?? last.category}*: ₹${Number(last.amount).toLocaleString('en-IN')} → ₹${newAmount.toLocaleString('en-IN')}`
+    }
+
+    case 'undo_last': {
+      const { data } = await db.from('expenses').select('id, description, category, amount').eq('user_id', userId).order('created_at', { ascending: false }).limit(1)
+      const last = data?.[0]
+      if (!last) return `❌ No recent expense to undo.`
+      await db.from('expenses').delete().eq('id', last.id)
+      return `🗑️ Undone: ₹${Number(last.amount).toLocaleString('en-IN')} for *${last.description ?? last.category}*`
+    }
+
     default:
-      return `*Finance Bot — What I can do:*\n\n💸 *Expenses:*\n• "spent 500 on Swiggy food"\n• "show today's expenses"\n• "monthly summary"\n• "set food budget 8000"\n\n📊 *Portfolio:*\n• "net worth"\n• "my salary is 120000"\n• "add home loan 20L EMI 15000 180 months"\n• "add SIP Axis Bluechip invested 50000 current 65000"\n\n🤖 *AI Advisor:*\n• "can I afford a car?"\n• "should I prepay my loan?"`
+      return `*Finance Bot — What I can do:*\n\n💸 *Expenses:*\n• "spent 500 on Swiggy food"\n• "show today's expenses"\n• "monthly summary"\n• "set food budget 8000"\n• "actually make that 400" (amend)\n• "undo that"\n\n📊 *Portfolio:*\n• "net worth"\n• "my salary is 120000"\n• "add home loan 20L EMI 15000 180 months"\n• "add SIP Axis Bluechip invested 50000 current 65000"\n\n🤖 *AI Advisor:*\n• "can I afford a car?"\n• "should I prepay my loan?"`
   }
 }

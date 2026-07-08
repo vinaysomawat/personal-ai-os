@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
+import type { ModuleReply } from '@/lib/telegram/types'
 
 export const SYSTEM_PROMPT = `You are the Planner bot for Vinay AI OS. Parse the user message and return ONLY a JSON action, nothing else.
 
@@ -7,21 +8,38 @@ Actions:
 {"action":"list_tasks","filter":"pending"|"done"|"all"}
 {"action":"complete_task","search":"partial task text"}
 {"action":"delete_task","search":"partial task text"}
+{"action":"undo_last"}
+{"action":"briefing"}
+{"action":"digest"}
+{"action":"set_reminder","label":"what to be reminded about","slot":"morning"|"evening"}
+{"action":"list_reminders"}
+{"action":"delete_reminder","search":"partial reminder text"}
+{"action":"log_focus","minutes":45,"label":"what you worked on, optional"}
 {"action":"help"}
 
 Rules:
 - Default priority: "medium", default area: "General", default due_date: null
 - If user says "today" for due_date, use today's date
+- For "how am I doing", "give me my briefing", "today's briefing" → briefing
+- For "how was my week", "weekly digest", "weekly review" → digest
+- For "remind me to X every morning/day" → set_reminder with slot "morning"
+- For "remind me to X every evening/night" → set_reminder with slot "evening"
+- Reminders only fire at the two existing daily windows (~8:30am and ~8pm IST) — not arbitrary times
+- For "undo that", "delete the last one", "oops ignore that task" → undo_last
+- For "did 45 min of deep work", "focused for an hour on X", "45 min pomodoro" → log_focus (convert hours to minutes)
 - If message is unclear, return {"action":"help"}`
 
 const P = { high: '🔴', medium: '🟡', low: '⚪' } as Record<string, string>
 
-export async function execute(action: Record<string, unknown>, db: SupabaseClient, userId: string): Promise<string> {
+export async function execute(action: Record<string, unknown>, db: SupabaseClient, userId: string): Promise<ModuleReply> {
   switch (action.action) {
     case 'add_task': {
-      const { error } = await db.from('tasks').insert({ user_id: userId, text: action.text, priority: action.priority ?? 'medium', area: action.area ?? 'General', due_date: action.due_date ?? null, done: false })
+      const { data, error } = await db.from('tasks').insert({ user_id: userId, text: action.text, priority: action.priority ?? 'medium', area: action.area ?? 'General', due_date: action.due_date ?? null, done: false }).select('id').single()
       if (error) return `❌ ${error.message}`
-      return `✅ Added *${action.priority ?? 'medium'}* task:\n"${action.text}"${action.due_date ? `\n📅 ${action.due_date}` : ''}`
+      return {
+        text: `✅ Added *${action.priority ?? 'medium'}* task:\n"${action.text}"${action.due_date ? `\n📅 ${action.due_date}` : ''}`,
+        buttons: [[{ text: '✅ Mark Done', callback_data: `task_done:${data.id}` }]],
+      }
     }
     case 'list_tasks': {
       const filter = (action.filter as string) ?? 'pending'
@@ -47,7 +65,52 @@ export async function execute(action: Record<string, unknown>, db: SupabaseClien
       await db.from('tasks').delete().eq('id', task.id)
       return `🗑️ Deleted: "${task.text}"`
     }
+    case 'undo_last': {
+      const { data } = await db.from('tasks').select('id, text').eq('user_id', userId).order('created_at', { ascending: false }).limit(1)
+      const task = data?.[0]
+      if (!task) return `❌ No recent task to undo.`
+      await db.from('tasks').delete().eq('id', task.id)
+      return `🗑️ Undone: "${task.text}"`
+    }
+    case 'briefing': {
+      const { generateDailyBriefing } = await import('@/features/ai/daily-briefing')
+      const body = await generateDailyBriefing(db, userId)
+      return `🌅 *Your Briefing:*\n\n${body}`
+    }
+    case 'digest': {
+      const { generateWeeklyDigest } = await import('@/features/ai/weekly-digest')
+      const body = await generateWeeklyDigest(db, userId)
+      return `📊 *Weekly Digest:*\n\n${body}`
+    }
+    case 'set_reminder': {
+      const slot = action.slot === 'evening' ? 'evening' : 'morning'
+      const { error } = await db.from('reminders').insert({ user_id: userId, module: 'planner', label: String(action.label), slot })
+      if (error) return `❌ ${error.message}`
+      return `🔔 Reminder set for every ${slot}: "${action.label}"`
+    }
+    case 'list_reminders': {
+      const { data } = await db.from('reminders').select('label, slot').eq('user_id', userId).eq('active', true)
+      if (!data?.length) return 'No reminders set. Try "remind me to log my weight every morning"'
+      return `🔔 *Your reminders:*\n` + data.map(r => `${r.slot === 'morning' ? '🌅' : '🌙'} ${r.label}`).join('\n')
+    }
+    case 'delete_reminder': {
+      const { data } = await db.from('reminders').select('id, label').eq('user_id', userId).eq('active', true).ilike('label', `%${action.search}%`).limit(1)
+      const reminder = data?.[0]
+      if (!reminder) return `❌ No reminder matching "${action.search}"`
+      await db.from('reminders').delete().eq('id', reminder.id)
+      return `🗑️ Removed reminder: "${reminder.label}"`
+    }
+    case 'log_focus': {
+      const minutes = Number(action.minutes)
+      if (!minutes || minutes <= 0) return `❌ How many minutes?`
+      const label = action.label ? String(action.label) : null
+      const { error } = await db.from('focus_sessions').insert({ user_id: userId, duration_minutes: minutes, label })
+      if (error) return `❌ ${error.message}`
+      const { data: today } = await db.from('focus_sessions').select('duration_minutes').eq('user_id', userId).eq('date', new Date().toISOString().split('T')[0])
+      const total = (today ?? []).reduce((s, r) => s + r.duration_minutes, 0)
+      return `⏱️ Logged *${minutes} min*${label ? ` — ${label}` : ''}\n${total} min of focus today`
+    }
     default:
-      return `*Planner Bot — What I can do:*\n• "add buy groceries high priority"\n• "show pending tasks"\n• "done with buy groceries"\n• "delete buy groceries"\n• "add call dentist due 2026-07-10"`
+      return `*Planner Bot — What I can do:*\n• "add buy groceries high priority"\n• "show pending tasks"\n• "done with buy groceries"\n• "delete buy groceries"\n• "add call dentist due 2026-07-10"\n• "undo that"\n• "how am I doing" (briefing)\n• "how was my week" (digest)\n• "remind me to log weight every morning"\n• "show my reminders"\n• "did 45 min of deep work on the API redesign"`
   }
 }

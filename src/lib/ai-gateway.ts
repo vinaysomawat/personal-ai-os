@@ -2,10 +2,11 @@
 
 import { createHash } from 'node:crypto'
 import { createServiceClient } from '@/lib/supabase/service'
-import { callClaude, SONNET_MODEL, HAIKU_MODEL } from '@/lib/anthropic'
+import { callClaude, SONNET_MODEL, HAIKU_MODEL, type ImageInput } from '@/lib/anthropic'
 
 export type AITask =
   | 'telegram_intent'
+  | 'telegram_vision'
   | 'doc_summary'
   | 'doc_qa'
   | 'career_mentor'
@@ -33,6 +34,7 @@ const BUDGET_FALLBACK = "I'm over my AI budget for today — try again tomorrow.
 
 const TASK_CONFIG: Record<AITask, TaskConfig> = {
   telegram_intent:        { model: HAIKU_MODEL,  cacheTTLSeconds: null,       fallback: '{"action":"help"}' },
+  telegram_vision:        { model: SONNET_MODEL, cacheTTLSeconds: null,       fallback: '{"action":"help"}' },
   doc_summary:            { model: HAIKU_MODEL,  cacheTTLSeconds: SEVEN_DAYS, fallback: '' },
   doc_qa:                 { model: SONNET_MODEL, cacheTTLSeconds: null,       fallback: BUDGET_FALLBACK },
   career_mentor:          { model: SONNET_MODEL, cacheTTLSeconds: null,       fallback: BUDGET_FALLBACK },
@@ -97,6 +99,8 @@ interface AskAIOptions {
   /** Skip the cache lookup (still writes the fresh result to cache) — for explicit "Regenerate" actions */
   bypassCache?: boolean
   userId?: string
+  /** Image content is always unique — never cached, regardless of the task's configured TTL */
+  image?: ImageInput
 }
 
 /**
@@ -111,7 +115,7 @@ export async function askAI(task: AITask, prompt: string, system?: string, opts:
   if (!userId) return config.fallback
 
   const db = createServiceClient()
-  const cacheable = config.cacheTTLSeconds !== null
+  const cacheable = config.cacheTTLSeconds !== null && !opts.image
   const key = cacheable ? cacheKeyFor(config.model, system, prompt) : null
 
   if (key && !opts.bypassCache) {
@@ -143,7 +147,7 @@ export async function askAI(task: AITask, prompt: string, system?: string, opts:
   }
 
   try {
-    const { text, inputTokens, outputTokens } = await callClaude(prompt, system, config.model)
+    const { text, inputTokens, outputTokens } = await callClaude(prompt, system, config.model, opts.image)
     const cost = estimateCost(config.model, inputTokens, outputTokens)
     await logUsage(db, userId, task, config.model, inputTokens, outputTokens, cost, false)
 

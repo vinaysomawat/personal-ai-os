@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
+import type { ModuleReply } from '@/lib/telegram/types'
 
 export const SYSTEM_PROMPT = `You are the Documents bot for Vinay AI OS. Parse the user message and return ONLY a JSON action.
 
@@ -14,7 +15,7 @@ Rules:
 - For "add to [title]" → append action
 - tags are topic keywords, lowercase`
 
-export async function execute(action: Record<string, unknown>, db: SupabaseClient, userId: string): Promise<string> {
+export async function execute(action: Record<string, unknown>, db: SupabaseClient, userId: string): Promise<ModuleReply> {
   switch (action.action) {
     case 'create_document': {
       const tags = Array.isArray(action.tags) ? action.tags : []

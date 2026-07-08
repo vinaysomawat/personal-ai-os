@@ -1,8 +1,10 @@
 import { createServiceClient } from '@/lib/supabase/service'
-import { sendMessage } from '@/lib/telegram/send'
+import { sendMessage, answerCallbackQuery, editMessageReplyMarkup } from '@/lib/telegram/send'
 import { askAI } from '@/lib/ai-gateway'
 import { transcribeVoice } from '@/lib/telegram/transcribe'
-import type { TelegramUpdate } from '@/lib/telegram/types'
+import { downloadTelegramFile } from '@/lib/telegram/download'
+import type { TelegramUpdate, InlineButton } from '@/lib/telegram/types'
+import type { ImageInput } from '@/lib/anthropic'
 
 import * as planner   from './modules/planner'
 import * as career    from './modules/career'
@@ -42,9 +44,71 @@ async function todaysCallCount(db: ReturnType<typeof createServiceClient>): Prom
   return count ?? 0
 }
 
+// A message can describe several distinct instructions at once (especially
+// voice notes — "workout 45 min, drank 2L, finished chapter 3"). The model
+// returns a JSON array in that case, a single object otherwise. Detect which
+// by checking whichever bracket — { or [ — appears first in the response,
+// rather than just regex-matching "[...]" (which would misfire on a single
+// object that merely contains an array-valued field, e.g. {"stack":["a","b"]}).
+function extractActions(raw: string): Record<string, unknown>[] {
+  const idx = raw.search(/[{[]/)
+  if (idx === -1) return []
+  const rest = raw.slice(idx)
+
+  if (raw[idx] === '[') {
+    const match = rest.match(/\[[\s\S]*\]/)
+    if (!match) return []
+    try {
+      const parsed = JSON.parse(match[0])
+      return Array.isArray(parsed) ? parsed : []
+    } catch {
+      return []
+    }
+  }
+
+  const match = rest.match(/\{[\s\S]*\}/)
+  if (!match) return []
+  try {
+    return [JSON.parse(match[0])]
+  } catch {
+    return []
+  }
+}
+
+// Handles inline-keyboard button presses (e.g. "✅ Mark Done" on a task).
+// Bypasses AI classification entirely — the callback_data already encodes
+// exactly what to do.
+async function handleCallbackQuery(moduleName: ModuleName, update: TelegramUpdate): Promise<void> {
+  const cq = update.callback_query!
+  const chatId = cq.message?.chat.id
+  const allowedId = process.env.TELEGRAM_ALLOWED_CHAT_ID
+  if (!chatId || (allowedId && String(chatId) !== allowedId)) return
+
+  const token = MODULE_TOKENS[moduleName]
+  if (!token) return
+
+  const data = cq.data ?? ''
+  if (data.startsWith('task_done:')) {
+    const taskId = data.slice('task_done:'.length)
+    const db = createServiceClient()
+    await db.from('tasks').update({ done: true }).eq('id', taskId)
+    // Two-way sync with the Coding daily-question habit system, same as the web app's toggleTask
+    await db.from('coding_daily_questions').update({ completed: true, completed_at: new Date().toISOString() }).eq('task_id', taskId)
+    await answerCallbackQuery(token, cq.id, '✅ Marked done!')
+    if (cq.message) await editMessageReplyMarkup(token, chatId, cq.message.message_id)
+  } else {
+    await answerCallbackQuery(token, cq.id)
+  }
+}
+
 export async function handleUpdate(moduleName: ModuleName, update: TelegramUpdate): Promise<void> {
+  if (update.callback_query) {
+    await handleCallbackQuery(moduleName, update)
+    return
+  }
+
   const msg = update.message
-  if (!msg?.text && !msg?.voice) return
+  if (!msg?.text && !msg?.voice && !msg?.photo?.length) return
 
   const chatId = msg.chat.id
   const allowedId = process.env.TELEGRAM_ALLOWED_CHAT_ID
@@ -62,8 +126,9 @@ export async function handleUpdate(moduleName: ModuleName, update: TelegramUpdat
   const mod = MODULES[moduleName]
   const db = createServiceClient()
 
-  // Transcribe voice to text if needed
+  // Transcribe voice, or download the photo, if needed
   let text: string
+  let image: ImageInput | undefined
   if (msg.voice) {
     try {
       await sendMessage(token, chatId, '🎙️ Transcribing...')
@@ -76,6 +141,20 @@ export async function handleUpdate(moduleName: ModuleName, update: TelegramUpdat
       await sendMessage(token, chatId, '❌ Voice transcription failed. Please check GROQ_API_KEY.')
       return
     }
+  } else if (msg.photo?.length) {
+    const visionPrompt = (mod as { VISION_PROMPT?: string }).VISION_PROMPT
+    if (!visionPrompt) {
+      await sendMessage(token, chatId, "📷 This bot can't process photos yet — try the Finance bot for receipts or the Health bot for meals.")
+      return
+    }
+    try {
+      const largest = msg.photo[msg.photo.length - 1]
+      image = await downloadTelegramFile(token, largest.file_id)
+    } catch {
+      await sendMessage(token, chatId, '❌ Could not download the photo.')
+      return
+    }
+    text = msg.caption?.trim() || '(photo)'
   } else {
     text = msg.text!.trim()
   }
@@ -97,26 +176,40 @@ export async function handleUpdate(moduleName: ModuleName, update: TelegramUpdat
     return
   }
 
-  let action: Record<string, unknown> = { action: 'help' }
-  let reply = ''
+  let actions: Record<string, unknown>[] = [{ action: 'help' }]
 
   try {
     const todayStr = new Date().toISOString().split('T')[0]
-    const systemPrompt = `${mod.SYSTEM_PROMPT}\n\nToday's actual date is ${todayStr} (YYYY-MM-DD). Always use this for "today", "now", or any relative date/default date — never guess or use a date from your training data.`
-    const raw = await askAI('telegram_intent', text, systemPrompt, { userId })
-    const match = raw.match(/\{[\s\S]*\}/)
-    if (match) action = JSON.parse(match[0])
+    const dateInstruction = `\n\nToday's actual date is ${todayStr} (YYYY-MM-DD). Always use this for "today", "now", or any relative date/default date — never guess or use a date from your training data.`
+    const raw = image
+      ? await askAI('telegram_vision', text, `${(mod as { VISION_PROMPT?: string }).VISION_PROMPT}${dateInstruction}`, { userId, image })
+      : await askAI('telegram_intent', text, `${mod.SYSTEM_PROMPT}${dateInstruction}\n\nIf the message describes multiple distinct instructions (e.g. "workout 45 min, drank 2L, finished chapter 3"), return a JSON array of action objects instead of a single object — one per instruction, each in the exact shape defined above.`, { userId })
+    const parsed = extractActions(raw)
+    if (parsed.length > 0) actions = parsed
   } catch {
-    action = { action: 'help' }
+    actions = [{ action: 'help' }]
   }
 
-  try {
-    reply = await mod.execute(action, db, userId)
-  } catch (err) {
-    reply = `❌ Error: ${err instanceof Error ? err.message : 'Unknown error'}`
+  const replyParts: string[] = []
+  let replyButtons: InlineButton[][] | undefined
+
+  for (const action of actions) {
+    let reply: Awaited<ReturnType<typeof mod.execute>>
+    try {
+      reply = await mod.execute(action, db, userId)
+    } catch (err) {
+      reply = `❌ Error: ${err instanceof Error ? err.message : 'Unknown error'}`
+    }
+    if (typeof reply === 'string') {
+      replyParts.push(reply)
+    } else {
+      replyParts.push(reply.text)
+      if (reply.buttons) replyButtons = reply.buttons
+    }
   }
 
-  await sendMessage(token, chatId, reply)
+  const replyText = replyParts.join('\n\n')
+  await sendMessage(token, chatId, replyText, { buttons: replyButtons })
 
   // Log every instruction
   try {
@@ -124,8 +217,8 @@ export async function handleUpdate(moduleName: ModuleName, update: TelegramUpdat
       module: moduleName,
       telegram_chat_id: chatId,
       message: text,
-      action_taken: action,
-      response: reply,
+      action_taken: actions.length === 1 ? actions[0] : actions,
+      response: replyText,
     })
   } catch {
     // Non-fatal: log failure shouldn't affect user
