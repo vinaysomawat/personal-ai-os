@@ -3,7 +3,6 @@
 import { useState, useTransition } from 'react'
 import { Plus, Trash2, X, Sparkles, ChevronDown, Pencil, Check, TrendingUp, TrendingDown, Eye, EyeOff } from 'lucide-react'
 import Card from '@/components/Card'
-import ModuleRecommendations from '@/components/ModuleRecommendations'
 import {
   addExpense, deleteExpense, upsertBudget,
   upsertProfile, addLoan, deleteLoan, updateLoanTerms,
@@ -19,7 +18,7 @@ const CATEGORY_COLOR: Record<string, string> = {
   Housing: 'bg-purple-500/15 text-purple-400', Health: 'bg-red-500/15 text-red-400',
   Shopping: 'bg-pink-500/15 text-pink-400', Entertainment: 'bg-cyan-500/15 text-cyan-400',
   Learning: 'bg-green-500/15 text-green-400', Utilities: 'bg-amber-500/15 text-amber-400',
-  Other: 'bg-slate-500/15 text-slate-400',
+  Other: 'bg-slate-500/15 text-slate-400', EMI: 'bg-red-500/15 text-red-400',
 }
 
 const PRIORITY_COLOR: Record<GoalPriority, string> = {
@@ -94,17 +93,23 @@ export default function FinanceView({ expenses, budgets, profile, loans, investm
   const totalDebt = localLoans.reduce((s, l) => s + Number(l.emi) * (l.remaining_months ?? 0), 0)
   const netWorth = portfolio - totalDebt
   const totalSpent = localExpenses.reduce((s, e) => s + Number(e.amount), 0)
-  const freeCash = salary - totalEMIs - totalSpent
   const totalBudget = localBudgets.reduce((s, b) => s + Number(b.amount), 0)
-  const remaining = totalBudget - totalSpent
-
-  const financeContext = `Net worth: ₹${Math.round(netWorth).toLocaleString('en-IN')}. Portfolio: ₹${Math.round(portfolio).toLocaleString('en-IN')} across ${localInvestments.length} investments. Total debt: ₹${Math.round(totalDebt).toLocaleString('en-IN')} (₹${Math.round(totalEMIs).toLocaleString('en-IN')}/mo EMI across ${localLoans.length} loans). This month: ₹${Math.round(totalSpent).toLocaleString('en-IN')} spent of ₹${Math.round(totalBudget).toLocaleString('en-IN')} budgeted (${remaining >= 0 ? `₹${Math.round(remaining).toLocaleString('en-IN')} left` : `₹${Math.round(Math.abs(remaining)).toLocaleString('en-IN')} over`}). Free cash flow: ₹${Math.round(freeCash).toLocaleString('en-IN')}/mo. Goals: ${localGoals.length ? localGoals.map(g => `${g.name} (₹${Math.round(g.current_amount).toLocaleString('en-IN')}/₹${Math.round(g.target_amount).toLocaleString('en-IN')})`).join(', ') : 'none set'}.`
+  // EMIs are a real monthly outflow but live in `loans`, not `expenses` — fold
+  // them in here so "left this month" isn't overstated.
+  const totalSpentWithEmi = totalSpent + totalEMIs
+  const remaining = totalBudget - totalSpentWithEmi
 
   const byCategory = CATEGORIES.map(cat => {
     const spent = localExpenses.filter(e => e.category === cat).reduce((s, e) => s + Number(e.amount), 0)
     const budget = localBudgets.find(b => b.category === cat)?.amount ?? 0
     return { cat, spent, budget }
   }).filter(c => c.spent > 0 || c.budget > 0)
+
+  // Surfaced as its own row so EMI obligations are visibly counted alongside
+  // discretionary spend, not just silently folded into the "left" total.
+  const byCategoryWithEmi = totalEMIs > 0
+    ? [{ cat: 'EMI', spent: totalEMIs, budget: localBudgets.find(b => b.category === 'EMI')?.amount ?? 0 }, ...byCategory]
+    : byCategory
 
   const monthLabel = new Date(month + '-01').toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
 
@@ -247,26 +252,6 @@ export default function FinanceView({ expenses, budgets, profile, loans, investm
         <div className="bg-surface-1 border border-surface-3 rounded-xl p-4">
           <p className="text-xs text-slate-500 uppercase tracking-wider mb-1">Net Worth</p>
           <p className={`text-xl font-bold ${netWorth >= 0 ? 'text-accent' : 'text-red-400'}`}>{fmt(netWorth)}</p>
-        </div>
-      </div>
-
-      {/* Cash Flow */}
-      <div className="bg-surface-1 border border-surface-3 rounded-xl p-4">
-        <p className="text-xs text-slate-500 uppercase tracking-wider mb-3">Monthly Cash Flow</p>
-        <div className="flex items-center gap-3 flex-wrap text-sm">
-          <span className="text-green-400 font-medium">{salaryVisible ? fmt(salary) : '••••••'}</span>
-          <span className="text-slate-600">salary</span>
-          <span className="text-slate-600">−</span>
-          <span className="text-red-400 font-medium">{fmt(totalEMIs)}</span>
-          <span className="text-slate-600">EMIs</span>
-          <span className="text-slate-600">−</span>
-          <span className="text-amber-400 font-medium">{fmt(totalSpent)}</span>
-          <span className="text-slate-600">spend</span>
-          <span className="text-slate-600">=</span>
-          <span className={`font-bold text-base ${freeCash >= 0 ? 'text-accent' : 'text-red-400'}`}>{fmt(freeCash)}</span>
-          <span className={`text-xs px-2 py-0.5 rounded-full ${freeCash >= 0 ? 'bg-green-500/15 text-green-400' : 'bg-red-500/15 text-red-400'}`}>
-            {freeCash >= 0 ? 'free' : 'deficit'}
-          </span>
         </div>
       </div>
 
@@ -470,16 +455,14 @@ export default function FinanceView({ expenses, budgets, profile, loans, investm
         )}
       </div>
 
-      <ModuleRecommendations moduleLabel="Finance" context={financeContext} />
-
       {/* Expenses + Budgets */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {/* Category breakdown */}
         <Card title="By Category" action={<span className="text-xs text-slate-500">{monthLabel}</span>}>
           <div className="flex gap-3 mb-4">
             <div className="text-center">
-              <p className="text-lg font-bold text-red-400">{fmt(totalSpent)}</p>
-              <p className="text-xs text-slate-600">Spent</p>
+              <p className="text-lg font-bold text-red-400">{fmt(totalSpentWithEmi)}</p>
+              <p className="text-xs text-slate-600">Spent (incl. EMI)</p>
             </div>
             <div className="text-center">
               <p className="text-lg font-bold text-slate-400">{fmt(totalBudget)}</p>
@@ -490,11 +473,11 @@ export default function FinanceView({ expenses, budgets, profile, loans, investm
               <p className="text-xs text-slate-600">{remaining >= 0 ? 'Left' : 'Over'}</p>
             </div>
           </div>
-          {byCategory.length === 0 ? (
+          {byCategoryWithEmi.length === 0 ? (
             <p className="text-sm text-slate-600 text-center py-4">No expenses this month</p>
           ) : (
             <ul className="space-y-3">
-              {byCategory.map(({ cat, spent, budget }) => {
+              {byCategoryWithEmi.map(({ cat, spent, budget }) => {
                 const pct = budget > 0 ? Math.min((spent / budget) * 100, 100) : 0
                 const over = budget > 0 && spent > budget
                 return (

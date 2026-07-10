@@ -14,7 +14,6 @@ Actions:
 {"action":"set_reminder","label":"what to be reminded about","slot":"morning"|"evening"}
 {"action":"list_reminders"}
 {"action":"delete_reminder","search":"partial reminder text"}
-{"action":"log_focus","minutes":45,"label":"what you worked on, optional"}
 {"action":"help"}
 
 Rules:
@@ -26,7 +25,6 @@ Rules:
 - For "remind me to X every evening/night" → set_reminder with slot "evening"
 - Reminders only fire at the two existing daily windows (~8:30am and ~8pm IST) — not arbitrary times
 - For "undo that", "delete the last one", "oops ignore that task" → undo_last
-- For "did 45 min of deep work", "focused for an hour on X", "45 min pomodoro" → log_focus (convert hours to minutes)
 - If message is unclear, return {"action":"help"}`
 
 const P = { high: '🔴', medium: '🟡', low: '⚪' } as Record<string, string>
@@ -100,17 +98,7 @@ export async function execute(action: Record<string, unknown>, db: SupabaseClien
       await db.from('reminders').delete().eq('id', reminder.id)
       return `🗑️ Removed reminder: "${reminder.label}"`
     }
-    case 'log_focus': {
-      const minutes = Number(action.minutes)
-      if (!minutes || minutes <= 0) return `❌ How many minutes?`
-      const label = action.label ? String(action.label) : null
-      const { error } = await db.from('focus_sessions').insert({ user_id: userId, duration_minutes: minutes, label })
-      if (error) return `❌ ${error.message}`
-      const { data: today } = await db.from('focus_sessions').select('duration_minutes').eq('user_id', userId).eq('date', new Date().toISOString().split('T')[0])
-      const total = (today ?? []).reduce((s, r) => s + r.duration_minutes, 0)
-      return `⏱️ Logged *${minutes} min*${label ? ` — ${label}` : ''}\n${total} min of focus today`
-    }
     default:
-      return `*Planner Bot — What I can do:*\n• "add buy groceries high priority"\n• "show pending tasks"\n• "done with buy groceries"\n• "delete buy groceries"\n• "add call dentist due 2026-07-10"\n• "undo that"\n• "how am I doing" (briefing)\n• "how was my week" (digest)\n• "remind me to log weight every morning"\n• "show my reminders"\n• "did 45 min of deep work on the API redesign"`
+      return `*Planner Bot — What I can do:*\n• "add buy groceries high priority"\n• "show pending tasks"\n• "done with buy groceries"\n• "delete buy groceries"\n• "add call dentist due 2026-07-10"\n• "undo that"\n• "how am I doing" (briefing)\n• "how was my week" (digest)\n• "remind me to log weight every morning"\n• "show my reminders"`
   }
 }

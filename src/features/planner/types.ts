@@ -12,13 +12,3 @@ export interface Task {
   recurrence: Recurrence | null
   created_at: string
 }
-
-export interface FocusSession {
-  id: string
-  user_id: string
-  duration_minutes: number
-  label: string | null
-  notes: string | null
-  date: string
-  created_at: string
-}

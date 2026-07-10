@@ -63,13 +63,12 @@ export async function generateDailyBriefing(db: SupabaseClient, userId: string):
 
   const [
     expensesRes, budgetsRes, resourcesRes,
-    appsRes, projectsRes, scoreRes, tasksRes,
+    appsRes, scoreRes, tasksRes,
   ] = await Promise.all([
     db.from('expenses').select('amount, category').eq('user_id', userId).gte('date', monthStart),
     db.from('budgets').select('amount, category').eq('user_id', userId).eq('month', today.slice(0, 7)),
     db.from('resources').select('status').eq('user_id', userId),
     db.from('applications').select('status').eq('user_id', userId),
-    db.from('projects').select('status').eq('user_id', userId),
     db.from('life_score_logs').select('life_score').eq('user_id', userId).order('date', { ascending: false }).limit(2),
     db.from('tasks').select('text, priority, due_date').eq('user_id', userId).eq('done', false),
   ])
@@ -80,7 +79,6 @@ export async function generateDailyBriefing(db: SupabaseClient, userId: string):
   const monthBudget = budgets.reduce((s: number, b: { amount: number }) => s + (b.amount ?? 0), 0)
   const resources = resourcesRes.data ?? []
   const apps = appsRes.data ?? []
-  const projects = projectsRes.data ?? []
   const scores = scoreRes.data ?? []
   const pendingTasks = tasksRes.data ?? []
 
@@ -97,7 +95,6 @@ Life Score: ${lifeScore}/100${delta !== null ? ` (${delta >= 0 ? '+' : ''}${delt
 Budget: ₹${Math.round(monthSpend).toLocaleString('en-IN')} of ₹${Math.round(monthBudget).toLocaleString('en-IN')} this month
 Active applications: ${activeApps}
 Learning in progress: ${inProgress} resources
-Active projects: ${projects.filter((p: { status: string }) => p.status === 'in-progress').length}
 
 Write a short morning briefing (max 120 words):
 1. One motivating sentence about the Life Score

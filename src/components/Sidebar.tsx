@@ -14,6 +14,7 @@ import {
   Cpu,
 } from 'lucide-react'
 import UserInfo from './UserInfo'
+import pkg from '../../package.json'
 
 const topLevel = [
   { label: 'Dashboard', to: '/dashboard', icon: LayoutDashboard },
@@ -110,7 +111,7 @@ export default function Sidebar() {
 
       <div className="px-3 py-3 border-t border-surface-3 space-y-2">
         <UserInfo />
-        <p className="text-xs text-slate-700 font-mono px-1">v0.1.0</p>
+        <p className="text-xs text-slate-700 font-mono px-1">v{pkg.version}</p>
       </div>
     </aside>
   )

@@ -78,14 +78,14 @@ export async function getDashboardData() {
     todayHealth: null,
     scoreHistory: [] as { date: string; life: number; health: number; finance: number; career: number; learning: number; projects: number }[],
     gamification: { xp: 0, level: 1, xpProgress: 0, streak: 0, badges: [] as string[] },
-    stats: { pendingTaskCount: 0, activeApplications: 0, workoutsToday: 0, monthSpend: 0, monthBudget: 0, learningInProgress: 0, activeProjects: 0, completedProjects: 0, githubCommits: 0, documentCount: 0 },
+    stats: { pendingTaskCount: 0, activeApplications: 0, workoutsToday: 0, monthSpend: 0, monthBudget: 0, learningInProgress: 0, githubCommits: 0, documentCount: 0 },
     aiBudget: { callsToday: 0, costTodayUsd: 0, callsMonth: 0, costMonthUsd: 0, cacheHitRateMonth: 0 },
     topActions: [] as TopAction[],
   }
 
   const [
     tasksRes, appsRes, workoutsRes,
-    expensesRes, budgetsRes, resourcesRes, projectsRes, docsRes,
+    expensesRes, budgetsRes, resourcesRes, docsRes,
     botLogsRes, healthMetricRes, careerProfileRes, skillsRes, qaRes,
     aiUsageMonthRes,
   ] = await Promise.all([
@@ -95,9 +95,8 @@ export async function getDashboardData() {
     supabase.from('expenses').select('amount').eq('user_id', user.id).gte('date', monthStart),
     supabase.from('budgets').select('amount').eq('user_id', user.id).eq('month', today.slice(0, 7)),
     supabase.from('resources').select('status').eq('user_id', user.id),
-    supabase.from('projects').select('status').eq('user_id', user.id),
     supabase.from('documents').select('id', { count: 'exact', head: true }).eq('user_id', user.id),
-    supabase.from('telegram_logs').select('module, message, response, created_at').order('created_at', { ascending: false }).limit(20),
+    supabase.from('telegram_logs').select('module, message, response, created_at').order('created_at', { ascending: false }).limit(50),
     supabase.from('health_metrics').select('*').eq('user_id', user.id).eq('date', today).single(),
     supabase.from('career_profile').select('current_role, target_role').eq('user_id', user.id).single(),
     supabase.from('skills').select('id', { count: 'exact', head: true }).eq('user_id', user.id),
@@ -111,7 +110,6 @@ export async function getDashboardData() {
   const expenses = expensesRes.data ?? []
   const budgets = budgetsRes.data ?? []
   const resources = resourcesRes.data ?? []
-  const projects = projectsRes.data ?? []
   const todayMetric = healthMetricRes.data ?? null
 
   const activeApps = applications.filter(a => ['applied', 'screening', 'interview'].includes(a.status)).length
@@ -119,8 +117,6 @@ export async function getDashboardData() {
   const monthBudget = budgets.reduce((s, b) => s + (b.amount ?? 0), 0)
   const learningInProgress = resources.filter(r => r.status === 'in-progress').length
   const learningCompleted = resources.filter(r => r.status === 'completed').length
-  const activeProjects = projects.filter(p => p.status === 'in-progress').length
-  const completedProjects = projects.filter(p => p.status === 'completed').length
 
   // --- Scores ---
   // Health: workout logged today + metrics logged today
@@ -155,7 +151,7 @@ export async function getDashboardData() {
     ? Math.min(100, Math.round(((learningCompleted + learningInProgress * 0.5) / resources.length) * 100))
     : 0
 
-  // Projects: reward active + completed work + GitHub activity
+  // Projects: GitHub push activity over the last 30 days (no manual project tracking anymore)
   let githubCommits = 0
   const githubUsername = process.env.GITHUB_USERNAME
   if (githubUsername) {
@@ -171,9 +167,7 @@ export async function getDashboardData() {
       }
     } catch { /* GitHub unavailable — skip */ }
   }
-  const githubBoost = Math.min(25, githubCommits * 2)
-  const projectsScore = projects.length === 0 && githubCommits === 0 ? 0
-    : Math.min(100, activeProjects * 20 + completedProjects * 15 + githubBoost)
+  const projectsScore = Math.min(100, githubCommits * 5)
 
   // Life Score: weighted aggregate
   const lifeScore = Math.round(
@@ -276,7 +270,7 @@ export async function getDashboardData() {
       activeApplications: activeApps,
       workoutsToday: workoutsToday.length,
       monthSpend, monthBudget,
-      learningInProgress, activeProjects, completedProjects,
+      learningInProgress,
       githubCommits,
       documentCount: docsRes.count ?? 0,
     },
