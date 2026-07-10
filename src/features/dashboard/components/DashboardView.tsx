@@ -162,7 +162,7 @@ export default function DashboardView({ data }: { data: DashboardData }) {
           {/* Module Scores */}
           <div className="flex-1 w-full">
             <p className="text-xs text-slate-500 uppercase tracking-widest mb-4">Module Scores</p>
-            <div className="grid grid-cols-5 gap-2">
+            <div className="grid grid-cols-3 sm:grid-cols-5 gap-2">
               {moduleScores.map(({ label, score, color, to }) => (
                 <Link key={to} href={to}
                   className="flex flex-col items-center gap-2 p-3 rounded-xl bg-surface-2 border border-surface-3 hover:border-accent/30 transition-colors group">

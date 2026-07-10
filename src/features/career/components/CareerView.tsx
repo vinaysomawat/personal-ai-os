@@ -326,7 +326,7 @@ export default function CareerView({ applications, profile, skills, qa, codingSt
 
       {/* Applications Pipeline */}
       <div>
-        <div className="grid grid-cols-5 gap-2 mb-4">
+        <div className="grid grid-cols-3 sm:grid-cols-5 gap-2 mb-4">
           {STATUSES.map(s => {
             const cfg = STATUS_CONFIG[s]
             return (

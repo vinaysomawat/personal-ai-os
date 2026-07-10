@@ -243,7 +243,7 @@ export default function HealthView({ initialMetrics, initialProfile, initialWork
           <h3 className="text-sm font-semibold text-slate-300">Today&apos;s Metrics</h3>
           <span className="text-xs text-slate-600">Press Enter to save</span>
         </div>
-        <div className="grid grid-cols-3 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
           {METRICS.map(m => (
             <MetricCard
               key={m.field}

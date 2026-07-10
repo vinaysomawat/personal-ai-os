@@ -108,7 +108,7 @@ export default function DocumentsView({ initialDocuments }: Props) {
   return (
     <div className="flex gap-4 h-[calc(100vh-8rem)]">
       {/* Sidebar */}
-      <div className="w-64 shrink-0 flex flex-col gap-3">
+      <div className={`${(selected || showForm) ? 'hidden md:flex' : 'flex'} w-full md:w-64 shrink-0 flex-col gap-3`}>
         <div className="flex items-center gap-2 bg-surface-1 border border-surface-3 rounded-lg px-3 py-2">
           <Search size={13} className="text-slate-500 shrink-0" />
           <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search..." className="flex-1 bg-transparent text-sm text-slate-300 placeholder-slate-600 outline-none" />
@@ -144,21 +144,21 @@ export default function DocumentsView({ initialDocuments }: Props) {
       </div>
 
       {/* Editor */}
-      <div className="flex-1 bg-surface-1 border border-surface-3 rounded-xl flex flex-col overflow-hidden">
+      <div className={`${(selected || showForm) ? 'flex' : 'hidden md:flex'} flex-1 bg-surface-1 border border-surface-3 rounded-xl flex-col overflow-hidden`}>
         {(selected || showForm) ? (
           <>
-            <div className="flex items-center gap-3 px-5 py-3 border-b border-surface-3">
+            <div className="flex flex-wrap items-center gap-2 px-4 sm:px-5 py-3 border-b border-surface-3">
               <input
                 value={editTitle}
                 onChange={e => setEditTitle(e.target.value)}
                 placeholder="Document title..."
-                className="flex-1 bg-transparent text-base font-semibold text-slate-200 placeholder-slate-600 outline-none"
+                className="flex-1 min-w-[120px] bg-transparent text-base font-semibold text-slate-200 placeholder-slate-600 outline-none"
               />
               <input
                 value={editTags}
                 onChange={e => setEditTags(e.target.value)}
                 placeholder="tags, comma, separated"
-                className="bg-surface-2 border border-surface-3 rounded-lg px-3 py-1.5 text-xs text-slate-400 placeholder-slate-600 outline-none focus:border-accent transition-colors w-40"
+                className="bg-surface-2 border border-surface-3 rounded-lg px-3 py-1.5 text-xs text-slate-400 placeholder-slate-600 outline-none focus:border-accent transition-colors w-28 sm:w-40"
               />
               <button
                 onClick={showForm ? handleAdd : handleSave}

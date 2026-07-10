@@ -123,7 +123,7 @@ export default function LearningView({ initialResources, initialStudyLogs }: Pro
   return (
     <div className="space-y-5">
       {/* Stats row */}
-      <div className="grid grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <div className="bg-surface-1 border border-surface-3 rounded-xl p-4 flex flex-col items-center">
           <span className="text-2xl font-bold text-slate-200">{resources.length}</span>
           <span className="text-xs text-slate-500 mt-1">Total</span>
