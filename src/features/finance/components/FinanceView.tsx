@@ -81,6 +81,7 @@ export default function FinanceView({ expenses, budgets, profile, loans, investm
   const [budgetInput, setBudgetInput] = useState('')
   const [editingGoalId, setEditingGoalId] = useState<string | null>(null)
   const [editInput, setEditInput] = useState('')
+  const [expandedCategory, setExpandedCategory] = useState<string | null>(null)
 
   // AI Advisor
   const [showAdvisor, setShowAdvisor] = useState(false)
@@ -223,6 +224,45 @@ export default function FinanceView({ expenses, budgets, profile, loans, investm
 
   return (
     <div className="space-y-5">
+      {/* AI Finance Advisor */}
+      <div className="border border-surface-3 rounded-xl overflow-hidden">
+        <button onClick={() => setShowAdvisor(v => !v)} className="w-full flex items-center justify-between px-4 py-3 bg-surface-1 hover:bg-surface-2 transition-colors">
+          <div className="flex items-center gap-2">
+            <Sparkles size={14} className="text-accent" />
+            <span className="text-sm font-medium text-slate-300">AI Finance Advisor</span>
+            <span className="text-xs text-slate-600">Ask anything about your money</span>
+          </div>
+          <ChevronDown size={14} className={`text-slate-500 transition-transform ${showAdvisor ? 'rotate-180' : ''}`} />
+        </button>
+        {showAdvisor && (
+          <div className="px-4 py-4 bg-surface-1 border-t border-surface-3 space-y-3">
+            <div className="flex gap-2 flex-wrap text-xs text-slate-600">
+              {['Can I afford a car?', 'Should I prepay my loan?', 'How much should I invest?', 'When can I retire?'].map(q => (
+                <button key={q} onClick={() => setAiQuestion(q)} className="px-2 py-1 rounded-lg bg-surface-2 hover:bg-surface-3 hover:text-slate-400 transition-colors">{q}</button>
+              ))}
+            </div>
+            <div className="flex gap-2">
+              <input
+                value={aiQuestion}
+                onChange={e => setAiQuestion(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && handleAsk()}
+                placeholder="Ask about your finances..."
+                className="flex-1 bg-surface-2 border border-surface-3 rounded-lg px-3 py-2 text-sm text-slate-200 placeholder-slate-600 outline-none focus:border-accent transition-colors"
+              />
+              <button onClick={handleAsk} disabled={aiLoading || !aiQuestion.trim()} className="px-4 py-2 rounded-lg bg-accent text-white text-sm font-medium hover:bg-accent/80 disabled:opacity-50 transition-colors">
+                {aiLoading ? '...' : 'Ask'}
+              </button>
+            </div>
+            {aiLoading && (
+              <div className="space-y-2">
+                {[90, 75, 80].map((w, i) => <div key={i} className="h-3 rounded bg-surface-2 animate-pulse" style={{ width: `${w}%` }} />)}
+              </div>
+            )}
+            {aiAnswer && <p className="text-sm text-slate-300 leading-relaxed whitespace-pre-wrap border-l-2 border-accent/40 pl-3">{aiAnswer}</p>}
+          </div>
+        )}
+      </div>
+
       {/* Net Worth Overview */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         <div className="bg-surface-1 border border-surface-3 rounded-xl p-4">
@@ -424,50 +464,11 @@ export default function FinanceView({ expenses, budgets, profile, loans, investm
         )}
       </Card>
 
-      {/* AI Finance Advisor */}
-      <div className="border border-surface-3 rounded-xl overflow-hidden">
-        <button onClick={() => setShowAdvisor(v => !v)} className="w-full flex items-center justify-between px-4 py-3 bg-surface-1 hover:bg-surface-2 transition-colors">
-          <div className="flex items-center gap-2">
-            <Sparkles size={14} className="text-accent" />
-            <span className="text-sm font-medium text-slate-300">AI Finance Advisor</span>
-            <span className="text-xs text-slate-600">Ask anything about your money</span>
-          </div>
-          <ChevronDown size={14} className={`text-slate-500 transition-transform ${showAdvisor ? 'rotate-180' : ''}`} />
-        </button>
-        {showAdvisor && (
-          <div className="px-4 py-4 bg-surface-1 border-t border-surface-3 space-y-3">
-            <div className="flex gap-2 flex-wrap text-xs text-slate-600">
-              {['Can I afford a car?', 'Should I prepay my loan?', 'How much should I invest?', 'When can I retire?'].map(q => (
-                <button key={q} onClick={() => setAiQuestion(q)} className="px-2 py-1 rounded-lg bg-surface-2 hover:bg-surface-3 hover:text-slate-400 transition-colors">{q}</button>
-              ))}
-            </div>
-            <div className="flex gap-2">
-              <input
-                value={aiQuestion}
-                onChange={e => setAiQuestion(e.target.value)}
-                onKeyDown={e => e.key === 'Enter' && handleAsk()}
-                placeholder="Ask about your finances..."
-                className="flex-1 bg-surface-2 border border-surface-3 rounded-lg px-3 py-2 text-sm text-slate-200 placeholder-slate-600 outline-none focus:border-accent transition-colors"
-              />
-              <button onClick={handleAsk} disabled={aiLoading || !aiQuestion.trim()} className="px-4 py-2 rounded-lg bg-accent text-white text-sm font-medium hover:bg-accent/80 disabled:opacity-50 transition-colors">
-                {aiLoading ? '...' : 'Ask'}
-              </button>
-            </div>
-            {aiLoading && (
-              <div className="space-y-2">
-                {[90, 75, 80].map((w, i) => <div key={i} className="h-3 rounded bg-surface-2 animate-pulse" style={{ width: `${w}%` }} />)}
-              </div>
-            )}
-            {aiAnswer && <p className="text-sm text-slate-300 leading-relaxed whitespace-pre-wrap border-l-2 border-accent/40 pl-3">{aiAnswer}</p>}
-          </div>
-        )}
-      </div>
-
       {/* Expenses + Budgets */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {/* Category breakdown */}
-        <Card title="By Category" action={<span className="text-xs text-slate-500">{monthLabel}</span>}>
-          <div className="flex gap-3 mb-4">
+        <Card title="By Category" padding="p-3.5" action={<span className="text-xs text-slate-500">{monthLabel}</span>}>
+          <div className="flex gap-3 mb-3">
             <div className="text-center">
               <p className="text-lg font-bold text-red-400">{fmt(totalSpent)}</p>
               <p className="text-xs text-slate-600">Spent</p>
@@ -484,28 +485,49 @@ export default function FinanceView({ expenses, budgets, profile, loans, investm
           {byCategory.length === 0 ? (
             <p className="text-sm text-slate-600 text-center py-4">No expenses this month</p>
           ) : (
-            <ul className="space-y-3">
+            <ul className="space-y-2">
               {byCategory.map(({ cat, spent, budget }) => {
                 const pct = budget > 0 ? Math.min((spent / budget) * 100, 100) : 0
                 const over = budget > 0 && spent > budget
+                const catExpenses = localExpenses.filter(e => e.category === cat)
+                const isOpen = expandedCategory === cat
                 return (
                   <li key={cat}>
-                    <div className="flex items-center justify-between mb-1">
-                      <div className="flex items-center gap-2">
-                        <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${CATEGORY_COLOR[cat]}`}>{cat}</span>
-                        <button onClick={() => { setEditingBudget(cat); setBudgetInput(String(budget || '')) }} className="text-xs text-slate-600 hover:text-slate-400 transition-colors">
-                          {budget > 0 ? `/ ${fmt(budget)}` : '+ budget'}
-                        </button>
+                    <div onClick={() => setExpandedCategory(isOpen ? null : cat)} className="cursor-pointer">
+                      <div className="flex items-center justify-between mb-1">
+                        <div className="flex items-center gap-2">
+                          <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${CATEGORY_COLOR[cat]}`}>{cat}</span>
+                          <button
+                            onClick={e => { e.stopPropagation(); setEditingBudget(cat); setBudgetInput(String(budget || '')) }}
+                            className="text-xs text-slate-600 hover:text-slate-400 transition-colors"
+                          >
+                            {budget > 0 ? `/ ${fmt(budget)}` : '+ budget'}
+                          </button>
+                        </div>
+                        <span className={`text-sm font-medium ${over ? 'text-red-400' : 'text-slate-300'}`}>{fmt(spent)}</span>
                       </div>
-                      <span className={`text-sm font-medium ${over ? 'text-red-400' : 'text-slate-300'}`}>{fmt(spent)}</span>
+                      {budget > 0 && <div className="h-1 bg-surface-3 rounded-full overflow-hidden"><div className={`h-full rounded-full transition-all ${over ? 'bg-red-400' : 'bg-accent'}`} style={{ width: `${pct}%` }} /></div>}
                     </div>
-                    {budget > 0 && <div className="h-1 bg-surface-3 rounded-full overflow-hidden"><div className={`h-full rounded-full transition-all ${over ? 'bg-red-400' : 'bg-accent'}`} style={{ width: `${pct}%` }} /></div>}
                     {editingBudget === cat && (
                       <div className="flex gap-2 mt-2">
                         <input value={budgetInput} onChange={e => setBudgetInput(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') handleBudgetSave(cat); if (e.key === 'Escape') setEditingBudget(null) }} placeholder="Budget amount" type="number" autoFocus className="flex-1 bg-surface-2 border border-accent rounded-lg px-3 py-1.5 text-sm text-slate-200 outline-none" />
                         <button onClick={() => handleBudgetSave(cat)} className="px-3 py-1.5 rounded-lg bg-accent text-white text-xs">Save</button>
                         <button onClick={() => setEditingBudget(null)} className="px-3 py-1.5 rounded-lg bg-surface-2 text-slate-400 text-xs">Cancel</button>
                       </div>
+                    )}
+                    {isOpen && (
+                      <ul className="mt-1.5 ml-1 pl-2 border-l border-surface-3 space-y-0.5">
+                        {catExpenses.length === 0 ? (
+                          <li className="text-xs text-slate-600 py-1">No expenses logged in this category</li>
+                        ) : catExpenses.map(exp => (
+                          <li key={exp.id} className="flex items-center gap-2 py-1 group">
+                            <span className="text-xs text-slate-600 shrink-0">{exp.date}</span>
+                            {exp.description && <span className="text-xs text-slate-500 truncate flex-1">{exp.description}</span>}
+                            <span className="text-xs text-slate-300 font-medium shrink-0 ml-auto">{fmt(Number(exp.amount))}</span>
+                            <button onClick={() => handleDeleteExpense(exp.id)} className="shrink-0 opacity-0 group-hover:opacity-100 text-slate-600 hover:text-red-400 transition-all"><Trash2 size={11} /></button>
+                          </li>
+                        ))}
+                      </ul>
                     )}
                   </li>
                 )
@@ -515,17 +537,17 @@ export default function FinanceView({ expenses, budgets, profile, loans, investm
         </Card>
 
         {/* Expense list */}
-        <Card title="Expenses" action={
+        <Card title="Expenses" padding="p-3.5" action={
           <button onClick={() => setModal('expense')} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-accent text-white text-xs font-medium hover:bg-accent/80 transition-colors">
             <Plus size={12} /> Add
           </button>
         }>
           {localExpenses.length === 0 ? (
-            <p className="text-sm text-slate-600 text-center py-6">No expenses this month</p>
+            <p className="text-sm text-slate-600 text-center py-4">No expenses this month</p>
           ) : (
-            <ul className="space-y-1.5 max-h-80 overflow-y-auto">
+            <ul className="space-y-1 max-h-80 overflow-y-auto">
               {localExpenses.map(exp => (
-                <li key={exp.id} className="flex items-center gap-3 p-2.5 rounded-lg hover:bg-surface-2 transition-colors group">
+                <li key={exp.id} className="flex items-center gap-3 p-2 rounded-lg hover:bg-surface-2 transition-colors group">
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
                       <span className={`text-xs px-1.5 py-0.5 rounded-full font-medium ${CATEGORY_COLOR[exp.category]}`}>{exp.category}</span>
