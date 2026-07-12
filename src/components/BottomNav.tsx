@@ -14,6 +14,7 @@ import {
   BookOpen,
   Code2,
   FileText,
+  Settings,
 } from 'lucide-react'
 
 const primaryNav = [
@@ -28,6 +29,7 @@ const moreNav = [
   { label: 'Learning',  to: '/learning',  icon: BookOpen },
   { label: 'Coding',    to: '/coding',    icon: Code2 },
   { label: 'Documents', to: '/documents', icon: FileText },
+  { label: 'Settings',  to: '/settings',  icon: Settings },
 ]
 
 export default function BottomNav() {

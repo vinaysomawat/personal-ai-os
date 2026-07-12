@@ -11,6 +11,7 @@ const titles: Record<string, string> = {
   '/learning': 'Learning',
   '/coding': 'Coding',
   '/documents': 'Documents',
+  '/settings': 'Settings',
 }
 
 export default function Header() {

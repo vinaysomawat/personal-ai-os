@@ -69,6 +69,12 @@ function cacheKeyFor(model: string, system: string | undefined, prompt: string):
 const DAILY_BUDGET_USD = Number(process.env.AI_DAILY_BUDGET_USD ?? 3)
 const MONTHLY_BUDGET_USD = Number(process.env.AI_MONTHLY_BUDGET_USD ?? 50)
 
+// A "use server" file can only export async functions — Settings reads the
+// ceilings through this rather than importing the constants directly.
+export async function getAiBudgetLimits() {
+  return { dailyBudget: DAILY_BUDGET_USD, monthlyBudget: MONTHLY_BUDGET_USD }
+}
+
 type ServiceClient = ReturnType<typeof createServiceClient>
 
 async function spendSince(db: ServiceClient, userId: string, sinceISO: string): Promise<number> {
