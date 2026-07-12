@@ -54,7 +54,7 @@ Five sub-areas sharing one page:
 
 The richest module — full personal finance tracking, scoped to the **current calendar month** for expenses/budgets:
 
-- **Expenses** — `amount`, `category` (Food/Transport/Housing/Health/Shopping/Entertainment/Learning/Utilities/Other), `description`, `date`, optional `recurring_expense_id` (set when auto-posted by the recurring-expense cron). Add / delete.
+- **Expenses** — `amount`, `category` (Food/Transport/Housing/Health/Shopping/Entertainment/Learning/Utilities/EMIs/Bills/Other), `description`, `date`, optional `recurring_expense_id` (set when auto-posted by the recurring-expense cron). Add / delete.
 - **Budgets** — one amount per category per month (`upsert` on `user_id,category,month`).
 - **Finance profile** — `monthly_salary`, `emergency_fund_months`. Changing salary auto-appends a row to `salary_history` (`amount`, `effective_date`, `note`) so raises are tracked over time.
 - **Loans** — `name`, `principal`, `emi`, `interest_rate`, `remaining_months`, all **inline-editable** (EMI/rate/remaining-months can be updated in place without delete+recreate). Total remaining debt = `Σ emi × remaining_months`.

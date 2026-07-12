@@ -19,7 +19,8 @@ const CATEGORY_COLOR: Record<string, string> = {
   Housing: 'bg-purple-500/15 text-purple-400', Health: 'bg-red-500/15 text-red-400',
   Shopping: 'bg-pink-500/15 text-pink-400', Entertainment: 'bg-cyan-500/15 text-cyan-400',
   Learning: 'bg-green-500/15 text-green-400', Utilities: 'bg-amber-500/15 text-amber-400',
-  EMIs: 'bg-red-500/15 text-red-400', Other: 'bg-slate-500/15 text-slate-400',
+  EMIs: 'bg-red-500/15 text-red-400', Bills: 'bg-indigo-500/15 text-indigo-400',
+  Other: 'bg-slate-500/15 text-slate-400',
 }
 
 const PRIORITY_COLOR: Record<GoalPriority, string> = {

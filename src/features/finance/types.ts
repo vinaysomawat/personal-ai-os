@@ -75,7 +75,7 @@ export interface RecurringExpense {
 
 export const CATEGORIES = [
   'Food', 'Transport', 'Housing', 'Health', 'Shopping',
-  'Entertainment', 'Learning', 'Utilities', 'EMIs', 'Other',
+  'Entertainment', 'Learning', 'Utilities', 'EMIs', 'Bills', 'Other',
 ] as const
 
 export type Category = typeof CATEGORIES[number]

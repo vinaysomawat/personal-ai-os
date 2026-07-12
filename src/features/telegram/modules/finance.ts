@@ -4,7 +4,7 @@ import type { ModuleReply } from '@/lib/telegram/types'
 export const SYSTEM_PROMPT = `You are the Finance bot for Vinay AI OS. Parse the user message and return ONLY a JSON action.
 
 Actions:
-{"action":"add_expense","amount":500,"category":"Food"|"Transport"|"Housing"|"Health"|"Shopping"|"Entertainment"|"Learning"|"Utilities"|"Other","description":"what it was for","date":"YYYY-MM-DD"}
+{"action":"add_expense","amount":500,"category":"Food"|"Transport"|"Housing"|"Health"|"Shopping"|"Entertainment"|"Learning"|"Utilities"|"EMIs"|"Bills"|"Other","description":"what it was for","date":"YYYY-MM-DD"}
 {"action":"list_expenses","period":"today"|"week"|"month"}
 {"action":"summary","month":"YYYY-MM"}
 {"action":"set_budget","category":"Food","amount":5000}
@@ -15,7 +15,7 @@ Actions:
 {"action":"ask","question":"free-form question about finances"}
 {"action":"amend_expense","amount":500}
 {"action":"undo_last"}
-{"action":"add_recurring","name":"template name","amount":15000,"category":"Food"|"Transport"|"Housing"|"Health"|"Shopping"|"Entertainment"|"Learning"|"Utilities"|"Other","day_of_month":1}
+{"action":"add_recurring","name":"template name","amount":15000,"category":"Food"|"Transport"|"Housing"|"Health"|"Shopping"|"Entertainment"|"Learning"|"Utilities"|"EMIs"|"Bills"|"Other","day_of_month":1}
 {"action":"list_recurring"}
 {"action":"help"}
 
@@ -33,10 +33,10 @@ Rules:
 - For "show my recurring expenses", "what auto-logs each month" → list_recurring`
 
 export const VISION_PROMPT = `You are the Finance bot for Vinay AI OS, looking at a photo of a receipt or bill. Read the total amount and pick the best category. Return ONLY a JSON action:
-{"action":"add_expense","amount":<number>,"category":"Food"|"Transport"|"Housing"|"Health"|"Shopping"|"Entertainment"|"Learning"|"Utilities"|"Other","description":"merchant or item name","date":"YYYY-MM-DD"}
+{"action":"add_expense","amount":<number>,"category":"Food"|"Transport"|"Housing"|"Health"|"Shopping"|"Entertainment"|"Learning"|"Utilities"|"EMIs"|"Bills"|"Other","description":"merchant or item name","date":"YYYY-MM-DD"}
 Use today's date unless the receipt clearly shows a different one. If you cannot read a total amount, return {"action":"help"}.`
 
-const CE: Record<string, string> = { Food: '🍔', Transport: '🚗', Housing: '🏠', Health: '💊', Shopping: '🛍️', Entertainment: '🎬', Learning: '📚', Utilities: '💡', Other: '📦' }
+const CE: Record<string, string> = { Food: '🍔', Transport: '🚗', Housing: '🏠', Health: '💊', Shopping: '🛍️', Entertainment: '🎬', Learning: '📚', Utilities: '💡', EMIs: '🏦', Bills: '🧾', Other: '📦' }
 
 export async function execute(action: Record<string, unknown>, db: SupabaseClient, userId: string): Promise<ModuleReply> {
   const today = new Date().toISOString().split('T')[0]
