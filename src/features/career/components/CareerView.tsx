@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useTransition } from 'react'
-import { Plus, Trash2, ExternalLink, X, Sparkles, ChevronDown, ChevronRight, Pencil, Check, Wand2, FileText, Star } from 'lucide-react'
+import { Plus, Trash2, ExternalLink, X, Sparkles, ChevronDown, ChevronRight, Pencil, Check, Wand2, FileText, Star, Eye, EyeOff } from 'lucide-react'
 import Card from '@/components/Card'
 import {
   addApplication, updateStatus, deleteApplication,
@@ -23,19 +23,42 @@ const STATUS_CONFIG: Record<AppStatus, { label: string; color: string; bg: strin
 const STATUSES = Object.keys(STATUS_CONFIG) as AppStatus[]
 const SKILL_LEVELS: SkillLevel[] = ['beginner', 'intermediate', 'advanced', 'expert']
 
-function ProfileField({ label, value, onSave, type = 'text', placeholder }: {
-  label: string; value: string; onSave: (v: string) => void; type?: string; placeholder?: string
+function ProfileField({ label, value, onSave, type = 'text', placeholder, masked = false }: {
+  label: string; value: string; onSave: (v: string) => void; type?: string; placeholder?: string; masked?: boolean
 }) {
   const [editing, setEditing] = useState(false)
   const [input, setInput] = useState(value)
+  const [revealed, setRevealed] = useState(false)
+
+  if (masked && !editing && !revealed) return (
+    <div>
+      <div className="flex items-center justify-between mb-1">
+        <p className="text-xs text-slate-500 uppercase tracking-wider">{label}</p>
+        <button onClick={() => setRevealed(true)} className="text-slate-600 hover:text-slate-400 transition-colors">
+          <Eye size={11} />
+        </button>
+      </div>
+      <p className="text-sm font-medium text-slate-200 tracking-widest">••••••</p>
+    </div>
+  )
+
   if (!editing) return (
-    <button onClick={() => { setInput(value); setEditing(true) }} className="text-left w-full group">
-      <p className="text-xs text-slate-500 uppercase tracking-wider mb-1">{label}</p>
-      <p className={`text-sm font-medium flex items-center gap-1 ${value ? 'text-slate-200' : 'text-slate-600'}`}>
-        {value || `Set ${label.toLowerCase()}`}
-        <Pencil size={9} className="opacity-0 group-hover:opacity-40 transition-opacity shrink-0" />
-      </p>
-    </button>
+    <div className="text-left w-full group">
+      <div className="flex items-center justify-between mb-1">
+        <p className="text-xs text-slate-500 uppercase tracking-wider">{label}</p>
+        {masked && (
+          <button onClick={() => setRevealed(false)} className="text-slate-600 hover:text-slate-400 transition-colors">
+            <EyeOff size={11} />
+          </button>
+        )}
+      </div>
+      <button onClick={() => { setInput(value); setEditing(true) }} className="text-left w-full">
+        <p className={`text-sm font-medium flex items-center gap-1 ${value ? 'text-slate-200' : 'text-slate-600'}`}>
+          {value || `Set ${label.toLowerCase()}`}
+          <Pencil size={9} className="opacity-0 group-hover:opacity-40 transition-opacity shrink-0" />
+        </p>
+      </button>
+    </div>
   )
   return (
     <div>
@@ -180,12 +203,42 @@ export default function CareerView({ applications, profile, skills, qa, codingSt
         <div className="grid grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-4">
           <ProfileField label="Current Role" value={localProfile?.current_role ?? ''} onSave={v => saveProfile('current_role', v)} placeholder="Senior Frontend Engineer" />
           <ProfileField label="Company" value={localProfile?.current_company ?? ''} onSave={v => saveProfile('current_company', v)} placeholder="Accenture" />
-          <ProfileField label="Current Salary (₹/yr)" value={localProfile?.current_salary?.toString() ?? ''} onSave={v => saveProfile('current_salary', v)} type="number" placeholder="1200000" />
+          <ProfileField label="Current Salary (₹/yr)" value={localProfile?.current_salary?.toString() ?? ''} onSave={v => saveProfile('current_salary', v)} type="number" placeholder="1200000" masked />
           <ProfileField label="Target Role" value={localProfile?.target_role ?? ''} onSave={v => saveProfile('target_role', v)} placeholder="Staff Engineer / Tech Lead" />
           <ProfileField label="Years of Experience" value={localProfile?.years_experience?.toString() ?? ''} onSave={v => saveProfile('years_experience', v)} type="number" placeholder="5" />
           <ProfileField label="Bio / Focus" value={localProfile?.bio ?? ''} onSave={v => saveProfile('bio', v)} placeholder="Frontend + Testing specialist" />
         </div>
       </Card>
+
+      {/* AI Career Mentor */}
+      <div className="border border-surface-3 rounded-xl overflow-hidden">
+        <button onClick={() => setShowMentor(v => !v)} className="w-full flex items-center justify-between px-4 py-3 bg-surface-1 hover:bg-surface-2 transition-colors">
+          <div className="flex items-center gap-2">
+            <Sparkles size={14} className="text-accent" />
+            <span className="text-sm font-medium text-slate-300">AI Career Mentor</span>
+            <span className="text-xs text-slate-600">Ask anything about your career</span>
+          </div>
+          <ChevronDown size={14} className={`text-slate-500 transition-transform ${showMentor ? 'rotate-180' : ''}`} />
+        </button>
+        {showMentor && (
+          <div className="px-4 py-4 bg-surface-1 border-t border-surface-3 space-y-3">
+            <div className="flex flex-wrap gap-2">
+              {QUICK_PROMPTS.map(q => (
+                <button key={q} onClick={() => setMentorQ(q)} className="text-xs text-slate-600 px-2 py-1 rounded-lg bg-surface-2 hover:bg-surface-3 hover:text-slate-400 transition-colors">{q}</button>
+              ))}
+            </div>
+            <div className="flex gap-2">
+              <input value={mentorQ} onChange={e => setMentorQ(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleAsk()}
+                placeholder="Am I ready for a promotion? What should I learn next?" className="flex-1 bg-surface-2 border border-surface-3 rounded-lg px-3 py-2 text-sm text-slate-200 placeholder-slate-600 outline-none focus:border-accent transition-colors" />
+              <button onClick={handleAsk} disabled={mentorLoading || !mentorQ.trim()} className="px-4 py-2 rounded-lg bg-accent text-white text-sm font-medium hover:bg-accent/80 disabled:opacity-50 transition-colors">
+                {mentorLoading ? '...' : 'Ask'}
+              </button>
+            </div>
+            {mentorLoading && <div className="space-y-2">{[85, 70, 90, 60].map((w, i) => <div key={i} className="h-3 rounded bg-surface-2 animate-pulse" style={{ width: `${w}%` }} />)}</div>}
+            {mentorA && <p className="text-sm text-slate-300 leading-relaxed whitespace-pre-wrap border-l-2 border-accent/40 pl-3">{mentorA}</p>}
+          </div>
+        )}
+      </div>
 
       {/* Resume Versions */}
       <Card title={`Resume Versions (${localResumes.length})`} action={
@@ -223,24 +276,24 @@ export default function CareerView({ applications, profile, skills, qa, codingSt
       </Card>
 
       {/* Skills */}
-      <Card title={`Skills (${localSkills.length})`} action={
+      <Card title={`Skills (${localSkills.length})`} padding="p-3.5" action={
         <button onClick={() => setModal('skill')} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-accent text-white text-xs font-medium hover:bg-accent/80 transition-colors">
           <Plus size={12} /> Add skill
         </button>
       }>
         {localSkills.length === 0 ? (
-          <p className="text-sm text-slate-600 text-center py-6">No skills added — click the level badge to cycle between levels</p>
+          <p className="text-sm text-slate-600 text-center py-4">No skills added — click the level badge to cycle between levels</p>
         ) : (
-          <div className="space-y-4">
+          <div className="space-y-2">
             {Object.entries(skillsByCategory).map(([cat, catSkills]) => (
-              <div key={cat}>
-                <p className="text-xs text-slate-600 uppercase tracking-wider mb-2">{cat}</p>
-                <div className="flex flex-wrap gap-2">
+              <div key={cat} className="flex items-start gap-2">
+                <p className="text-xs text-slate-600 uppercase tracking-wider shrink-0 w-24 pt-1 leading-tight">{cat}</p>
+                <div className="flex flex-wrap gap-1.5">
                   {catSkills.map(skill => {
                     const lvl = SKILL_LEVEL_CONFIG[skill.level]
                     return (
-                      <div key={skill.id} className="flex items-center gap-1 bg-surface-2 border border-surface-3 rounded-lg px-2 py-1 group">
-                        <span className="text-sm text-slate-300">{skill.name}</span>
+                      <div key={skill.id} className="flex items-center gap-1 bg-surface-2 border border-surface-3 rounded-lg px-1.5 py-0.5 group">
+                        <span className="text-xs text-slate-300">{skill.name}</span>
                         <button onClick={() => cycleLevel(skill)} title="Click to change level" className={`text-xs px-1.5 py-0.5 rounded-full font-medium transition-colors ${lvl.color}`}>
                           {lvl.label}
                         </button>
@@ -256,36 +309,6 @@ export default function CareerView({ applications, profile, skills, qa, codingSt
           </div>
         )}
       </Card>
-
-      {/* AI Career Mentor */}
-      <div className="border border-surface-3 rounded-xl overflow-hidden">
-        <button onClick={() => setShowMentor(v => !v)} className="w-full flex items-center justify-between px-4 py-3 bg-surface-1 hover:bg-surface-2 transition-colors">
-          <div className="flex items-center gap-2">
-            <Sparkles size={14} className="text-accent" />
-            <span className="text-sm font-medium text-slate-300">AI Career Mentor</span>
-            <span className="text-xs text-slate-600">Ask anything about your career</span>
-          </div>
-          <ChevronDown size={14} className={`text-slate-500 transition-transform ${showMentor ? 'rotate-180' : ''}`} />
-        </button>
-        {showMentor && (
-          <div className="px-4 py-4 bg-surface-1 border-t border-surface-3 space-y-3">
-            <div className="flex flex-wrap gap-2">
-              {QUICK_PROMPTS.map(q => (
-                <button key={q} onClick={() => setMentorQ(q)} className="text-xs text-slate-600 px-2 py-1 rounded-lg bg-surface-2 hover:bg-surface-3 hover:text-slate-400 transition-colors">{q}</button>
-              ))}
-            </div>
-            <div className="flex gap-2">
-              <input value={mentorQ} onChange={e => setMentorQ(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleAsk()}
-                placeholder="Am I ready for a promotion? What should I learn next?" className="flex-1 bg-surface-2 border border-surface-3 rounded-lg px-3 py-2 text-sm text-slate-200 placeholder-slate-600 outline-none focus:border-accent transition-colors" />
-              <button onClick={handleAsk} disabled={mentorLoading || !mentorQ.trim()} className="px-4 py-2 rounded-lg bg-accent text-white text-sm font-medium hover:bg-accent/80 disabled:opacity-50 transition-colors">
-                {mentorLoading ? '...' : 'Ask'}
-              </button>
-            </div>
-            {mentorLoading && <div className="space-y-2">{[85, 70, 90, 60].map((w, i) => <div key={i} className="h-3 rounded bg-surface-2 animate-pulse" style={{ width: `${w}%` }} />)}</div>}
-            {mentorA && <p className="text-sm text-slate-300 leading-relaxed whitespace-pre-wrap border-l-2 border-accent/40 pl-3">{mentorA}</p>}
-          </div>
-        )}
-      </div>
 
       {/* Interview Q&A Bank */}
       <Card title={`Interview Q&A (${localQA.length})`} action={
