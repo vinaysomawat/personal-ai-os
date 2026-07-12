@@ -167,7 +167,13 @@ export default function HealthView({ initialMetrics, initialProfile, initialWork
 
   return (
     <div className="space-y-5">
-      <ModuleRecommendations moduleLabel="Health" context={`Health Score: ${healthScore?.overall ?? 'not calculated (set up profile)'}/100. Today: weight=${todayMetric?.weight_kg ?? 'not logged'}kg, calories=${todayMetric?.calories ?? 'not logged'}, protein=${todayMetric?.protein_g ?? 'not logged'}g, sleep=${todayMetric?.sleep_hours ?? 'not logged'}h, steps=${todayMetric?.steps ?? 'not logged'}, water=${todayMetric?.water_ml ?? 'not logged'}ml, recovery=${todayMetric?.recovery_score ?? 'not logged'}/5. Workouts today: ${workouts.length ? workouts.map(w => w.type).join(', ') : 'none'}. Goal: overall fitness across nutrition, activity, and sleep — not a target weight.`} />
+      {/* AI Advisor + Today's Plan side by side — both collapsed by default, paired horizontally to halve the vertical footprint */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <ModuleRecommendations moduleLabel="Health" context={`Health Score: ${healthScore?.overall ?? 'not calculated (set up profile)'}/100. Today: weight=${todayMetric?.weight_kg ?? 'not logged'}kg, calories=${todayMetric?.calories ?? 'not logged'}, protein=${todayMetric?.protein_g ?? 'not logged'}g, sleep=${todayMetric?.sleep_hours ?? 'not logged'}h, steps=${todayMetric?.steps ?? 'not logged'}, water=${todayMetric?.water_ml ?? 'not logged'}ml, recovery=${todayMetric?.recovery_score ?? 'not logged'}/5. Workouts today: ${workouts.length ? workouts.map(w => w.type).join(', ') : 'none'}. Goal: overall fitness across nutrition, activity, and sleep — not a target weight.`} />
+        {profile && dailyTargets && healthScore && (
+          <TodaysPlanCard profile={profile} plan={dailyTargets} todayMetric={todayMetric} score={healthScore} today={today} />
+        )}
+      </div>
 
       {/* Health profile setup / edit */}
       {!profile ? (
@@ -196,11 +202,10 @@ export default function HealthView({ initialMetrics, initialProfile, initialWork
         />
       )}
 
-      {/* Health Score + Today's Plan */}
+      {/* Health Score */}
       {profile && dailyTargets && healthScore && (
         <>
           <HealthScoreHero score={healthScore} />
-          <TodaysPlanCard profile={profile} plan={dailyTargets} todayMetric={todayMetric} score={healthScore} today={today} />
           <div className="bg-surface-1 border border-surface-3 rounded-xl p-4 grid grid-cols-2 sm:grid-cols-4 gap-3 text-center">
             <div>
               <p className="text-lg font-bold text-white">{dailyTargets.dailyCalorieTarget}</p>
