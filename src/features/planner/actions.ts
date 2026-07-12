@@ -56,6 +56,11 @@ export async function toggleTask(id: string, done: boolean) {
     .update({ completed: done, completed_at: done ? new Date().toISOString() : null })
     .eq('task_id', id)
 
+  // Same sync for the daily trending reading
+  await supabase.from('trending_readings')
+    .update({ completed: done, completed_at: done ? new Date().toISOString() : null })
+    .eq('task_id', id)
+
   revalidatePath('/planner')
   revalidatePath('/coding')
 }

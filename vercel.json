@@ -13,6 +13,14 @@
       "schedule": "5 3 * * *"
     },
     {
+      "path": "/api/cron/recurring-expenses",
+      "schedule": "10 3 * * *"
+    },
+    {
+      "path": "/api/cron/trending-reading",
+      "schedule": "20 3 * * *"
+    },
+    {
       "path": "/api/cron/evening-checkin",
       "schedule": "30 14 * * *"
     },
