@@ -16,7 +16,7 @@ The home screen. Server-computed on every load (`src/features/dashboard/actions.
   - **Finance score**: if a budget exists this month, scored on spend-to-budget ratio (`≤70%→100, ≤90%→85, ≤100%→70, ≤120%→45, else→20`); `60` if no budget set and zero spend logged; `50` neutral default otherwise
   - **Career score**: `min(100, (profile filled ? 25 : 0) + min(25, skills×3) + min(30, activeApplications×10) + (interview-QA bank non-empty ? 20 : 0))` — profile is "filled" once both `current_role` and `target_role` are set; active applications = status in `applied`/`screening`/`interview`
   - **Learning score**: `min(100, round((completed + in-progress×0.5) / total resources × 100))`
-  - **Projects/Coding score**: `min(100, githubPushEventsLast30Days × 5)` — pulled live from `https://api.github.com/users/${GITHUB_USERNAME}/events`, cached 1hr; entirely GitHub-activity-based now (the old manual Projects tracker was removed — see §7). Silently `0` if `GITHUB_USERNAME` isn't set.
+  - **Projects/Coding score**: `min(100, codingQuestionsSolvedLast30Days × 4)` — counts completed `coding_daily_questions` rows in the last 30 days (the old manual Projects tracker was removed — see §7; an earlier GitHub-push-activity version was replaced with this since GITHUB_USERNAME/GITHUB_TOKEN were never actually configured, silently keeping the score at 0).
   - Every dashboard load **upserts today's row** into `life_score_logs` (one row per user per day, all 5 sub-scores + the combined score)
 - **Gamification (computed, not currently displayed)**: total XP = sum of `life_score` over the trailing 365 days; 9 level thresholds `[0,200,500,1000,2000,3500,5000,7500,10000]`; a day-streak counter; 9 badges (`🌱 First Step`, `📅 Week Warrior`, `💪 Month Master`, `🔥 7-Day Streak`, `⚡ 30-Day Streak`, `⭐ Half Century`, `🏆 Century Club`, `💎 Elite`, `🎯 1K XP Club`) — all still recomputed and upserted into `user_xp` on every load, and the 30-day per-module score history is still fetched, but **neither is rendered in the UI** (the Level/XP card and score-history chart were removed from `DashboardView.tsx`; the underlying data pipeline was left running rather than ripped out).
 - **Today's Focus card** — deterministic ranking (no AI), top 3 of these candidates by score: overdue tasks (100, 🔴), interview-stage applications (90, 🎯), over-budget this month (80, 💸) or ≥90% of budget used (55, 💸), high-priority non-overdue tasks (70, ⚡), today's coding question still open (65, 💻), today's workout still open (60, 🏋️), no health metric logged today (50, 📊), a Learning resource completed but not revised in 14+ days (45, 📚, reusing the same rule as §6's revision nudge). Each links to its module.
@@ -312,10 +312,6 @@ TELEGRAM_DAILY_AI_CAP=         # optional, default 300 — max AI-processed Tele
 
 # Cron
 CRON_SECRET=                   # must match the Authorization: Bearer header Vercel Cron sends
-
-# Optional — powers the Coding/GitHub component of the Life Score
-GITHUB_USERNAME=
-GITHUB_TOKEN=
 ```
 
 Telegram webhooks (one per module bot) are registered via `scripts/setup-webhooks.mjs`.

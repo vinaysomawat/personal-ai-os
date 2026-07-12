@@ -93,6 +93,7 @@ export async function getDashboardData() {
 
   const today = new Date().toISOString().split('T')[0]
   const monthStart = today.slice(0, 7) + '-01'
+  const since30 = new Date(Date.now() - 30 * 86400000).toISOString().split('T')[0]
 
   if (!user) return {
     pendingTasks: [], recentApplications: [], botActivity: [],
@@ -101,7 +102,7 @@ export async function getDashboardData() {
     todayHealth: null,
     scoreHistory: [] as { date: string; life: number; health: number; finance: number; career: number; learning: number; projects: number }[],
     gamification: { xp: 0, level: 1, xpProgress: 0, streak: 0, badges: [] as string[] },
-    stats: { pendingTaskCount: 0, activeApplications: 0, workoutsToday: 0, monthSpend: 0, monthBudget: 0, learningInProgress: 0, githubCommits: 0, documentCount: 0 },
+    stats: { pendingTaskCount: 0, activeApplications: 0, workoutsToday: 0, monthSpend: 0, monthBudget: 0, learningInProgress: 0, codingSolved30d: 0, documentCount: 0 },
     aiBudget: { callsToday: 0, costTodayUsd: 0, callsMonth: 0, costMonthUsd: 0, cacheHitRateMonth: 0 },
     topActions: [] as TopAction[],
   }
@@ -112,7 +113,7 @@ export async function getDashboardData() {
     tasksRes, appsRes, workoutsRes,
     expensesRes, budgetsRes, resourcesRes, docsRes,
     botLogsRes, healthMetricRes, careerProfileRes, skillsRes, qaRes,
-    aiUsageMonthRes, studyLogsRes, codingTodayRows, activeWorkout,
+    aiUsageMonthRes, studyLogsRes, codingTodayRows, activeWorkout, codingSolved30dRes,
   ] = await Promise.all([
     supabase.from('tasks').select('id, text, done, priority, due_date').eq('user_id', user.id).eq('done', false).order('created_at', { ascending: false }).limit(5),
     supabase.from('applications').select('id, company, role, status, applied_at').eq('user_id', user.id).order('created_at', { ascending: false }).limit(5),
@@ -130,6 +131,7 @@ export async function getDashboardData() {
     supabase.from('study_logs').select('id, date, resource_id').eq('user_id', user.id).gte('date', studyLogsSince),
     getTodayAssignmentRows(supabase, user.id),
     getActiveWorkout(supabase, user.id),
+    supabase.from('coding_daily_questions').select('id', { count: 'exact', head: true }).eq('user_id', user.id).eq('completed', true).gte('assigned_date', since30),
   ])
 
   const pendingTasks = tasksRes.data ?? []
@@ -179,23 +181,12 @@ export async function getDashboardData() {
     ? Math.min(100, Math.round(((learningCompleted + learningInProgress * 0.5) / resources.length) * 100))
     : 0
 
-  // Projects: GitHub push activity over the last 30 days (no manual project tracking anymore)
-  let githubCommits = 0
-  const githubUsername = process.env.GITHUB_USERNAME
-  if (githubUsername) {
-    try {
-      const ghRes = await fetch(
-        `https://api.github.com/users/${githubUsername}/events?per_page=100`,
-        { headers: { Authorization: `Bearer ${process.env.GITHUB_TOKEN ?? ''}`, 'X-GitHub-Api-Version': '2022-11-28' }, next: { revalidate: 3600 } }
-      )
-      if (ghRes.ok) {
-        const events = await ghRes.json() as { type: string; created_at: string }[]
-        const cutoff = new Date(Date.now() - 30 * 86400000).toISOString()
-        githubCommits = events.filter(e => e.type === 'PushEvent' && e.created_at > cutoff).length
-      }
-    } catch { /* GitHub unavailable — skip */ }
-  }
-  const projectsScore = Math.min(100, githubCommits * 5)
+  // Coding: daily-question completions over the last 30 days (was GitHub push
+  // activity — swapped to the app's own coding-module data so the score
+  // doesn't depend on external credentials that were never configured, per
+  // Product Principle 1: prefer what's already tracked in-app).
+  const codingSolved30d = codingSolved30dRes.count ?? 0
+  const projectsScore = Math.min(100, codingSolved30d * 4)
 
   // --- Score tips ---
   // Deterministic, no AI call — each tip names the single highest-point-value
@@ -233,13 +224,11 @@ export async function getDashboardData() {
         ? 'Start one of your queued resources to begin earning credit'
         : 'All resources completed — add a new one to keep growing this score'
 
-  const projectsTip = !githubUsername
-    ? 'Set GITHUB_USERNAME to let this score reflect your activity'
-    : githubCommits === 0
-      ? 'No GitHub pushes in the last 30 days — commit something'
-      : githubCommits < 20
-        ? `${20 - githubCommits} more pushes this month would max this score`
-        : 'Maxed out — consistent shipping'
+  const projectsTip = codingSolved30d === 0
+    ? 'No coding questions solved in the last 30 days — start today\'s question'
+    : codingSolved30d < 25
+      ? `${25 - codingSolved30d} more solved questions this month would max this score`
+      : 'Maxed out — consistent practice'
 
   const scoreTips = { health: healthTip, finance: financeTip, career: careerTip, learning: learningTip, projects: projectsTip }
 
@@ -352,7 +341,7 @@ export async function getDashboardData() {
       workoutsToday: workoutsToday.length,
       monthSpend, monthBudget,
       learningInProgress,
-      githubCommits,
+      codingSolved30d,
       documentCount: docsRes.count ?? 0,
     },
     aiBudget,

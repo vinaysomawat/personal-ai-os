@@ -40,7 +40,7 @@ AI_DAILY_BUDGET_USD=         # optional, default 3 — AI Gateway daily spend ce
 AI_MONTHLY_BUDGET_USD=       # optional, default 50 — AI Gateway monthly spend ceiling
 ```
 
-This is a non-exhaustive list scoped to the AI Gateway — see `.env.local` for the full set (Telegram bot tokens, `GROQ_API_KEY`, `CRON_SECRET`, `GITHUB_USERNAME`/`GITHUB_TOKEN`, etc.), which this file doesn't fully document yet.
+This is a non-exhaustive list scoped to the AI Gateway — see `.env.local` for the full set (Telegram bot tokens, `GROQ_API_KEY`, `CRON_SECRET`, etc.), which this file doesn't fully document yet.
 
 ## Post-task checklist: keep README.md current
 
