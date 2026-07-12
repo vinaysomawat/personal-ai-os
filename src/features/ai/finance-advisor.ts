@@ -17,7 +17,10 @@ export async function askFinanceAdvisor(question: string, ctx: FinancialContext)
   const portfolio = ctx.investments.reduce((s, i) => s + i.current_value, 0)
   const invested = ctx.investments.reduce((s, i) => s + i.invested_amount, 0)
   const salary = ctx.profile?.monthly_salary ?? 0
-  const freeCash = salary - totalEMIs - ctx.avgMonthlyExpense
+  // avgMonthlyExpense already includes EMI payments logged as expenses —
+  // don't also subtract totalEMIs on top, that double-counts it (see the
+  // same note on totalSpent/totalBudget in FinanceView.tsx).
+  const freeCash = salary - ctx.avgMonthlyExpense
 
   const context = `Vinay's financial snapshot:
 - Monthly salary: ₹${salary.toLocaleString('en-IN')}
