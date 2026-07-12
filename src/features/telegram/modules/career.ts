@@ -10,13 +10,15 @@ Actions:
 {"action":"add_note","search":"company or role","note":"note text"}
 {"action":"summary"}
 {"action":"ask","question":"free-form career question"}
+{"action":"undo_last"}
 {"action":"help"}
 
 Rules:
 - Default applied_at: today's date
 - If user says "I applied to X" → add_application with status "applied"
 - If user says "X called me for screening/interview" → update_status
-- For readiness checks, salary questions, "should I take X", learning-path advice, or anything needing judgment → ask with the question`
+- For readiness checks, salary questions, "should I take X", learning-path advice, or anything needing judgment → ask with the question
+- For "undo that", "remove the last application", "oops wrong company" → undo_last`
 
 const SC = { applied: '📨', screening: '🔍', interview: '🎯', offer: '🎉', rejected: '❌' } as Record<string, string>
 
@@ -72,7 +74,14 @@ export async function execute(action: Record<string, unknown>, db: SupabaseClien
       })
       return `🎓 *Career Mentor:*\n\n${answer}`
     }
+    case 'undo_last': {
+      const { data } = await db.from('applications').select('id, company, role').eq('user_id', userId).order('created_at', { ascending: false }).limit(1)
+      const last = data?.[0]
+      if (!last) return `❌ No recent application to undo.`
+      await db.from('applications').delete().eq('id', last.id)
+      return `🗑️ Undone: *${last.company}* — ${last.role}`
+    }
     default:
-      return `*Career Bot — What I can do:*\n• "applied to Google as Frontend Engineer"\n• "Google moved me to interview"\n• "show all applications"\n• "add note to Google: good culture fit"\n• "pipeline summary"\n• "am I ready for a staff role?"\n• "should I ask for 40 LPA?"`
+      return `*Career Bot — What I can do:*\n• "applied to Google as Frontend Engineer"\n• "Google moved me to interview"\n• "show all applications"\n• "add note to Google: good culture fit"\n• "pipeline summary"\n• "am I ready for a staff role?"\n• "should I ask for 40 LPA?"\n• "undo that"`
   }
 }

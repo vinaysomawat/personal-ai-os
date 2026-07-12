@@ -15,6 +15,8 @@ Actions:
 {"action":"ask","question":"free-form question about finances"}
 {"action":"amend_expense","amount":500}
 {"action":"undo_last"}
+{"action":"add_recurring","name":"template name","amount":15000,"category":"Food"|"Transport"|"Housing"|"Health"|"Shopping"|"Entertainment"|"Learning"|"Utilities"|"Other","day_of_month":1}
+{"action":"list_recurring"}
 {"action":"help"}
 
 Rules:
@@ -26,7 +28,9 @@ Rules:
 - For "add loan" / "I have an EMI of" → add_loan
 - For "can I afford X", "should I invest", "retirement" → ask with the question
 - For "actually make that X", "change it to X", "I meant X" (correcting the amount just logged) → amend_expense
-- For "undo that", "delete that", "remove the last one", "oops ignore that" → undo_last`
+- For "undo that", "delete that", "remove the last one", "oops ignore that" → undo_last
+- For "rent is X every month", "auto-log my EMI", "recurring expense of X" → add_recurring (default day_of_month: 1)
+- For "show my recurring expenses", "what auto-logs each month" → list_recurring`
 
 export const VISION_PROMPT = `You are the Finance bot for Vinay AI OS, looking at a photo of a receipt or bill. Read the total amount and pick the best category. Return ONLY a JSON action:
 {"action":"add_expense","amount":<number>,"category":"Food"|"Transport"|"Housing"|"Health"|"Shopping"|"Entertainment"|"Learning"|"Utilities"|"Other","description":"merchant or item name","date":"YYYY-MM-DD"}
@@ -162,7 +166,21 @@ export async function execute(action: Record<string, unknown>, db: SupabaseClien
       return `🗑️ Undone: ₹${Number(last.amount).toLocaleString('en-IN')} for *${last.description ?? last.category}*`
     }
 
+    case 'add_recurring': {
+      const category = String(action.category ?? 'Other')
+      const dayOfMonth = Math.min(28, Math.max(1, Number(action.day_of_month ?? 1)))
+      const { error } = await db.from('recurring_expenses').insert({ user_id: userId, name: action.name, amount: Number(action.amount), category, day_of_month: dayOfMonth })
+      if (error) return `❌ ${error.message}`
+      return `🔁 Added recurring: *${action.name}* — ₹${Number(action.amount).toLocaleString('en-IN')}/mo on day ${dayOfMonth}${CE[category] ? ` ${CE[category]}` : ''}\n_Auto-logs every month via the daily cron._`
+    }
+
+    case 'list_recurring': {
+      const { data } = await db.from('recurring_expenses').select('name, amount, category, day_of_month, active').eq('user_id', userId).order('day_of_month', { ascending: true })
+      if (!data?.length) return 'No recurring expenses set up. Try "rent is 15000 every month".'
+      return `🔁 *Recurring expenses:*\n` + data.map(r => `${CE[r.category] ?? '📦'} *${r.name}* — ₹${Number(r.amount).toLocaleString('en-IN')}/mo _(day ${r.day_of_month}${r.active ? '' : ', paused'})_`).join('\n')
+    }
+
     default:
-      return `*Finance Bot — What I can do:*\n\n💸 *Expenses:*\n• "spent 500 on Swiggy food"\n• "show today's expenses"\n• "monthly summary"\n• "set food budget 8000"\n• "actually make that 400" (amend)\n• "undo that"\n\n📊 *Portfolio:*\n• "net worth"\n• "my salary is 120000"\n• "add home loan 20L EMI 15000 180 months"\n• "add SIP Axis Bluechip invested 50000 current 65000"\n\n🤖 *AI Advisor:*\n• "can I afford a car?"\n• "should I prepay my loan?"`
+      return `*Finance Bot — What I can do:*\n\n💸 *Expenses:*\n• "spent 500 on Swiggy food"\n• "show today's expenses"\n• "monthly summary"\n• "set food budget 8000"\n• "actually make that 400" (amend)\n• "undo that"\n\n🔁 *Recurring:*\n• "rent is 15000 every month"\n• "show my recurring expenses"\n\n📊 *Portfolio:*\n• "net worth"\n• "my salary is 120000"\n• "add home loan 20L EMI 15000 180 months"\n• "add SIP Axis Bluechip invested 50000 current 65000"\n\n🤖 *AI Advisor:*\n• "can I afford a car?"\n• "should I prepay my loan?"`
   }
 }

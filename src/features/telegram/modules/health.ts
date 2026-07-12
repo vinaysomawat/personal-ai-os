@@ -12,6 +12,8 @@ Actions:
 {"action":"skip_workout"}
 {"action":"plan"}
 {"action":"report"}
+{"action":"ask","question":"free-form health/nutrition/fitness question"}
+{"action":"undo_last"}
 {"action":"help"}
 
 Rules for log_metric:
@@ -30,6 +32,8 @@ Rules for workouts:
 - "skip today's workout", "not training today", "skip workout" → skip_workout
 - For "what should I do today", "today's plan", "am I on track" → plan
 - For "how was my week", "weekly report" → report
+- For "should I take a rest day", "why isn't my weight moving", "is my protein enough" or anything needing judgment → ask with the question
+- For "undo that workout", "I didn't actually do that", "remove the last workout log" → undo_last (a mislogged metric like weight/sleep/steps doesn't need undo — just log the correct value again, it overwrites today's entry)
 
 Always return valid JSON only. No explanation.`
 
@@ -139,10 +143,29 @@ export async function execute(action: Record<string, unknown>, db: SupabaseClien
       return `📋 *Weekly Report:*\n\n${report}`
     }
 
+    case 'ask': {
+      const { askHealthCoach } = await import('@/features/ai/health-report')
+      const since14 = new Date(Date.now() - 14 * 86400000).toISOString().split('T')[0]
+      const [profileRes, metricsRes] = await Promise.all([
+        db.from('health_profile').select('*').eq('user_id', userId).single(),
+        db.from('health_metrics').select('*').eq('user_id', userId).gte('date', since14).order('date', { ascending: true }),
+      ])
+      const answer = await askHealthCoach(String(action.question), profileRes.data ?? null, metricsRes.data ?? [])
+      return `🎓 *Health Coach:*\n\n${answer}`
+    }
+
+    case 'undo_last': {
+      const { data } = await db.from('workouts').select('id, type, duration_minutes').eq('user_id', userId).order('created_at', { ascending: false }).limit(1)
+      const last = data?.[0]
+      if (!last) return `❌ No recent workout log to undo.`
+      await db.from('workouts').delete().eq('id', last.id)
+      return `🗑️ Undone: *${last.type}*${last.duration_minutes ? ` — ${last.duration_minutes} min` : ''}`
+    }
+
     default:
       return `*Health Bot — What I can do:*\n\n` +
         `📊 *Metrics:*\n• "weight 88kg"\n• "slept 7.5 hours"\n• "8000 steps"\n• "2000 calories"\n• "120g protein"\n• "2L water"\n• "recovery 4/5"\n• "today's metrics"\n\n` +
-        `🏋️ *Workouts:*\n• "did 45 min strength training"\n• "30 min run"\n• "today's workout"\n• "finished my workout"\n• "skip today's workout"\n\n` +
-        `🎓 *Coaching:*\n• "what should I do today"\n• "how was my week"`
+        `🏋️ *Workouts:*\n• "did 45 min strength training"\n• "30 min run"\n• "today's workout"\n• "finished my workout"\n• "skip today's workout"\n• "undo that workout"\n\n` +
+        `🎓 *Coaching:*\n• "what should I do today"\n• "how was my week"\n• "why isn't my weight moving"`
   }
 }

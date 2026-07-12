@@ -8,12 +8,16 @@ Actions:
 {"action":"append","search":"title","content":"text to append"}
 {"action":"search_documents","query":"search term"}
 {"action":"list_documents"}
+{"action":"ask","topic":"short keyword or title fragment to find the right document","question":"free-form question about a document's content"}
+{"action":"undo_last"}
 {"action":"help"}
 
 Rules:
 - For "note that...", "remember...", "save..." → create_document or append to existing
 - For "add to [title]" → append action
-- tags are topic keywords, lowercase`
+- tags are topic keywords, lowercase
+- For "what did I write about X", "what does my Y doc say about Z", "summarise my X notes" → ask, with topic set to the most distinctive keyword/title fragment (e.g. "X" or "Y") and question set to the full question
+- For "undo that", "delete the doc I just made", "oops wrong note" → undo_last`
 
 export async function execute(action: Record<string, unknown>, db: SupabaseClient, userId: string): Promise<ModuleReply> {
   switch (action.action) {
@@ -41,7 +45,23 @@ export async function execute(action: Record<string, unknown>, db: SupabaseClien
       if (!data?.length) return 'No documents yet.'
       return `📚 *Your documents:*\n` + data.map(d => `📄 *${d.title}*${d.tags?.length ? ` _(${d.tags.join(', ')})_` : ''}`).join('\n')
     }
+    case 'ask': {
+      const topic = String(action.topic ?? action.question ?? '')
+      const { data } = await db.from('documents').select('title, content').eq('user_id', userId).or(`title.ilike.%${topic}%,content.ilike.%${topic}%`).order('updated_at', { ascending: false }).limit(1)
+      const doc = data?.[0]
+      if (!doc) return `❌ No document matching "${topic}" — try "search ${topic}" to browse close matches.`
+      const { askDocument } = await import('@/features/ai/doc-qa')
+      const answer = await askDocument(doc.title, doc.content, String(action.question))
+      return `📄 *${doc.title}:*\n\n${answer}`
+    }
+    case 'undo_last': {
+      const { data } = await db.from('documents').select('id, title').eq('user_id', userId).order('created_at', { ascending: false }).limit(1)
+      const last = data?.[0]
+      if (!last) return `❌ No recent document to undo.`
+      await db.from('documents').delete().eq('id', last.id)
+      return `🗑️ Undone: *${last.title}*`
+    }
     default:
-      return `*Documents Bot — What I can do:*\n• "note that Next.js 15 uses server components by default"\n• "create doc Interview Prep with content..."\n• "add to Interview Prep: practice system design"\n• "search React hooks"\n• "list documents"`
+      return `*Documents Bot — What I can do:*\n• "note that Next.js 15 uses server components by default"\n• "create doc Interview Prep with content..."\n• "add to Interview Prep: practice system design"\n• "search React hooks"\n• "list documents"\n• "what did I write about system design?"\n• "undo that"`
   }
 }

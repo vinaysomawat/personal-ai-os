@@ -9,6 +9,8 @@ Actions:
 {"action":"complete","search":"title"}
 {"action":"list_resources","filter":"all"|"in-progress"|"not-started"|"completed"|"needs-revision"}
 {"action":"plan"}
+{"action":"quiz","search":"partial resource title"}
+{"action":"undo_last"}
 {"action":"help"}
 
 Rules:
@@ -16,7 +18,9 @@ Rules:
 - If user says "started X", set status to "in-progress"
 - If user says "finished X", use complete action
 - For "what should I study today", "today's study plan" → plan
-- For "what am I forgetting", "what needs revision" → list_resources with filter "needs-revision"`
+- For "what am I forgetting", "what needs revision" → list_resources with filter "needs-revision"
+- For "quiz me on X", "test me on X", "flashcards for X" → quiz
+- For "undo that", "remove the last one I added", "oops wrong resource" → undo_last`
 
 const TE = { course: '🎓', book: '📚', video: '🎬', article: '📄', podcast: '🎙️' } as Record<string, string>
 
@@ -77,7 +81,23 @@ export async function execute(action: Record<string, unknown>, db: SupabaseClien
       const plan = await getDailyStudyPlan(resourcesRes.data ?? [], logsRes.data ?? [])
       return `📚 *Today's Study Plan:*\n\n${plan}`
     }
+    case 'quiz': {
+      const { data } = await db.from('resources').select('id, title, category, type, notes').eq('user_id', userId).ilike('title', `%${action.search}%`).limit(1)
+      const r = data?.[0]
+      if (!r) return `❌ No resource matching "${action.search}"`
+      const { generateResourceQuiz } = await import('@/features/ai/study-plan')
+      const questions = await generateResourceQuiz(r.title, r.category, r.type, r.notes)
+      if (!questions.length) return `❌ Couldn't generate a quiz for *${r.title}* right now.`
+      return `🧠 *Quiz — ${r.title}:*\n\n` + questions.map((q, i) => `*${i + 1}. ${q.question}*\n${q.answer}`).join('\n\n')
+    }
+    case 'undo_last': {
+      const { data } = await db.from('resources').select('id, title').eq('user_id', userId).order('created_at', { ascending: false }).limit(1)
+      const last = data?.[0]
+      if (!last) return `❌ No recent resource to undo.`
+      await db.from('resources').delete().eq('id', last.id)
+      return `🗑️ Undone: *${last.title}*`
+    }
     default:
-      return `*Learning Bot — What I can do:*\n• "add Next.js course from Udemy"\n• "started JavaScript: The Good Parts book"\n• "update Next.js to 60%"\n• "finished React docs"\n• "show in-progress resources"\n• "what should I study today"`
+      return `*Learning Bot — What I can do:*\n• "add Next.js course from Udemy"\n• "started JavaScript: The Good Parts book"\n• "update Next.js to 60%"\n• "finished React docs"\n• "show in-progress resources"\n• "what should I study today"\n• "quiz me on React hooks"\n• "undo that"`
   }
 }
