@@ -92,9 +92,9 @@ export async function execute(action: Record<string, unknown>, db: SupabaseClien
       const todayMetric = metrics.find(m => m.date === today) ?? null
 
       const result = computeHealthPlan(profileRes.data ?? null, metrics, workouts, today)
-      if (!result) return `❌ Set up your health profile on the web app first (age, gender, height, target weight, activity level) — needed to compute your plan.`
+      if (!result) return `❌ Set up your health profile on the web app first (age, gender, height, activity level) — needed to compute your plan.`
 
-      const plan = await getDailyHealthPlan(profileRes.data, result.weightLossPlan, todayMetric, result.healthScore, today)
+      const plan = await getDailyHealthPlan(profileRes.data, result.dailyTargets, todayMetric, result.healthScore, today)
       return `🏋️ *Today's Plan:*\n\n${plan}`
     }
 

@@ -14,9 +14,6 @@ const priorityDot: Record<Priority, string> = {
   low: 'bg-slate-500',
 }
 
-const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
-const todayIdx = new Date().getDay() === 0 ? 6 : new Date().getDay() - 1
-
 interface Props {
   initialTasks: Task[]
 }
@@ -88,34 +85,20 @@ export default function PlannerView({ initialTasks }: Props) {
   }
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-4">
       <ModuleRecommendations moduleLabel="Planner" context={plannerContext} />
 
-      {/* Week strip */}
-      <div className="grid grid-cols-7 gap-1.5">
-        {days.map((d, i) => (
-          <div
-            key={d}
-            className={`flex flex-col items-center p-2.5 rounded-xl border transition-colors ${
-              i === todayIdx
-                ? 'bg-accent border-accent text-white'
-                : 'bg-surface-1 border-surface-3 text-slate-400'
-            }`}
-          >
-            <span className="text-xs font-medium">{d}</span>
-            <span className={`text-base font-bold mt-0.5 ${i === todayIdx ? 'text-white' : 'text-slate-300'}`}>
-              {new Date(Date.now() + (i - todayIdx) * 86400000).getDate()}
-            </span>
-          </div>
-        ))}
-      </div>
+      <p className="text-xs text-slate-500 uppercase tracking-widest px-0.5">
+        {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
+      </p>
 
       <Card
         title="Today's Tasks"
+        padding="p-3.5"
         action={<span className="text-xs text-slate-500">{pending.length} remaining</span>}
       >
         {/* Add task row */}
-        <div className="flex gap-2 mb-4">
+        <div className="flex gap-2 mb-3">
           <input
             value={input}
             onChange={e => setInput(e.target.value)}
@@ -155,9 +138,9 @@ export default function PlannerView({ initialTasks }: Props) {
         {pending.length === 0 && (
           <p className="text-sm text-slate-600 text-center py-6">No tasks — add one above</p>
         )}
-        <ul className="space-y-1.5">
+        <ul className="space-y-1">
           {pending.map(task => (
-            <li key={task.id} className="flex items-center gap-3 p-2.5 rounded-lg hover:bg-surface-2 transition-colors group">
+            <li key={task.id} className="flex items-center gap-3 p-2 rounded-lg hover:bg-surface-2 transition-colors group">
               <button onClick={() => handleToggle(task.id, task.done)} className="shrink-0">
                 <Circle size={16} className="text-slate-600 group-hover:text-accent transition-colors" />
               </button>
@@ -188,9 +171,9 @@ export default function PlannerView({ initialTasks }: Props) {
             <summary className="flex items-center gap-2 text-xs text-slate-500 cursor-pointer select-none list-none">
               <span>›</span> Completed ({done.length})
             </summary>
-            <ul className="space-y-1.5 mt-2">
+            <ul className="space-y-1 mt-2">
               {done.map(task => (
-                <li key={task.id} className="flex items-center gap-3 p-2.5 rounded-lg hover:bg-surface-2 transition-colors group">
+                <li key={task.id} className="flex items-center gap-3 p-2 rounded-lg hover:bg-surface-2 transition-colors group">
                   <button onClick={() => handleToggle(task.id, task.done)} className="shrink-0">
                     <CheckCircle2 size={16} className="text-green-500" />
                   </button>

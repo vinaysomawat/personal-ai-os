@@ -8,7 +8,6 @@ const ACTIVITY_MULTIPLIER: Record<ActivityLevel, number> = {
   very_active: 1.9,
 }
 
-const KCAL_PER_KG_FAT = 7700
 const MIN_SAFE_CALORIES = 1500
 
 export function calculateBMI(weightKg: number, heightCm: number): number {
@@ -25,59 +24,22 @@ export function calculateTDEE(bmr: number, activityLevel: ActivityLevel): number
   return bmr * ACTIVITY_MULTIPLIER[activityLevel]
 }
 
-export interface WeightLossPlan {
+export interface DailyTargets {
   dailyCalorieTarget: number
   proteinTargetG: number
   carbsG: number
   fatG: number
-  weeklyLossKg: number
-  weeklyDeficit: number
-  expectedGoalDate: string
-  daysRemaining: number
 }
 
-export function calculateWeightLossPlan(
-  currentWeightKg: number,
-  targetWeightKg: number,
-  tdee: number,
-  goalDeadline?: string | null
-): WeightLossPlan {
-  const weightToLoseKg = Math.max(0, currentWeightKg - targetWeightKg)
-  const today = new Date()
-
-  let weeklyLossKg: number
-  let expectedGoalDate: Date
-
-  if (goalDeadline) {
-    const deadline = new Date(goalDeadline + 'T00:00:00')
-    const weeksRemaining = Math.max(1, (deadline.getTime() - today.getTime()) / (7 * 86400000))
-    weeklyLossKg = weightToLoseKg > 0 ? Math.min(1, weightToLoseKg / weeksRemaining) : 0
-    expectedGoalDate = deadline
-  } else {
-    weeklyLossKg = weightToLoseKg > 0 ? Math.min(1, Math.max(0.4, weightToLoseKg * 0.01 * 7)) : 0
-    const weeksNeeded = weeklyLossKg > 0 ? weightToLoseKg / weeklyLossKg : 0
-    expectedGoalDate = new Date(today.getTime() + weeksNeeded * 7 * 86400000)
-  }
-
-  const dailyDeficit = (weeklyLossKg * KCAL_PER_KG_FAT) / 7
-  const dailyCalorieTarget = Math.max(MIN_SAFE_CALORIES, Math.round(tdee - dailyDeficit))
-
+// Maintenance-based targets — the goal is overall fitness across all health
+// metrics, not a weight-loss deficit toward a target weight.
+export function calculateDailyTargets(currentWeightKg: number, tdee: number): DailyTargets {
+  const dailyCalorieTarget = Math.max(MIN_SAFE_CALORIES, Math.round(tdee))
   const proteinTargetG = Math.round(currentWeightKg * 2.0)
   const fatG = Math.round((dailyCalorieTarget * 0.25) / 9)
   const carbsG = Math.max(0, Math.round((dailyCalorieTarget - proteinTargetG * 4 - fatG * 9) / 4))
 
-  const daysRemaining = Math.max(0, Math.round((expectedGoalDate.getTime() - today.getTime()) / 86400000))
-
-  return {
-    dailyCalorieTarget,
-    proteinTargetG,
-    carbsG,
-    fatG,
-    weeklyLossKg: Math.round(weeklyLossKg * 100) / 100,
-    weeklyDeficit: Math.round(dailyDeficit * 7),
-    expectedGoalDate: expectedGoalDate.toISOString().split('T')[0],
-    daysRemaining,
-  }
+  return { dailyCalorieTarget, proteinTargetG, carbsG, fatG }
 }
 
 export interface SubScore {
@@ -161,7 +123,7 @@ export function calculateHealthScore(
 }
 
 export interface HealthPlanResult {
-  weightLossPlan: WeightLossPlan
+  dailyTargets: DailyTargets
   healthScore: HealthScoreBreakdown
 }
 
@@ -179,22 +141,20 @@ export function computeHealthPlan(
     ?? [...metrics].filter(m => m.weight_kg !== null).sort((a, b) => b.date.localeCompare(a.date))[0]?.weight_kg
     ?? null
 
-  const canCalculate = !!profile && profile.age && profile.gender && profile.height_cm && profile.target_weight_kg && profile.activity_level && latestWeight
+  const canCalculate = !!profile && profile.age && profile.gender && profile.height_cm && profile.activity_level && latestWeight
   if (!canCalculate) return null
 
-  const weightLossPlan = calculateWeightLossPlan(
+  const dailyTargets = calculateDailyTargets(
     latestWeight!,
-    profile!.target_weight_kg!,
     calculateTDEE(calculateBMR(latestWeight!, profile!.height_cm!, profile!.age!, profile!.gender!), profile!.activity_level!),
-    profile!.goal_deadline
   )
 
   const healthScore = calculateHealthScore(
     todayMetric,
-    { calories: weightLossPlan.dailyCalorieTarget, protein: weightLossPlan.proteinTargetG, steps: 10000 },
+    { calories: dailyTargets.dailyCalorieTarget, protein: dailyTargets.proteinTargetG, steps: 10000 },
     workouts,
     today
   )
 
-  return { weightLossPlan, healthScore }
+  return { dailyTargets, healthScore }
 }

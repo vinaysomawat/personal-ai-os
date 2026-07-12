@@ -10,7 +10,6 @@ import { computeHealthPlan } from '../calculations'
 import HealthProfileForm from './HealthProfileForm'
 import HealthScoreHero from './HealthScoreHero'
 import TodaysPlanCard from './TodaysPlanCard'
-import MetricChart from './MetricChart'
 import type { HealthMetric, MetricField, HealthProfile, Workout } from '../types'
 
 const METRICS: { field: MetricField; label: string; emoji: string; unit: string; decimals?: number }[] = [
@@ -153,14 +152,14 @@ export default function HealthView({ initialMetrics, initialProfile, initialWork
   }
 
   const healthPlan = computeHealthPlan(profile, metrics, workouts, today)
-  const weightLossPlan = healthPlan?.weightLossPlan ?? null
+  const dailyTargets = healthPlan?.dailyTargets ?? null
   const healthScore = healthPlan?.healthScore ?? null
 
   const leftText = (field: MetricField): string | null => {
-    if (!weightLossPlan) return null
+    if (!dailyTargets) return null
     const value = todayMetric?.[field]
-    if (field === 'calories') return `${Math.max(0, weightLossPlan.dailyCalorieTarget - (value ?? 0))} kcal left of ${weightLossPlan.dailyCalorieTarget}`
-    if (field === 'protein_g') return `${Math.max(0, weightLossPlan.proteinTargetG - (value ?? 0))}g left of ${weightLossPlan.proteinTargetG}g`
+    if (field === 'calories') return `${Math.max(0, dailyTargets.dailyCalorieTarget - (value ?? 0))} kcal left of ${dailyTargets.dailyCalorieTarget}`
+    if (field === 'protein_g') return `${Math.max(0, dailyTargets.proteinTargetG - (value ?? 0))}g left of ${dailyTargets.proteinTargetG}g`
     if (field === 'water_ml') return `${Math.max(0, 3000 - (value ?? 0))}ml left of 3000ml`
     if (field === 'steps') return `${Math.max(0, 10000 - (value ?? 0))} steps left of 10,000`
     return null
@@ -168,7 +167,7 @@ export default function HealthView({ initialMetrics, initialProfile, initialWork
 
   return (
     <div className="space-y-5">
-      <ModuleRecommendations moduleLabel="Health" context={`Health Score: ${healthScore?.overall ?? 'not calculated (set up profile)'}/100. Today: weight=${todayMetric?.weight_kg ?? 'not logged'}kg, calories=${todayMetric?.calories ?? 'not logged'}, protein=${todayMetric?.protein_g ?? 'not logged'}g, sleep=${todayMetric?.sleep_hours ?? 'not logged'}h, steps=${todayMetric?.steps ?? 'not logged'}, water=${todayMetric?.water_ml ?? 'not logged'}ml, recovery=${todayMetric?.recovery_score ?? 'not logged'}/5. Workouts today: ${workouts.length ? workouts.map(w => w.type).join(', ') : 'none'}. ${weightLossPlan ? `Goal: ${profile?.target_weight_kg}kg by ${weightLossPlan.expectedGoalDate}.` : 'No weight goal set yet.'}`} />
+      <ModuleRecommendations moduleLabel="Health" context={`Health Score: ${healthScore?.overall ?? 'not calculated (set up profile)'}/100. Today: weight=${todayMetric?.weight_kg ?? 'not logged'}kg, calories=${todayMetric?.calories ?? 'not logged'}, protein=${todayMetric?.protein_g ?? 'not logged'}g, sleep=${todayMetric?.sleep_hours ?? 'not logged'}h, steps=${todayMetric?.steps ?? 'not logged'}, water=${todayMetric?.water_ml ?? 'not logged'}ml, recovery=${todayMetric?.recovery_score ?? 'not logged'}/5. Workouts today: ${workouts.length ? workouts.map(w => w.type).join(', ') : 'none'}. Goal: overall fitness across nutrition, activity, and sleep — not a target weight.`} />
 
       {/* Health profile setup / edit */}
       {!profile ? (
@@ -198,32 +197,32 @@ export default function HealthView({ initialMetrics, initialProfile, initialWork
       )}
 
       {/* Health Score + Today's Plan */}
-      {profile && weightLossPlan && healthScore && (
+      {profile && dailyTargets && healthScore && (
         <>
           <HealthScoreHero score={healthScore} />
-          <TodaysPlanCard profile={profile} plan={weightLossPlan} todayMetric={todayMetric} score={healthScore} today={today} />
+          <TodaysPlanCard profile={profile} plan={dailyTargets} todayMetric={todayMetric} score={healthScore} today={today} />
           <div className="bg-surface-1 border border-surface-3 rounded-xl p-4 grid grid-cols-2 sm:grid-cols-4 gap-3 text-center">
             <div>
-              <p className="text-lg font-bold text-white">{weightLossPlan.dailyCalorieTarget}</p>
+              <p className="text-lg font-bold text-white">{dailyTargets.dailyCalorieTarget}</p>
               <p className="text-xs text-slate-500">kcal target</p>
             </div>
             <div>
-              <p className="text-lg font-bold text-white">{weightLossPlan.proteinTargetG}g</p>
+              <p className="text-lg font-bold text-white">{dailyTargets.proteinTargetG}g</p>
               <p className="text-xs text-slate-500">protein target</p>
             </div>
             <div>
-              <p className="text-lg font-bold text-white">{weightLossPlan.weeklyLossKg}kg</p>
-              <p className="text-xs text-slate-500">per week</p>
+              <p className="text-lg font-bold text-white">{dailyTargets.carbsG}g</p>
+              <p className="text-xs text-slate-500">carbs target</p>
             </div>
             <div>
-              <p className="text-lg font-bold text-white">{weightLossPlan.daysRemaining}d</p>
-              <p className="text-xs text-slate-500">to {profile.target_weight_kg}kg ({weightLossPlan.expectedGoalDate})</p>
+              <p className="text-lg font-bold text-white">{dailyTargets.fatG}g</p>
+              <p className="text-xs text-slate-500">fat target</p>
             </div>
           </div>
         </>
       )}
 
-      {profile && !weightLossPlan && (
+      {profile && !dailyTargets && (
         <p className="text-xs text-slate-600 -mt-2">Log today&apos;s weight below to unlock your calorie targets and Health Score.</p>
       )}
 
@@ -301,33 +300,6 @@ export default function HealthView({ initialMetrics, initialProfile, initialWork
             ))}
           </ul>
         )}
-      </Card>
-
-      {/* Weight trend */}
-      <Card title="Weight Trend">
-        <MetricChart metrics={metrics} field="weight_kg" label="Weight" unit="kg" decimals={1} lowerIsBetter />
-      </Card>
-
-      {/* Progress */}
-      <Card title="Progress">
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-          <div>
-            <p className="text-xs text-slate-500 mb-2">Calories</p>
-            <MetricChart metrics={metrics} field="calories" label="Calories" unit="kcal" />
-          </div>
-          <div>
-            <p className="text-xs text-slate-500 mb-2">Protein</p>
-            <MetricChart metrics={metrics} field="protein_g" label="Protein" unit="g" />
-          </div>
-          <div>
-            <p className="text-xs text-slate-500 mb-2">Sleep</p>
-            <MetricChart metrics={metrics} field="sleep_hours" label="Sleep" unit="hrs" decimals={1} />
-          </div>
-          <div>
-            <p className="text-xs text-slate-500 mb-2">Steps</p>
-            <MetricChart metrics={metrics} field="steps" label="Steps" unit="steps" />
-          </div>
-        </div>
       </Card>
 
       {/* AI Health Coach */}

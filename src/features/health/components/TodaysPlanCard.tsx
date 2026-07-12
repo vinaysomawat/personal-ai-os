@@ -4,11 +4,11 @@ import { useState } from 'react'
 import { Sparkles, ChevronDown } from 'lucide-react'
 import { getDailyHealthPlan } from '@/features/ai/health-report'
 import type { HealthMetric, HealthProfile } from '../types'
-import type { WeightLossPlan, HealthScoreBreakdown } from '../calculations'
+import type { DailyTargets, HealthScoreBreakdown } from '../calculations'
 
 interface Props {
   profile: HealthProfile
-  plan: WeightLossPlan
+  plan: DailyTargets
   todayMetric: HealthMetric | null
   score: HealthScoreBreakdown
   today: string
