@@ -11,6 +11,7 @@ Actions:
 {"action":"undo_last"}
 {"action":"briefing"}
 {"action":"digest"}
+{"action":"monthly_digest"}
 {"action":"set_reminder","label":"what to be reminded about","slot":"morning"|"evening"}
 {"action":"list_reminders"}
 {"action":"delete_reminder","search":"partial reminder text"}
@@ -21,6 +22,7 @@ Rules:
 - If user says "today" for due_date, use today's date
 - For "how am I doing", "give me my briefing", "today's briefing" → briefing
 - For "how was my week", "weekly digest", "weekly review" → digest
+- For "how was my month", "monthly digest", "monthly review" → monthly_digest
 - For "remind me to X every morning/day" → set_reminder with slot "morning"
 - For "remind me to X every evening/night" → set_reminder with slot "evening"
 - Reminders only fire at the two existing daily windows (~8:30am and ~8pm IST) — not arbitrary times
@@ -80,6 +82,11 @@ export async function execute(action: Record<string, unknown>, db: SupabaseClien
       const body = await generateWeeklyDigest(db, userId)
       return `📊 *Weekly Digest:*\n\n${body}`
     }
+    case 'monthly_digest': {
+      const { generateMonthlyDigest } = await import('@/features/ai/weekly-digest')
+      const body = await generateMonthlyDigest(db, userId)
+      return `📅 *Monthly Digest:*\n\n${body}`
+    }
     case 'set_reminder': {
       const slot = action.slot === 'evening' ? 'evening' : 'morning'
       const { error } = await db.from('reminders').insert({ user_id: userId, module: 'planner', label: String(action.label), slot })
@@ -99,6 +106,6 @@ export async function execute(action: Record<string, unknown>, db: SupabaseClien
       return `🗑️ Removed reminder: "${reminder.label}"`
     }
     default:
-      return `*Planner Bot — What I can do:*\n• "add buy groceries high priority"\n• "show pending tasks"\n• "done with buy groceries"\n• "delete buy groceries"\n• "add call dentist due 2026-07-10"\n• "undo that"\n• "how am I doing" (briefing)\n• "how was my week" (digest)\n• "remind me to log weight every morning"\n• "show my reminders"`
+      return `*Planner Bot — What I can do:*\n• "add buy groceries high priority"\n• "show pending tasks"\n• "done with buy groceries"\n• "delete buy groceries"\n• "add call dentist due 2026-07-10"\n• "undo that"\n• "how am I doing" (briefing)\n• "how was my week" (digest)\n• "how was my month" (monthly digest)\n• "remind me to log weight every morning"\n• "show my reminders"`
   }
 }

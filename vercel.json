@@ -9,6 +9,10 @@
       "schedule": "30 2 * * 0"
     },
     {
+      "path": "/api/cron/monthly-digest",
+      "schedule": "40 2 * * *"
+    },
+    {
       "path": "/api/cron/daily-coding",
       "schedule": "5 3 * * *"
     },
