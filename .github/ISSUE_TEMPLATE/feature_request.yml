@@ -1,0 +1,27 @@
+name: Feature request
+description: Suggest an improvement or new capability
+labels: [enhancement]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Quick check before you file: per `CONTRIBUTING.md`, this project is tailored to one person's specific workflow and isn't aiming for multi-tenant/general-purpose use. Feature requests that only make sense for a different life/workflow than the author's are unlikely to be accepted — generalizable improvements (AI Gateway, Telegram pipeline, rule-engine patterns, docs) are the best fit.
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem does this solve
+      description: What's missing or annoying today?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+    validations:
+      required: false
