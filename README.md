@@ -2,6 +2,7 @@
 
 [![CI](https://github.com/vinaysomawat/personal-ai-os/actions/workflows/ci.yml/badge.svg)](https://github.com/vinaysomawat/personal-ai-os/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Buy Me A Coffee](https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png)](https://buymeacoffee.com/r194dme8y/c/19242327)
 
 A personal, single-user AI Operating System: one Next.js app that tracks tasks, career, money, health, learning, coding practice, and a personal knowledge base — with Claude generating insight in every module, a per-module Telegram bot for hands-free logging (text, voice, or photo), scheduled proactive nudges, and a gamified "Life Score" that rolls all of it into one daily number.
 
@@ -294,3 +295,21 @@ npm run lint            # ESLint
 Required in `.env.local` (and Vercel project settings) — see `.env.example` for the full list with inline comments; copy it (`cp .env.example .env.local`) and fill in your own values.
 
 Telegram webhooks (one per module bot) are registered via `scripts/setup-webhooks.mjs`.
+
+### Deploying your own instance
+
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/vinaysomawat/personal-ai-os&env=NEXT_PUBLIC_SUPABASE_URL,NEXT_PUBLIC_SUPABASE_ANON_KEY,SUPABASE_SERVICE_ROLE_KEY,ANTHROPIC_API_KEY,GROQ_API_KEY,CRON_SECRET&envDescription=See%20the%20README%27s%20%22Deploying%20your%20own%20instance%22%20section%20for%20where%20each%20value%20comes%20from&envLink=https://github.com/vinaysomawat/personal-ai-os%23deploying-your-own-instance)
+
+This app is a single-user system — there's no way around some manual setup and a specific order of operations, since a few values (your own user ID, your own Telegram chat ID) don't exist until you've deployed once and signed up. Steps:
+
+1. **Create a Supabase project** at [supabase.com](https://supabase.com) (free tier is enough). Get `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, and `SUPABASE_SERVICE_ROLE_KEY` from Project Settings → API.
+2. **Run every file in `supabase/migrations/`** against that project, in filename order (Supabase Dashboard → SQL Editor, or the Supabase CLI).
+3. **Get an Anthropic API key** at [console.anthropic.com](https://console.anthropic.com) (`ANTHROPIC_API_KEY`). Optionally get a Groq key at [console.groq.com](https://console.groq.com) (`GROQ_API_KEY`) — only needed for Telegram voice-note transcription; the app works without it.
+4. **Generate `CRON_SECRET`** — any random string (e.g. `openssl rand -hex 32`).
+5. **Deploy** — click the button above, or `vercel deploy`, setting the env vars from steps 1–4.
+6. **Sign up** at `https://<your-deployment>/login`, confirm your email, then log in. Copy your new user's UUID from Supabase Dashboard → Authentication → Users, and add it to your Vercel project's environment variables as `SUPABASE_USER_ID`, then redeploy — cron jobs and the Telegram bots use this to know whose data to act on.
+7. **Lock down signups** in your Supabase project (Authentication → Sign In / Providers) once your own account exists — the app has no invite gate of its own, and by default the `/login` page's "Sign up" button lets anyone create an account against your database.
+8. *(Optional, for Telegram)* Create one bot per module you want via [@BotFather](https://t.me/BotFather), set the resulting `TELEGRAM_BOT_TOKEN_*` env vars, message any of your new bots once to learn your chat ID (e.g. via [@userinfobot](https://t.me/userinfobot)) and set `TELEGRAM_ALLOWED_CHAT_ID`, redeploy, then run:
+   ```bash
+   node scripts/setup-webhooks.mjs https://your-app.vercel.app
+   ```
