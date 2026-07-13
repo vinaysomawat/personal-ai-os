@@ -4,6 +4,10 @@ A personal, single-user AI Operating System: one Next.js app that tracks tasks, 
 
 This document describes exactly what the app does today, module by module, field by field, formula by formula, so it can be pasted into a fresh AI chat and give that AI complete understanding of the system with no other context needed. It is kept current with every functional change (see `CLAUDE.md`'s post-task checklist).
 
+**Status:** this is a personal project built for one person's specific life and workflow — not a product, and not designed for multi-tenant use. It's open-sourced as a working example of an AI-assisted personal system (Next.js + Supabase + Claude + Telegram), not as a tool meant to be deployed as-is for someone else's life. Fork it, borrow the patterns you like, adapt the modules you don't need.
+
+To run your own instance: clone the repo, `npm install`, copy `.env.example` to `.env.local` and fill in your own Supabase project / Anthropic key / Telegram bot tokens (see [Environment variables](#environment-variables)), run the SQL files in `supabase/migrations/` against your Supabase project in order, then `npm run dev`. Licensed under MIT — see `LICENSE`.
+
 ---
 
 ## 1. Dashboard (`/dashboard`)
@@ -284,34 +288,6 @@ npm run lint            # ESLint
 
 ### Environment variables
 
-Required in `.env.local` (and Vercel project settings):
-
-```
-# Supabase
-NEXT_PUBLIC_SUPABASE_URL=
-NEXT_PUBLIC_SUPABASE_ANON_KEY=
-SUPABASE_SERVICE_ROLE_KEY=
-SUPABASE_USER_ID=              # this user's auth.users id — used by cron jobs & Telegram (single-user app)
-
-# AI
-ANTHROPIC_API_KEY=
-GROQ_API_KEY=                  # Telegram voice-note transcription
-AI_DAILY_BUDGET_USD=           # optional, default 3 — AI Gateway daily spend ceiling
-AI_MONTHLY_BUDGET_USD=         # optional, default 50 — AI Gateway monthly spend ceiling
-
-# Telegram — one bot token per module, all in one allowed chat
-TELEGRAM_ALLOWED_CHAT_ID=
-TELEGRAM_BOT_TOKEN_PLANNER=
-TELEGRAM_BOT_TOKEN_CAREER=
-TELEGRAM_BOT_TOKEN_FINANCE=
-TELEGRAM_BOT_TOKEN_HEALTH=
-TELEGRAM_BOT_TOKEN_LEARNING=
-TELEGRAM_BOT_TOKEN_CODING=
-TELEGRAM_BOT_TOKEN_DOCUMENTS=
-TELEGRAM_DAILY_AI_CAP=         # optional, default 300 — max AI-processed Telegram messages/day
-
-# Cron
-CRON_SECRET=                   # must match the Authorization: Bearer header Vercel Cron sends
-```
+Required in `.env.local` (and Vercel project settings) — see `.env.example` for the full list with inline comments; copy it (`cp .env.example .env.local`) and fill in your own values.
 
 Telegram webhooks (one per module bot) are registered via `scripts/setup-webhooks.mjs`.
