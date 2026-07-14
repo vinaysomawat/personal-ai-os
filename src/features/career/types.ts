@@ -60,6 +60,7 @@ export interface InterviewQA {
   topic: string
   difficulty: Difficulty
   created_at: string
+  last_reviewed_at: string | null
 }
 
 export const SKILL_CATEGORIES = ['Frontend', 'Backend', 'Testing', 'DevOps', 'Architecture', 'Soft Skills', 'Other'] as const

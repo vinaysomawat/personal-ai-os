@@ -1,16 +1,17 @@
 'use client'
 
 import { useState, useTransition } from 'react'
-import { Plus, Trash2, ExternalLink, X, Sparkles, ChevronRight, Pencil, Check, Wand2, FileText, Star, Eye, EyeOff } from 'lucide-react'
+import { Plus, Trash2, ExternalLink, X, Sparkles, ChevronRight, Pencil, Check, Wand2, FileText, Star, Eye, EyeOff, RotateCcw } from 'lucide-react'
 import Card from '@/components/Card'
 import { useAIAdvisor } from '@/components/AIAdvisorProvider'
 import {
   addApplication, updateStatus, deleteApplication,
   upsertCareerProfile, addSkill, updateSkillLevel, deleteSkill,
-  addInterviewQA, updateQAAnswer, deleteInterviewQA,
+  addInterviewQA, updateQAAnswer, deleteInterviewQA, markQAReviewed,
   addResumeVersion, setPrimaryResumeVersion, deleteResumeVersion,
 } from '../actions'
 import { askCareerMentor, generateInterviewQuestions } from '@/features/ai/career-mentor'
+import { getQAsNeedingRevision } from '../calculations'
 import type { Application, AppStatus, CareerProfile, Skill, InterviewQA, SkillLevel, Difficulty, ResumeVersion } from '../types'
 import { SKILL_CATEGORIES, SKILL_LEVEL_CONFIG, DIFFICULTY_CONFIG, QA_TOPICS } from '../types'
 
@@ -112,6 +113,7 @@ export default function CareerView({ applications, profile, skills, qa, codingSt
   const counts = STATUSES.reduce((acc, s) => ({ ...acc, [s]: localApps.filter(a => a.status === s).length }), {} as Record<AppStatus, number>)
   const filtered = filterStatus === 'all' ? localApps : localApps.filter(a => a.status === filterStatus)
   const filteredQA = filterTopic === 'all' ? localQA : localQA.filter(q => q.topic === filterTopic)
+  const needsRevisionQA = getQAsNeedingRevision(localQA)
   const skillsByCategory = localSkills.reduce<Record<string, Skill[]>>((acc, s) => {
     acc[s.category] = [...(acc[s.category] ?? []), s]
     return acc
@@ -161,6 +163,11 @@ export default function CareerView({ applications, profile, skills, qa, codingSt
     startTransition(() => updateQAAnswer(id, answerInput))
     setEditingAnswer(null)
   }
+  const handleMarkReviewed = (id: string) => {
+    const now = new Date().toISOString()
+    setLocalQA(prev => prev.map(q => q.id === id ? { ...q, last_reviewed_at: now } : q))
+    startTransition(() => markQAReviewed(id))
+  }
 
   const handleAsk = async () => {
     if (!mentorQ.trim() || mentorLoading) return
@@ -177,7 +184,7 @@ export default function CareerView({ applications, profile, skills, qa, codingSt
       const targetRole = localProfile?.target_role ?? 'Senior Frontend Engineer'
       const questions = await generateInterviewQuestions(targetRole, topic, difficulty)
       if (questions.length) {
-        const newQAs = questions.map(q => ({ id: `temp-${Date.now()}-${Math.random()}`, user_id: '', question: q.question, answer: q.answer, topic, difficulty: difficulty as Difficulty, created_at: new Date().toISOString() }))
+        const newQAs = questions.map(q => ({ id: `temp-${Date.now()}-${Math.random()}`, user_id: '', question: q.question, answer: q.answer, topic, difficulty: difficulty as Difficulty, created_at: new Date().toISOString(), last_reviewed_at: null }))
         setLocalQA(prev => [...newQAs, ...prev])
         for (const q of questions) {
           await addInterviewQA(q.question, q.answer, topic, difficulty as Difficulty)
@@ -305,6 +312,25 @@ export default function CareerView({ applications, profile, skills, qa, codingSt
         )}
       </Card>
 
+      {/* Revision nudge — rule-based, not AI: Q&A not reviewed (or added) in 14+ days */}
+      {needsRevisionQA.length > 0 && (
+        <Card title="Needs Revision" action={<RotateCcw size={13} className="text-amber-400" />}>
+          <p className="text-xs text-slate-500 mb-3">Not reviewed in the last 14 days — worth a quick revisit before an interview.</p>
+          <ul className="space-y-1.5">
+            {needsRevisionQA.map(q => (
+              <li key={q.id} className="flex items-center gap-3 p-2 rounded-lg hover:bg-surface-2 transition-colors group">
+                <p className="flex-1 text-sm text-slate-300 truncate">{q.question}</p>
+                <span className="text-xs text-slate-600 shrink-0">{q.topic}</span>
+                <button onClick={() => handleMarkReviewed(q.id)}
+                  className="text-xs px-2 py-0.5 rounded-lg border border-surface-3 text-slate-500 hover:text-slate-300 hover:border-slate-500 transition-colors opacity-0 group-hover:opacity-100">
+                  ✓ Mark reviewed
+                </button>
+              </li>
+            ))}
+          </ul>
+        </Card>
+      )}
+
       {/* Interview Q&A Bank */}
       <Card title={`Interview Q&A (${localQA.length})`} action={
         <div className="flex items-center gap-2">
@@ -370,9 +396,14 @@ export default function CareerView({ applications, profile, skills, qa, codingSt
                           ) : (
                             <p className="text-sm text-slate-600 italic">No answer yet</p>
                           )}
-                          <button onClick={() => { setEditingAnswer(item.id); setAnswerInput(item.answer ?? '') }} className="mt-2 text-xs text-accent hover:underline flex items-center gap-1">
-                            <Pencil size={10} /> {item.answer ? 'Edit answer' : 'Add answer'}
-                          </button>
+                          <div className="mt-2 flex items-center gap-3">
+                            <button onClick={() => { setEditingAnswer(item.id); setAnswerInput(item.answer ?? '') }} className="text-xs text-accent hover:underline flex items-center gap-1">
+                              <Pencil size={10} /> {item.answer ? 'Edit answer' : 'Add answer'}
+                            </button>
+                            <button onClick={() => handleMarkReviewed(item.id)} className="text-xs text-slate-500 hover:text-slate-300 flex items-center gap-1">
+                              <Check size={10} /> Mark reviewed
+                            </button>
+                          </div>
                         </div>
                       )}
                     </div>
@@ -497,7 +528,7 @@ export default function CareerView({ applications, profile, skills, qa, codingSt
                 const answer = fd.get('answer') as string || null
                 const topic = fd.get('topic') as string
                 const difficulty = fd.get('difficulty') as Difficulty
-                const newQA: InterviewQA = { id: `temp-${Date.now()}`, user_id: '', question, answer, topic, difficulty, created_at: new Date().toISOString() }
+                const newQA: InterviewQA = { id: `temp-${Date.now()}`, user_id: '', question, answer, topic, difficulty, created_at: new Date().toISOString(), last_reviewed_at: null }
                 setLocalQA(prev => [newQA, ...prev])
                 setModal(null)
                 await addInterviewQA(question, answer, topic, difficulty)

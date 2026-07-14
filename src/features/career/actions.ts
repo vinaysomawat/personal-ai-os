@@ -90,6 +90,13 @@ export async function updateQAAnswer(id: string, answer: string) {
   revalidatePath('/career')
 }
 
+export async function markQAReviewed(id: string) {
+  const supabase = await createClient()
+  const { error } = await supabase.from('interview_qa').update({ last_reviewed_at: new Date().toISOString() }).eq('id', id)
+  if (error) throw new Error(error.message)
+  revalidatePath('/career')
+}
+
 export async function deleteInterviewQA(id: string) {
   const supabase = await createClient()
   const { error } = await supabase.from('interview_qa').delete().eq('id', id)
