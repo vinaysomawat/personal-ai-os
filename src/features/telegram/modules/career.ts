@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { ModuleReply } from '@/lib/telegram/types'
+import { undoButton } from '@/lib/telegram/buttons'
 
 export const SYSTEM_PROMPT = `You are the Career bot for Personal OS. Parse the user message and return ONLY a JSON action.
 
@@ -26,9 +27,12 @@ export async function execute(action: Record<string, unknown>, db: SupabaseClien
   const today = new Date().toISOString().split('T')[0]
   switch (action.action) {
     case 'add_application': {
-      const { error } = await db.from('applications').insert({ user_id: userId, company: action.company, role: action.role, status: action.status ?? 'applied', notes: action.notes ?? null, applied_at: action.applied_at ?? today })
+      const { data, error } = await db.from('applications').insert({ user_id: userId, company: action.company, role: action.role, status: action.status ?? 'applied', notes: action.notes ?? null, applied_at: action.applied_at ?? today }).select('id').single()
       if (error) return `❌ ${error.message}`
-      return `${SC[String(action.status ?? 'applied')]} Added *${action.company}* — ${action.role}\nStatus: ${action.status ?? 'applied'}${action.notes ? `\nNote: ${action.notes}` : ''}`
+      return {
+        text: `${SC[String(action.status ?? 'applied')]} Added *${action.company}* — ${action.role}\nStatus: ${action.status ?? 'applied'}${action.notes ? `\nNote: ${action.notes}` : ''}`,
+        buttons: [[undoButton('applications', data.id)]],
+      }
     }
     case 'update_status': {
       const { data } = await db.from('applications').select('id, company, role').eq('user_id', userId).or(`company.ilike.%${action.search}%,role.ilike.%${action.search}%`).limit(1)

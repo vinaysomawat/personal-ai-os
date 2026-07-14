@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { ModuleReply } from '@/lib/telegram/types'
+import { undoButton } from '@/lib/telegram/buttons'
 
 export const SYSTEM_PROMPT = `You are the Learning bot for Personal OS. Parse the user message and return ONLY a JSON action.
 
@@ -27,10 +28,13 @@ const TE = { course: '🎓', book: '📚', video: '🎬', article: '📄', podca
 export async function execute(action: Record<string, unknown>, db: SupabaseClient, userId: string): Promise<ModuleReply> {
   switch (action.action) {
     case 'add_resource': {
-      const { error } = await db.from('resources').insert({ user_id: userId, title: action.title, type: action.type ?? 'course', url: action.url ?? null, category: action.category ?? 'General', status: action.status ?? 'not-started', progress: 0, notes: null })
+      const { data, error } = await db.from('resources').insert({ user_id: userId, title: action.title, type: action.type ?? 'course', url: action.url ?? null, category: action.category ?? 'General', status: action.status ?? 'not-started', progress: 0, notes: null }).select('id').single()
       if (error) return `❌ ${error.message}`
       const e = TE[String(action.type ?? 'course')] ?? '📖'
-      return `${e} Added *${action.title}*\nType: ${action.type ?? 'course'} · ${action.category ?? 'General'} · ${action.status ?? 'not-started'}`
+      return {
+        text: `${e} Added *${action.title}*\nType: ${action.type ?? 'course'} · ${action.category ?? 'General'} · ${action.status ?? 'not-started'}`,
+        buttons: [[undoButton('resources', data.id)]],
+      }
     }
     case 'update_progress': {
       const { data } = await db.from('resources').select('id, title').eq('user_id', userId).ilike('title', `%${action.search}%`).limit(1)

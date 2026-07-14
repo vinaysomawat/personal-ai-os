@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { ModuleReply } from '@/lib/telegram/types'
+import { undoButton } from '@/lib/telegram/buttons'
 
 export const SYSTEM_PROMPT = `You are the Finance bot for Personal OS. Parse the user message and return ONLY a JSON action.
 
@@ -47,7 +48,7 @@ export async function execute(action: Record<string, unknown>, db: SupabaseClien
       const category = String(action.category ?? 'Other')
       const amount = Number(action.amount)
       const date = String(action.date ?? today)
-      const { error } = await db.from('expenses').insert({ user_id: userId, amount, category, description: action.description ?? null, date })
+      const { data: inserted, error } = await db.from('expenses').insert({ user_id: userId, amount, category, description: action.description ?? null, date }).select('id').single()
       if (error) return `❌ ${error.message}`
 
       // Proactive nudge — warn inline if this pushes the category over/near budget,
@@ -66,7 +67,10 @@ export async function execute(action: Record<string, unknown>, db: SupabaseClien
         }
       }
 
-      return `${CE[category] ?? '📦'} Added ₹${amount.toLocaleString('en-IN')} for *${action.description ?? category}*${nudge}`
+      return {
+        text: `${CE[category] ?? '📦'} Added ₹${amount.toLocaleString('en-IN')} for *${action.description ?? category}*${nudge}`,
+        buttons: [[undoButton('expenses', inserted.id)]],
+      }
     }
 
     case 'list_expenses': {
@@ -103,16 +107,22 @@ export async function execute(action: Record<string, unknown>, db: SupabaseClien
     }
 
     case 'add_loan': {
-      const { error } = await db.from('loans').insert({ user_id: userId, name: action.name, principal: Number(action.principal), emi: Number(action.emi), interest_rate: action.rate ?? null, remaining_months: action.months ?? null })
+      const { data, error } = await db.from('loans').insert({ user_id: userId, name: action.name, principal: Number(action.principal), emi: Number(action.emi), interest_rate: action.rate ?? null, remaining_months: action.months ?? null }).select('id').single()
       if (error) return `❌ ${error.message}`
-      return `🏦 Added loan: *${action.name}*\nEMI: ₹${Number(action.emi).toLocaleString('en-IN')}/mo · ${action.months ?? '?'} months remaining`
+      return {
+        text: `🏦 Added loan: *${action.name}*\nEMI: ₹${Number(action.emi).toLocaleString('en-IN')}/mo · ${action.months ?? '?'} months remaining`,
+        buttons: [[undoButton('loans', data.id)]],
+      }
     }
 
     case 'add_investment': {
-      const { error } = await db.from('investments').insert({ user_id: userId, name: action.name, type: action.type ?? 'other', invested_amount: Number(action.invested), current_value: Number(action.current ?? action.invested), updated_at: new Date().toISOString() })
+      const { data, error } = await db.from('investments').insert({ user_id: userId, name: action.name, type: action.type ?? 'other', invested_amount: Number(action.invested), current_value: Number(action.current ?? action.invested), updated_at: new Date().toISOString() }).select('id').single()
       if (error) return `❌ ${error.message}`
       const pl = Number(action.current ?? action.invested) - Number(action.invested)
-      return `📈 Added: *${action.name}*\nInvested: ₹${Number(action.invested).toLocaleString('en-IN')} · Current: ₹${Number(action.current ?? action.invested).toLocaleString('en-IN')}${pl !== 0 ? ` · P&L: ₹${pl.toLocaleString('en-IN')}` : ''}`
+      return {
+        text: `📈 Added: *${action.name}*\nInvested: ₹${Number(action.invested).toLocaleString('en-IN')} · Current: ₹${Number(action.current ?? action.invested).toLocaleString('en-IN')}${pl !== 0 ? ` · P&L: ₹${pl.toLocaleString('en-IN')}` : ''}`,
+        buttons: [[undoButton('investments', data.id)]],
+      }
     }
 
     case 'net_worth': {
@@ -169,9 +179,12 @@ export async function execute(action: Record<string, unknown>, db: SupabaseClien
     case 'add_recurring': {
       const category = String(action.category ?? 'Other')
       const dayOfMonth = Math.min(28, Math.max(1, Number(action.day_of_month ?? 1)))
-      const { error } = await db.from('recurring_expenses').insert({ user_id: userId, name: action.name, amount: Number(action.amount), category, day_of_month: dayOfMonth })
+      const { data, error } = await db.from('recurring_expenses').insert({ user_id: userId, name: action.name, amount: Number(action.amount), category, day_of_month: dayOfMonth }).select('id').single()
       if (error) return `❌ ${error.message}`
-      return `🔁 Added recurring: *${action.name}* — ₹${Number(action.amount).toLocaleString('en-IN')}/mo on day ${dayOfMonth}${CE[category] ? ` ${CE[category]}` : ''}\n_Auto-logs every month via the daily cron._`
+      return {
+        text: `🔁 Added recurring: *${action.name}* — ₹${Number(action.amount).toLocaleString('en-IN')}/mo on day ${dayOfMonth}${CE[category] ? ` ${CE[category]}` : ''}\n_Auto-logs every month via the daily cron._`,
+        buttons: [[undoButton('recurring_expenses', data.id)]],
+      }
     }
 
     case 'list_recurring': {

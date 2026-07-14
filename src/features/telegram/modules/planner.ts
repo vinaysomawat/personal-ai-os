@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { ModuleReply } from '@/lib/telegram/types'
+import { undoButton } from '@/lib/telegram/buttons'
 
 export const SYSTEM_PROMPT = `You are the Planner bot for Personal OS. Parse the user message and return ONLY a JSON action, nothing else.
 
@@ -12,6 +13,7 @@ Actions:
 {"action":"briefing"}
 {"action":"digest"}
 {"action":"monthly_digest"}
+{"action":"executive_summary"}
 {"action":"set_reminder","label":"what to be reminded about","slot":"morning"|"evening"}
 {"action":"list_reminders"}
 {"action":"delete_reminder","search":"partial reminder text"}
@@ -23,6 +25,7 @@ Rules:
 - For "how am I doing", "give me my briefing", "today's briefing" → briefing
 - For "how was my week", "weekly digest", "weekly review" → digest
 - For "how was my month", "monthly digest", "monthly review" → monthly_digest
+- For "executive summary", "give me the full picture", "what should I improve", "CEO summary" → executive_summary
 - For "remind me to X every morning/day" → set_reminder with slot "morning"
 - For "remind me to X every evening/night" → set_reminder with slot "evening"
 - Reminders only fire at the two existing daily windows (~8:30am and ~8pm IST) — not arbitrary times
@@ -38,7 +41,7 @@ export async function execute(action: Record<string, unknown>, db: SupabaseClien
       if (error) return `❌ ${error.message}`
       return {
         text: `✅ Added *${action.priority ?? 'medium'}* task:\n"${action.text}"${action.due_date ? `\n📅 ${action.due_date}` : ''}`,
-        buttons: [[{ text: '✅ Mark Done', callback_data: `task_done:${data.id}` }]],
+        buttons: [[{ text: '✅ Mark Done', callback_data: `task_done:${data.id}` }, undoButton('tasks', data.id)]],
       }
     }
     case 'list_tasks': {
@@ -87,6 +90,11 @@ export async function execute(action: Record<string, unknown>, db: SupabaseClien
       const body = await generateMonthlyDigest(db, userId)
       return `📅 *Monthly Digest:*\n\n${body}`
     }
+    case 'executive_summary': {
+      const { generateExecutiveSummary } = await import('@/features/ai/executive-summary')
+      const body = await generateExecutiveSummary(db, userId)
+      return `🧭 *Executive Summary:*\n\n${body}`
+    }
     case 'set_reminder': {
       const slot = action.slot === 'evening' ? 'evening' : 'morning'
       const { error } = await db.from('reminders').insert({ user_id: userId, module: 'planner', label: String(action.label), slot })
@@ -106,6 +114,6 @@ export async function execute(action: Record<string, unknown>, db: SupabaseClien
       return `🗑️ Removed reminder: "${reminder.label}"`
     }
     default:
-      return `*Planner Bot — What I can do:*\n• "add buy groceries high priority"\n• "show pending tasks"\n• "done with buy groceries"\n• "delete buy groceries"\n• "add call dentist due 2026-07-10"\n• "undo that"\n• "how am I doing" (briefing)\n• "how was my week" (digest)\n• "how was my month" (monthly digest)\n• "remind me to log weight every morning"\n• "show my reminders"`
+      return `*Planner Bot — What I can do:*\n• "add buy groceries high priority"\n• "show pending tasks"\n• "done with buy groceries"\n• "delete buy groceries"\n• "add call dentist due 2026-07-10"\n• "undo that"\n• "how am I doing" (briefing)\n• "how was my week" (digest)\n• "how was my month" (monthly digest)\n• "executive summary" (score + AI suggestions across every module)\n• "remind me to log weight every morning"\n• "show my reminders"`
   }
 }

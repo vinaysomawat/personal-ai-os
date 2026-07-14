@@ -1,5 +1,3 @@
 # feature or fix to be added
 
-1. make setting section more effective.
-2. Added a new bot called vinaysomawat ceo, use it for general summary of all modules, about the score, what to improve, AI suggestions for modules and other useful.
-3. after adding task or putting item, add necessary buttons like undo/edit/markdone or necessary buttons.
+1. for coding app, it should have something like knowledge of the day or tips and tricks everyday, repeat. likewise for health it should give some tips and trick on daily basis for improvement of health. likewise it should do for career, should fetch the latest opening in top companies and alert on telegram on daily basis.

@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { ModuleReply } from '@/lib/telegram/types'
+import { undoButton } from '@/lib/telegram/buttons'
 
 export const SYSTEM_PROMPT = `You are the Documents bot for Personal OS. Parse the user message and return ONLY a JSON action.
 
@@ -23,9 +24,12 @@ export async function execute(action: Record<string, unknown>, db: SupabaseClien
   switch (action.action) {
     case 'create_document': {
       const tags = Array.isArray(action.tags) ? action.tags : []
-      const { error } = await db.from('documents').insert({ user_id: userId, title: action.title, content: action.content ?? '', tags, updated_at: new Date().toISOString() })
+      const { data, error } = await db.from('documents').insert({ user_id: userId, title: action.title, content: action.content ?? '', tags, updated_at: new Date().toISOString() }).select('id').single()
       if (error) return `❌ ${error.message}`
-      return `📄 Created *${action.title}*${tags.length ? `\nTags: ${tags.join(', ')}` : ''}`
+      return {
+        text: `📄 Created *${action.title}*${tags.length ? `\nTags: ${tags.join(', ')}` : ''}`,
+        buttons: [[undoButton('documents', data.id)]],
+      }
     }
     case 'append': {
       const { data } = await db.from('documents').select('id, title, content').eq('user_id', userId).ilike('title', `%${action.search}%`).limit(1)

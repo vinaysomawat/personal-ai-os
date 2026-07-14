@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { ModuleReply } from '@/lib/telegram/types'
+import { undoButton } from '@/lib/telegram/buttons'
 
 export const SYSTEM_PROMPT = `You are the Health bot for Personal OS. Parse the user message and return ONLY a JSON action.
 
@@ -82,9 +83,12 @@ export async function execute(action: Record<string, unknown>, db: SupabaseClien
     case 'log_workout': {
       const workoutType = action.workoutType ? String(action.workoutType) : 'Other'
       const minutes = action.minutes ? Number(action.minutes) : null
-      const { error } = await db.from('workouts').insert({ user_id: userId, type: workoutType, duration_minutes: minutes })
+      const { data, error } = await db.from('workouts').insert({ user_id: userId, type: workoutType, duration_minutes: minutes }).select('id').single()
       if (error) return `❌ ${error.message}`
-      return `🏋️ Logged *${workoutType}*${minutes ? ` — ${minutes} min` : ''}`
+      return {
+        text: `🏋️ Logged *${workoutType}*${minutes ? ` — ${minutes} min` : ''}`,
+        buttons: [[undoButton('workouts', data.id)]],
+      }
     }
 
     case 'today_workout': {

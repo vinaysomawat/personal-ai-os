@@ -3,6 +3,7 @@ import { sendMessage, answerCallbackQuery, editMessageReplyMarkup } from '@/lib/
 import { askAI } from '@/lib/ai-gateway'
 import { transcribeVoice } from '@/lib/telegram/transcribe'
 import { downloadTelegramFile } from '@/lib/telegram/download'
+import { isUndoableTable, UNDO_LABEL } from '@/lib/telegram/buttons'
 import type { TelegramUpdate, InlineButton } from '@/lib/telegram/types'
 import type { ImageInput } from '@/lib/anthropic'
 
@@ -102,6 +103,18 @@ async function handleCallbackQuery(moduleName: ModuleName, update: TelegramUpdat
     }
     await answerCallbackQuery(token, cq.id, '✅ Marked done!')
     if (cq.message) await editMessageReplyMarkup(token, chatId, cq.message.message_id)
+  } else if (data.startsWith('undo:')) {
+    const [, table, id] = data.split(':')
+    if (isUndoableTable(table) && id) {
+      const db = createServiceClient()
+      const { data: row } = await db.from(table).select('*').eq('id', id).maybeSingle()
+      await db.from(table).delete().eq('id', id)
+      const label = row ? UNDO_LABEL[table](row) : null
+      await answerCallbackQuery(token, cq.id, label ? `🗑️ Undone: ${label}` : '🗑️ Undone')
+      if (cq.message) await editMessageReplyMarkup(token, chatId, cq.message.message_id)
+    } else {
+      await answerCallbackQuery(token, cq.id)
+    }
   } else {
     await answerCallbackQuery(token, cq.id)
   }
