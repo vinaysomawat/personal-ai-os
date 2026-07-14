@@ -6,7 +6,7 @@ import Card from '@/components/Card'
 import ModuleRecommendations from '@/components/ModuleRecommendations'
 import { addResource, updateResource, deleteResource, logStudySession } from '../actions'
 import { getDailyStudyPlan, generateResourceQuiz } from '@/features/ai/study-plan'
-import { getResourcesNeedingRevision } from '../calculations'
+import { getResourcesNeedingRevision, getStudyStreak } from '../calculations'
 import type { Resource, ResourceStatus, ResourceType, StudyLog } from '../types'
 
 const TYPE_ICON: Record<ResourceType, string> = {
@@ -19,19 +19,6 @@ const STATUS_CONFIG: Record<ResourceStatus, { label: string; color: string; bg: 
 }
 const STATUSES = Object.keys(STATUS_CONFIG) as ResourceStatus[]
 const TYPES: ResourceType[] = ['course', 'book', 'video', 'article', 'podcast']
-
-function getStreak(logs: StudyLog[]): number {
-  const studyDays = new Set(logs.map(l => l.date))
-  let streak = 0
-  const today = new Date()
-  for (let i = 0; i < 365; i++) {
-    const d = new Date(today)
-    d.setDate(d.getDate() - i)
-    if (studyDays.has(d.toISOString().split('T')[0])) streak++
-    else break
-  }
-  return streak
-}
 
 function totalMinutesThisWeek(logs: StudyLog[]): number {
   const since = new Date(Date.now() - 7 * 86400000).toISOString().split('T')[0]
@@ -68,7 +55,7 @@ export default function LearningView({ initialResources, initialStudyLogs }: Pro
   const [logDuration, setLogDuration] = useState('30')
 
   const today = new Date().toISOString().split('T')[0]
-  const streak = getStreak(studyLogs)
+  const streak = getStudyStreak(studyLogs)
   const weekMinutes = totalMinutesThisWeek(studyLogs)
   const studiedTodayIds = new Set(studyLogs.filter(l => l.date === today).map(l => l.resource_id))
 
@@ -124,7 +111,7 @@ export default function LearningView({ initialResources, initialStudyLogs }: Pro
     <div className="space-y-5">
       {/* AI Advisor + Daily Plan side by side — each collapsed by default, so paired horizontally instead of stacked to halve the vertical footprint */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        <ModuleRecommendations moduleLabel="Learning" context={`Resources tracked: ${resources.length} (${STATUSES.map(s => `${counts[s]} ${STATUS_CONFIG[s].label.toLowerCase()}`).join(', ')}). Study streak: ${getStreak(studyLogs)} days. Minutes studied this week: ${totalMinutesThisWeek(studyLogs)}. In-progress resources: ${resources.filter(r => r.status === 'in-progress').map(r => r.title).join(', ') || 'none'}. Needs revision (completed, no activity in 14+ days): ${needsRevision.map(r => r.title).join(', ') || 'none'}.`} />
+        <ModuleRecommendations moduleLabel="Learning" context={`Resources tracked: ${resources.length} (${STATUSES.map(s => `${counts[s]} ${STATUS_CONFIG[s].label.toLowerCase()}`).join(', ')}). Study streak: ${getStudyStreak(studyLogs)} days. Minutes studied this week: ${totalMinutesThisWeek(studyLogs)}. In-progress resources: ${resources.filter(r => r.status === 'in-progress').map(r => r.title).join(', ') || 'none'}. Needs revision (completed, no activity in 14+ days): ${needsRevision.map(r => r.title).join(', ') || 'none'}.`} />
 
         <div className="border border-surface-3 rounded-xl overflow-hidden">
           <button onClick={handlePlan} className="w-full flex items-center justify-between px-4 py-3 bg-surface-1 hover:bg-surface-2 transition-colors">

@@ -80,10 +80,11 @@ interface Props {
   skills: Skill[]
   qa: InterviewQA[]
   codingStreak: number
+  studyStreak: number
   resumeVersions: ResumeVersion[]
 }
 
-export default function CareerView({ applications, profile, skills, qa, codingStreak, resumeVersions }: Props) {
+export default function CareerView({ applications, profile, skills, qa, codingStreak, studyStreak, resumeVersions }: Props) {
   const [, startTransition] = useTransition()
 
   const [localApps, setLocalApps] = useState(applications)
@@ -165,7 +166,7 @@ export default function CareerView({ applications, profile, skills, qa, codingSt
     if (!mentorQ.trim() || mentorLoading) return
     setMentorLoading(true); setMentorA(null)
     try {
-      const answer = await askCareerMentor(mentorQ, { profile: localProfile, skills: localSkills, applications: localApps, codingStreak })
+      const answer = await askCareerMentor(mentorQ, { profile: localProfile, skills: localSkills, applications: localApps, codingStreak, studyStreak })
       setMentorA(answer)
     } finally { setMentorLoading(false) }
   }
@@ -196,8 +197,12 @@ export default function CareerView({ applications, profile, skills, qa, codingSt
     <div className="space-y-5">
       {/* Career Profile */}
       <Card title="Career Profile" action={
-        codingStreak > 0
-          ? <span className="text-xs text-slate-500 flex items-center gap-1">🔥 {codingStreak}-day coding streak <span className="text-slate-700">— feeds interview readiness</span></span>
+        (codingStreak > 0 || studyStreak > 0)
+          ? <span className="text-xs text-slate-500 flex items-center gap-2 flex-wrap">
+              {codingStreak > 0 && <span className="flex items-center gap-1">🔥 {codingStreak}-day coding streak</span>}
+              {studyStreak > 0 && <span className="flex items-center gap-1">📚 {studyStreak}-day study streak</span>}
+              <span className="text-slate-700">— feeds interview readiness</span>
+            </span>
           : undefined
       }>
         <div className="grid grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-4">

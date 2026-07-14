@@ -7,16 +7,18 @@ import type { AppStatus, SkillLevel, Difficulty } from './types'
 export async function getCareerData() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return { applications: [], profile: null, skills: [], qa: [], codingStreak: 0, resumeVersions: [] }
+  if (!user) return { applications: [], profile: null, skills: [], qa: [], codingStreak: 0, studyStreak: 0, resumeVersions: [] }
 
   const { computeCodingStats } = await import('@/features/coding/daily-core')
+  const { getStudyStreak } = await import('@/features/learning/calculations')
 
-  const [appsRes, profileRes, skillsRes, qaRes, codingStats, resumeRes] = await Promise.all([
+  const [appsRes, profileRes, skillsRes, qaRes, codingStats, studyLogsRes, resumeRes] = await Promise.all([
     supabase.from('applications').select('*').order('created_at', { ascending: false }),
     supabase.from('career_profile').select('*').eq('user_id', user.id).single(),
     supabase.from('skills').select('*').eq('user_id', user.id).order('category').order('level'),
     supabase.from('interview_qa').select('*').eq('user_id', user.id).order('created_at', { ascending: false }),
     computeCodingStats(supabase, user.id),
+    supabase.from('study_logs').select('date').eq('user_id', user.id),
     supabase.from('resume_versions').select('*').eq('user_id', user.id).order('created_at', { ascending: false }),
   ])
 
@@ -26,6 +28,7 @@ export async function getCareerData() {
     skills: skillsRes.data ?? [],
     qa: qaRes.data ?? [],
     codingStreak: codingStats.currentStreak,
+    studyStreak: getStudyStreak(studyLogsRes.data ?? []),
     resumeVersions: resumeRes.data ?? [],
   }
 }
