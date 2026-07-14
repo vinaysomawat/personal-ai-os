@@ -6,6 +6,8 @@ import QuickAdd from '@/features/dashboard/components/QuickAdd'
 import BottomNav from '@/components/BottomNav'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { AIAdvisorProvider } from '@/components/AIAdvisorProvider'
+import { Analytics } from "@vercel/analytics/next"
+import { SpeedInsights } from "@vercel/speed-insights/next"
 
 export const metadata: Metadata = {
   title: 'Personal OS',
@@ -24,6 +26,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         />
       </head>
       <body className="flex h-screen overflow-hidden bg-background">
+        <SpeedInsights/>
+        <Analytics/>
         <TooltipProvider>
           <AIAdvisorProvider>
             <Sidebar />

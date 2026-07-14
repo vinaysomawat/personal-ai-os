@@ -26,7 +26,7 @@ const TASK_LABEL: Record<string, string> = {
 const JOB_LABEL: Record<string, string> = {
   'daily-briefing': 'Daily Briefing', 'daily-coding': 'Daily Coding', 'recurring-expenses': 'Recurring Expenses',
   'sip-contribution': 'SIP Contribution', 'trending-reading': 'Trending Reading', 'evening-checkin': 'Evening Check-in',
-  'monthly-digest': 'Monthly Digest', 'weekly-digest': 'Weekly Digest',
+  'monthly-digest': 'Monthly Digest', 'weekly-digest': 'Weekly Digest', 'health-tip': 'Health Tip', 'job-alerts': 'Job Alerts',
 }
 
 function fmtUsd(n: number): string {

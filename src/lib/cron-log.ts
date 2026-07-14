@@ -23,6 +23,8 @@ export async function logCronRun(db: ReturnType<typeof createServiceClient>, job
 export const EXPECTED_CRON_JOBS: { job: string; maxAgeHours: number }[] = [
   { job: 'daily-briefing',       maxAgeHours: 26 },
   { job: 'daily-coding',         maxAgeHours: 26 },
+  { job: 'health-tip',           maxAgeHours: 26 },
+  { job: 'job-alerts',           maxAgeHours: 26 },
   { job: 'recurring-expenses',   maxAgeHours: 26 },
   { job: 'sip-contribution',     maxAgeHours: 26 },
   { job: 'trending-reading',     maxAgeHours: 26 },

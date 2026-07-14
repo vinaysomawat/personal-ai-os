@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/service'
 import { sendMessage } from '@/lib/telegram/send'
 import { generateAssignmentForUser } from '@/features/coding/daily-core'
+import { getDailyTip } from '@/lib/daily-tip'
 import { logCronRun } from '@/lib/cron-log'
 
 const CHAT_ID = process.env.TELEGRAM_ALLOWED_CHAT_ID!
@@ -26,7 +27,11 @@ export async function GET(req: Request) {
     return NextResponse.json({ ok: true, notified: false })
   }
 
-  const assignment = await generateAssignmentForUser(supabase, user.id)
+  const [assignment, tip] = await Promise.all([
+    generateAssignmentForUser(supabase, user.id),
+    getDailyTip(supabase, user.id, 'coding'),
+  ])
+  const tipSection = tip ? `\n\n💡 *Tip of the day:*\n${tip}` : ''
 
   if (assignment.length === 0) {
     // Revision day (or an exhausted pool) — still send something, so silence
@@ -44,7 +49,7 @@ export async function GET(req: Request) {
       ? `Catch up on what's still open:\n\n${rows.map(r => `${DIFFICULTY_EMOJI[r.question.difficulty] ?? ''} *${r.question.title}*\n${r.question.url}`).join('\n\n')}`
       : `Nothing pending — review an old favorite or take the day off. 🎉`
 
-    await sendMessage(BOT_TOKEN, Number(CHAT_ID), `🧘 *No new question today — revision day*\n\n${body}`)
+    await sendMessage(BOT_TOKEN, Number(CHAT_ID), `🧘 *No new question today — revision day*\n\n${body}${tipSection}`)
     return NextResponse.json({ ok: true, notified: true, revisionDay: true })
   }
 
@@ -53,7 +58,7 @@ export async function GET(req: Request) {
     return `${assignment.length > 1 ? `*Question ${i + 1}/${assignment.length}*\n` : ''}${DIFFICULTY_EMOJI[q.difficulty] ?? ''} *${q.title}*\nDifficulty: ${q.difficulty}\n[Open](${q.url})`
   })
 
-  await sendMessage(BOT_TOKEN, Number(CHAT_ID), `💻 *Today's Coding Challenge*\n\n${lines.join('\n\n')}\n\n_Mark it done in AI OS or Telegram once solved._`)
+  await sendMessage(BOT_TOKEN, Number(CHAT_ID), `💻 *Today's Coding Challenge*\n\n${lines.join('\n\n')}\n\n_Mark it done in AI OS or Telegram once solved._${tipSection}`)
 
   return NextResponse.json({ ok: true, notified: true, count: assignment.length })
 }
