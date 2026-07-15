@@ -72,7 +72,7 @@ export default function LearningView({ initialResources, initialStudyLogs }: Pro
   const [, startTransition] = useTransition()
   const [resources, setResources] = useState(initialResources)
   const [studyLogs, setStudyLogs] = useState(initialStudyLogs)
-  const [filter, setFilter] = useState<ResourceStatus | 'all'>('all')
+  const [filter, setFilter] = useState<'active' | 'all' | 'completed'>('active')
   const [showForm, setShowForm] = useState(false)
 
   // Quiz
@@ -94,7 +94,9 @@ export default function LearningView({ initialResources, initialStudyLogs }: Pro
   const weekMinutes = totalMinutesThisWeek(studyLogs)
   const studiedTodayIds = new Set(studyLogs.filter(l => l.date === today).map(l => l.resource_id))
 
-  const filtered = filter === 'all' ? resources : resources.filter(r => r.status === filter)
+  const filtered = filter === 'all' ? resources
+    : filter === 'completed' ? resources.filter(r => r.status === 'completed')
+    : resources.filter(r => r.status !== 'completed')
   const counts = STATUSES.reduce((acc, s) => ({ ...acc, [s]: resources.filter(r => r.status === s).length }), {} as Record<ResourceStatus, number>)
   const needsRevision = getResourcesNeedingRevision(resources, studyLogs)
 
@@ -250,17 +252,21 @@ export default function LearningView({ initialResources, initialStudyLogs }: Pro
         </div>
       )}
 
-      {/* Status filter */}
+      {/* Status filter — Not started + In progress collapsed into one "Not started"
+          bucket (still distinguishable per-row via each resource's own status
+          dropdown below), defaulting to that view instead of All */}
       <div className="flex gap-2 flex-wrap">
         <button onClick={() => setFilter('all')} className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${filter === 'all' ? 'bg-accent text-white' : 'bg-surface-1 border border-surface-3 text-slate-400 hover:bg-surface-2'}`}>
           All ({resources.length})
         </button>
-        {STATUSES.map(s => {
-          const cfg = STATUS_CONFIG[s]
+        {([
+          { key: 'active' as const, ...STATUS_CONFIG['not-started'], count: counts['not-started'] + counts['in-progress'] },
+          { key: 'completed' as const, ...STATUS_CONFIG['completed'], count: counts['completed'] },
+        ]).map(cfg => {
           return (
-            <button key={s} onClick={() => setFilter(filter === s ? 'all' : s)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${filter === s ? `${cfg.bg} ${cfg.color}` : 'bg-surface-1 border border-surface-3 text-slate-400 hover:bg-surface-2'}`}>
-              {cfg.label} ({counts[s]})
+            <button key={cfg.key} onClick={() => setFilter(filter === cfg.key ? 'all' : cfg.key)}
+              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${filter === cfg.key ? `${cfg.bg} ${cfg.color}` : 'bg-surface-1 border border-surface-3 text-slate-400 hover:bg-surface-2'}`}>
+              {cfg.label} ({cfg.count})
             </button>
           )
         })}
