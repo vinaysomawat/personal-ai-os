@@ -28,14 +28,16 @@ export async function logStudySession(resourceId: string | null, durationMinutes
   if (!user) return
 
   const today = new Date().toISOString().split('T')[0]
-  await supabase.from('study_logs').insert({
+  const { error } = await supabase.from('study_logs').insert({
     user_id: user.id,
     date: today,
     resource_id: resourceId,
     duration_minutes: durationMinutes,
     notes,
   })
+  if (error) throw new Error(error.message)
   revalidatePath('/learning')
+  revalidatePath('/dashboard')
 }
 
 export async function addResource(formData: FormData) {

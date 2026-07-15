@@ -16,4 +16,5 @@ export async function completeReading(id: string) {
   await markTrendingReadingComplete(supabase, id)
   revalidatePath('/coding')
   revalidatePath('/planner')
+  revalidatePath('/dashboard')
 }

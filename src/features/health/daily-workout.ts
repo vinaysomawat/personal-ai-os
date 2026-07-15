@@ -20,6 +20,7 @@ export async function completeWorkout(id: string) {
   await markWorkoutComplete(supabase, id)
   revalidatePath('/health')
   revalidatePath('/planner')
+  revalidatePath('/dashboard')
 }
 
 export async function skipWorkout(id: string) {
@@ -29,6 +30,7 @@ export async function skipWorkout(id: string) {
   await markWorkoutSkipped(supabase, id)
   revalidatePath('/health')
   revalidatePath('/planner')
+  revalidatePath('/dashboard')
 }
 
 export async function beginWorkout(id: string) {

@@ -184,6 +184,7 @@ export async function addExpense(formData: FormData) {
   })
   if (error) throw new Error(error.message)
   revalidatePath('/finance')
+  revalidatePath('/dashboard')
 }
 
 export async function deleteExpense(id: string) {

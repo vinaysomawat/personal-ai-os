@@ -36,6 +36,7 @@ export async function markQuestionComplete(id: string, extra?: { timeSpentMinute
 
   revalidatePath('/coding')
   revalidatePath('/planner')
+  revalidatePath('/dashboard')
 }
 
 export async function toggleRevisionFlag(id: string) {

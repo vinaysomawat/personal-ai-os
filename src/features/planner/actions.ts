@@ -95,6 +95,7 @@ export async function toggleTask(id: string, done: boolean) {
   revalidatePath('/planner')
   revalidatePath('/coding')
   revalidatePath('/health')
+  revalidatePath('/dashboard')
 }
 
 export async function deleteTask(id: string) {
