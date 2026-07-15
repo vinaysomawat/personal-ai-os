@@ -18,6 +18,12 @@ Build every screen like the best UI/UX designer in the world would: dense and co
 
 **Mobile target: iPhone 16 Pro** (393×852 CSS px, the `BottomNav` breakpoint). Any UI change must be checked at that viewport, not just desktop — no horizontal overflow, no clipped/overlapping elements, touch targets stay usable at that width.
 
+**Concrete patterns to apply/avoid** (distilled from `reference/UI.md`'s enterprise-density checklist — read that file for the full brief before a larger redesign pass):
+- Don't let a CSS grid stretch a shorter card to match a taller sibling (`grid`'s default `align-items: stretch`) — add `items-start` to the grid wrapper so each card sizes to its own content instead of padding out with dead space.
+- A page combining several distinct sub-areas (5+, e.g. Career's Applications/Profile/Resumes/Skills/Interview Q&A) belongs in tabs, not one long vertical scroll. Two or three shorter, related sections on a wide viewport belong side by side (`lg:grid-cols-2`+), not stacked full-width.
+- Smarter cards over bare title+value: surface a secondary detail already in the data (a date, a running total, a percentage) rather than a lone number, but only from data already fetched — don't add a query or feature to fill space.
+- Sort list/breakdown data by what matters most (e.g. spend descending) instead of static/alphabetical/insertion order, so the highest-signal row is first.
+
 ## Stack
 
 - **Framework**: Next.js 15 App Router (TypeScript)
