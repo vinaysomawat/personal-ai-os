@@ -15,6 +15,49 @@ const priorityDot: Record<Priority, string> = {
   low: 'bg-slate-500',
 }
 
+// A task's "relevant month" is its due_date's month if set, else the month
+// it was created in — so undated tasks implicitly belong to the month they
+// were added, and roll into Overdue once that month passes uncompleted.
+function monthKey(dateStr: string) {
+  return dateStr.slice(0, 7)
+}
+
+function PendingTaskRow({ task, onToggle, onDelete }: { task: Task; onToggle: (id: string, done: boolean) => void; onDelete: (id: string) => void }) {
+  return (
+    <li className="flex items-center gap-3 p-1.5 rounded-lg hover:bg-surface-2 transition-colors group">
+      <button onClick={() => onToggle(task.id, task.done)} className="shrink-0">
+        <Circle size={16} className="text-slate-600 group-hover:text-accent transition-colors" />
+      </button>
+      <div className="flex-1 min-w-0">
+        <p className="text-sm text-slate-200">{task.text}</p>
+        <div className="flex items-center gap-2 mt-0.5">
+          <p className="text-xs text-slate-600">{task.area}</p>
+          {task.recurrence && (
+            <span className="flex items-center gap-0.5 text-xs text-accent/70">
+              <RefreshCw size={9} />{task.recurrence}
+            </span>
+          )}
+          {task.due_date && (
+            <span className={`text-xs ${task.due_date < new Date().toISOString().split('T')[0] ? 'text-red-400' : 'text-slate-600'}`}>
+              due {task.due_date}
+            </span>
+          )}
+        </div>
+      </div>
+      {task.external_url && (
+        <a href={task.external_url} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()}
+          className="shrink-0 text-slate-600 hover:text-accent transition-colors">
+          <ExternalLink size={13} />
+        </a>
+      )}
+      <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${priorityDot[task.priority]}`} />
+      <button onClick={() => onDelete(task.id)} className="shrink-0 opacity-0 group-hover:opacity-100 text-slate-600 hover:text-red-400 transition-all">
+        <Trash2 size={13} />
+      </button>
+    </li>
+  )
+}
+
 interface Props {
   initialTasks: Task[]
 }
@@ -45,8 +88,13 @@ export default function PlannerView({ initialTasks }: Props) {
   const pending = optimisticTasks.filter(t => !t.done)
   const done = optimisticTasks.filter(t => t.done)
   const highPriorityPending = pending.filter(t => t.priority === 'high').length
-  const overdue = pending.filter(t => t.due_date && t.due_date < new Date().toISOString().split('T')[0]).length
-  const plannerContext = `Pending tasks: ${pending.length} (${highPriorityPending} high priority, ${overdue} overdue). Completed today/recently: ${done.length}. Task list: ${pending.slice(0, 10).map(t => `"${t.text}" (${t.priority}${t.due_date ? `, due ${t.due_date}` : ''})`).join('; ') || 'none'}.`
+
+  const currentMonthKey = monthKey(new Date().toISOString())
+  const overduePending = pending.filter(t => monthKey(t.due_date ?? t.created_at) < currentMonthKey)
+  const thisMonthPending = pending.filter(t => monthKey(t.due_date ?? t.created_at) >= currentMonthKey)
+  const overdue = overduePending.length
+
+  const plannerContext = `Pending tasks: ${pending.length} (${highPriorityPending} high priority, ${overdue} overdue from previous months). Completed today/recently: ${done.length}. Task list: ${thisMonthPending.slice(0, 10).map(t => `"${t.text}" (${t.priority}${t.due_date ? `, due ${t.due_date}` : ''})`).join('; ') || 'none'}.`
 
   const byArea = pending.reduce<Record<string, number>>((acc, t) => {
     acc[t.area] = (acc[t.area] ?? 0) + 1
@@ -124,12 +172,23 @@ export default function PlannerView({ initialTasks }: Props) {
         </div>
       </div>
 
+      {/* Tasks left incomplete from a previous month — surfaced separately
+          rather than silently mixed into (or dropped from) Today's Tasks,
+          which is scoped to the current month */}
+      {overduePending.length > 0 && (
+        <Card title="Overdue" padding="p-3" action={<span className="text-xs text-red-400">{overduePending.length} from previous months</span>}>
+          <ul className="space-y-1">
+            {overduePending.map(task => <PendingTaskRow key={task.id} task={task} onToggle={handleToggle} onDelete={handleDelete} />)}
+          </ul>
+        </Card>
+      )}
+
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
       <Card
         title="Today's Tasks"
         padding="p-3"
         className="lg:col-span-3"
-        action={<span className="text-xs text-slate-500">{pending.length} remaining</span>}
+        action={<span className="text-xs text-slate-500">{thisMonthPending.length} remaining</span>}
       >
         {/* Add task row — wraps on narrow viewports (iPhone 16 Pro: 393px) instead of clipping the recurrence select */}
         <div className="flex flex-wrap gap-2 mb-2.5">
@@ -169,46 +228,11 @@ export default function PlannerView({ initialTasks }: Props) {
           </button>
         </div>
 
-        {pending.length === 0 && (
-          <p className="text-sm text-slate-600 text-center py-6">No tasks — add one above</p>
+        {thisMonthPending.length === 0 && (
+          <p className="text-sm text-slate-600 text-center py-6">No tasks this month — add one above</p>
         )}
         <ul className="space-y-1">
-          {pending.map(task => (
-            <li key={task.id} className="flex items-center gap-3 p-1.5 rounded-lg hover:bg-surface-2 transition-colors group">
-              <button onClick={() => handleToggle(task.id, task.done)} className="shrink-0">
-                <Circle size={16} className="text-slate-600 group-hover:text-accent transition-colors" />
-              </button>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm text-slate-200">{task.text}</p>
-                <div className="flex items-center gap-2 mt-0.5">
-                  <p className="text-xs text-slate-600">{task.area}</p>
-                  {task.recurrence && (
-                    <span className="flex items-center gap-0.5 text-xs text-accent/70">
-                      <RefreshCw size={9} />{task.recurrence}
-                    </span>
-                  )}
-                  {task.due_date && (
-                    <span className={`text-xs ${task.due_date < new Date().toISOString().split('T')[0] ? 'text-red-400' : 'text-slate-600'}`}>
-                      due {task.due_date}
-                    </span>
-                  )}
-                </div>
-              </div>
-              {task.external_url && (
-                <a href={task.external_url} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()}
-                  className="shrink-0 text-slate-600 hover:text-accent transition-colors">
-                  <ExternalLink size={13} />
-                </a>
-              )}
-              <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${priorityDot[task.priority]}`} />
-              <button
-                onClick={() => handleDelete(task.id)}
-                className="shrink-0 opacity-0 group-hover:opacity-100 text-slate-600 hover:text-red-400 transition-all"
-              >
-                <Trash2 size={13} />
-              </button>
-            </li>
-          ))}
+          {thisMonthPending.map(task => <PendingTaskRow key={task.id} task={task} onToggle={handleToggle} onDelete={handleDelete} />)}
         </ul>
 
         {done.length > 0 && (
