@@ -43,6 +43,8 @@ Simple task list. Fields: `text`, `done`, `priority` (high/medium/low), `area` (
 - **Stats row** (Pending / High Priority / Overdue / Completed) above the task list, and a **By Area** panel beside it on wide viewports (`lg:` breakpoint, task list `lg:col-span-3` / panel `lg:col-span-2`) — deterministic counts grouping pending tasks by their `area` field, no AI
 - **Recurring tasks**: completing a task with `recurrence` set auto-creates the next open instance with the same text/priority/area before marking the current one done
 - **Two-way sync with Coding and Trending Reading**: toggling a task also mirrors `done`/`completed_at` onto the linked row in `coding_daily_questions` and/or `trending_readings` (matched via `task_id`) — see §7 for the full sync mechanics
+- **External links on synced tasks**: a task auto-created by Coding (daily question or trending read) shows a small link-out icon that opens the original question/article directly, so reaching it doesn't require detouring through the Coding page. `getTasks()` (`planner/actions.ts`) does the reverse lookup — `task_id` lives on `coding_daily_questions`/`trending_readings`, not on `tasks` itself — and attaches the resolved URL per task; not stored as a `tasks` column.
+- Pending task rows show their `due_date` when set (red if overdue), and the **By Area** panel below the list shows a proportion bar per area alongside the count
 - **Plan Coach** — `ModuleRecommendations` content registered as the page's AI advisor (see "AI advisor header architecture" under Architecture, below), opened from the header trigger rather than an inline widget
 - No focus/deep-work session tracking exists (added, then removed a few days later per user request — the table and UI are both gone)
 
