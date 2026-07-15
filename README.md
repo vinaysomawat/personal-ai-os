@@ -112,6 +112,7 @@ Daily metrics, a structured Daily Workout Planner, and overall-fitness coaching.
 Resource tracker: `title`, `type` (course/book/video/article/podcast), `url`, `category`, `status` (not-started/in-progress/completed), `progress` (0–100), `notes`.
 
 - Add / update status+progress+notes / delete
+- **Status filter defaults to "Not started"** — a merged bucket of `not-started` + `in-progress` (individual resources still show their precise status via each row's own dropdown) — rather than "All", so the page leads with what's actually actionable
 - **Study logs** — `resource_id`, `duration_minutes`, `notes`, `date`; drives a study-streak counter and "minutes this week" stat
 - **Revision nudge ("what am I forgetting")** — deterministic, not AI: a `Needs Revision` card surfaces any `completed` resource with no study-log activity in the last 14 days, with a one-click "+ Log session" action. Same rule is exposed via the Telegram bot ("what needs revision").
 - **Study Coach** (header advisor — see "AI advisor header architecture" under Architecture) — tabbed panel merging the generic recommendations widget with the AI daily study plan: given in-progress/not-started/completed counts and what's already been studied today, Claude proposes a "main focus" (60 min, references an actual resource by name), a "quick review" (15 min), and an optional stretch item — under 150 words; each tab lazy-fetches independently on first view
