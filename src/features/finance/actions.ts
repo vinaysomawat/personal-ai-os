@@ -2,10 +2,11 @@
 
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
+import { todayIST, daysAgoIST } from '@/lib/date'
 import type { InvestmentType, GoalPriority } from './types'
 
 function currentMonth() {
-  return new Date().toISOString().slice(0, 7)
+  return todayIST().slice(0, 7)
 }
 
 export async function getFinanceData() {
@@ -13,7 +14,7 @@ export async function getFinanceData() {
   const { data: { user } } = await supabase.auth.getUser()
   const month = currentMonth()
   const startOfMonth = `${month}-01`
-  const threeMonthsAgo = new Date(Date.now() - 90 * 86400000).toISOString().split('T')[0]
+  const threeMonthsAgo = daysAgoIST(90)
 
   if (!user) return { expenses: [], budgets: [], profile: null, loans: [], investments: [], goals: [], recurringExpenses: [], avgMonthlyExpense: 0, month }
 
@@ -63,7 +64,7 @@ export async function upsertProfile(salary: number | null, emergencyFundMonths: 
   if (salary !== null && salary !== prev?.monthly_salary) {
     await supabase.from('salary_history').insert({
       user_id: user.id, amount: salary,
-      effective_date: new Date().toISOString().split('T')[0],
+      effective_date: todayIST(),
     })
   }
 
@@ -180,7 +181,7 @@ export async function addExpense(formData: FormData) {
     amount: parseFloat(formData.get('amount') as string),
     category: formData.get('category') as string,
     description: formData.get('description') as string || null,
-    date: formData.get('date') as string || new Date().toISOString().split('T')[0],
+    date: formData.get('date') as string || todayIST(),
   })
   if (error) throw new Error(error.message)
   revalidatePath('/finance')

@@ -1,6 +1,7 @@
 'use server'
 
 import { createClient } from '@/lib/supabase/server'
+import { todayIST, daysAgoIST, istMidnightUtc, istDateStrToUtcMidnight } from '@/lib/date'
 import { getResourcesNeedingRevision } from '@/features/learning/calculations'
 import { getTodayAssignmentRows, getStaleRevisionCount } from '@/features/coding/daily-core'
 import { getActiveWorkout } from '@/features/health/workout-core'
@@ -64,9 +65,9 @@ export async function getDashboardData() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
-  const today = new Date().toISOString().split('T')[0]
+  const today = todayIST()
   const monthStart = today.slice(0, 7) + '-01'
-  const since30 = new Date(Date.now() - 30 * 86400000).toISOString().split('T')[0]
+  const since30 = daysAgoIST(30)
 
   if (!user) return {
     pendingTasks: [], recentApplications: [], botActivity: [],
@@ -82,7 +83,7 @@ export async function getDashboardData() {
     todayRecommendations: [] as ReturnType<typeof getTodayRecommendations>,
   }
 
-  const studyLogsSince = new Date(Date.now() - 14 * 86400000).toISOString().split('T')[0]
+  const studyLogsSince = daysAgoIST(14)
 
   const [
     tasksRes, appsRes, workoutsRes,
@@ -103,7 +104,7 @@ export async function getDashboardData() {
     supabase.from('career_profile').select('current_role, target_role').eq('user_id', user.id).single(),
     supabase.from('skills').select('id', { count: 'exact', head: true }).eq('user_id', user.id),
     supabase.from('interview_qa').select('id', { count: 'exact', head: true }).eq('user_id', user.id),
-    supabase.from('ai_usage_logs').select('estimated_cost_usd, cache_hit, created_at').eq('user_id', user.id).gte('created_at', `${monthStart}T00:00:00.000Z`),
+    supabase.from('ai_usage_logs').select('estimated_cost_usd, cache_hit, created_at').eq('user_id', user.id).gte('created_at', istDateStrToUtcMidnight(monthStart)),
     supabase.from('study_logs').select('id, date, resource_id').eq('user_id', user.id).gte('date', studyLogsSince),
     getTodayAssignmentRows(supabase, user.id),
     getActiveWorkout(supabase, user.id),
@@ -112,7 +113,7 @@ export async function getDashboardData() {
     supabase.from('interview_qa').select('created_at, last_reviewed_at').eq('user_id', user.id),
     supabase.from('tasks').select('id, text, done').eq('user_id', user.id).eq('due_date', today),
     getTodayTrendingReading(supabase, user.id),
-    supabase.from('daily_workouts').select('id').eq('user_id', user.id).eq('status', 'completed').gte('completed_at', `${today}T00:00:00.000Z`).limit(1),
+    supabase.from('daily_workouts').select('id').eq('user_id', user.id).eq('status', 'completed').gte('completed_at', istMidnightUtc()).limit(1),
   ])
 
   const pendingTasks = tasksRes.data ?? []
@@ -231,8 +232,8 @@ export async function getDashboardData() {
   }, { onConflict: 'user_id,date' })
 
   // Fetch 30-day history + compute XP/gamification
-  const since = new Date(Date.now() - 30 * 86400000).toISOString().split('T')[0]
-  const allTimeSince = new Date(Date.now() - 365 * 86400000).toISOString().split('T')[0]
+  const since = daysAgoIST(30)
+  const allTimeSince = daysAgoIST(365)
 
   const [historyRes, allTimeRes] = await Promise.all([
     supabase.from('life_score_logs')
@@ -263,10 +264,10 @@ export async function getDashboardData() {
   // Streak: consecutive days from today backwards
   const logDates = new Set(allLogs.map(r => r.date as string))
   let streak = 0
-  const d = new Date(today)
+  const d = new Date(`${today}T00:00:00Z`)
   while (logDates.has(d.toISOString().split('T')[0])) {
     streak++
-    d.setDate(d.getDate() - 1)
+    d.setUTCDate(d.getUTCDate() - 1)
   }
 
   const badges: string[] = []
@@ -282,7 +283,7 @@ export async function getDashboardData() {
 
   // --- AI spend (from ai_usage_logs, written by the AI Gateway) ---
   const aiUsageMonth = aiUsageMonthRes.data ?? []
-  const aiUsageToday = aiUsageMonth.filter(r => (r.created_at as string) >= `${today}T00:00:00.000Z`)
+  const aiUsageToday = aiUsageMonth.filter(r => (r.created_at as string) >= istMidnightUtc())
   const aiBudget = {
     callsToday: aiUsageToday.length,
     costTodayUsd: aiUsageToday.reduce((s, r) => s + Number(r.estimated_cost_usd), 0),

@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { todayIST } from '@/lib/date'
 
 const SCORE_KEY = 'vos_life_score'
 const DATE_KEY  = 'vos_life_score_date'
@@ -9,7 +10,7 @@ export default function ScoreHero({ score }: { score: number }) {
   const [delta, setDelta] = useState<number | null>(null)
 
   useEffect(() => {
-    const today       = new Date().toISOString().split('T')[0]
+    const today       = todayIST()
     const storedDate  = localStorage.getItem(DATE_KEY)
     const storedScore = localStorage.getItem(SCORE_KEY)
 

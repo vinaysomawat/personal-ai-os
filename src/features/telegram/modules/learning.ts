@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { ModuleReply } from '@/lib/telegram/types'
 import { undoButton } from '@/lib/telegram/buttons'
+import { daysAgoIST } from '@/lib/date'
 
 export const SYSTEM_PROMPT = `You are the Learning bot for Personal OS. Parse the user message and return ONLY a JSON action.
 
@@ -57,7 +58,7 @@ export async function execute(action: Record<string, unknown>, db: SupabaseClien
 
       if (filter === 'needs-revision') {
         const { getResourcesNeedingRevision } = await import('@/features/learning/calculations')
-        const since = new Date(Date.now() - 30 * 86400000).toISOString().split('T')[0]
+        const since = daysAgoIST(30)
         const [resourcesRes, logsRes] = await Promise.all([
           db.from('resources').select('*').eq('user_id', userId),
           db.from('study_logs').select('*').eq('user_id', userId).gte('date', since),
@@ -77,7 +78,7 @@ export async function execute(action: Record<string, unknown>, db: SupabaseClien
     }
     case 'plan': {
       const { getDailyStudyPlan } = await import('@/features/ai/study-plan')
-      const since = new Date(Date.now() - 30 * 86400000).toISOString().split('T')[0]
+      const since = daysAgoIST(30)
       const [resourcesRes, logsRes] = await Promise.all([
         db.from('resources').select('*').eq('user_id', userId),
         db.from('study_logs').select('*').eq('user_id', userId).gte('date', since),

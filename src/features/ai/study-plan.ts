@@ -1,6 +1,7 @@
 'use server'
 
 import { askAI } from '@/lib/ai-gateway'
+import { todayIST } from '@/lib/date'
 import type { Resource, StudyLog } from '@/features/learning/types'
 
 export async function getDailyStudyPlan(resources: Resource[], recentLogs: StudyLog[]): Promise<string> {
@@ -13,7 +14,7 @@ export async function getDailyStudyPlan(resources: Resource[], recentLogs: Study
   }
 
   const studiedToday = recentLogs
-    .filter(l => l.date === new Date().toISOString().split('T')[0])
+    .filter(l => l.date === todayIST())
     .map(l => resources.find(r => r.id === l.resource_id)?.title ?? 'Unknown')
 
   const prompt = `Vinay's learning resources:

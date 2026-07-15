@@ -4,6 +4,7 @@ import { useState, useTransition } from 'react'
 import { Plus, Trash2, X, Sparkles, Pencil, Check, TrendingUp, TrendingDown, Eye, EyeOff, Repeat } from 'lucide-react'
 import Card from '@/components/Card'
 import { useAIAdvisor } from '@/components/AIAdvisorProvider'
+import { todayIST } from '@/lib/date'
 import {
   addExpense, deleteExpense, upsertBudget,
   upsertProfile, addLoan, deleteLoan, updateLoanTerms,
@@ -785,7 +786,7 @@ export default function FinanceView({ expenses, budgets, profile, loans, investm
                   amount: parseFloat(fd.get('amount') as string),
                   category: fd.get('category') as string,
                   description: fd.get('description') as string || null,
-                  date: fd.get('date') as string || new Date().toISOString().split('T')[0],
+                  date: fd.get('date') as string || todayIST(),
                   created_at: new Date().toISOString(),
                 }
                 setLocalExpenses(prev => [newExp, ...prev])
@@ -799,7 +800,7 @@ export default function FinanceView({ expenses, budgets, profile, loans, investm
                   </div>
                   <div className="space-y-1">
                     <label className="text-xs text-slate-500 uppercase tracking-wider">Date</label>
-                    <input name="date" type="date" defaultValue={new Date().toISOString().split('T')[0]} className="w-full bg-surface-2 border border-surface-3 rounded-lg px-3 py-2 text-sm text-slate-300 outline-none focus:border-accent transition-colors" />
+                    <input name="date" type="date" defaultValue={todayIST()} className="w-full bg-surface-2 border border-surface-3 rounded-lg px-3 py-2 text-sm text-slate-300 outline-none focus:border-accent transition-colors" />
                   </div>
                 </div>
                 <div className="space-y-1">

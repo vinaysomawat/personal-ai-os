@@ -3,6 +3,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { generateWeeklyDigest } from './weekly-digest'
 import { getModuleRecommendations } from './recommendations'
+import { todayIST, daysAgoIST } from '@/lib/date'
 
 // Composes two already-built AI features rather than introducing a new one:
 // the weekly digest's score summary (avg Life Score, per-module bars,
@@ -30,9 +31,9 @@ export async function generateExecutiveSummary(db: SupabaseClient, userId: strin
 // shape as the individual module context strings each web AI advisor
 // builds client-side, just server-side and spanning every module at once.
 async function buildCrossModuleContext(db: SupabaseClient, userId: string): Promise<string> {
-  const today = new Date().toISOString().split('T')[0]
+  const today = todayIST()
   const monthStart = today.slice(0, 7) + '-01'
-  const since30 = new Date(Date.now() - 30 * 86400000).toISOString().split('T')[0]
+  const since30 = daysAgoIST(30)
 
   const [tasksRes, appsRes, expensesRes, budgetsRes, resourcesRes, codingRes, healthRes] = await Promise.all([
     db.from('tasks').select('id', { count: 'exact', head: true }).eq('user_id', userId).eq('done', false),

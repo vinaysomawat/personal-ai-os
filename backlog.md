@@ -3,3 +3,6 @@
 1. Even after logging time in learning, on dashboard today's progress did not get updated, still shows it.
 2. remove trending read, replace it with frontend system design trending blogs.
 3. Updating read in learning and coding, planner task not getting updated.
+4. make time as IST not UTC.
+
+

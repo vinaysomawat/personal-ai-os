@@ -9,6 +9,7 @@ import { addResource, updateResource, deleteResource, logStudySession } from '..
 import { getDailyStudyPlan, generateResourceQuiz } from '@/features/ai/study-plan'
 import { getResourcesNeedingRevision, getStudyStreak } from '../calculations'
 import { SUGGESTED_RESOURCES } from '../suggested-resources'
+import { todayIST, daysAgoIST } from '@/lib/date'
 import type { Resource, ResourceStatus, ResourceType, StudyLog } from '../types'
 
 const TYPE_ICON: Record<ResourceType, string> = {
@@ -23,7 +24,7 @@ const STATUSES = Object.keys(STATUS_CONFIG) as ResourceStatus[]
 const TYPES: ResourceType[] = ['course', 'book', 'video', 'article', 'podcast']
 
 function totalMinutesThisWeek(logs: StudyLog[]): number {
-  const since = new Date(Date.now() - 7 * 86400000).toISOString().split('T')[0]
+  const since = daysAgoIST(7)
   return logs.filter(l => l.date >= since).reduce((s, l) => s + l.duration_minutes, 0)
 }
 
@@ -89,7 +90,7 @@ export default function LearningView({ initialResources, initialStudyLogs }: Pro
   const [showSuggestions, setShowSuggestions] = useState(false)
   const [addedSuggestionUrls, setAddedSuggestionUrls] = useState<Set<string>>(new Set())
 
-  const today = new Date().toISOString().split('T')[0]
+  const today = todayIST()
   const streak = getStudyStreak(studyLogs)
   const weekMinutes = totalMinutesThisWeek(studyLogs)
   const studiedTodayIds = new Set(studyLogs.filter(l => l.date === today).map(l => l.resource_id))

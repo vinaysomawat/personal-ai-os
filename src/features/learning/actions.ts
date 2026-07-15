@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
+import { todayIST, daysAgoIST } from '@/lib/date'
 import type { ResourceStatus } from './types'
 
 export async function getLearningData() {
@@ -9,7 +10,7 @@ export async function getLearningData() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { resources: [], studyLogs: [] }
 
-  const since = new Date(Date.now() - 30 * 86400000).toISOString().split('T')[0]
+  const since = daysAgoIST(30)
 
   const [resourcesRes, logsRes] = await Promise.all([
     supabase.from('resources').select('*').order('created_at', { ascending: false }),
@@ -27,7 +28,7 @@ export async function logStudySession(resourceId: string | null, durationMinutes
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return
 
-  const today = new Date().toISOString().split('T')[0]
+  const today = todayIST()
   const { error } = await supabase.from('study_logs').insert({
     user_id: user.id,
     date: today,

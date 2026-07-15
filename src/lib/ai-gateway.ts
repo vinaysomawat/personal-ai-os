@@ -3,6 +3,7 @@
 import { createHash } from 'node:crypto'
 import { createServiceClient } from '@/lib/supabase/service'
 import { callClaude, SONNET_MODEL, HAIKU_MODEL, type ImageInput } from '@/lib/anthropic'
+import { todayIST, istMidnightUtc, istDateStrToUtcMidnight } from '@/lib/date'
 
 export type AITask =
   | 'telegram_intent'
@@ -147,9 +148,8 @@ export async function askAI(task: AITask, prompt: string, system?: string, opts:
     }
   }
 
-  const now = new Date()
-  const todayStart = `${now.toISOString().split('T')[0]}T00:00:00.000Z`
-  const monthStart = `${now.toISOString().slice(0, 7)}-01T00:00:00.000Z`
+  const todayStart = istMidnightUtc()
+  const monthStart = istDateStrToUtcMidnight(todayIST().slice(0, 7) + '-01')
   const [dailySpend, monthlySpend] = await Promise.all([
     spendSince(db, userId, todayStart),
     spendSince(db, userId, monthStart),

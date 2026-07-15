@@ -4,6 +4,7 @@ import { useState, useTransition, useRef, useEffect } from 'react'
 import { Plus, X, CalendarDays, HeartPulse, DollarSign } from 'lucide-react'
 import { addTask } from '@/features/planner/actions'
 import { addExpense } from '@/features/finance/actions'
+import { todayIST } from '@/lib/date'
 import { upsertTodayMetric } from '@/features/health/actions'
 
 type Mode = null | 'task' | 'expense' | 'metric'
@@ -115,7 +116,7 @@ export default function QuickAdd() {
                   </select>
                 </div>
                 <input name="description" placeholder="Description (optional)" className="w-full bg-surface-2 border border-surface-3 rounded-lg px-3 py-2.5 text-sm text-slate-200 placeholder-slate-600 outline-none focus:border-accent transition-colors" />
-                <input name="date" type="date" defaultValue={new Date().toISOString().split('T')[0]} className="w-full bg-surface-2 border border-surface-3 rounded-lg px-3 py-2.5 text-sm text-slate-300 outline-none focus:border-accent transition-colors" />
+                <input name="date" type="date" defaultValue={todayIST()} className="w-full bg-surface-2 border border-surface-3 rounded-lg px-3 py-2.5 text-sm text-slate-300 outline-none focus:border-accent transition-colors" />
                 <button type="submit" disabled={isPending || done} className="w-full py-2.5 rounded-lg bg-accent text-white text-sm font-medium disabled:opacity-60 transition-all">
                   {done ? '✓ Logged!' : isPending ? 'Logging...' : 'Log Expense'}
                 </button>

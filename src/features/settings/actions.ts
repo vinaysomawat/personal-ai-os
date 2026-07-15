@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { getAiBudgetLimits } from '@/lib/ai-gateway'
 import { getCronJobHealth, type CronJobHealth } from '@/lib/cron-log'
+import { todayIST, istMidnightUtc, istDateStrToUtcMidnight } from '@/lib/date'
 import type { ReminderSlot } from './types'
 
 export async function getReminders() {
@@ -45,9 +46,8 @@ export async function getAiBudgetStatus() {
   const { dailyBudget, monthlyBudget } = await getAiBudgetLimits()
   if (!user) return { dailyBudget, monthlyBudget, spentToday: 0, spentThisMonth: 0, spendByTask: [] as { task: string; cost: number }[] }
 
-  const now = new Date()
-  const todayStart = new Date(now).toISOString().split('T')[0] + 'T00:00:00.000Z'
-  const monthStart = now.toISOString().slice(0, 7) + '-01T00:00:00.000Z'
+  const todayStart = istMidnightUtc()
+  const monthStart = istDateStrToUtcMidnight(todayIST().slice(0, 7) + '-01')
 
   const { data } = await supabase
     .from('ai_usage_logs')

@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { ModuleReply } from '@/lib/telegram/types'
 import { undoButton } from '@/lib/telegram/buttons'
+import { todayIST, daysAgoIST } from '@/lib/date'
 
 export const SYSTEM_PROMPT = `You are the Finance bot for Personal OS. Parse the user message and return ONLY a JSON action.
 
@@ -40,7 +41,7 @@ Use today's date unless the receipt clearly shows a different one. If you cannot
 const CE: Record<string, string> = { Food: '🍔', Transport: '🚗', Housing: '🏠', Health: '💊', Shopping: '🛍️', Entertainment: '🎬', Learning: '📚', Utilities: '💡', EMIs: '🏦', Bills: '🧾', Other: '📦' }
 
 export async function execute(action: Record<string, unknown>, db: SupabaseClient, userId: string): Promise<ModuleReply> {
-  const today = new Date().toISOString().split('T')[0]
+  const today = todayIST()
   const month = today.slice(0, 7)
 
   switch (action.action) {
@@ -75,7 +76,7 @@ export async function execute(action: Record<string, unknown>, db: SupabaseClien
 
     case 'list_expenses': {
       const period = (action.period as string) ?? 'today'
-      const from = period === 'today' ? today : period === 'week' ? new Date(Date.now() - 7 * 86400000).toISOString().split('T')[0] : `${month}-01`
+      const from = period === 'today' ? today : period === 'week' ? daysAgoIST(7) : `${month}-01`
       const { data } = await db.from('expenses').select('amount, category, description, date').eq('user_id', userId).gte('date', from).order('date', { ascending: false }).limit(15)
       if (!data?.length) return `No expenses in the last ${period}.`
       const total = data.reduce((s, e) => s + e.amount, 0)
@@ -130,7 +131,7 @@ export async function execute(action: Record<string, unknown>, db: SupabaseClien
         db.from('finance_profile').select('monthly_salary').eq('user_id', userId).single(),
         db.from('loans').select('emi, remaining_months').eq('user_id', userId),
         db.from('investments').select('invested_amount, current_value').eq('user_id', userId),
-        db.from('expenses').select('amount').eq('user_id', userId).gte('date', new Date(Date.now() - 90 * 86400000).toISOString().split('T')[0]),
+        db.from('expenses').select('amount').eq('user_id', userId).gte('date', daysAgoIST(90)),
       ])
       const portfolio = (investmentsRes.data ?? []).reduce((s, i) => s + Number(i.current_value), 0)
       const debt = (loansRes.data ?? []).reduce((s, l) => s + Number(l.emi) * (l.remaining_months ?? 0), 0)
@@ -148,7 +149,7 @@ export async function execute(action: Record<string, unknown>, db: SupabaseClien
         db.from('loans').select('*').eq('user_id', userId),
         db.from('investments').select('*').eq('user_id', userId),
         db.from('financial_goals').select('*').eq('user_id', userId),
-        db.from('expenses').select('amount').eq('user_id', userId).gte('date', new Date(Date.now() - 90 * 86400000).toISOString().split('T')[0]),
+        db.from('expenses').select('amount').eq('user_id', userId).gte('date', daysAgoIST(90)),
       ])
       const salary = profileRes.data?.monthly_salary ?? 0
       const emis = (loansRes.data ?? []).reduce((s, l) => s + Number(l.emi), 0)

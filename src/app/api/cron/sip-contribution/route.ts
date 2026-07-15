@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/service'
 import { logCronRun } from '@/lib/cron-log'
+import { todayIST } from '@/lib/date'
 
 export async function GET(req: Request) {
   const auth = req.headers.get('authorization')
@@ -15,7 +16,7 @@ export async function GET(req: Request) {
   const user = users?.users?.[0]
   if (!user) return NextResponse.json({ error: 'No user' }, { status: 404 })
 
-  const today = new Date().toISOString().split('T')[0]
+  const today = todayIST()
   const dayOfMonth = Number(today.split('-')[2])
   const thisMonth = today.slice(0, 7)
 

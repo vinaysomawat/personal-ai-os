@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { ModuleReply } from '@/lib/telegram/types'
 import { undoButton } from '@/lib/telegram/buttons'
+import { todayIST, daysAgoIST } from '@/lib/date'
 
 export const SYSTEM_PROMPT = `You are the Health bot for Personal OS. Parse the user message and return ONLY a JSON action.
 
@@ -53,7 +54,7 @@ const METRIC_LABELS: Record<string, { label: string; unit: string; emoji: string
 }
 
 export async function execute(action: Record<string, unknown>, db: SupabaseClient, userId: string): Promise<ModuleReply> {
-  const today = new Date().toISOString().split('T')[0]
+  const today = todayIST()
 
   switch (action.action) {
     case 'log_metric': {
@@ -121,7 +122,7 @@ export async function execute(action: Record<string, unknown>, db: SupabaseClien
     case 'plan': {
       const { computeHealthPlan } = await import('@/features/health/calculations')
       const { getDailyHealthPlan } = await import('@/features/ai/health-report')
-      const since30 = new Date(Date.now() - 30 * 86400000).toISOString().split('T')[0]
+      const since30 = daysAgoIST(30)
 
       const [profileRes, metricsRes, workoutsRes] = await Promise.all([
         db.from('health_profile').select('*').eq('user_id', userId).single(),
@@ -141,7 +142,7 @@ export async function execute(action: Record<string, unknown>, db: SupabaseClien
 
     case 'report': {
       const { getHealthReport } = await import('@/features/ai/health-report')
-      const since7 = new Date(Date.now() - 7 * 86400000).toISOString().split('T')[0]
+      const since7 = daysAgoIST(7)
       const { data: metrics } = await db.from('health_metrics').select('*').eq('user_id', userId).gte('date', since7).order('date', { ascending: false })
       const report = await getHealthReport(metrics ?? [])
       return `📋 *Weekly Report:*\n\n${report}`
@@ -149,7 +150,7 @@ export async function execute(action: Record<string, unknown>, db: SupabaseClien
 
     case 'ask': {
       const { askHealthCoach } = await import('@/features/ai/health-report')
-      const since14 = new Date(Date.now() - 14 * 86400000).toISOString().split('T')[0]
+      const since14 = daysAgoIST(14)
       const [profileRes, metricsRes] = await Promise.all([
         db.from('health_profile').select('*').eq('user_id', userId).single(),
         db.from('health_metrics').select('*').eq('user_id', userId).gte('date', since14).order('date', { ascending: true }),

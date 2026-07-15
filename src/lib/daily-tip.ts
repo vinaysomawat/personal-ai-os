@@ -1,11 +1,10 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { todayIST } from '@/lib/date'
 
 const TIP_TABLE = { coding: 'coding_tips', health: 'health_tips' } as const
 export type TipCategory = keyof typeof TIP_TABLE
 
-function todayStr() {
-  return new Date().toISOString().split('T')[0]
-}
+const todayStr = todayIST
 
 // Deterministic rotation over a static curated pool — no AI, avoiding the
 // hallucination risk of generating fresh "facts" daily. Same shape as

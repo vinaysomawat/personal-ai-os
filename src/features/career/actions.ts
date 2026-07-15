@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
+import { todayIST } from '@/lib/date'
 import type { AppStatus, SkillLevel, Difficulty } from './types'
 
 export async function getCareerData() {
@@ -117,7 +118,7 @@ export async function addApplication(formData: FormData) {
     location: formData.get('location') as string || null,
     url: formData.get('url') as string || null,
     notes: formData.get('notes') as string || null,
-    applied_at: formData.get('applied_at') as string || new Date().toISOString().split('T')[0],
+    applied_at: formData.get('applied_at') as string || todayIST(),
     resume_version_id: formData.get('resume_version_id') as string || null,
   })
   if (error) throw new Error(error.message)

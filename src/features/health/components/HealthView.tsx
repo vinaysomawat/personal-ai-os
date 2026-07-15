@@ -8,6 +8,7 @@ import { useAIAdvisor, useAIAdvisorOpen } from '@/components/AIAdvisorProvider'
 import { upsertTodayMetric, logWorkout, deleteWorkout } from '../actions'
 import { getHealthReport } from '@/features/ai/health-report'
 import { computeHealthPlan } from '../calculations'
+import { daysAgoIST } from '@/lib/date'
 import HealthProfileForm from './HealthProfileForm'
 import HealthScoreHero from './HealthScoreHero'
 import TodaysPlanCard from './TodaysPlanCard'
@@ -32,11 +33,7 @@ function StatTile({ value, label }: { value: string | number; label: string }) {
 }
 
 function getLast7Days() {
-  return Array.from({ length: 7 }, (_, i) => {
-    const d = new Date()
-    d.setDate(d.getDate() - (6 - i))
-    return d.toISOString().split('T')[0]
-  })
+  return Array.from({ length: 7 }, (_, i) => daysAgoIST(6 - i))
 }
 
 function MetricCard({ field, label, emoji, unit, decimals = 0, todayValue, weekAvg, onSave, saving, leftText }: {

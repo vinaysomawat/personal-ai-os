@@ -6,6 +6,7 @@ import { downloadTelegramFile } from '@/lib/telegram/download'
 import { isUndoableTable, UNDO_LABEL } from '@/lib/telegram/buttons'
 import type { TelegramUpdate, InlineButton } from '@/lib/telegram/types'
 import type { ImageInput } from '@/lib/anthropic'
+import { todayIST, istMidnightUtc } from '@/lib/date'
 
 import * as planner   from './modules/planner'
 import * as career    from './modules/career'
@@ -37,7 +38,7 @@ export function isValidModule(m: string): m is ModuleName {
 const DAILY_AI_CALL_CAP = Number(process.env.TELEGRAM_DAILY_AI_CAP ?? 300)
 
 async function todaysCallCount(db: ReturnType<typeof createServiceClient>): Promise<number> {
-  const todayStart = `${new Date().toISOString().split('T')[0]}T00:00:00.000Z`
+  const todayStart = istMidnightUtc()
   const { count } = await db
     .from('telegram_logs')
     .select('id', { count: 'exact', head: true })
@@ -198,7 +199,7 @@ export async function handleUpdate(moduleName: ModuleName, update: TelegramUpdat
   let actions: Record<string, unknown>[] = [{ action: 'help' }]
 
   try {
-    const todayStr = new Date().toISOString().split('T')[0]
+    const todayStr = todayIST()
     const dateInstruction = `\n\nToday's actual date is ${todayStr} (YYYY-MM-DD). Always use this for "today", "now", or any relative date/default date — never guess or use a date from your training data.`
     const raw = image
       ? await askAI('telegram_vision', text, `${(mod as { VISION_PROMPT?: string }).VISION_PROMPT}${dateInstruction}`, { userId, image })

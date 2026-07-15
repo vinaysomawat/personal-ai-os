@@ -4,6 +4,7 @@ import { useState, useOptimistic, useTransition } from 'react'
 import { Plus, Trash2, Bell, LogOut, Sparkles, Download, Activity } from 'lucide-react'
 import Card from '@/components/Card'
 import { signout } from '@/app/login/actions'
+import { todayIST } from '@/lib/date'
 import { addReminder, deleteReminder, exportAllData } from '../actions'
 import { REMINDER_MODULES } from '../types'
 import type { Reminder, ReminderSlot } from '../types'
@@ -99,7 +100,7 @@ export default function SettingsView({ email, initialReminders, aiBudget, system
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = url
-      a.download = `personal-os-export-${new Date().toISOString().split('T')[0]}.json`
+      a.download = `personal-os-export-${todayIST()}.json`
       document.body.appendChild(a)
       a.click()
       a.remove()

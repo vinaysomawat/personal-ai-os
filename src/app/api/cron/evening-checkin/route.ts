@@ -4,6 +4,7 @@ import { getReminderLines } from '@/lib/reminders'
 import { sendMessage } from '@/lib/telegram/send'
 import { getActiveWorkout } from '@/features/health/workout-core'
 import { logCronRun } from '@/lib/cron-log'
+import { todayIST } from '@/lib/date'
 
 const CHAT_ID = process.env.TELEGRAM_ALLOWED_CHAT_ID!
 const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN_PLANNER!
@@ -16,7 +17,7 @@ export async function GET(req: Request) {
 
   const supabase = createServiceClient()
   await logCronRun(supabase, 'evening-checkin')
-  const today = new Date().toISOString().split('T')[0]
+  const today = todayIST()
 
   const { data: users } = await supabase.auth.admin.listUsers()
   const user = users?.users?.[0]

@@ -2,6 +2,7 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { askAI } from '@/lib/ai-gateway'
+import { todayIST } from '@/lib/date'
 
 const PRIORITY_DOT: Record<string, string> = { high: '🔴', medium: '🟡', low: '⚪' }
 const PRIORITY_RANK: Record<string, number> = { high: 0, medium: 1, low: 2 }
@@ -58,7 +59,7 @@ function formatExpensesByCategory(expenses: { amount: number; category: string }
 // Shared by the daily-briefing cron job and the on-demand Telegram "briefing"
 // action, so both surfaces compute and word the briefing identically.
 export async function generateDailyBriefing(db: SupabaseClient, userId: string): Promise<string> {
-  const today = new Date().toISOString().split('T')[0]
+  const today = todayIST()
   const monthStart = today.slice(0, 7) + '-01'
 
   const [

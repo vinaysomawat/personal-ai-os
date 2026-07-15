@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { ModuleReply } from '@/lib/telegram/types'
 import { undoButton } from '@/lib/telegram/buttons'
+import { todayIST } from '@/lib/date'
 
 export const SYSTEM_PROMPT = `You are the Career bot for Personal OS. Parse the user message and return ONLY a JSON action.
 
@@ -24,7 +25,7 @@ Rules:
 const SC = { applied: '📨', screening: '🔍', interview: '🎯', offer: '🎉', rejected: '❌' } as Record<string, string>
 
 export async function execute(action: Record<string, unknown>, db: SupabaseClient, userId: string): Promise<ModuleReply> {
-  const today = new Date().toISOString().split('T')[0]
+  const today = todayIST()
   switch (action.action) {
     case 'add_application': {
       const { data, error } = await db.from('applications').insert({ user_id: userId, company: action.company, role: action.role, status: action.status ?? 'applied', notes: action.notes ?? null, applied_at: action.applied_at ?? today }).select('id').single()

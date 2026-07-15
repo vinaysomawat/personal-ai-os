@@ -7,6 +7,7 @@ import ModuleRecommendations from '@/components/ModuleRecommendations'
 import { useAIAdvisor, useAIAdvisorOpen } from '@/components/AIAdvisorProvider'
 import { addTask, toggleTask, deleteTask } from '../actions'
 import { RefreshCw } from 'lucide-react'
+import { todayIST } from '@/lib/date'
 import type { Task, Priority, Recurrence } from '../types'
 
 const priorityDot: Record<Priority, string> = {
@@ -38,7 +39,7 @@ function PendingTaskRow({ task, onToggle, onDelete }: { task: Task; onToggle: (i
             </span>
           )}
           {task.due_date && (
-            <span className={`text-xs ${task.due_date < new Date().toISOString().split('T')[0] ? 'text-red-400' : 'text-slate-600'}`}>
+            <span className={`text-xs ${task.due_date < todayIST() ? 'text-red-400' : 'text-slate-600'}`}>
               due {task.due_date}
             </span>
           )}

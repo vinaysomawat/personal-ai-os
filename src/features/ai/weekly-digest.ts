@@ -2,6 +2,7 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { askAI } from '@/lib/ai-gateway'
+import { daysAgoIST } from '@/lib/date'
 
 // Deterministic — no AI. Highest-spend category first.
 function formatSpend(expenses: { amount: number; category: string }[], periodLabel: string): string {
@@ -28,7 +29,7 @@ function formatSpend(expenses: { amount: number; category: string }[], periodLab
 async function generateDigest(
   db: SupabaseClient, userId: string, days: number, periodLabel: string, task: 'weekly_digest' | 'monthly_digest'
 ): Promise<string> {
-  const since = new Date(Date.now() - days * 86400000).toISOString().split('T')[0]
+  const since = daysAgoIST(days)
 
   const [{ data: logs }, { data: expenses }] = await Promise.all([
     db.from('life_score_logs')

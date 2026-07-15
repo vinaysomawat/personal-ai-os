@@ -4,6 +4,7 @@ import { useState, useTransition } from 'react'
 import { Plus, Trash2, ExternalLink, X, Sparkles, ChevronRight, ChevronDown, Pencil, Check, Wand2, FileText, Star, Eye, EyeOff, RotateCcw, Lightbulb } from 'lucide-react'
 import Card from '@/components/Card'
 import { useAIAdvisor } from '@/components/AIAdvisorProvider'
+import { todayIST } from '@/lib/date'
 import {
   addApplication, updateStatus, deleteApplication,
   upsertCareerProfile, addSkill, updateSkillLevel, deleteSkill,
@@ -685,7 +686,7 @@ export default function CareerView({ applications, profile, skills, qa, codingSt
                   location: fd.get('location') as string || null,
                   url: fd.get('url') as string || null,
                   notes: fd.get('notes') as string || null,
-                  applied_at: fd.get('applied_at') as string || new Date().toISOString().split('T')[0],
+                  applied_at: fd.get('applied_at') as string || todayIST(),
                   created_at: new Date().toISOString(),
                   resume_version_id: fd.get('resume_version_id') as string || null,
                 }
@@ -712,7 +713,7 @@ export default function CareerView({ applications, profile, skills, qa, codingSt
                   </div>
                   <div className="space-y-1">
                     <label className="text-xs text-slate-500 uppercase tracking-wider">Applied On</label>
-                    <input name="applied_at" type="date" defaultValue={new Date().toISOString().split('T')[0]} className="w-full bg-surface-2 border border-surface-3 rounded-lg px-3 py-2 text-sm text-slate-300 outline-none focus:border-accent transition-colors" />
+                    <input name="applied_at" type="date" defaultValue={todayIST()} className="w-full bg-surface-2 border border-surface-3 rounded-lg px-3 py-2 text-sm text-slate-300 outline-none focus:border-accent transition-colors" />
                   </div>
                 </div>
                 <div className="grid grid-cols-2 gap-3">

@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
+import { todayIST, daysAgoIST } from '@/lib/date'
 import type { MetricField, ActivityLevel, Gender } from './types'
 
 export async function getHealthMetrics(days = 30) {
@@ -9,7 +10,7 @@ export async function getHealthMetrics(days = 30) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return []
 
-  const from = new Date(Date.now() - days * 86400000).toISOString().split('T')[0]
+  const from = daysAgoIST(days)
   const { data } = await supabase
     .from('health_metrics')
     .select('*')
@@ -25,7 +26,7 @@ export async function upsertTodayMetric(field: MetricField, value: number) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return
 
-  const today = new Date().toISOString().split('T')[0]
+  const today = todayIST()
   await supabase.from('health_metrics').upsert(
     { user_id: user.id, date: today, [field]: value },
     { onConflict: 'user_id,date' }
@@ -38,7 +39,7 @@ export async function getTodaysWorkouts() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return []
 
-  const today = new Date().toISOString().split('T')[0]
+  const today = todayIST()
   const { data } = await supabase.from('workouts').select('*').eq('user_id', user.id).eq('date', today).order('created_at', { ascending: false })
   return data ?? []
 }

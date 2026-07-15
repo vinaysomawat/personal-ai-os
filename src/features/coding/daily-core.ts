@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { todayIST, daysAgoIST } from '@/lib/date'
 
 export type Difficulty = 'easy' | 'medium' | 'hard'
 
@@ -44,9 +45,7 @@ const ROTATION: Record<number, Difficulty[]> = {
   6: ['hard'],
 }
 
-function todayStr() {
-  return new Date().toISOString().split('T')[0]
-}
+const todayStr = todayIST
 
 async function getSettings(supabase: SupabaseClient, userId: string): Promise<CodingSettings> {
   const { data } = await supabase.from('coding_settings').select('mode, fixed_count, telegram_notify').eq('user_id', userId).single()
@@ -80,7 +79,7 @@ export async function generateAssignmentForUser(supabase: SupabaseClient, userId
   if (existing.length > 0) return existing
 
   const settings = await getSettings(supabase, userId)
-  const weekday = new Date().getDay()
+  const weekday = new Date(`${today}T00:00:00Z`).getUTCDay()
 
   const [{ data: pool }, { data: assignedRows }] = await Promise.all([
     supabase.from('coding_questions').select('*'),
@@ -151,11 +150,11 @@ export async function computeCodingStats(supabase: SupabaseClient, userId: strin
   // Streak: consecutive days (walking back from today) with at least one completed question
   const completedDates = new Set(rows.filter(r => r.completed).map(r => r.assigned_date))
   let currentStreak = 0
-  const cursor = new Date()
+  const cursor = new Date(`${todayStr()}T00:00:00Z`)
   for (let i = 0; i < 3650; i++) {
     const d = cursor.toISOString().split('T')[0]
-    if (completedDates.has(d)) { currentStreak++; cursor.setDate(cursor.getDate() - 1) }
-    else if (i === 0) { cursor.setDate(cursor.getDate() - 1) } // allow today to be pending without breaking the streak
+    if (completedDates.has(d)) { currentStreak++; cursor.setUTCDate(cursor.getUTCDate() - 1) }
+    else if (i === 0) { cursor.setUTCDate(cursor.getUTCDate() - 1) } // allow today to be pending without breaking the streak
     else break
   }
 
@@ -199,7 +198,7 @@ export interface CalendarDay {
 }
 
 export async function computeCodingCalendar(supabase: SupabaseClient, userId: string, days = 182): Promise<CalendarDay[]> {
-  const since = new Date(Date.now() - days * 86400000).toISOString().split('T')[0]
+  const since = daysAgoIST(days)
   const { data } = await supabase
     .from('coding_daily_questions')
     .select('assigned_date, completed')
@@ -218,7 +217,7 @@ export async function computeCodingCalendar(supabase: SupabaseClient, userId: st
   const today = todayStr()
   const result: CalendarDay[] = []
   for (let i = 0; i < days; i++) {
-    const d = new Date(Date.now() - i * 86400000).toISOString().split('T')[0]
+    const d = daysAgoIST(i)
     const entry = byDate.get(d)
     let status: CalendarDay['status'] = 'none'
     if (entry) {

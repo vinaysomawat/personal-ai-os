@@ -1,10 +1,9 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { TrendingReading } from './types'
 import { SYSTEM_DESIGN_ARTICLES } from './system-design-articles'
+import { todayIST } from '@/lib/date'
 
-function todayStr() {
-  return new Date().toISOString().split('T')[0]
-}
+const todayStr = todayIST
 
 export async function getTodayTrendingReading(supabase: SupabaseClient, userId: string): Promise<TrendingReading | null> {
   const { data } = await supabase

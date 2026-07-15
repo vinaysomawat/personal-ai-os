@@ -1,6 +1,7 @@
 import DashboardView from '@/features/dashboard/components/DashboardView'
+import { todayIST, daysAgoIST } from '@/lib/date'
 
-const today = new Date().toISOString().split('T')[0]
+const today = todayIST()
 
 const dummyData = {
   pendingTasks: [
@@ -18,7 +19,7 @@ const dummyData = {
   ],
   todayHealth: { weight_kg: 78, calories: 1850, protein_g: 120, steps: 6000, sleep_hours: 7, water_ml: 2000 },
   scoreHistory: Array.from({ length: 14 }, (_, i) => ({
-    date: new Date(Date.now() - (13 - i) * 86400000).toISOString().split('T')[0],
+    date: daysAgoIST(13 - i),
     life: 55 + Math.round(Math.sin(i / 2) * 15 + i),
     health: 60 + i, finance: 70 - i, career: 50 + i, learning: 45 + i, projects: 40 + i * 2,
   })),
