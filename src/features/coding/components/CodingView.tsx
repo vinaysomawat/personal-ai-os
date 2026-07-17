@@ -45,7 +45,7 @@ export default function CodingView({ dailyAssignment, codingStats, calendar, cod
         <CodingCalendar days={calendar} />
       </Card>
 
-      <QuestionHistory initialHistory={history} />
+      <QuestionHistory initialHistory={history} trendingReading={trendingReading} />
     </div>
   )
 }

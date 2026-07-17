@@ -1,10 +1,12 @@
 'use client'
 
 import { useState, useTransition } from 'react'
-import { Star, RotateCcw, ExternalLink, CheckCircle2, Circle } from 'lucide-react'
+import { Star, RotateCcw, ExternalLink, CheckCircle2, Circle, Newspaper } from 'lucide-react'
 import Card from '@/components/Card'
 import { toggleFavorite, toggleRevisionFlag, markQuestionComplete } from '../daily'
+import { completeReading } from '@/features/trending/actions'
 import type { DailyQuestion } from '../daily-core'
+import type { TrendingReading } from '@/features/trending/types'
 
 const DIFFICULTY_COLOR: Record<string, string> = {
   easy: 'text-green-400 bg-green-500/15',
@@ -14,10 +16,31 @@ const DIFFICULTY_COLOR: Record<string, string> = {
 
 type Filter = 'all' | 'completed' | 'pending' | 'revision' | 'favorites' | 'easy' | 'medium' | 'hard'
 
-export default function QuestionHistory({ initialHistory }: { initialHistory: DailyQuestion[] }) {
+interface Props {
+  initialHistory: DailyQuestion[]
+  trendingReading?: TrendingReading | null
+}
+
+export default function QuestionHistory({ initialHistory, trendingReading }: Props) {
   const [history, setHistory] = useState(initialHistory)
+  const [reading, setReading] = useState(trendingReading ?? null)
   const [filter, setFilter] = useState<Filter>('pending')
   const [, startTransition] = useTransition()
+
+  // The daily "Read" isn't a coding question — it has no difficulty,
+  // favorite, or revision concept — so it only ever surfaces under the
+  // filters where "pending/completed" actually means something.
+  const showReading = !!reading && (
+    filter === 'all' ||
+    (filter === 'pending' && !reading.completed) ||
+    (filter === 'completed' && reading.completed)
+  )
+
+  const handleReadingComplete = () => {
+    if (!reading || reading.completed) return
+    setReading(r => r ? { ...r, completed: true } : r)
+    startTransition(async () => { await completeReading(reading.id) })
+  }
 
   const filtered = history.filter(h => {
     if (filter === 'all') return true
@@ -59,10 +82,26 @@ export default function QuestionHistory({ initialHistory }: { initialHistory: Da
           </button>
         ))}
       </div>
-      {filtered.length === 0 ? (
+      {filtered.length === 0 && !showReading ? (
         <p className="text-sm text-slate-600 text-center py-6">No questions match this filter.</p>
       ) : (
         <ul className="space-y-1.5 max-h-96 overflow-y-auto">
+          {showReading && reading && (
+            <li className="flex items-center gap-3 p-2.5 rounded-lg hover:bg-surface-2 transition-colors group">
+              <span className="text-xs px-2 py-0.5 rounded-full font-medium shrink-0 text-accent bg-accent/15 flex items-center gap-1">
+                <Newspaper size={10} /> Read
+              </span>
+              <span className={`flex-1 min-w-0 text-sm truncate ${reading.completed ? 'text-slate-400' : 'text-slate-300'}`}>{reading.title}</span>
+              <span className="text-xs text-slate-600 shrink-0">{reading.assigned_date}</span>
+              <button onClick={handleReadingComplete} disabled={reading.completed}
+                className={`shrink-0 transition-colors ${reading.completed ? 'text-green-500' : 'text-slate-600 hover:text-green-400'}`}>
+                {reading.completed ? <CheckCircle2 size={14} /> : <Circle size={14} />}
+              </button>
+              <a href={reading.url} target="_blank" rel="noopener noreferrer" className="shrink-0 text-slate-600 hover:text-accent transition-colors">
+                <ExternalLink size={13} />
+              </a>
+            </li>
+          )}
           {filtered.map(h => (
             <li key={h.id} className="flex items-center gap-3 p-2.5 rounded-lg hover:bg-surface-2 transition-colors group">
               <span className={`text-xs px-2 py-0.5 rounded-full font-medium shrink-0 ${DIFFICULTY_COLOR[h.question.difficulty]}`}>{h.question.difficulty}</span>

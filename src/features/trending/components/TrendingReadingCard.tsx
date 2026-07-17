@@ -19,7 +19,7 @@ export default function TrendingReadingCard({ initialReading }: { initialReading
     <div className="bg-surface-1 border border-surface-3 rounded-xl p-4">
       <div className="flex items-center gap-2 mb-3">
         <Newspaper size={14} className="text-accent" />
-        <h2 className="text-sm font-semibold text-slate-300 uppercase tracking-wider">Today&apos;s System Design Read</h2>
+        <h2 className="text-sm font-semibold text-slate-300 uppercase tracking-wider">Daily Tech Read</h2>
       </div>
 
       {!reading ? (
