@@ -25,26 +25,22 @@ function monthKey(dateStr: string) {
 
 function PendingTaskRow({ task, onToggle, onDelete }: { task: Task; onToggle: (id: string, done: boolean) => void; onDelete: (id: string) => void }) {
   return (
-    <li className="flex items-center gap-3 p-1.5 rounded-lg hover:bg-surface-2 transition-colors group">
+    <li className="flex items-center gap-2 py-1 px-1.5 rounded-lg hover:bg-surface-2 transition-colors group">
       <button onClick={() => onToggle(task.id, task.done)} className="shrink-0">
         <Circle size={16} className="text-slate-600 group-hover:text-accent transition-colors" />
       </button>
-      <div className="flex-1 min-w-0">
-        <p className="text-sm text-slate-200">{task.text}</p>
-        <div className="flex items-center gap-2 mt-0.5">
-          <p className="text-xs text-slate-600">{task.area}</p>
-          {task.recurrence && (
-            <span className="flex items-center gap-0.5 text-xs text-accent/70">
-              <RefreshCw size={9} />{task.recurrence}
-            </span>
-          )}
-          {task.due_date && (
-            <span className={`text-xs ${task.due_date < todayIST() ? 'text-red-400' : 'text-slate-600'}`}>
-              due {task.due_date}
-            </span>
-          )}
-        </div>
-      </div>
+      <p className="flex-1 min-w-0 text-sm text-slate-200 truncate">{task.text}</p>
+      <span className="shrink-0 text-[10px] px-1.5 py-0.5 rounded-full bg-surface-2 text-slate-500">{task.area}</span>
+      {task.recurrence && (
+        <span className="shrink-0 flex items-center gap-0.5 text-xs text-accent/70">
+          <RefreshCw size={9} />{task.recurrence}
+        </span>
+      )}
+      {task.due_date && (
+        <span className={`shrink-0 text-xs ${task.due_date < todayIST() ? 'text-red-400' : 'text-slate-600'}`}>
+          due {task.due_date}
+        </span>
+      )}
       {task.external_url && (
         <a href={task.external_url} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()}
           className="shrink-0 text-slate-600 hover:text-accent transition-colors">
