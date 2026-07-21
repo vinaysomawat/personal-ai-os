@@ -135,71 +135,78 @@ export default function DashboardView({ data }: { data: DashboardData }) {
         </div>
       </div>
 
-      {/* Daily Mission — resets to a fresh checklist every midnight, separate from the persistent Life Score above.
-          Deterministic, cross-module (Planner/Health/Coding/Learning/Finance) — same primitive the Phase 2 "Brain"
-          PRD calls Daily Mission; not a new feature, just this existing checklist reframed. */}
-      <Card title="Daily Mission" padding="p-3.5" action={<span className="text-xs text-slate-500">{todayProgress.completed}/{todayProgress.total} done</span>}>
-        <div className="flex items-center gap-4">
-          <div className="shrink-0">
-            <MiniRing score={todayProgress.score} color="#8b5cf6" />
+      {/* My Brain group — Daily Mission, Today's Focus, and Insights are the three
+          deterministic Brain outputs (Phase 2 PRD); this label brackets them as one
+          conceptual group without restructuring the cards themselves. */}
+      <div className="space-y-3">
+        <p className="text-xs text-slate-600 uppercase tracking-widest">🧠 My Brain</p>
+
+        {/* Daily Mission — resets to a fresh checklist every midnight, separate from the persistent Life Score above.
+            Deterministic, cross-module (Planner/Health/Coding/Learning/Finance) — same primitive the Phase 2 "Brain"
+            PRD calls Daily Mission; not a new feature, just this existing checklist reframed. */}
+        <Card title="Daily Mission" padding="p-3.5" action={<span className="text-xs text-slate-500">{todayProgress.completed}/{todayProgress.total} done</span>}>
+          <div className="flex items-center gap-4">
+            <div className="shrink-0">
+              <MiniRing score={todayProgress.score} color="#8b5cf6" />
+            </div>
+            <div className="flex-1 min-w-0">
+              {todayRecommendations.length > 0 ? (
+                <ul className="space-y-0.5">
+                  {todayRecommendations.map(r => (
+                    <li key={r.text}>
+                      <Link href={r.href} className="flex items-center gap-2 py-0.5 text-sm text-slate-400 hover:text-accent transition-colors">
+                        <span className="shrink-0">{r.emoji}</span>
+                        <span className="truncate">{r.text}</span>
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="text-sm text-slate-400">Everything for today is done 🎉</p>
+              )}
+            </div>
           </div>
-          <div className="flex-1 min-w-0">
-            {todayRecommendations.length > 0 ? (
-              <ul className="space-y-0.5">
-                {todayRecommendations.map(r => (
-                  <li key={r.text}>
-                    <Link href={r.href} className="flex items-center gap-2 py-0.5 text-sm text-slate-400 hover:text-accent transition-colors">
-                      <span className="shrink-0">{r.emoji}</span>
-                      <span className="truncate">{r.text}</span>
+        </Card>
+
+        {/* Today's Focus + Insights side by side — both are short scannable lists */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-start">
+          <Card title="Today's Focus" padding="p-3.5" action={<Target size={13} className="text-accent" />}>
+            {topActions.length > 0 ? (
+              <ul className="space-y-0">
+                {topActions.map((action, i) => (
+                  <li key={i}>
+                    <Link href={action.href} className="flex items-center gap-3 py-1 px-2 -mx-2 rounded-lg hover:bg-surface-2 transition-colors group">
+                      <span className="text-lg shrink-0">{action.emoji}</span>
+                      <p className="text-sm text-slate-300 flex-1">{action.text}</p>
+                      <span className="text-xs text-slate-600 group-hover:text-accent transition-colors">→</span>
                     </Link>
                   </li>
                 ))}
               </ul>
             ) : (
-              <p className="text-sm text-slate-400">Everything for today is done 🎉</p>
+              <div className="text-center py-4">
+                <p className="text-sm text-slate-400">Nothing urgent — you&apos;re on top of everything 🎉</p>
+              </div>
             )}
-          </div>
+          </Card>
+
+          <Card title="Insights" padding="p-3.5" action={<Lightbulb size={13} className="text-amber-400" />}>
+            {insights.length > 0 ? (
+              <ul className="space-y-0.5">
+                {insights.map((insight, i) => (
+                  <li key={i} className="flex items-center gap-3 py-0.5 border-b border-surface-3 last:border-0">
+                    <div className="w-1.5 h-1.5 rounded-full bg-accent/50 shrink-0" />
+                    <p className="text-sm text-slate-400">{insight}</p>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <div className="text-center py-4">
+                <p className="text-sm text-slate-400">Nothing to flag right now</p>
+              </div>
+            )}
+          </Card>
         </div>
-      </Card>
-
-      {/* Today's Focus + Insights side by side — both are short scannable lists */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-start">
-        <Card title="Today's Focus" padding="p-3.5" action={<Target size={13} className="text-accent" />}>
-          {topActions.length > 0 ? (
-            <ul className="space-y-0">
-              {topActions.map((action, i) => (
-                <li key={i}>
-                  <Link href={action.href} className="flex items-center gap-3 py-1 px-2 -mx-2 rounded-lg hover:bg-surface-2 transition-colors group">
-                    <span className="text-lg shrink-0">{action.emoji}</span>
-                    <p className="text-sm text-slate-300 flex-1">{action.text}</p>
-                    <span className="text-xs text-slate-600 group-hover:text-accent transition-colors">→</span>
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <div className="text-center py-4">
-              <p className="text-sm text-slate-400">Nothing urgent — you&apos;re on top of everything 🎉</p>
-            </div>
-          )}
-        </Card>
-
-        <Card title="Insights" padding="p-3.5" action={<Lightbulb size={13} className="text-amber-400" />}>
-          {insights.length > 0 ? (
-            <ul className="space-y-0.5">
-              {insights.map((insight, i) => (
-                <li key={i} className="flex items-center gap-3 py-0.5 border-b border-surface-3 last:border-0">
-                  <div className="w-1.5 h-1.5 rounded-full bg-accent/50 shrink-0" />
-                  <p className="text-sm text-slate-400">{insight}</p>
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <div className="text-center py-4">
-              <p className="text-sm text-slate-400">Nothing to flag right now</p>
-            </div>
-          )}
-        </Card>
       </div>
 
       {/* Module grid */}
