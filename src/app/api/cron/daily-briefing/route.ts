@@ -1,150 +1,14 @@
 import { NextResponse } from 'next/server'
-import type { SupabaseClient } from '@supabase/supabase-js'
 import { createServiceClient } from '@/lib/supabase/service'
 import { generateDailyBriefing } from '@/features/ai/daily-briefing'
 import { getReminderLines } from '@/lib/reminders'
 import { sendMessage } from '@/lib/telegram/send'
 import { logCronRun } from '@/lib/cron-log'
-import { daysAgoIST, todayIST } from '@/lib/date'
-import { computeHealthPlan } from '@/features/health/calculations'
-import { computeCodingStats } from '@/features/coding/daily-core'
-import type { HealthProfile, HealthMetric } from '@/features/health/types'
+import { todayIST } from '@/lib/date'
+import { computeAutomationRules, computeRiskEngine, computeOpportunityEngine, IMPACT_EMOJI } from '@/features/brain/risk-opportunity-engine'
 
 const CHAT_ID = process.env.TELEGRAM_ALLOWED_CHAT_ID!
 const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN_PLANNER!
-
-// Automation Rules (Phase 3 PRD) — deterministic "if X then suggest Y"
-// checks appended to the existing morning push rather than a new cron/
-// surface. AI is never used to compute these, only the existing briefing
-// prose above them.
-async function computeAutomationRules(supabase: SupabaseClient, userId: string): Promise<string[]> {
-  const yesterday = daysAgoIST(1)
-  const [{ data: profile }, { data: metrics }, { data: interviewApps }] = await Promise.all([
-    supabase.from('health_profile').select('*').eq('user_id', userId).maybeSingle(),
-    supabase.from('health_metrics').select('*').eq('user_id', userId).gte('date', daysAgoIST(14)).order('date', { ascending: false }),
-    supabase.from('applications').select('id').eq('user_id', userId).eq('status', 'interview'),
-  ])
-
-  const lines: string[] = []
-
-  // Rule: high calorie yesterday → adjust today's guidance. Reuses the same
-  // computeHealthPlan the Health page and bot already use for daily targets —
-  // no separate calorie-target calculation.
-  const yesterdayMetric = (metrics ?? []).find((m): m is HealthMetric => m.date === yesterday)
-  const plan = computeHealthPlan(profile as HealthProfile | null, (metrics ?? []) as HealthMetric[], [], yesterday)
-  if (plan && yesterdayMetric?.calories) {
-    const target = plan.dailyTargets.dailyCalorieTarget
-    const overBy = yesterdayMetric.calories - target
-    if (target > 0 && overBy / target >= 0.15) {
-      lines.push(`🍽️ Yesterday you were ~${Math.round(overBy)} kcal over target (${yesterdayMetric.calories} vs ${target}) — lighter meals today will help stay on track this week.`)
-    }
-  }
-
-  // Rule: active interview-stage application → suggest lighter workout + more revision.
-  if ((interviewApps ?? []).length > 0) {
-    lines.push(`🎯 You have an active interview-stage application — consider a lighter workout and extra revision time today.`)
-  }
-
-  return lines
-}
-
-interface Risk {
-  text: string
-  impact: 'high' | 'medium' | 'low'
-  action: string
-}
-
-const IMPACT_EMOJI: Record<Risk['impact'], string> = { high: '🔴', medium: '🟠', low: '🟡' }
-
-// Risk Engine (Phase 4 PRD) — forward-looking, deterministic-only (Product
-// Principle 2). No fabricated probability numbers: severity is expressed as
-// a plain impact tier grounded in real thresholds, never an invented
-// statistic. Appended to the same morning push as Automation Rules above.
-async function computeRiskEngine(supabase: SupabaseClient, userId: string): Promise<Risk[]> {
-  const today = todayIST()
-  const [{ data: expenses }, { data: budgets }, { data: metrics }, { data: todayCoding }, codingStats] = await Promise.all([
-    supabase.from('expenses').select('amount').eq('user_id', userId).gte('date', today.slice(0, 7) + '-01'),
-    supabase.from('budgets').select('amount').eq('user_id', userId).eq('month', today.slice(0, 7)),
-    supabase.from('health_metrics').select('date, protein_g').eq('user_id', userId).gte('date', daysAgoIST(6)).not('protein_g', 'is', null),
-    supabase.from('coding_daily_questions').select('completed').eq('user_id', userId).eq('assigned_date', today),
-    computeCodingStats(supabase, userId),
-  ])
-
-  const risks: Risk[] = []
-
-  // Risk: on pace to exceed this month's budget.
-  const monthBudget = (budgets ?? []).reduce((s, b) => s + Number(b.amount ?? 0), 0)
-  const monthSpend = (expenses ?? []).reduce((s, e) => s + Number(e.amount ?? 0), 0)
-  if (monthBudget > 0) {
-    const [year, month, day] = today.split('-').map(Number)
-    const daysElapsed = day
-    const daysInMonth = new Date(Date.UTC(year, month, 0)).getUTCDate()
-    const projectedSpend = (monthSpend / daysElapsed) * daysInMonth
-    const overBy = projectedSpend - monthBudget
-    if (overBy / monthBudget >= 0.05) {
-      const ratio = overBy / monthBudget
-      risks.push({
-        text: `At your current pace (₹${Math.round(monthSpend / daysElapsed).toLocaleString('en-IN')}/day), you're projected to spend ₹${Math.round(projectedSpend).toLocaleString('en-IN')} this month — ₹${Math.round(overBy).toLocaleString('en-IN')} over your ₹${Math.round(monthBudget).toLocaleString('en-IN')} budget.`,
-        impact: ratio >= 0.25 ? 'high' : ratio >= 0.15 ? 'medium' : 'low',
-        action: 'Pull back discretionary spending for the rest of the month.',
-      })
-    }
-  }
-
-  // Risk: protein intake declining over the last few days.
-  const proteinRows = (metrics ?? []) as { date: string; protein_g: number }[]
-  if (proteinRows.length >= 6) {
-    const sorted = [...proteinRows].sort((a, b) => a.date.localeCompare(b.date))
-    const recent3 = sorted.slice(-3)
-    const prior3 = sorted.slice(-6, -3)
-    if (recent3.length === 3 && prior3.length === 3) {
-      const avg = (arr: typeof sorted) => arr.reduce((s, r) => s + r.protein_g, 0) / arr.length
-      const recentAvg = avg(recent3)
-      const priorAvg = avg(prior3)
-      if (priorAvg > 0 && (priorAvg - recentAvg) / priorAvg >= 0.2) {
-        risks.push({
-          text: `Protein intake has declined from ~${Math.round(priorAvg)}g to ~${Math.round(recentAvg)}g avg over the last 3 days.`,
-          impact: 'medium',
-          action: 'Add a protein-heavy meal today to reverse the trend.',
-        })
-      }
-    }
-  }
-
-  // Risk: coding streak open for today.
-  const todayRows = (todayCoding ?? []) as { completed: boolean }[]
-  const todayOpen = todayRows.length > 0 && todayRows.every(r => !r.completed)
-  if (todayOpen && codingStats.currentStreak > 0) {
-    risks.push({
-      text: `You have a ${codingStats.currentStreak}-day coding streak, and today's question isn't solved yet.`,
-      impact: codingStats.currentStreak >= 7 ? 'high' : 'medium',
-      action: "Solve today's question to keep the streak alive.",
-    })
-  }
-
-  return risks
-}
-
-// Opportunity Engine (Phase 4 PRD) — same deterministic, cron-append pattern
-// as Risk/Automation Rules above, just the positive-signal counterpart.
-// Only one of the PRD's four examples is buildable without an integration:
-// "free Saturday → book a trek" and "salary credited → invest" need Calendar/
-// Gmail (same blockers noted throughout Phase 3); "three weeks without leave"
-// needs leave-tracking that doesn't exist anywhere in the app.
-async function computeOpportunityEngine(supabase: SupabaseClient, userId: string): Promise<string[]> {
-  const { data: interviewApps } = await supabase.from('applications').select('id').eq('user_id', userId).eq('status', 'interview')
-  const count = (interviewApps ?? []).length
-
-  const lines: string[] = []
-  // Opportunity: interview-invite surge → capitalize with extra practice,
-  // distinct from Automation Rules' single-application "lighter workout"
-  // suggestion above — this is momentum to lean into, not a load to offset.
-  if (count >= 3) {
-    lines.push(`🚀 You have ${count} active interview-stage applications — strong momentum. Consider batch-scheduling extra interview practice sessions this week to capitalize on it.`)
-  }
-
-  return lines
-}
 
 export async function GET(req: Request) {
   // Verify Vercel cron secret
@@ -161,7 +25,7 @@ export async function GET(req: Request) {
   const user = users?.users?.[0]
   if (!user) return NextResponse.json({ error: 'No user' }, { status: 404 })
 
-  const [body, reminders, automationRules, risks, opportunities] = await Promise.all([
+  const [briefing, reminders, automationRules, risks, opportunities] = await Promise.all([
     generateDailyBriefing(supabase, user.id),
     getReminderLines(supabase, user.id, 'morning'),
     computeAutomationRules(supabase, user.id),
@@ -169,13 +33,20 @@ export async function GET(req: Request) {
     computeOpportunityEngine(supabase, user.id),
   ])
 
+  // Executive Dashboard's Morning Brief (Phase 4 PRD) — persisted so the
+  // Dashboard can show it without a fresh AI call on every page load.
+  await supabase.from('daily_briefings').upsert(
+    { user_id: user.id, date: todayIST(), message: briefing.message },
+    { onConflict: 'user_id,date' }
+  )
+
   const automationSection = automationRules.length > 0 ? `\n\n${automationRules.join('\n\n')}` : ''
   const riskSection = risks.length > 0
     ? `\n\n⚠️ *Risks*\n\n${risks.map(r => `${IMPACT_EMOJI[r.impact]} ${r.text}\n   → ${r.action}`).join('\n\n')}`
     : ''
-  const opportunitySection = opportunities.length > 0 ? `\n\n${opportunities.join('\n\n')}` : ''
+  const opportunitySection = opportunities.length > 0 ? `\n\n${opportunities.map(o => o.text).join('\n\n')}` : ''
 
-  await sendMessage(BOT_TOKEN, Number(CHAT_ID), `🌅 *Good Morning, Vinay!*\n\n${body}${automationSection}${riskSection}${opportunitySection}${reminders}\n\n_Open your dashboard → vinay-ai-os.vercel.app_`)
+  await sendMessage(BOT_TOKEN, Number(CHAT_ID), `🌅 *Good Morning, Vinay!*\n\n${briefing.text}${automationSection}${riskSection}${opportunitySection}${reminders}\n\n_Open your dashboard → vinay-ai-os.vercel.app_`)
 
   return NextResponse.json({ ok: true, automationRules: automationRules.length, risks: risks.length, opportunities: opportunities.length })
 }

@@ -77,8 +77,8 @@ export async function execute(action: Record<string, unknown>, db: SupabaseClien
     }
     case 'briefing': {
       const { generateDailyBriefing } = await import('@/features/ai/daily-briefing')
-      const body = await generateDailyBriefing(db, userId)
-      return `🌅 *Your Briefing:*\n\n${body}`
+      const { text } = await generateDailyBriefing(db, userId)
+      return `🌅 *Your Briefing:*\n\n${text}`
     }
     case 'digest': {
       const { generateWeeklyDigest } = await import('@/features/ai/weekly-digest')

@@ -10,9 +10,11 @@ import RealtimeRefresh from './RealtimeRefresh'
 import BotActivityCard from './BotActivityCard'
 import ScoreExplainer from '@/features/brain/components/ScoreExplainer'
 import BrainAdvisorTrigger from '@/features/brain/components/BrainAdvisorTrigger'
+import ExecutiveBrief from './ExecutiveBrief'
 import { explainScore } from '@/features/brain/calculations'
 import { buildBrainContext } from '@/features/brain/context-builder'
 import type { getDashboardData } from '../actions'
+import type { ExecutiveData } from '@/features/brain/executive-actions'
 
 const PRIORITY_DOT: Record<string, string> = {
   high: 'bg-red-400', medium: 'bg-amber-400', low: 'bg-slate-500',
@@ -63,7 +65,7 @@ function computeInsights(
   return items.slice(0, 6)
 }
 
-export default function DashboardView({ data }: { data: DashboardData }) {
+export default function DashboardView({ data, executive }: { data: DashboardData; executive: ExecutiveData }) {
   const { pendingTasks, recentApplications, botActivity, stats, scores, scoreTips, scoreHistory, todayHealth, aiBudget, topActions, todayProgress, todayRecommendations } = data
   const scoreExplanation = explainScore(scoreHistory, scores, scoreTips)
   const brainContext = buildBrainContext(data)
@@ -100,6 +102,12 @@ export default function DashboardView({ data }: { data: DashboardData }) {
         <p className="text-sm font-medium text-slate-300">{greeting}, Vinay</p>
         <p className="text-xs text-slate-500 font-medium uppercase tracking-widest">{today}</p>
       </div>
+
+      {/* Executive Brief (Phase 4 PRD) — Morning Brief, Decision Queue
+          (dismissible Risks + Opportunities), Goal Progress. Sits above
+          everything else per the PRD ("replace passive widgets... everything
+          else secondary") without removing any of the proven content below it. */}
+      <ExecutiveBrief brief={executive.brief} risks={executive.risks} opportunities={executive.opportunities} goals={data.financialGoals} />
 
       {/* Hero: Life Score + Module Scores */}
       <div className="bg-gradient-to-br from-surface-1 via-surface-2 to-surface-1 border border-surface-3 rounded-2xl p-3.5">

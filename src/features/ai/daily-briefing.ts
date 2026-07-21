@@ -56,9 +56,17 @@ function formatExpensesByCategory(expenses: { amount: number; category: string }
   return `\n\n💸 *Expenses this month (₹${Math.round(monthSpend).toLocaleString('en-IN')} total):*\n${lines.join('\n')}`
 }
 
+export interface DailyBriefing {
+  // Full formatted message (score line + AI paragraph + task/expense sections) — what Telegram sends.
+  text: string
+  // Just the AI-written paragraph — what the Executive Dashboard's Morning Brief persists and shows,
+  // without re-showing the task/expense sections the Dashboard already surfaces elsewhere.
+  message: string
+}
+
 // Shared by the daily-briefing cron job and the on-demand Telegram "briefing"
 // action, so both surfaces compute and word the briefing identically.
-export async function generateDailyBriefing(db: SupabaseClient, userId: string): Promise<string> {
+export async function generateDailyBriefing(db: SupabaseClient, userId: string): Promise<DailyBriefing> {
   const today = todayIST()
   const monthStart = today.slice(0, 7) + '-01'
 
@@ -112,5 +120,5 @@ Keep it direct, personal, and energetic. No bullet points — flowing text.`
   const taskSection = formatPendingTasks(pendingTasks, today)
   const expenseSection = formatExpensesByCategory(expenses, budgets, monthSpend)
 
-  return `${scoreLine}\n\n${message}${taskSection}${expenseSection}`
+  return { text: `${scoreLine}\n\n${message}${taskSection}${expenseSection}`, message }
 }
