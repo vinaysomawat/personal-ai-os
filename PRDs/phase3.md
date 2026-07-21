@@ -38,12 +38,6 @@ If yes, automate it.
 
 ---
 
-# Integration Layer
-
-**Descoped 2026-07-21.** This section (Google Calendar, Gmail, GitHub, Browser Activity, Bank SMS, Weather providers) is not planned — the OAuth/credential-storage lift is a categorically bigger and riskier undertaking than the rest of this PRD, and GitHub specifically was already tried once (pre-dates this PRD) and abandoned (`GITHUB_USERNAME`/`GITHUB_TOKEN` never configured, silently zeroing the Coding score — it now derives from in-app activity instead). Every other section of this PRD that depended on this layer (Background Timeline, the Automatic Activity dashboard section, parts of Smart Logging, and a few Weekly Pattern Mining / Automation Rules examples) stays explicitly out of scope for the same reason — see `README.md` for exactly which examples were built vs. excluded.
-
----
-
 # Smart Logging
 
 Replace manual logging.
