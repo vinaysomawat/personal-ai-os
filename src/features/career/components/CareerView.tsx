@@ -8,11 +8,11 @@ import FilterPill from '@/components/FilterPill'
 import { useAIAdvisor } from '@/components/AIAdvisorProvider'
 import { todayIST } from '@/lib/date'
 import {
-  addApplication, updateStatus, deleteApplication,
+  addApplication, updateStatus, deleteApplication, saveApplicationJD,
   upsertCareerProfile,
   addInterviewQA, updateQAAnswer, deleteInterviewQA, markQAReviewed,
 } from '../actions'
-import { askCareerMentor, generateInterviewQuestions } from '@/features/ai/career-mentor'
+import { askCareerMentor, generateInterviewQuestions, analyzeJobDescription } from '@/features/ai/career-mentor'
 import { getQAsNeedingRevision } from '../calculations'
 import { SUGGESTED_QUESTIONS } from '../suggested-questions'
 import type { Application, AppStatus, CareerProfile, Skill, InterviewQA, Difficulty } from '../types'
@@ -31,6 +31,12 @@ const STATUS_CONFIG: Record<AppStatus, { label: string; color: string; bg: strin
   rejected:  { label: 'Rejected',  color: 'text-red-400',    bg: 'bg-red-400/10' },
 }
 const STATUSES = Object.keys(STATUS_CONFIG) as AppStatus[]
+
+function matchColor(pct: number): string {
+  if (pct >= 70) return 'bg-green-500/15 text-green-400'
+  if (pct >= 40) return 'bg-amber-500/15 text-amber-400'
+  return 'bg-red-500/15 text-red-400'
+}
 
 function ProfileField({ label, value, onSave, type = 'text', placeholder, masked = false }: {
   label: string; value: string; onSave: (v: string) => void; type?: string; placeholder?: string; masked?: boolean
@@ -110,6 +116,11 @@ export default function CareerView({ applications, profile, skills, qa, codingSt
   const [editingAnswer, setEditingAnswer] = useState<string | null>(null)
   const [answerInput, setAnswerInput] = useState('')
 
+  // JD analysis
+  const [expandedApp, setExpandedApp] = useState<string | null>(null)
+  const [analyzingAppId, setAnalyzingAppId] = useState<string | null>(null)
+  const [jdInput, setJdInput] = useState('')
+
   // AI Mentor
   const [mentorQ, setMentorQ] = useState('')
   const [mentorA, setMentorA] = useState<string | null>(null)
@@ -143,6 +154,49 @@ export default function CareerView({ applications, profile, skills, qa, codingSt
   const handleStatus = (id: string, status: AppStatus) => {
     setLocalApps(prev => prev.map(a => a.id === id ? { ...a, status } : a))
     startTransition(() => updateStatus(id, status))
+  }
+
+  const handleAddApplication = async (fd: FormData) => {
+    const tempId = `temp-${Date.now()}`
+    const company = fd.get('company') as string
+    const role = fd.get('role') as string
+    const jobDescription = fd.get('job_description') as string
+    const newApp: Application = {
+      id: tempId, user_id: '',
+      company, role,
+      status: (fd.get('status') as AppStatus) ?? 'applied',
+      salary_range: fd.get('salary_range') as string || null,
+      location: fd.get('location') as string || null,
+      url: fd.get('url') as string || null,
+      notes: fd.get('notes') as string || null,
+      applied_at: fd.get('applied_at') as string || todayIST(),
+      created_at: new Date().toISOString(),
+      resume_version_id: null,
+      job_description: jobDescription,
+      jd_analysis: null,
+    }
+    setLocalApps(prev => [newApp, ...prev])
+    setModal(null)
+
+    const inserted = await addApplication(fd)
+    setLocalApps(prev => prev.map(a => a.id === tempId ? { ...a, id: inserted.id } : a))
+
+    setAnalyzingAppId(inserted.id)
+    const analysis = await analyzeJobDescription(jobDescription, company, role, localProfile)
+    setLocalApps(prev => prev.map(a => a.id === inserted.id ? { ...a, jd_analysis: analysis } : a))
+    setAnalyzingAppId(null)
+    await saveApplicationJD(inserted.id, jobDescription, analysis)
+  }
+
+  const handleAnalyzeJD = async (id: string, jd: string) => {
+    const app = localApps.find(a => a.id === id)
+    if (!app) return
+    setAnalyzingAppId(id)
+    setJdInput('')
+    const analysis = await analyzeJobDescription(jd, app.company, app.role, localProfile)
+    setLocalApps(prev => prev.map(a => a.id === id ? { ...a, job_description: jd, jd_analysis: analysis } : a))
+    setAnalyzingAppId(null)
+    await saveApplicationJD(id, jd, analysis)
   }
 
   const handleDeleteQA = (id: string) => {
@@ -249,27 +303,93 @@ export default function CareerView({ applications, profile, skills, qa, codingSt
           <ul className="space-y-2">
             {filtered.map(app => {
               const cfg = STATUS_CONFIG[app.status]
+              const isExpanded = expandedApp === app.id
+              const isAnalyzing = analyzingAppId === app.id
               return (
-                <li key={app.id} className="flex items-start gap-3 p-3 rounded-lg bg-surface-2 border border-surface-3 group">
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="text-sm font-medium text-slate-200">{app.company}</span>
-                      <span className="text-slate-600">·</span>
-                      <span className="text-sm text-slate-400">{app.role}</span>
-                      {app.url && <a href={app.url} target="_blank" rel="noopener noreferrer" className="text-slate-600 hover:text-accent transition-colors"><ExternalLink size={11} /></a>}
+                <li key={app.id} className="border border-surface-3 rounded-lg overflow-hidden group">
+                  <div className="flex items-start gap-3 p-3 bg-surface-2 hover:bg-surface-3/40 transition-colors">
+                    <button onClick={() => setExpandedApp(isExpanded ? null : app.id)} aria-label={isExpanded ? 'Collapse' : 'Expand'} className="mt-0.5 text-slate-600 hover:text-slate-400 shrink-0">
+                      <ChevronRight size={14} className={`transition-transform ${isExpanded ? 'rotate-90' : ''}`} />
+                    </button>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-sm font-medium text-slate-200">{app.company}</span>
+                        <span className="text-slate-600">·</span>
+                        <span className="text-sm text-slate-400">{app.role}</span>
+                        {app.url && <a href={app.url} target="_blank" rel="noopener noreferrer" className="text-slate-600 hover:text-accent transition-colors"><ExternalLink size={11} /></a>}
+                        {isAnalyzing && <span className="text-xs text-slate-600 italic">Analyzing JD...</span>}
+                        {!isAnalyzing && app.jd_analysis && (
+                          <span className={`text-xs px-1.5 py-0.5 rounded-full font-medium ${matchColor(app.jd_analysis.matchPercentage)}`}>{app.jd_analysis.matchPercentage}% match</span>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-3 mt-1.5 flex-wrap">
+                        <select value={app.status} onChange={e => handleStatus(app.id, e.target.value as AppStatus)}
+                          className={`text-xs px-2 py-0.5 rounded-full border-0 outline-none cursor-pointer font-medium ${cfg.color} ${cfg.bg}`}>
+                          {STATUSES.map(s => <option key={s} value={s}>{STATUS_CONFIG[s].label}</option>)}
+                        </select>
+                        {app.location && <span className="text-xs text-slate-600">{app.location}</span>}
+                        {app.salary_range && <span className="text-xs text-slate-600">{app.salary_range}</span>}
+                        <span className="text-xs text-slate-700">{app.applied_at}</span>
+                      </div>
+                      {app.notes && <p className="text-xs text-slate-500 mt-1.5 line-clamp-1">{app.notes}</p>}
                     </div>
-                    <div className="flex items-center gap-3 mt-1.5 flex-wrap">
-                      <select value={app.status} onChange={e => handleStatus(app.id, e.target.value as AppStatus)}
-                        className={`text-xs px-2 py-0.5 rounded-full border-0 outline-none cursor-pointer font-medium ${cfg.color} ${cfg.bg}`}>
-                        {STATUSES.map(s => <option key={s} value={s}>{STATUS_CONFIG[s].label}</option>)}
-                      </select>
-                      {app.location && <span className="text-xs text-slate-600">{app.location}</span>}
-                      {app.salary_range && <span className="text-xs text-slate-600">{app.salary_range}</span>}
-                      <span className="text-xs text-slate-700">{app.applied_at}</span>
-                    </div>
-                    {app.notes && <p className="text-xs text-slate-500 mt-1.5 line-clamp-1">{app.notes}</p>}
+                    <button onClick={() => handleDeleteApp(app.id)} aria-label="Delete application" className="shrink-0 opacity-0 group-hover:opacity-100 text-slate-600 hover:text-red-400 transition-all mt-0.5"><Trash2 size={13} /></button>
                   </div>
-                  <button onClick={() => handleDeleteApp(app.id)} aria-label="Delete application" className="shrink-0 opacity-0 group-hover:opacity-100 text-slate-600 hover:text-red-400 transition-all mt-0.5"><Trash2 size={13} /></button>
+                  {isExpanded && (
+                    <div className="px-4 pb-3 border-t border-surface-3 bg-surface-2/50 pt-3">
+                      {isAnalyzing ? (
+                        <div className="space-y-2">{[80, 60, 90].map((w, i) => <div key={i} className="h-3 rounded bg-surface-3 animate-pulse" style={{ width: `${w}%` }} />)}</div>
+                      ) : app.jd_analysis ? (
+                        <div className="space-y-3">
+                          <div className="grid grid-cols-2 gap-3">
+                            <div>
+                              <p className="text-xs text-slate-600 uppercase tracking-wider mb-1">Required Skills</p>
+                              <div className="flex flex-wrap gap-1">
+                                {app.jd_analysis.requiredSkills.map(s => <span key={s} className="text-xs px-1.5 py-0.5 rounded-full bg-surface-3 text-slate-300">{s}</span>)}
+                              </div>
+                            </div>
+                            <div>
+                              <p className="text-xs text-slate-600 uppercase tracking-wider mb-1">Missing Skills</p>
+                              {app.jd_analysis.missingSkills.length === 0 ? (
+                                <p className="text-xs text-slate-600 italic">None identified</p>
+                              ) : (
+                                <div className="flex flex-wrap gap-1">
+                                  {app.jd_analysis.missingSkills.map(s => <span key={s} className="text-xs px-1.5 py-0.5 rounded-full bg-red-500/15 text-red-400">{s}</span>)}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                          <div>
+                            <p className="text-xs text-slate-600 uppercase tracking-wider mb-1">Priority Prep Topics</p>
+                            <div className="flex flex-wrap gap-1">
+                              {app.jd_analysis.priorityTopics.map(t => <span key={t} className="text-xs px-1.5 py-0.5 rounded-full bg-accent/15 text-accent">{t}</span>)}
+                            </div>
+                          </div>
+                          <div>
+                            <p className="text-xs text-slate-600 uppercase tracking-wider mb-1">Company Focus</p>
+                            <p className="text-sm text-slate-400 leading-relaxed">{app.jd_analysis.companyFocus}</p>
+                          </div>
+                        </div>
+                      ) : app.job_description ? (
+                        <div className="flex items-center gap-3">
+                          <p className="text-sm text-slate-600 italic flex-1">Analysis unavailable — AI budget may have been reached.</p>
+                          <button onClick={() => handleAnalyzeJD(app.id, app.job_description!)} className="shrink-0 text-xs px-2 py-1 rounded-lg border border-surface-3 text-slate-400 hover:text-accent hover:border-accent/40 transition-colors">
+                            Retry analysis
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="space-y-2">
+                          <p className="text-xs text-slate-500">Added before Job Descriptions were required — paste one now to get skill matching and prep topics.</p>
+                          <textarea value={jdInput} onChange={e => setJdInput(e.target.value)} rows={3} placeholder="Paste the job description..."
+                            className="w-full bg-surface-2 border border-surface-3 rounded-lg px-3 py-2 text-sm text-slate-200 placeholder-slate-600 outline-none focus:border-accent transition-colors resize-none" />
+                          <button onClick={() => jdInput.trim() && handleAnalyzeJD(app.id, jdInput.trim())} disabled={!jdInput.trim()}
+                            className="text-xs px-3 py-1.5 rounded-lg bg-accent text-white font-medium hover:bg-accent/80 disabled:opacity-50 transition-colors">
+                            Analyze
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </li>
               )
             })}
@@ -531,21 +651,7 @@ export default function CareerView({ applications, profile, skills, qa, codingSt
                 e.preventDefault()
                 if (!validate(e.currentTarget)) return
                 const fd = new FormData(e.currentTarget)
-                const newApp: Application = {
-                  id: `temp-${Date.now()}`, user_id: '',
-                  company: fd.get('company') as string, role: fd.get('role') as string,
-                  status: (fd.get('status') as AppStatus) ?? 'applied',
-                  salary_range: fd.get('salary_range') as string || null,
-                  location: fd.get('location') as string || null,
-                  url: fd.get('url') as string || null,
-                  notes: fd.get('notes') as string || null,
-                  applied_at: fd.get('applied_at') as string || todayIST(),
-                  created_at: new Date().toISOString(),
-                  resume_version_id: null,
-                }
-                setLocalApps(prev => [newApp, ...prev])
-                setModal(null)
-                await addApplication(fd)
+                await handleAddApplication(fd)
               }}>
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1">
@@ -584,6 +690,11 @@ export default function CareerView({ applications, profile, skills, qa, codingSt
                 <div className="space-y-1">
                   <label className="text-xs text-slate-500 uppercase tracking-wider">Job URL</label>
                   <input name="url" type="url" placeholder="https://..." className="w-full bg-surface-2 border border-surface-3 rounded-lg px-3 py-2 text-sm text-slate-200 placeholder-slate-600 outline-none focus:border-accent transition-colors" />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs text-slate-500 uppercase tracking-wider">Job Description *</label>
+                  <textarea name="job_description" required rows={5} placeholder="Paste the full job description — used to auto-analyze required skills, match %, and prep topics" className={`w-full bg-surface-2 border rounded-lg px-3 py-2 text-sm text-slate-200 placeholder-slate-600 outline-none focus:border-accent transition-colors resize-none ${invalidFields.has('job_description') ? 'border-red-500' : 'border-surface-3'}`} />
+                  <FieldError show={invalidFields.has('job_description')} />
                 </div>
                 <div className="space-y-1">
                   <label className="text-xs text-slate-500 uppercase tracking-wider">Notes</label>

@@ -3,7 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { todayIST } from '@/lib/date'
-import type { AppStatus, Difficulty } from './types'
+import type { AppStatus, Difficulty, JDAnalysis } from './types'
 
 export async function getCareerData() {
   const supabase = await createClient()
@@ -84,7 +84,8 @@ export async function addApplication(formData: FormData) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) throw new Error('Not authenticated')
-  const { error } = await supabase.from('applications').insert({
+
+  const { data: inserted, error } = await supabase.from('applications').insert({
     user_id: user.id,
     company: formData.get('company') as string,
     role: formData.get('role') as string,
@@ -94,8 +95,21 @@ export async function addApplication(formData: FormData) {
     url: formData.get('url') as string || null,
     notes: formData.get('notes') as string || null,
     applied_at: formData.get('applied_at') as string || todayIST(),
-    resume_version_id: formData.get('resume_version_id') as string || null,
-  })
+    job_description: formData.get('job_description') as string,
+  }).select().single()
+  if (error) throw new Error(error.message)
+  revalidatePath('/career')
+  return inserted
+}
+
+/** Persists a JD (+ its AI analysis, computed client-side via `analyzeJobDescription`) onto
+ * an application — used both right after adding one and for backfilling/retrying an older one. */
+export async function saveApplicationJD(id: string, jobDescription: string, analysis: JDAnalysis | null) {
+  const supabase = await createClient()
+  const { error } = await supabase.from('applications').update({
+    job_description: jobDescription,
+    jd_analysis: analysis,
+  }).eq('id', id)
   if (error) throw new Error(error.message)
   revalidatePath('/career')
 }

@@ -1,5 +1,13 @@
 export type AppStatus = 'applied' | 'screening' | 'interview' | 'offer' | 'rejected'
 
+export interface JDAnalysis {
+  requiredSkills: string[]
+  missingSkills: string[]
+  matchPercentage: number
+  priorityTopics: string[]
+  companyFocus: string
+}
+
 export interface Application {
   id: string
   user_id: string
@@ -13,6 +21,8 @@ export interface Application {
   applied_at: string
   created_at: string
   resume_version_id: string | null
+  job_description: string | null
+  jd_analysis: JDAnalysis | null
 }
 
 export interface CareerProfile {
