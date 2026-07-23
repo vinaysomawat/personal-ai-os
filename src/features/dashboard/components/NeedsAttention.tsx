@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { Rocket } from 'lucide-react'
 import Card from '@/components/Card'
 import { dismissDecisionQueueItem } from '@/features/brain/executive-actions'
+import { buildPriorityItems, KIND_HREF } from '../priority'
 import type { Risk, Opportunity } from '@/features/brain/risk-opportunity-engine'
 import type { TopAction } from '../actions'
 
@@ -41,16 +42,7 @@ export default function NeedsAttention({ topActions, risks, opportunities }: Nee
     })
   }
 
-  type Item =
-    | { type: 'risk'; kind: string; text: string; impact: Risk['impact']; action: string }
-    | { type: 'signal'; emoji: string; text: string; href: string }
-    | { type: 'opportunity'; kind: string; text: string }
-
-  const items: Item[] = [
-    ...queue.risks.map((r): Item => ({ type: 'risk', ...r })),
-    ...topActions.map((a): Item => ({ type: 'signal', ...a })),
-    ...queue.opportunities.map((o): Item => ({ type: 'opportunity', ...o })),
-  ].slice(0, MAX_ITEMS)
+  const items = buildPriorityItems(queue.risks, topActions, queue.opportunities).slice(0, MAX_ITEMS)
 
   return (
     <Card title="Needs Attention" padding="p-3.5">
@@ -76,10 +68,10 @@ export default function NeedsAttention({ topActions, risks, opportunities }: Nee
               return (
                 <li key={item.kind} className="flex items-start gap-2 py-1 px-2 -mx-2">
                   <span className={`mt-1.5 w-1.5 h-1.5 rounded-full shrink-0 ${IMPACT_DOT[item.impact]}`} />
-                  <div className="flex-1 min-w-0">
+                  <Link href={KIND_HREF[item.kind]} className="flex-1 min-w-0 hover:text-accent transition-colors">
                     <p className="text-sm text-slate-300">{item.text}</p>
                     <p className="text-xs text-slate-500 mt-0.5">→ {item.action}</p>
-                  </div>
+                  </Link>
                   <button onClick={() => dismiss(item.kind)} aria-label="Dismiss" className="shrink-0 text-slate-600 hover:text-slate-400 text-xs px-1">✕</button>
                 </li>
               )
@@ -87,7 +79,7 @@ export default function NeedsAttention({ topActions, risks, opportunities }: Nee
             return (
               <li key={item.kind} className="flex items-start gap-2 py-1 px-2 -mx-2">
                 <Rocket size={13} className="text-accent shrink-0 mt-0.5" />
-                <p className="flex-1 text-sm text-slate-300">{item.text}</p>
+                <Link href={KIND_HREF[item.kind]} className="flex-1 text-sm text-slate-300 hover:text-accent transition-colors">{item.text}</Link>
                 <button onClick={() => dismiss(item.kind)} aria-label="Dismiss" className="shrink-0 text-slate-600 hover:text-slate-400 text-xs px-1">✕</button>
               </li>
             )

@@ -18,8 +18,10 @@ import QuickStats from './QuickStats'
 import EveningReflection from './EveningReflection'
 import { explainScore } from '@/features/brain/calculations'
 import { buildBrainContext } from '@/features/brain/context-builder'
+import { buildPriorityItems, KIND_HREF } from '../priority'
 import type { getDashboardData } from '../actions'
 import type { ExecutiveData } from '@/features/brain/executive-actions'
+import LifeScoreTrend from './LifeScoreTrendLazy'
 
 const PRIORITY_DOT: Record<string, string> = {
   high: 'bg-red-400', medium: 'bg-amber-400', low: 'bg-slate-500',
@@ -48,6 +50,17 @@ export default function DashboardView({ data, executive }: { data: DashboardData
     { label: 'Coding',   score: scores.projects ?? 0,     color: '#06b6d4', to: '/coding',   tip: scoreTips.projects },
   ]
 
+  // Top-priority banner — same ranked list NeedsAttention renders (risks,
+  // then Today's Focus signals, then opportunities), just item 0 surfaced
+  // right under the greeting instead of buried after Quick Stats/What's
+  // Changed/Morning Brief/the Life Score hero.
+  const topPriorityRaw = buildPriorityItems(executive.risks, topActions, executive.opportunities)[0] ?? null
+  const topPriority = topPriorityRaw && (
+    topPriorityRaw.type === 'signal'
+      ? { emoji: topPriorityRaw.emoji, text: topPriorityRaw.text, href: topPriorityRaw.href }
+      : { emoji: topPriorityRaw.type === 'risk' ? '⚠️' : '🚀', text: topPriorityRaw.text, href: KIND_HREF[topPriorityRaw.kind] }
+  )
+
   const modules = [
     { label: 'Planner',   to: '/planner',   icon: CalendarDays, color: 'text-blue-400',   bg: 'bg-blue-500/10',   stat: stats.pendingTaskCount ? `${stats.pendingTaskCount} pending` : 'All clear' },
     { label: 'Career',    to: '/career',    icon: Briefcase,    color: 'text-amber-400',  bg: 'bg-amber-500/10',  stat: stats.activeApplications ? `${stats.activeApplications} active` : 'No applications' },
@@ -67,6 +80,18 @@ export default function DashboardView({ data, executive }: { data: DashboardData
         <p className="text-sm font-medium text-slate-300">{greeting}, Vinay</p>
         <p className="text-xs text-slate-500 font-medium uppercase tracking-widest">{today}</p>
       </div>
+
+      {/* Top priority — the single highest-ranked Needs Attention item,
+          surfaced here so the most important action doesn't require
+          scrolling past four other cards to find. Full top-3 detail (with
+          dismiss) still lives in the Needs Attention card further down. */}
+      {topPriority && (
+        <Link href={topPriority.href} className="flex items-center gap-3 px-3.5 py-2.5 rounded-xl bg-accent/10 border border-accent/30 hover:bg-accent/15 transition-colors group">
+          <span className="text-lg shrink-0">{topPriority.emoji}</span>
+          <p className="flex-1 text-sm text-slate-200 font-medium">{topPriority.text}</p>
+          <span className="text-xs text-accent shrink-0 opacity-70 group-hover:opacity-100 transition-opacity">→</span>
+        </Link>
+      )}
 
       {/* Daily Operating System (Phase 5 PRD) — Sidebar Widget (rendered as
           a page-level compact strip, not the persistent nav Sidebar, see
@@ -115,6 +140,8 @@ export default function DashboardView({ data, executive }: { data: DashboardData
           </div>
         </div>
       </div>
+
+      <LifeScoreTrend scoreHistory={scoreHistory} />
 
       {/* My Brain group — Daily Mission, Today's Focus, and Insights are the three
           deterministic Brain outputs (Phase 2 PRD); this label brackets them as one
