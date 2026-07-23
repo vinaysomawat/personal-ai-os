@@ -2,11 +2,15 @@
 
 Version: 1.0
 
-Status: Ready for Development
+Status: Nearly complete (reviewed 2026-07-23) — this is the current live Dashboard (`/dashboard`, README.md §1), the most-built of all five phases. Built: Header (Life Score + streaks), Section 1 What's Changed, Section 2 Today's Mission, Section 3 Needs Attention, Section 5 Quick Actions (Quick Add), Section 6 Today's Insight, Section 7 Evening Reflection, plus the Sidebar Widget (as `QuickStats.tsx`, deliberately page-level rather than in the global nav sidebar — see README for why). Not built: Section 4 "Today's Schedule" — the one section explicitly and deliberately skipped, per README's own note, because it needs a real Calendar integration to have actual clock-times to show; without one, a "timeline" would just re-list Today's Mission's items with fake times.
 
 Priority: Highest
 
 Owner: Personal OS
+
+Dependencies: Today's Schedule is blocked on the same missing Calendar integration named in Phase 3's Dependencies — this is the one place across all 5 PRDs where that gap directly blocks a named, scoped section rather than a whole category of features.
+
+Next Actions: This PRD is close enough to done that the only remaining scoped work is Today's Schedule, and that's entirely gated on deciding whether to build a Calendar integration — there's no smaller buildable slice of it worth doing standalone.
 
 ---
 

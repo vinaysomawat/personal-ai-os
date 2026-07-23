@@ -2,9 +2,13 @@
 
 Version: 1.0
 
-Status: Vision
+Status: Mostly complete for the pieces buildable without external integrations (reviewed 2026-07-23) — see README.md's Dashboard/AI Gateway sections for the as-built spec. Built: Executive Memory (career bio field, deliberately not the PRD's other speculative fields — see README), Goal Engine (`src/features/goals/`), Risk Engine, Opportunity Engine (both in `daily-briefing` cron + Dashboard's Needs Attention), Decision Engine (Ask Brain's Decide tab), Daily Briefing, Weekly Executive Review (Reflect tab), Monthly Board Meeting (Monthly tab), Scenario Simulation (`finance_scenario` task in `finance-advisor.ts`). This PRD's own "Executive Dashboard" section was explicitly superseded by Phase 5's Daily Operating System and folded into it (see README §1's "third rewrite" note) rather than built as a separate piece. Not built: Time Allocation Optimizer (no time-tracking data source exists to study), Autonomous Planning (no overnight job prepares tomorrow's workout/study/coding selections in advance — today's assignments are generated same-morning via cron, not the night before), and a literal "Executive Inbox" UI (Dashboard's Needs Attention card covers the same ground functionally — risks/decisions/signals in one ranked list — but isn't framed as an inbox with resolve/dismiss semantics beyond the existing dismiss-and-it's-gone pattern).
 
 Priority: Highest
+
+Dependencies: Time Allocation Optimizer needs a time-tracking data source that doesn't exist anywhere in the app (no module logs how time was actually spent, only what was completed) — this is a genuinely new capability, not an integration gap like Phase 3's. Autonomous Planning has no hard blocker; it just hasn't been built as a dedicated overnight cron.
+
+Next Actions: Given Executive Dashboard is already superseded and Time Allocation Optimizer needs net-new tracking this app doesn't do elsewhere, the next realistic slice is Autonomous Planning — a night-before cron that pre-selects tomorrow's workout/study topic/coding difficulty using the same signals the morning-of crons already compute, just run 12 hours earlier and written to a table the morning crons read from instead of recomputing.
 
 ---
 

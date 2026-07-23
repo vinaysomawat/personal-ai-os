@@ -2,9 +2,13 @@
 
 Version: 1.0
 
-Status: Ready
+Status: Partially complete (reviewed 2026-07-23) — see README.md's Dashboard/Scheduled jobs/AI Gateway sections for the as-built spec. Built: Daily Auto Journal (`daily-journal` cron), Automation Rules (2 of the 4 example rules — "salary credited → SIP" and "weekend free → trek" are the two skipped, see Dependencies), Weekly Pattern Mining (5 of 8 example pattern types implemented in `brain/signals.ts`), Memory Evolution (Goals threaded into Brain context), Notification Intelligence (`computeStaleMetrics()` in the `evening-checkin` cron). Not built: Smart Logging (all five examples — gym photo, receipt, meal photo, GitHub commit, calendar meeting — need vision/OCR or an external integration none of which exist), Background Timeline, and the dedicated "Automatic Activity" Dashboard section (its content was absorbed into "What's Changed" instead, which is deterministic-log-based rather than auto-detected-from-photos).
 
 Priority: Critical
+
+Dependencies: The entire unbuilt half of this PRD (Smart Logging, most of Automation Rules, three more Pattern Mining types) is blocked on the same thing — no Calendar, Gmail, or GitHub integration exists or is currently planned. This isn't a per-item gap to close individually; it's one missing integration layer this whole PRD's "observe life automatically" premise depends on.
+
+Next Actions: Building any single piece of Smart Logging (e.g. meal-photo → calories via Claude vision, since `telegram_vision` already exists in the AI Gateway for a different purpose) would be the smallest real step toward this PRD's actual vision, rather than adding more of the deterministic pieces that don't need it.
 
 ---
 
