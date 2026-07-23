@@ -8,6 +8,12 @@ export interface JDAnalysis {
   companyFocus: string
 }
 
+export interface CompanyInsights {
+  interviewTrends: string
+  hiringPatterns: string
+  source: 'company-specific' | 'general-fallback'
+}
+
 export interface Application {
   id: string
   user_id: string

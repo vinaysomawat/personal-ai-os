@@ -14,6 +14,7 @@ export type AITask =
   | 'jd_analysis'
   | 'generate_topic_quiz'
   | 'recommend_quiz_topic'
+  | 'company_insights'
   | 'finance_advisor'
   | 'health_report'
   | 'health_daily_plan'
@@ -54,6 +55,7 @@ const TASK_CONFIG: Record<AITask, TaskConfig> = {
   jd_analysis:            { model: SONNET_MODEL, cacheTTLSeconds: null,       fallback: 'null' },
   generate_topic_quiz:    { model: SONNET_MODEL, cacheTTLSeconds: null,       fallback: '[]' },
   recommend_quiz_topic:   { model: SONNET_MODEL, cacheTTLSeconds: SIX_HOURS,  fallback: '{}' },
+  company_insights:       { model: SONNET_MODEL, cacheTTLSeconds: SEVEN_DAYS, fallback: 'null' },
   finance_advisor:        { model: SONNET_MODEL, cacheTTLSeconds: null,       fallback: BUDGET_FALLBACK },
   health_report:          { model: SONNET_MODEL, cacheTTLSeconds: SIX_HOURS,  fallback: 'No report available right now — AI budget reached for today.' },
   health_daily_plan:      { model: SONNET_MODEL, cacheTTLSeconds: SIX_HOURS,  fallback: '' },

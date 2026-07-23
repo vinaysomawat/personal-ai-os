@@ -10,10 +10,10 @@ import {
   addApplication, updateStatus, deleteApplication, saveApplicationJD,
   upsertCareerProfile, saveQuizAttempt,
 } from '../actions'
-import { askCareerMentor, analyzeJobDescription } from '@/features/ai/career-mentor'
+import { askCareerMentor, analyzeJobDescription, getCompanyInsights } from '@/features/ai/career-mentor'
 import { generateTopicQuiz } from '@/features/ai/quiz'
 import { gradeQuiz, computeReadiness, suggestNextTopic } from '../quiz-calculations'
-import type { Application, AppStatus, CareerProfile, Skill, QuizAttempt, QuizQuestion, Difficulty } from '../types'
+import type { Application, AppStatus, CareerProfile, Skill, QuizAttempt, QuizQuestion, Difficulty, CompanyInsights } from '../types'
 import { DIFFICULTY_CONFIG, QUIZ_TOPICS, READINESS_CONFIG } from '../types'
 import { useEscapeKey } from '@/lib/use-escape-key'
 import { useFormValidation } from '@/lib/use-form-validation'
@@ -126,6 +126,10 @@ export default function CareerView({ applications, profile, skills, quizAttempts
   const [analyzingAppId, setAnalyzingAppId] = useState<string | null>(null)
   const [jdInput, setJdInput] = useState('')
 
+  // Company Insights — keyed by company name, shared across every application to that company
+  const [companyInsights, setCompanyInsights] = useState<Record<string, CompanyInsights | null>>({})
+  const [loadingInsightsFor, setLoadingInsightsFor] = useState<string | null>(null)
+
   // Quiz
   const [quiz, setQuiz] = useState<QuizSession | null>(null)
   useEscapeKey(() => setQuiz(null))
@@ -194,6 +198,14 @@ export default function CareerView({ applications, profile, skills, quizAttempts
     setLocalApps(prev => prev.map(a => a.id === id ? { ...a, job_description: jd, jd_analysis: analysis } : a))
     setAnalyzingAppId(null)
     await saveApplicationJD(id, jd, analysis)
+  }
+
+  const handleLoadCompanyInsights = async (company: string, role: string) => {
+    if (company in companyInsights || loadingInsightsFor === company) return
+    setLoadingInsightsFor(company)
+    const insights = await getCompanyInsights(company, role)
+    setCompanyInsights(prev => ({ ...prev, [company]: insights }))
+    setLoadingInsightsFor(null)
   }
 
   const handleAsk = async () => {
@@ -380,6 +392,30 @@ export default function CareerView({ applications, profile, skills, quizAttempts
                           </button>
                         </div>
                       )}
+
+                      <div className="mt-3 pt-3 border-t border-surface-3">
+                        <p className="text-xs text-slate-600 uppercase tracking-wider mb-1.5">Company Insights</p>
+                        {loadingInsightsFor === app.company ? (
+                          <div className="space-y-2">{[85, 65].map((w, i) => <div key={i} className="h-3 rounded bg-surface-3 animate-pulse" style={{ width: `${w}%` }} />)}</div>
+                        ) : app.company in companyInsights ? (
+                          companyInsights[app.company] ? (
+                            <div className="space-y-2">
+                              <span className={`inline-block text-xs px-1.5 py-0.5 rounded-full font-medium ${companyInsights[app.company]!.source === 'company-specific' ? 'bg-blue-500/15 text-blue-400' : 'bg-slate-500/15 text-slate-400'}`}>
+                                {companyInsights[app.company]!.source === 'company-specific' ? 'Company-specific' : 'General guidance'}
+                              </span>
+                              <p className="text-sm text-slate-400 leading-relaxed">{companyInsights[app.company]!.interviewTrends}</p>
+                              <p className="text-sm text-slate-400 leading-relaxed">{companyInsights[app.company]!.hiringPatterns}</p>
+                            </div>
+                          ) : (
+                            <p className="text-sm text-slate-600 italic">Unavailable — AI budget may have been reached.</p>
+                          )
+                        ) : (
+                          <button onClick={() => handleLoadCompanyInsights(app.company, app.role)}
+                            className="text-xs px-3 py-1.5 rounded-lg border border-surface-3 text-slate-400 hover:text-accent hover:border-accent/40 transition-colors">
+                            Load Company Insights
+                          </button>
+                        )}
+                      </div>
                     </div>
                   )}
                 </li>

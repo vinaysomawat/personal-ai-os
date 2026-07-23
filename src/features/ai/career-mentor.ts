@@ -3,7 +3,7 @@
 import { askAI } from '@/lib/ai-gateway'
 import { computeReadiness } from '@/features/career/quiz-calculations'
 import { QUIZ_TOPICS, READINESS_CONFIG } from '@/features/career/types'
-import type { CareerProfile, Skill, Application, JDAnalysis, QuizAttempt } from '@/features/career/types'
+import type { CareerProfile, Skill, Application, JDAnalysis, QuizAttempt, CompanyInsights } from '@/features/career/types'
 
 interface CareerContext {
   profile: CareerProfile | null
@@ -88,6 +88,38 @@ priorityTopics: 3-5 topics worth prepping first for this specific role, ordered 
 companyFocus: one or two sentences on what this company likely emphasizes in interviews for this kind of role.`
 
   const raw = await askAI('jd_analysis', prompt, 'You are a sharp technical recruiter and hiring manager. Return only valid JSON, no explanation, no markdown fences.')
+  try {
+    const match = raw.match(/\{[\s\S]*\}/)
+    return match ? JSON.parse(match[0]) : null
+  } catch {
+    return null
+  }
+}
+
+// No web search available — this is Claude's trained knowledge only, which
+// has a cutoff and will be thin for smaller/less-documented companies. The
+// prompt asks the model to self-report whether it actually knows the
+// company's process (`source: 'company-specific'`) versus falling back to
+// general current frontend-interview trends (`source: 'general-fallback'`),
+// so the UI can label which one it's showing rather than presenting a
+// generic answer as if it were about the specific company.
+export async function getCompanyInsights(company: string, role: string): Promise<CompanyInsights | null> {
+  const prompt = `A candidate is interviewing for a ${role} role at ${company}.
+
+Do you have specific, genuine knowledge of ${company}'s interview process (rounds, format, what they emphasize) from your training data? If yes, describe it. If you don't have reliable company-specific knowledge, say so honestly and instead give general current frontend-interview trends and commonly asked concepts for a company of similar size/domain — clearly as general guidance, not invented specifics about ${company}.
+
+Return ONLY a JSON object in this exact format:
+{
+  "interviewTrends": "...",
+  "hiringPatterns": "...",
+  "source": "company-specific" or "general-fallback"
+}
+
+interviewTrends: 2-4 sentences on interview format/rounds/what's emphasized.
+hiringPatterns: 1-2 sentences on hiring bar, team growth, or role focus if known — otherwise general guidance for this type of role.
+source: "company-specific" only if you have genuine knowledge of this exact company; "general-fallback" otherwise. Be honest — do not fabricate company-specific details.`
+
+  const raw = await askAI('company_insights', prompt, 'You are a well-informed technical recruiter. Return only valid JSON, no explanation, no markdown fences. Never invent specific facts about a company you do not have genuine knowledge of.')
   try {
     const match = raw.match(/\{[\s\S]*\}/)
     return match ? JSON.parse(match[0]) : null
