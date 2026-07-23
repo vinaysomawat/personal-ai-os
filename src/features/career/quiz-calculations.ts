@@ -60,6 +60,20 @@ export function suggestNextTopic(attempts: QuizAttempt[], topics: readonly strin
   return scored[0].topic
 }
 
+// Most frequent weak subtopic across recent attempts — mirrors Coding's
+// computeWeakAreas (min-sample-2 + worst-first), applied to Career's own
+// per-question subtopic tags instead of per-question topics.
+export function topWeakSubtopic(attempts: { weak_areas: string[] }[], minSample = 2): { subtopic: string; count: number } | null {
+  const counts = new Map<string, number>()
+  for (const a of attempts) {
+    for (const subtopic of a.weak_areas) {
+      counts.set(subtopic, (counts.get(subtopic) ?? 0) + 1)
+    }
+  }
+  const [top] = [...counts.entries()].filter(([, count]) => count >= minSample).sort((a, b) => b[1] - a[1])
+  return top ? { subtopic: top[0], count: top[1] } : null
+}
+
 // Deterministic, not AI — same 14-day idle-rule shape as the old QA revision
 // nudge, now anchored on "days since any quiz attempt" rather than per-item review.
 export function daysSinceLastQuiz(attempts: { created_at: string }[]): number | null {

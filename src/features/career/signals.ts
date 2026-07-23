@@ -4,6 +4,14 @@ interface ApplicationLike {
   status: string
 }
 
+export function checkQuizWeakArea(topWeak: { subtopic: string; count: number } | null): Signal | null {
+  if (!topWeak) return null
+  return {
+    id: 'career.quiz_weak_area', module: 'career', weight: 48, emoji: '🧩', href: '/career',
+    message: `"${topWeak.subtopic}" has come up as a weak area in ${topWeak.count} quizzes — worth a focused review`,
+  }
+}
+
 export function checkInterviewStage(applications: ApplicationLike[]): Signal | null {
   const interviewApps = applications.filter(a => a.status === 'interview')
   if (interviewApps.length === 0) return null

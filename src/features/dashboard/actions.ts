@@ -8,17 +8,20 @@ import { getActiveWorkout } from '@/features/health/workout-core'
 import type { Resource, StudyLog } from '@/features/learning/types'
 import { rankSignals, type Signal } from '@/lib/signals'
 import { checkOverdueTasks, checkHighPriorityPending } from '@/features/planner/signals'
-import { checkInterviewStage, checkQuizNeedsRevision } from '@/features/career/signals'
-import { daysSinceLastQuiz } from '@/features/career/quiz-calculations'
+import { checkInterviewStage, checkQuizNeedsRevision, checkQuizWeakArea } from '@/features/career/signals'
+import { daysSinceLastQuiz, topWeakSubtopic } from '@/features/career/quiz-calculations'
 import { checkBudget } from '@/features/finance/signals'
-import { checkQuestionPending, checkStaleRevision } from '@/features/coding/signals'
+import { checkQuestionPending, checkStaleRevision, checkCodingWeakArea } from '@/features/coding/signals'
+import { computeWeakAreas, type WeakArea } from '@/features/coding/daily-core'
+import { getInsightsHistory } from '@/features/coding/daily'
 import { checkWorkoutPending, checkNoMetricsToday } from '@/features/health/signals'
 import { checkRevisionNeeded } from '@/features/learning/signals'
+import { checkGoalProgress } from '@/features/goals/signals'
 import { getTodayTrendingReading } from '@/features/trending/core'
 import { computeTodayProgress, getTodayRecommendations } from './daily-progress'
 import { getRecentPatterns } from '@/features/brain/signals'
 import { resolveAutoMetric } from '@/features/goals/actions'
-import type { Goal } from '@/features/goals/types'
+import type { Goal, ResolvedGoal } from '@/features/goals/types'
 
 export interface TopAction {
   emoji: string
@@ -38,6 +41,9 @@ interface TopActionInput {
   codingStaleRevisionCount: number
   daysSinceLastQuiz: number | null
   workoutPending: boolean
+  goals: ResolvedGoal[]
+  codingWeakAreas: WeakArea[]
+  careerTopWeakSubtopic: { subtopic: string; count: number } | null
 }
 
 // Deterministic ranking — no AI call. Per Product Principles (CLAUDE.md):
@@ -46,7 +52,7 @@ interface TopActionInput {
 // module's signals.ts (see src/lib/signals.ts) rather than being hand-rolled
 // here, so new modules can plug into Today's Focus without touching this file.
 function computeTopActions(input: TopActionInput): TopAction[] {
-  const { today, pendingTasks, applications, monthSpend, monthBudget, todayMetric, resourcesNeedingRevision, codingQuestionPending, codingStaleRevisionCount, daysSinceLastQuiz, workoutPending } = input
+  const { today, pendingTasks, applications, monthSpend, monthBudget, todayMetric, resourcesNeedingRevision, codingQuestionPending, codingStaleRevisionCount, daysSinceLastQuiz, workoutPending, goals, codingWeakAreas, careerTopWeakSubtopic } = input
 
   const signals = [
     checkOverdueTasks(pendingTasks, today),
@@ -59,6 +65,9 @@ function computeTopActions(input: TopActionInput): TopAction[] {
     checkRevisionNeeded(resourcesNeedingRevision),
     checkStaleRevision(codingStaleRevisionCount),
     checkQuizNeedsRevision(daysSinceLastQuiz),
+    checkGoalProgress(goals),
+    checkCodingWeakArea(codingWeakAreas),
+    checkQuizWeakArea(careerTopWeakSubtopic),
   ].filter((s): s is Signal => s !== null)
 
   return rankSignals(signals, 5).map(s => ({ emoji: s.emoji, text: s.message, href: s.href }))
@@ -98,7 +107,7 @@ export async function getDashboardData() {
     botLogsRes, healthMetricRes, careerProfileRes, skillsRes, quizCountRes,
     aiUsageMonthRes, studyLogsRes, codingTodayRows, activeWorkout, codingSolved30dRes,
     codingCompletionsRes, quizAttemptsRes, tasksDueTodayRes, todayTrendingReading, workoutCompletedTodayRes,
-    recentPatterns, financialGoalsRes, crossModuleGoalsRes,
+    recentPatterns, financialGoalsRes, crossModuleGoalsRes, codingHistoryForWeakAreas,
   ] = await Promise.all([
     supabase.from('tasks').select('id, text, done, priority, due_date').eq('user_id', user.id).eq('done', false).order('created_at', { ascending: false }).limit(5),
     supabase.from('applications').select('id, company, role, status, applied_at').eq('user_id', user.id).order('created_at', { ascending: false }).limit(5),
@@ -118,13 +127,14 @@ export async function getDashboardData() {
     getActiveWorkout(supabase, user.id),
     supabase.from('coding_daily_questions').select('id', { count: 'exact', head: true }).eq('user_id', user.id).eq('completed', true).gte('assigned_date', since30),
     supabase.from('coding_daily_questions').select('question_id, completed, completed_at').eq('user_id', user.id).eq('completed', true),
-    supabase.from('quiz_attempts').select('created_at').eq('user_id', user.id),
+    supabase.from('quiz_attempts').select('created_at, weak_areas').eq('user_id', user.id),
     supabase.from('tasks').select('id, text, done').eq('user_id', user.id).eq('due_date', today),
     getTodayTrendingReading(supabase, user.id),
     supabase.from('daily_workouts').select('id').eq('user_id', user.id).eq('status', 'completed').gte('completed_at', istMidnightUtc()).limit(1),
     getRecentPatterns(supabase, user.id),
     supabase.from('financial_goals').select('name, target_amount, current_amount, target_date').eq('user_id', user.id).order('priority', { ascending: true }),
-    supabase.from('goals').select('module, name, target_value, current_value, auto_metric, achieved_at').eq('user_id', user.id),
+    supabase.from('goals').select('id, module, name, target_value, current_value, auto_metric, achieved_at').eq('user_id', user.id),
+    getInsightsHistory(),
   ])
 
   const pendingTasks = tasksRes.data ?? []
@@ -328,9 +338,29 @@ export async function getDashboardData() {
   })
   const todayRecommendations = getTodayRecommendations(todayProgress)
 
+  // Cross-Module Goal Engine (Phase 4 PRD) — Career/Learning/Coding goals,
+  // read straight through and resolved live for auto-tracked ones (same
+  // "Brain never owns data" pattern as careerMemory/financialGoals above).
+  // Resolved once here so both Today's Focus (checkGoalProgress below) and
+  // Ask Brain's context (crossModuleGoals) share the same live values.
+  const crossModuleGoalsRaw = (crossModuleGoalsRes.data ?? []) as Goal[]
+  const resolvedGoals: ResolvedGoal[] = await Promise.all(crossModuleGoalsRaw.map(async g => ({
+    ...g,
+    resolvedCurrentValue: g.auto_metric ? await resolveAutoMetric(supabase, user.id, g.auto_metric) : g.current_value,
+  })))
+  const crossModuleGoals = resolvedGoals.map(g => ({
+    module: g.module,
+    name: g.name,
+    progress: g.achieved_at ? 'achieved' : g.target_value != null ? `${g.resolvedCurrentValue ?? 0} of ${g.target_value}` : 'in progress',
+  }))
+
+  const codingWeakAreas = computeWeakAreas(codingHistoryForWeakAreas)
+  const careerTopWeakSubtopic = topWeakSubtopic(quizAttemptsRes.data ?? [])
+
   const topActions = computeTopActions({
     today, pendingTasks, applications, monthSpend, monthBudget, todayMetric, workoutPending,
     resourcesNeedingRevision, codingQuestionPending, codingStaleRevisionCount, daysSinceLastQuiz: daysSinceLastQuizAttempt,
+    goals: resolvedGoals, codingWeakAreas, careerTopWeakSubtopic,
   })
 
   // Upsert XP record
@@ -338,21 +368,6 @@ export async function getDashboardData() {
     { user_id: user.id, xp: totalXP, level: xpLevel, badges, updated_at: new Date().toISOString() },
     { onConflict: 'user_id' }
   )
-
-  // Cross-Module Goal Engine (Phase 4 PRD) — Career/Learning/Coding goals,
-  // read straight through and resolved live for auto-tracked ones (same
-  // "Brain never owns data" pattern as careerMemory/financialGoals above),
-  // feeding Ask Brain's context so recommendations can align with active goals.
-  const crossModuleGoalsRaw = (crossModuleGoalsRes.data ?? []) as Goal[]
-  const crossModuleGoals = await Promise.all(crossModuleGoalsRaw.map(async g => {
-    const current = g.auto_metric ? await resolveAutoMetric(supabase, user.id, g.auto_metric) : g.current_value
-    const progress = g.achieved_at
-      ? 'achieved'
-      : g.target_value != null
-        ? `${current ?? 0} of ${g.target_value}`
-        : 'in progress'
-    return { module: g.module, name: g.name, progress }
-  }))
 
   return {
     pendingTasks,

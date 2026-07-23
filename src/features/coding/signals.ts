@@ -1,4 +1,14 @@
 import type { Signal } from '@/lib/signals'
+import type { WeakArea } from './daily-core'
+
+export function checkCodingWeakArea(weakAreas: WeakArea[]): Signal | null {
+  const top = weakAreas[0]
+  if (!top) return null
+  return {
+    id: 'coding.weak_area', module: 'coding', weight: 48, emoji: '🧩', href: '/coding',
+    message: `Struggling with "${top.topic}" — ${top.strugglingCount}/${top.total} attempts, worth targeted practice`,
+  }
+}
 
 export function checkQuestionPending(pending: boolean): Signal | null {
   if (!pending) return null
