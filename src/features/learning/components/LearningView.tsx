@@ -350,12 +350,12 @@ export default function LearningView({ initialResources, initialStudyLogs }: Pro
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-4 items-start">
-      <Card title="Resources" className="lg:col-span-3" action={
+      <Card title="Resources" padding="p-3.5" className="lg:col-span-3" action={
         <button onClick={() => setShowForm(true)} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-accent text-white text-xs font-medium hover:bg-accent/80 transition-colors">
           <Plus size={12} /> Add
         </button>
       }>
-        {filtered.length === 0 && <EmptyState icon={Inbox} message="Nothing here yet" cta={{ label: 'Add', onClick: () => setShowForm(true) }} />}
+        {filtered.length === 0 && <EmptyState icon={Inbox} message="Nothing here yet" cta={{ label: 'Add', onClick: () => setShowForm(true) }} compact />}
         <ul className="space-y-1">
           {filtered.map(r => {
             const cfg = STATUS_CONFIG[r.status]
@@ -405,9 +405,9 @@ export default function LearningView({ initialResources, initialStudyLogs }: Pro
         </ul>
       </Card>
 
-      <Card title="By Category" padding="p-3" className="lg:col-span-2">
+      <Card title="By Category" padding="p-3.5" className="lg:col-span-2">
         {categoryEntries.length === 0 ? (
-          <EmptyState icon={BookOpen} message="No resources yet" />
+          <EmptyState icon={BookOpen} message="No resources yet" compact />
         ) : (
           <ul className="space-y-1.5">
             {categoryEntries.map(([category, count]) => (

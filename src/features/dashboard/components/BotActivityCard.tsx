@@ -38,7 +38,7 @@ export default function BotActivityCard({ botActivity, aiBudget }: {
   const shown = botActivity.slice(0, visible)
 
   return (
-    <Card title="Bot Activity" action={
+    <Card title="Bot Activity" padding="p-3.5" action={
       <div className="flex items-center gap-3 text-xs text-slate-500">
         {aiBudget && (
           <span title={`${aiBudget.callsMonth} AI calls this month · ${aiBudget.cacheHitRateMonth}% served from cache`}>

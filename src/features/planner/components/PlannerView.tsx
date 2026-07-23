@@ -163,7 +163,7 @@ export default function PlannerView({ initialTasks }: Props) {
           rather than silently mixed into (or dropped from) Today's Tasks,
           which is scoped to the current month */}
       {overduePending.length > 0 && (
-        <Card title="Overdue" padding="p-3" action={<span className="text-xs text-red-400">{overduePending.length} from previous months</span>}>
+        <Card title="Overdue" padding="p-3.5" action={<span className="text-xs text-red-400">{overduePending.length} from previous months</span>}>
           <ul className="space-y-1">
             {overduePending.map(task => <PendingTaskRow key={task.id} task={task} onToggle={handleToggle} onDelete={handleDelete} />)}
           </ul>
@@ -173,7 +173,7 @@ export default function PlannerView({ initialTasks }: Props) {
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
       <Card
         title="Today's Tasks"
-        padding="p-3"
+        padding="p-3.5"
         className="lg:col-span-3"
         action={<span className="text-xs text-slate-500">{thisMonthPending.length} remaining</span>}
       >
@@ -216,7 +216,7 @@ export default function PlannerView({ initialTasks }: Props) {
         </div>
 
         {thisMonthPending.length === 0 && (
-          <EmptyState icon={ListTodo} message="No tasks this month — add one above" />
+          <EmptyState icon={ListTodo} message="No tasks this month — add one above" compact />
         )}
         <ul className="space-y-1">
           {thisMonthPending.map(task => <PendingTaskRow key={task.id} task={task} onToggle={handleToggle} onDelete={handleDelete} />)}
@@ -248,9 +248,9 @@ export default function PlannerView({ initialTasks }: Props) {
         )}
       </Card>
 
-      <Card title="By Area" padding="p-3" className="lg:col-span-2">
+      <Card title="By Area" padding="p-3.5" className="lg:col-span-2">
         {areaEntries.length === 0 ? (
-          <EmptyState icon={ListTodo} message="No pending tasks" />
+          <EmptyState icon={ListTodo} message="No pending tasks" compact />
         ) : (
           <ul className="space-y-1.5">
             {areaEntries.map(([area, count]) => (

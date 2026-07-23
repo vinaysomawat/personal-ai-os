@@ -296,13 +296,13 @@ export default function CareerView({ applications, profile, skills, quizAttempts
             )
           })}
         </div>
-        <Card title={filterStatus === 'all' ? 'All Applications' : STATUS_CONFIG[filterStatus].label} action={
+        <Card title={filterStatus === 'all' ? 'All Applications' : STATUS_CONFIG[filterStatus].label} padding="p-3.5" action={
           <button onClick={() => setModal('app')} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-accent text-white text-xs font-medium hover:bg-accent/80 transition-colors">
             <Plus size={12} /> Add
           </button>
         }>
           {filtered.length === 0 && (
-            <EmptyState icon={Briefcase} message={filterStatus === 'all' ? 'No applications yet' : `No ${STATUS_CONFIG[filterStatus].label.toLowerCase()} applications`} cta={filterStatus === 'all' ? { label: 'Add', onClick: () => setModal('app') } : undefined} />
+            <EmptyState icon={Briefcase} message={filterStatus === 'all' ? 'No applications yet' : `No ${STATUS_CONFIG[filterStatus].label.toLowerCase()} applications`} compact cta={filterStatus === 'all' ? { label: 'Add', onClick: () => setModal('app') } : undefined} />
           )}
           <ul className="space-y-2">
             {filtered.map(app => {
@@ -426,7 +426,7 @@ export default function CareerView({ applications, profile, skills, quizAttempts
       </div>
 
       {/* Interview Prep — Interactive Topic Quiz */}
-      <Card title="Interview Prep">
+      <Card title="Interview Prep" padding="p-3.5">
         {recommendedTopic && (
           <div className="flex items-center gap-3 p-3 mb-4 rounded-lg bg-accent/10 border border-accent/30">
             <Sparkles size={14} className="text-accent shrink-0" />
@@ -457,7 +457,7 @@ export default function CareerView({ applications, profile, skills, quizAttempts
       </Card>
 
       {/* Career Profile */}
-      <Card title="Career Profile" action={
+      <Card title="Career Profile" padding="p-3.5" action={
         (codingStreak > 0 || studyStreak > 0)
           ? <span className="text-xs text-slate-500 flex items-center gap-2 flex-wrap">
               {codingStreak > 0 && <span className="flex items-center gap-1">🔥 {codingStreak}-day coding streak</span>}

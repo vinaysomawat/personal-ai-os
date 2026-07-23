@@ -80,14 +80,14 @@ export default function QuestionHistory({ initialHistory, readingHistory }: Prop
   ]
 
   return (
-    <Card title="Practice Log">
+    <Card title="Practice Log" padding="p-3.5">
       <div className="flex gap-1.5 flex-wrap mb-4">
         {filters.map(f => (
           <FilterPill key={f.key} label={f.label} active={filter === f.key} onClick={() => setFilter(f.key)} />
         ))}
       </div>
       {filtered.length === 0 && filteredReadings.length === 0 ? (
-        <EmptyState icon={SearchX} message="No questions match this filter." />
+        <EmptyState icon={SearchX} message="No questions match this filter." compact />
       ) : (
         <ul className="space-y-1.5 max-h-96 overflow-y-auto">
           {filteredReadings.map(reading => (

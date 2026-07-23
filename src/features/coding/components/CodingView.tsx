@@ -60,7 +60,7 @@ export default function CodingView({ dailyAssignment, codingStats, calendar, cod
         <DifficultyProgression data={difficultyProgression} />
       </div>
 
-      <Card title="Contribution Calendar" action={<CodingSettingsPopover initialSettings={codingSettings} />}>
+      <Card title="Contribution Calendar" padding="p-3.5" action={<CodingSettingsPopover initialSettings={codingSettings} />}>
         <CodingCalendar days={calendar} />
       </Card>
 

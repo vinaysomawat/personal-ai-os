@@ -379,15 +379,25 @@ export default function FinanceView({ expenses, budgets, profile, loans, investm
         </div>
       </div>
 
+      {/* Over-budget alert — surfaced right after the stat row, same
+          "urgent signal near the top" pattern Planner's Overdue card
+          already uses, rather than burying it past two card rows below. */}
+      {remaining < 0 && (
+        <div className="flex items-center gap-3 px-3.5 py-2.5 rounded-xl bg-red-500/10 border border-red-500/30">
+          <span className="text-lg shrink-0">⚠️</span>
+          <p className="flex-1 text-sm text-slate-200">Over budget by <span className="font-medium">{fmt(Math.abs(remaining))}</span> this month</p>
+        </div>
+      )}
+
       {/* Loans + Investments */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-start">
-        <Card title="Loans & EMIs" action={
+        <Card title="Loans & EMIs" padding="p-3.5" action={
           <button onClick={() => setModal('loan')} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-accent text-white text-xs font-medium hover:bg-accent/80 transition-colors">
             <Plus size={12} /> Add loan
           </button>
         }>
           {localLoans.length === 0 ? (
-            <EmptyState icon={Landmark} message="No loans added" cta={{ label: 'Add loan', onClick: () => setModal('loan') }} />
+            <EmptyState icon={Landmark} message="No loans added" compact cta={{ label: 'Add loan', onClick: () => setModal('loan') }} />
           ) : (
             <ul className="space-y-3">
               {localLoans.map(loan => {
@@ -434,13 +444,13 @@ export default function FinanceView({ expenses, budgets, profile, loans, investm
           )}
         </Card>
 
-        <Card title="Investments" action={
+        <Card title="Investments" padding="p-3.5" action={
           <button onClick={() => setModal('investment')} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-accent text-white text-xs font-medium hover:bg-accent/80 transition-colors">
             <Plus size={12} /> Add
           </button>
         }>
           {localInvestments.length === 0 ? (
-            <EmptyState icon={TrendingUp} message="No investments added" cta={{ label: 'Add', onClick: () => setModal('investment') }} />
+            <EmptyState icon={TrendingUp} message="No investments added" compact cta={{ label: 'Add', onClick: () => setModal('investment') }} />
           ) : (
             <div className="space-y-4">
               {sips.length > 0 && (
@@ -461,13 +471,13 @@ export default function FinanceView({ expenses, budgets, profile, loans, investm
       </div>
 
       {/* Goals */}
-      <Card title="Financial Goals" action={
+      <Card title="Financial Goals" padding="p-3.5" action={
         <button onClick={() => setModal('goal')} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-accent text-white text-xs font-medium hover:bg-accent/80 transition-colors">
           <Plus size={12} /> Add goal
         </button>
       }>
         {localGoals.length === 0 ? (
-          <EmptyState icon={Target} message="No goals set — add one to track your savings" cta={{ label: 'Add goal', onClick: () => setModal('goal') }} />
+          <EmptyState icon={Target} message="No goals set — add one to track your savings" compact cta={{ label: 'Add goal', onClick: () => setModal('goal') }} />
         ) : (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             {localGoals.map(goal => {
@@ -606,7 +616,7 @@ export default function FinanceView({ expenses, budgets, profile, loans, investm
         </Card>
       </div>
 
-      <Card title="Recurring Expenses" action={
+      <Card title="Recurring Expenses" padding="p-3.5" action={
         <div className="flex items-center gap-3">
           {localRecurring.some(r => r.active) && (
             <span className="text-xs text-slate-500">{fmt(localRecurring.filter(r => r.active).reduce((s, r) => s + Number(r.amount), 0))}/mo total</span>
@@ -618,7 +628,7 @@ export default function FinanceView({ expenses, budgets, profile, loans, investm
       }>
         <p className="text-xs text-slate-600 mb-3">Auto-logged into Expenses each month on its scheduled day — rent, subscriptions, and other fixed monthly costs you&apos;d otherwise have to re-enter by hand.</p>
         {localRecurring.length === 0 ? (
-          <EmptyState icon={Repeat} message="No recurring expenses set up" cta={{ label: 'Add', onClick: () => setModal('recurring') }} />
+          <EmptyState icon={Repeat} message="No recurring expenses set up" compact cta={{ label: 'Add', onClick: () => setModal('recurring') }} />
         ) : (
           <ul className="space-y-1.5">
             {localRecurring.map(r => (

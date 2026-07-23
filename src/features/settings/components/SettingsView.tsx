@@ -121,36 +121,33 @@ export default function SettingsView({ email, initialReminders, aiBudget, system
 
   return (
     <div className="space-y-5">
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-start">
-      <Card title="Account">
-        <div className="flex items-center justify-between">
-          <div>
-            <p className="text-sm text-slate-200">{email ?? 'Not signed in'}</p>
-            <p className="text-xs text-slate-600 mt-0.5">Signed in via Supabase</p>
+      <Card title="Account" padding="p-3.5">
+        <div className="divide-y divide-surface-3">
+          <div className="flex items-center justify-between py-2 first:pt-0 last:pb-0">
+            <div>
+              <p className="text-sm text-slate-200">{email ?? 'Not signed in'}</p>
+              <p className="text-xs text-slate-600 mt-0.5">Signed in via Supabase</p>
+            </div>
+            <form action={signout}>
+              <button type="submit" className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-surface-2 border border-surface-3 text-slate-300 text-xs font-medium hover:bg-surface-3 transition-colors shrink-0">
+                <LogOut size={12} /> Sign out
+              </button>
+            </form>
           </div>
-          <form action={signout}>
-            <button type="submit" className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-surface-2 border border-surface-3 text-slate-300 text-xs font-medium hover:bg-surface-3 transition-colors">
-              <LogOut size={12} /> Sign out
+          <div className="flex items-center justify-between py-2 first:pt-0 last:pb-0 gap-3">
+            <div>
+              <p className="text-sm text-slate-300">Download everything you&apos;ve entered</p>
+              <p className="text-xs text-slate-600 mt-0.5">A single JSON file — tasks, applications, expenses, loans, investments, health metrics, resources, documents, and more.</p>
+            </div>
+            <button onClick={handleExport} disabled={exporting} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-accent text-white text-xs font-medium hover:bg-accent/80 disabled:opacity-50 transition-colors shrink-0">
+              <Download size={12} /> {exporting ? 'Exporting...' : 'Export as JSON'}
             </button>
-          </form>
-        </div>
-      </Card>
-
-      <Card title="Data Export">
-        <div className="flex items-center justify-between">
-          <div>
-            <p className="text-sm text-slate-300">Download everything you&apos;ve entered</p>
-            <p className="text-xs text-slate-600 mt-0.5">A single JSON file — tasks, applications, expenses, loans, investments, health metrics, resources, documents, and more.</p>
           </div>
-          <button onClick={handleExport} disabled={exporting} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-accent text-white text-xs font-medium hover:bg-accent/80 disabled:opacity-50 transition-colors shrink-0">
-            <Download size={12} /> {exporting ? 'Exporting...' : 'Export as JSON'}
-          </button>
         </div>
       </Card>
-      </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-start">
-      <Card title="AI Budget" action={<Sparkles size={13} className="text-accent" />}>
+      <Card title="AI Budget" padding="p-3.5" action={<Sparkles size={13} className="text-accent" />}>
         <div className="space-y-4">
           <div>
             <div className="flex items-center justify-between mb-1.5 text-xs">
@@ -187,7 +184,7 @@ export default function SettingsView({ email, initialReminders, aiBudget, system
         </div>
       </Card>
 
-      <Card title="System Health" action={<Activity size={13} className="text-accent" />}>
+      <Card title="System Health" padding="p-3.5" action={<Activity size={13} className="text-accent" />}>
         <p className="text-xs text-slate-600 mb-3">Scheduled jobs (Vercel Cron) — last confirmed run, and whether it&apos;s within its expected cadence.</p>
         <ul className="space-y-1.5">
           {systemHealth.map(h => (
@@ -203,14 +200,14 @@ export default function SettingsView({ email, initialReminders, aiBudget, system
       </Card>
       </div>
 
-      <Card title="Reminders" action={
+      <Card title="Reminders" padding="p-3.5" action={
         <button onClick={() => setShowForm(true)} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-accent text-white text-xs font-medium hover:bg-accent/80 transition-colors">
           <Plus size={12} /> Add
         </button>
       }>
         <p className="text-xs text-slate-600 mb-3">Delivered via Telegram at the morning briefing (~8:30am IST) or evening check-in (~8pm IST).</p>
         {reminders.length === 0 ? (
-          <EmptyState icon={Bell} message="No reminders set — add one above" />
+          <EmptyState icon={Bell} message="No reminders set — add one above" compact />
         ) : (
           <ul className="space-y-1.5">
             {reminders.map(r => (
