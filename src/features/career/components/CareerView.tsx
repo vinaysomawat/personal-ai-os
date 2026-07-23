@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useTransition } from 'react'
-import { Plus, Trash2, ExternalLink, X, Sparkles, ChevronRight, ChevronDown, Pencil, Check, Wand2, FileText, Star, Eye, EyeOff, RotateCcw, Lightbulb, Award, HelpCircle, Briefcase } from 'lucide-react'
+import { Plus, Trash2, ExternalLink, X, Sparkles, ChevronRight, ChevronDown, Pencil, Check, Wand2, RotateCcw, Lightbulb, HelpCircle, Briefcase, Eye, EyeOff } from 'lucide-react'
 import Card from '@/components/Card'
 import EmptyState from '@/components/EmptyState'
 import FilterPill from '@/components/FilterPill'
@@ -9,15 +9,14 @@ import { useAIAdvisor } from '@/components/AIAdvisorProvider'
 import { todayIST } from '@/lib/date'
 import {
   addApplication, updateStatus, deleteApplication,
-  upsertCareerProfile, addSkill, updateSkillLevel, deleteSkill,
+  upsertCareerProfile,
   addInterviewQA, updateQAAnswer, deleteInterviewQA, markQAReviewed,
-  addResumeVersion, setPrimaryResumeVersion, deleteResumeVersion,
 } from '../actions'
 import { askCareerMentor, generateInterviewQuestions } from '@/features/ai/career-mentor'
 import { getQAsNeedingRevision } from '../calculations'
 import { SUGGESTED_QUESTIONS } from '../suggested-questions'
-import type { Application, AppStatus, CareerProfile, Skill, InterviewQA, SkillLevel, Difficulty, ResumeVersion } from '../types'
-import { SKILL_CATEGORIES, SKILL_LEVEL_CONFIG, DIFFICULTY_CONFIG, QA_TOPICS } from '../types'
+import type { Application, AppStatus, CareerProfile, Skill, InterviewQA, Difficulty } from '../types'
+import { DIFFICULTY_CONFIG, QA_TOPICS } from '../types'
 import { useEscapeKey } from '@/lib/use-escape-key'
 import { useFormValidation } from '@/lib/use-form-validation'
 import FieldError from '@/components/FieldError'
@@ -32,7 +31,6 @@ const STATUS_CONFIG: Record<AppStatus, { label: string; color: string; bg: strin
   rejected:  { label: 'Rejected',  color: 'text-red-400',    bg: 'bg-red-400/10' },
 }
 const STATUSES = Object.keys(STATUS_CONFIG) as AppStatus[]
-const SKILL_LEVELS: SkillLevel[] = ['beginner', 'intermediate', 'advanced', 'expert']
 
 function ProfileField({ label, value, onSave, type = 'text', placeholder, masked = false }: {
   label: string; value: string; onSave: (v: string) => void; type?: string; placeholder?: string; masked?: boolean
@@ -92,23 +90,19 @@ interface Props {
   qa: InterviewQA[]
   codingStreak: number
   studyStreak: number
-  resumeVersions: ResumeVersion[]
   goals: ResolvedGoal[]
 }
 
-export default function CareerView({ applications, profile, skills, qa, codingStreak, studyStreak, resumeVersions, goals }: Props) {
+export default function CareerView({ applications, profile, skills, qa, codingStreak, studyStreak, goals }: Props) {
   const [, startTransition] = useTransition()
 
   const [localApps, setLocalApps] = useState(applications)
-  const [localSkills, setLocalSkills] = useState(skills)
   const [localQA, setLocalQA] = useState(qa)
   const [localProfile, setLocalProfile] = useState(profile)
-  const [localResumes, setLocalResumes] = useState(resumeVersions)
 
-  const [activeTab, setActiveTab] = useState<'applications' | 'interview' | 'profile'>('applications')
   const [filterStatus, setFilterStatus] = useState<AppStatus | 'all'>('all')
   const [filterTopic, setFilterTopic] = useState<string>('all')
-  const [modal, setModal] = useState<'app' | 'skill' | 'qa' | 'generate' | 'resume' | null>(null)
+  const [modal, setModal] = useState<'app' | 'qa' | 'generate' | null>(null)
   useEscapeKey(() => setModal(null))
   const { invalidFields, validate, clear, onFieldInput } = useFormValidation()
   useEffect(() => clear(), [modal, clear])
@@ -135,10 +129,6 @@ export default function CareerView({ applications, profile, skills, qa, codingSt
 
   const existingQuestions = new Set(localQA.map(q => q.question))
   const suggestedQuestions = SUGGESTED_QUESTIONS.filter(s => !existingQuestions.has(s.question) && !addedSuggestedQuestions.has(s.question))
-  const skillsByCategory = localSkills.reduce<Record<string, Skill[]>>((acc, s) => {
-    acc[s.category] = [...(acc[s.category] ?? []), s]
-    return acc
-  }, {})
 
   const saveProfile = (field: keyof CareerProfile, raw: string) => {
     const value = ['current_salary', 'years_experience'].includes(field) ? (parseFloat(raw) || null) : raw
@@ -153,26 +143,6 @@ export default function CareerView({ applications, profile, skills, qa, codingSt
   const handleStatus = (id: string, status: AppStatus) => {
     setLocalApps(prev => prev.map(a => a.id === id ? { ...a, status } : a))
     startTransition(() => updateStatus(id, status))
-  }
-
-  const handleSetPrimaryResume = (id: string) => {
-    setLocalResumes(prev => prev.map(r => ({ ...r, is_primary: r.id === id })))
-    startTransition(() => setPrimaryResumeVersion(id))
-  }
-  const handleDeleteResume = (id: string) => {
-    setLocalResumes(prev => prev.filter(r => r.id !== id))
-    startTransition(() => deleteResumeVersion(id))
-  }
-
-  const cycleLevel = (skill: Skill) => {
-    const idx = SKILL_LEVELS.indexOf(skill.level)
-    const next = SKILL_LEVELS[(idx + 1) % SKILL_LEVELS.length]
-    setLocalSkills(prev => prev.map(s => s.id === skill.id ? { ...s, level: next } : s))
-    startTransition(() => updateSkillLevel(skill.id, next))
-  }
-  const handleDeleteSkill = (id: string) => {
-    setLocalSkills(prev => prev.filter(s => s.id !== id))
-    startTransition(() => deleteSkill(id))
   }
 
   const handleDeleteQA = (id: string) => {
@@ -203,7 +173,7 @@ export default function CareerView({ applications, profile, skills, qa, codingSt
     if (!mentorQ.trim() || mentorLoading) return
     setMentorLoading(true); setMentorA(null)
     try {
-      const answer = await askCareerMentor(mentorQ, { profile: localProfile, skills: localSkills, applications: localApps, codingStreak, studyStreak })
+      const answer = await askCareerMentor(mentorQ, { profile: localProfile, skills, applications: localApps, codingStreak, studyStreak })
       setMentorA(answer)
     } finally { setMentorLoading(false) }
   }
@@ -254,115 +224,59 @@ export default function CareerView({ applications, profile, skills, qa, codingSt
     <div className="space-y-5">
       {advisorPortal}
 
-      {/* Tabs — Career combines 5 sub-areas; tabbing keeps each view short instead of one long scroll */}
-      <div className="flex gap-1.5">
-        {([
-          { key: 'applications', label: 'Applications', count: localApps.length },
-          { key: 'interview', label: 'Interview Prep', count: localQA.length },
-          { key: 'profile', label: 'Profile & Skills', count: null },
-        ] as const).map(t => (
-          <button key={t.key} onClick={() => setActiveTab(t.key)}
-            className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${activeTab === t.key ? 'bg-accent text-white' : 'bg-surface-1 border border-surface-3 text-slate-400 hover:bg-surface-2'}`}>
-            {t.label}{t.count !== null && <span className="ml-1.5 opacity-70">{t.count}</span>}
+      {/* Applications Pipeline */}
+      <div>
+        <div className="grid grid-cols-3 sm:grid-cols-5 gap-2 mb-4">
+          {STATUSES.map(s => {
+            const cfg = STATUS_CONFIG[s]
+            return (
+              <button key={s} onClick={() => setFilterStatus(filterStatus === s ? 'all' : s)}
+                className={`flex flex-col items-center p-3 rounded-xl border transition-colors ${filterStatus === s ? `${cfg.bg} border-current ${cfg.color}` : 'bg-surface-1 border-surface-3 text-slate-400 hover:bg-surface-2'}`}>
+                <span className="text-xl font-bold">{counts[s]}</span>
+                <span className="text-xs mt-0.5">{cfg.label}</span>
+              </button>
+            )
+          })}
+        </div>
+        <Card title={filterStatus === 'all' ? 'All Applications' : STATUS_CONFIG[filterStatus].label} action={
+          <button onClick={() => setModal('app')} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-accent text-white text-xs font-medium hover:bg-accent/80 transition-colors">
+            <Plus size={12} /> Add
           </button>
-        ))}
+        }>
+          {filtered.length === 0 && (
+            <EmptyState icon={Briefcase} message={filterStatus === 'all' ? 'No applications yet' : `No ${STATUS_CONFIG[filterStatus].label.toLowerCase()} applications`} cta={filterStatus === 'all' ? { label: 'Add', onClick: () => setModal('app') } : undefined} />
+          )}
+          <ul className="space-y-2">
+            {filtered.map(app => {
+              const cfg = STATUS_CONFIG[app.status]
+              return (
+                <li key={app.id} className="flex items-start gap-3 p-3 rounded-lg bg-surface-2 border border-surface-3 group">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="text-sm font-medium text-slate-200">{app.company}</span>
+                      <span className="text-slate-600">·</span>
+                      <span className="text-sm text-slate-400">{app.role}</span>
+                      {app.url && <a href={app.url} target="_blank" rel="noopener noreferrer" className="text-slate-600 hover:text-accent transition-colors"><ExternalLink size={11} /></a>}
+                    </div>
+                    <div className="flex items-center gap-3 mt-1.5 flex-wrap">
+                      <select value={app.status} onChange={e => handleStatus(app.id, e.target.value as AppStatus)}
+                        className={`text-xs px-2 py-0.5 rounded-full border-0 outline-none cursor-pointer font-medium ${cfg.color} ${cfg.bg}`}>
+                        {STATUSES.map(s => <option key={s} value={s}>{STATUS_CONFIG[s].label}</option>)}
+                      </select>
+                      {app.location && <span className="text-xs text-slate-600">{app.location}</span>}
+                      {app.salary_range && <span className="text-xs text-slate-600">{app.salary_range}</span>}
+                      <span className="text-xs text-slate-700">{app.applied_at}</span>
+                    </div>
+                    {app.notes && <p className="text-xs text-slate-500 mt-1.5 line-clamp-1">{app.notes}</p>}
+                  </div>
+                  <button onClick={() => handleDeleteApp(app.id)} aria-label="Delete application" className="shrink-0 opacity-0 group-hover:opacity-100 text-slate-600 hover:text-red-400 transition-all mt-0.5"><Trash2 size={13} /></button>
+                </li>
+              )
+            })}
+          </ul>
+        </Card>
       </div>
 
-      {activeTab === 'profile' && <>
-      {/* Career Profile */}
-      <Card title="Career Profile" action={
-        (codingStreak > 0 || studyStreak > 0)
-          ? <span className="text-xs text-slate-500 flex items-center gap-2 flex-wrap">
-              {codingStreak > 0 && <span className="flex items-center gap-1">🔥 {codingStreak}-day coding streak</span>}
-              {studyStreak > 0 && <span className="flex items-center gap-1">📚 {studyStreak}-day study streak</span>}
-              <span className="text-slate-700">— feeds interview readiness</span>
-            </span>
-          : undefined
-      }>
-        <div className="grid grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-4">
-          <ProfileField label="Current Role" value={localProfile?.current_role ?? ''} onSave={v => saveProfile('current_role', v)} placeholder="Senior Frontend Engineer" />
-          <ProfileField label="Company" value={localProfile?.current_company ?? ''} onSave={v => saveProfile('current_company', v)} placeholder="Accenture" />
-          <ProfileField label="Current Salary (₹/yr)" value={localProfile?.current_salary?.toString() ?? ''} onSave={v => saveProfile('current_salary', v)} type="number" placeholder="1200000" masked />
-          <ProfileField label="Target Role" value={localProfile?.target_role ?? ''} onSave={v => saveProfile('target_role', v)} placeholder="Staff Engineer / Tech Lead" />
-          <ProfileField label="Years of Experience" value={localProfile?.years_experience?.toString() ?? ''} onSave={v => saveProfile('years_experience', v)} type="number" placeholder="5" />
-          <ProfileField label="Bio / Focus" value={localProfile?.bio ?? ''} onSave={v => saveProfile('bio', v)} placeholder="Frontend + Testing specialist" />
-        </div>
-      </Card>
-
-      <GoalsCard module="career" initialGoals={goals} />
-
-      {/* Resume Versions */}
-      <Card title={`Resume Versions (${localResumes.length})`} action={
-        <button onClick={() => setModal('resume')} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-accent text-white text-xs font-medium hover:bg-accent/80 transition-colors">
-          <Plus size={12} /> Add
-        </button>
-      }>
-        {localResumes.length === 0 ? (
-          <p className="text-sm text-slate-600 py-1.5 flex items-center gap-2"><FileText size={14} className="text-slate-700 shrink-0" /> No resume versions yet — add one to start tracking what you send where</p>
-        ) : (
-          <ul className="space-y-1.5">
-            {localResumes.map(r => (
-              <li key={r.id} className="flex items-center gap-3 p-2.5 rounded-lg hover:bg-surface-2 transition-colors group">
-                <FileText size={14} className="text-slate-500 shrink-0" />
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm text-slate-200 truncate">{r.name}</span>
-                    {r.is_primary && <span className="text-xs px-1.5 py-0.5 rounded-full bg-accent/15 text-accent font-medium shrink-0 flex items-center gap-0.5"><Star size={9} fill="currentColor" />Primary</span>}
-                  </div>
-                  {r.notes && <p className="text-xs text-slate-600 mt-0.5 truncate">{r.notes}</p>}
-                </div>
-                {r.url && <a href={r.url} target="_blank" rel="noopener noreferrer" className="shrink-0 text-slate-600 hover:text-accent transition-colors"><ExternalLink size={13} /></a>}
-                {!r.is_primary && (
-                  <button onClick={() => handleSetPrimaryResume(r.id)} className="shrink-0 opacity-0 group-hover:opacity-100 text-xs text-slate-500 hover:text-accent transition-all">
-                    Set primary
-                  </button>
-                )}
-                <button onClick={() => handleDeleteResume(r.id)} aria-label="Delete resume version" className="shrink-0 opacity-0 group-hover:opacity-100 text-slate-600 hover:text-red-400 transition-all">
-                  <Trash2 size={13} />
-                </button>
-              </li>
-            ))}
-          </ul>
-        )}
-      </Card>
-
-      {/* Skills */}
-      <Card title={`Skills (${localSkills.length})`} padding="p-3.5" action={
-        <button onClick={() => setModal('skill')} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-accent text-white text-xs font-medium hover:bg-accent/80 transition-colors">
-          <Plus size={12} /> Add skill
-        </button>
-      }>
-        {localSkills.length === 0 ? (
-          <EmptyState icon={Award} message="No skills added — click the level badge to cycle between levels" compact cta={{ label: 'Add skill', onClick: () => setModal('skill') }} />
-        ) : (
-          <div className="space-y-2">
-            {Object.entries(skillsByCategory).map(([cat, catSkills]) => (
-              <div key={cat} className="flex items-start gap-2">
-                <p className="text-xs text-slate-600 uppercase tracking-wider shrink-0 w-24 pt-1 leading-tight">{cat}</p>
-                <div className="flex flex-wrap gap-1.5">
-                  {catSkills.map(skill => {
-                    const lvl = SKILL_LEVEL_CONFIG[skill.level]
-                    return (
-                      <div key={skill.id} className="flex items-center gap-1 bg-surface-2 border border-surface-3 rounded-lg px-1.5 py-0.5 group">
-                        <span className="text-xs text-slate-300">{skill.name}</span>
-                        <button onClick={() => cycleLevel(skill)} title="Click to change level" className={`text-xs px-1.5 py-0.5 rounded-full font-medium transition-colors ${lvl.color}`}>
-                          {lvl.label}
-                        </button>
-                        <button onClick={() => handleDeleteSkill(skill.id)} aria-label="Delete skill" className="p-1 -m-1 opacity-0 group-hover:opacity-100 text-slate-600 hover:text-red-400 transition-all">
-                          <X size={10} />
-                        </button>
-                      </div>
-                    )
-                  })}
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </Card>
-      </>}
-
-      {activeTab === 'interview' && <>
       {/* Revision nudge — rule-based, not AI: Q&A not reviewed (or added) in 14+ days */}
       {needsRevisionQA.length > 0 && (
         <Card title="Needs Revision" action={<RotateCcw size={13} className="text-amber-400" />}>
@@ -502,68 +416,28 @@ export default function CareerView({ applications, profile, skills, qa, codingSt
           </ul>
         )}
       </Card>
-      </>}
 
-      {activeTab === 'applications' && <>
-      {/* Applications Pipeline */}
-      <div>
-        <div className="grid grid-cols-3 sm:grid-cols-5 gap-2 mb-4">
-          {STATUSES.map(s => {
-            const cfg = STATUS_CONFIG[s]
-            return (
-              <button key={s} onClick={() => setFilterStatus(filterStatus === s ? 'all' : s)}
-                className={`flex flex-col items-center p-3 rounded-xl border transition-colors ${filterStatus === s ? `${cfg.bg} border-current ${cfg.color}` : 'bg-surface-1 border-surface-3 text-slate-400 hover:bg-surface-2'}`}>
-                <span className="text-xl font-bold">{counts[s]}</span>
-                <span className="text-xs mt-0.5">{cfg.label}</span>
-              </button>
-            )
-          })}
+      {/* Career Profile */}
+      <Card title="Career Profile" action={
+        (codingStreak > 0 || studyStreak > 0)
+          ? <span className="text-xs text-slate-500 flex items-center gap-2 flex-wrap">
+              {codingStreak > 0 && <span className="flex items-center gap-1">🔥 {codingStreak}-day coding streak</span>}
+              {studyStreak > 0 && <span className="flex items-center gap-1">📚 {studyStreak}-day study streak</span>}
+              <span className="text-slate-700">— feeds interview readiness</span>
+            </span>
+          : undefined
+      }>
+        <div className="grid grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-4">
+          <ProfileField label="Current Role" value={localProfile?.current_role ?? ''} onSave={v => saveProfile('current_role', v)} placeholder="Senior Frontend Engineer" />
+          <ProfileField label="Company" value={localProfile?.current_company ?? ''} onSave={v => saveProfile('current_company', v)} placeholder="Accenture" />
+          <ProfileField label="Current Salary (₹/yr)" value={localProfile?.current_salary?.toString() ?? ''} onSave={v => saveProfile('current_salary', v)} type="number" placeholder="1200000" masked />
+          <ProfileField label="Target Role" value={localProfile?.target_role ?? ''} onSave={v => saveProfile('target_role', v)} placeholder="Staff Engineer / Tech Lead" />
+          <ProfileField label="Years of Experience" value={localProfile?.years_experience?.toString() ?? ''} onSave={v => saveProfile('years_experience', v)} type="number" placeholder="5" />
+          <ProfileField label="Bio / Focus" value={localProfile?.bio ?? ''} onSave={v => saveProfile('bio', v)} placeholder="Frontend + Testing specialist" />
         </div>
-        <Card title={filterStatus === 'all' ? 'All Applications' : STATUS_CONFIG[filterStatus].label} action={
-          <button onClick={() => setModal('app')} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-accent text-white text-xs font-medium hover:bg-accent/80 transition-colors">
-            <Plus size={12} /> Add
-          </button>
-        }>
-          {filtered.length === 0 && (
-            <EmptyState icon={Briefcase} message={filterStatus === 'all' ? 'No applications yet' : `No ${STATUS_CONFIG[filterStatus].label.toLowerCase()} applications`} cta={filterStatus === 'all' ? { label: 'Add', onClick: () => setModal('app') } : undefined} />
-          )}
-          <ul className="space-y-2">
-            {filtered.map(app => {
-              const cfg = STATUS_CONFIG[app.status]
-              const resume = app.resume_version_id ? localResumes.find(r => r.id === app.resume_version_id) : null
-              return (
-                <li key={app.id} className="flex items-start gap-3 p-3 rounded-lg bg-surface-2 border border-surface-3 group">
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="text-sm font-medium text-slate-200">{app.company}</span>
-                      <span className="text-slate-600">·</span>
-                      <span className="text-sm text-slate-400">{app.role}</span>
-                      {app.url && <a href={app.url} target="_blank" rel="noopener noreferrer" className="text-slate-600 hover:text-accent transition-colors"><ExternalLink size={11} /></a>}
-                    </div>
-                    <div className="flex items-center gap-3 mt-1.5 flex-wrap">
-                      <select value={app.status} onChange={e => handleStatus(app.id, e.target.value as AppStatus)}
-                        className={`text-xs px-2 py-0.5 rounded-full border-0 outline-none cursor-pointer font-medium ${cfg.color} ${cfg.bg}`}>
-                        {STATUSES.map(s => <option key={s} value={s}>{STATUS_CONFIG[s].label}</option>)}
-                      </select>
-                      {app.location && <span className="text-xs text-slate-600">{app.location}</span>}
-                      {app.salary_range && <span className="text-xs text-slate-600">{app.salary_range}</span>}
-                      <span className="text-xs text-slate-700">{app.applied_at}</span>
-                      {resume && (
-                        <span className="flex items-center gap-1 text-xs text-slate-600">
-                          <FileText size={11} />{resume.name}
-                        </span>
-                      )}
-                    </div>
-                    {app.notes && <p className="text-xs text-slate-500 mt-1.5 line-clamp-1">{app.notes}</p>}
-                  </div>
-                  <button onClick={() => handleDeleteApp(app.id)} aria-label="Delete application" className="shrink-0 opacity-0 group-hover:opacity-100 text-slate-600 hover:text-red-400 transition-all mt-0.5"><Trash2 size={13} /></button>
-                </li>
-              )
-            })}
-          </ul>
-        </Card>
-      </div>
-      </>}
+      </Card>
+
+      <GoalsCard module="career" initialGoals={goals} />
 
       {/* Modals */}
       {modal && (
@@ -571,49 +445,10 @@ export default function CareerView({ applications, profile, skills, qa, codingSt
           <div className="bg-surface-1 border border-surface-3 rounded-xl p-6 w-full max-w-md max-h-[85vh] overflow-y-auto animate-in fade-in zoom-in-95 duration-200">
             <div className="flex items-center justify-between mb-5">
               <h2 className="text-base font-semibold text-slate-200">
-                {modal === 'app' ? 'Add Application' : modal === 'skill' ? 'Add Skill' : modal === 'qa' ? 'Add Question' : modal === 'resume' ? 'Add Resume Version' : 'Generate Interview Questions'}
+                {modal === 'app' ? 'Add Application' : modal === 'qa' ? 'Add Question' : 'Generate Interview Questions'}
               </h2>
               <button onClick={() => setModal(null)} aria-label="Close" className="p-1.5 -m-1.5 text-slate-500 hover:text-slate-300"><X size={16} /></button>
             </div>
-
-            {modal === 'skill' && (
-              <form className="space-y-3" noValidate onInput={onFieldInput} onSubmit={async e => {
-                e.preventDefault()
-                if (!validate(e.currentTarget)) return
-                const fd = new FormData(e.currentTarget)
-                const name = fd.get('name') as string
-                const category = fd.get('category') as string
-                const level = fd.get('level') as SkillLevel
-                const newSkill: Skill = { id: `temp-${Date.now()}`, user_id: '', name, category, level, created_at: new Date().toISOString() }
-                setLocalSkills(prev => [...prev, newSkill])
-                setModal(null)
-                await addSkill(name, category, level)
-              }}>
-                <div className="space-y-1">
-                  <label className="text-xs text-slate-500 uppercase tracking-wider">Skill name</label>
-                  <input name="name" required autoFocus placeholder="TypeScript, Playwright, React..." className={`w-full bg-surface-2 border rounded-lg px-3 py-2 text-sm text-slate-200 placeholder-slate-600 outline-none focus:border-accent transition-colors ${invalidFields.has('name') ? 'border-red-500' : 'border-surface-3'}`} />
-                  <FieldError show={invalidFields.has('name')} />
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-1">
-                    <label className="text-xs text-slate-500 uppercase tracking-wider">Category</label>
-                    <select name="category" className="w-full bg-surface-2 border border-surface-3 rounded-lg px-3 py-2 text-sm text-slate-300 outline-none focus:border-accent transition-colors">
-                      {SKILL_CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
-                    </select>
-                  </div>
-                  <div className="space-y-1">
-                    <label className="text-xs text-slate-500 uppercase tracking-wider">Level</label>
-                    <select name="level" defaultValue="intermediate" className="w-full bg-surface-2 border border-surface-3 rounded-lg px-3 py-2 text-sm text-slate-300 outline-none focus:border-accent transition-colors">
-                      {SKILL_LEVELS.map(l => <option key={l} value={l}>{SKILL_LEVEL_CONFIG[l].label}</option>)}
-                    </select>
-                  </div>
-                </div>
-                <div className="flex gap-2 pt-1">
-                  <button type="button" onClick={() => setModal(null)} className="flex-1 py-2 rounded-lg bg-surface-2 border border-surface-3 text-slate-300 text-sm hover:bg-surface-3 transition-colors">Cancel</button>
-                  <button type="submit" className="flex-1 py-2 rounded-lg bg-accent text-white text-sm font-medium hover:bg-accent/80 active:scale-95 transition">Add Skill</button>
-                </div>
-              </form>
-            )}
 
             {modal === 'qa' && (
               <form className="space-y-3" noValidate onInput={onFieldInput} onSubmit={async e => {
@@ -706,7 +541,7 @@ export default function CareerView({ applications, profile, skills, qa, codingSt
                   notes: fd.get('notes') as string || null,
                   applied_at: fd.get('applied_at') as string || todayIST(),
                   created_at: new Date().toISOString(),
-                  resume_version_id: fd.get('resume_version_id') as string || null,
+                  resume_version_id: null,
                 }
                 setLocalApps(prev => [newApp, ...prev])
                 setModal(null)
@@ -750,15 +585,6 @@ export default function CareerView({ applications, profile, skills, qa, codingSt
                   <label className="text-xs text-slate-500 uppercase tracking-wider">Job URL</label>
                   <input name="url" type="url" placeholder="https://..." className="w-full bg-surface-2 border border-surface-3 rounded-lg px-3 py-2 text-sm text-slate-200 placeholder-slate-600 outline-none focus:border-accent transition-colors" />
                 </div>
-                {localResumes.length > 0 && (
-                  <div className="space-y-1">
-                    <label className="text-xs text-slate-500 uppercase tracking-wider">Resume Sent</label>
-                    <select name="resume_version_id" defaultValue={localResumes.find(r => r.is_primary)?.id ?? ''} className="w-full bg-surface-2 border border-surface-3 rounded-lg px-3 py-2 text-sm text-slate-300 outline-none focus:border-accent transition-colors">
-                      <option value="">Not tracked</option>
-                      {localResumes.map(r => <option key={r.id} value={r.id}>{r.name}{r.is_primary ? ' (primary)' : ''}</option>)}
-                    </select>
-                  </div>
-                )}
                 <div className="space-y-1">
                   <label className="text-xs text-slate-500 uppercase tracking-wider">Notes</label>
                   <textarea name="notes" rows={2} placeholder="Referral from X, interesting stack..." className="w-full bg-surface-2 border border-surface-3 rounded-lg px-3 py-2 text-sm text-slate-200 placeholder-slate-600 outline-none focus:border-accent transition-colors resize-none" />
@@ -766,49 +592,6 @@ export default function CareerView({ applications, profile, skills, qa, codingSt
                 <div className="flex gap-2 pt-1">
                   <button type="button" onClick={() => setModal(null)} className="flex-1 py-2 rounded-lg bg-surface-2 border border-surface-3 text-slate-300 text-sm hover:bg-surface-3 transition-colors">Cancel</button>
                   <button type="submit" className="flex-1 py-2 rounded-lg bg-accent text-white text-sm font-medium hover:bg-accent/80 active:scale-95 transition">Add Application</button>
-                </div>
-              </form>
-            )}
-
-            {modal === 'resume' && (
-              <form className="space-y-3" noValidate onInput={onFieldInput} onSubmit={async e => {
-                e.preventDefault()
-                if (!validate(e.currentTarget)) return
-                const fd = new FormData(e.currentTarget)
-                const name = fd.get('name') as string
-                const content = fd.get('content') as string || null
-                const url = fd.get('url') as string || null
-                const notes = fd.get('notes') as string || null
-                if (!name) return
-                const newResume: ResumeVersion = {
-                  id: `temp-${Date.now()}`, user_id: '', name, content, url, notes,
-                  is_primary: localResumes.length === 0,
-                  created_at: new Date().toISOString(), updated_at: new Date().toISOString(),
-                }
-                setLocalResumes(prev => [newResume, ...prev])
-                setModal(null)
-                await addResumeVersion(name, content, url, notes)
-              }}>
-                <div className="space-y-1">
-                  <label className="text-xs text-slate-500 uppercase tracking-wider">Name *</label>
-                  <input name="name" required autoFocus placeholder="Staff FE — Google focus" className={`w-full bg-surface-2 border rounded-lg px-3 py-2 text-sm text-slate-200 placeholder-slate-600 outline-none focus:border-accent transition-colors ${invalidFields.has('name') ? 'border-red-500' : 'border-surface-3'}`} />
-                  <FieldError show={invalidFields.has('name')} />
-                </div>
-                <div className="space-y-1">
-                  <label className="text-xs text-slate-500 uppercase tracking-wider">Link (Google Doc, PDF, etc.)</label>
-                  <input name="url" type="url" placeholder="https://..." className="w-full bg-surface-2 border border-surface-3 rounded-lg px-3 py-2 text-sm text-slate-200 placeholder-slate-600 outline-none focus:border-accent transition-colors" />
-                </div>
-                <div className="space-y-1">
-                  <label className="text-xs text-slate-500 uppercase tracking-wider">Content (optional — paste resume text)</label>
-                  <textarea name="content" rows={4} placeholder="Paste resume text here if you want it searchable/reviewable..." className="w-full bg-surface-2 border border-surface-3 rounded-lg px-3 py-2 text-sm text-slate-200 placeholder-slate-600 outline-none focus:border-accent transition-colors resize-none" />
-                </div>
-                <div className="space-y-1">
-                  <label className="text-xs text-slate-500 uppercase tracking-wider">Notes</label>
-                  <input name="notes" placeholder="What's different about this version" className="w-full bg-surface-2 border border-surface-3 rounded-lg px-3 py-2 text-sm text-slate-200 placeholder-slate-600 outline-none focus:border-accent transition-colors" />
-                </div>
-                <div className="flex gap-2 pt-1">
-                  <button type="button" onClick={() => setModal(null)} className="flex-1 py-2 rounded-lg bg-surface-2 border border-surface-3 text-slate-300 text-sm hover:bg-surface-3 transition-colors">Cancel</button>
-                  <button type="submit" className="flex-1 py-2 rounded-lg bg-accent text-white text-sm font-medium hover:bg-accent/80 active:scale-95 transition">Add Resume</button>
                 </div>
               </form>
             )}

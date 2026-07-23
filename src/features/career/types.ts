@@ -15,18 +15,6 @@ export interface Application {
   resume_version_id: string | null
 }
 
-export interface ResumeVersion {
-  id: string
-  user_id: string
-  name: string
-  content: string | null
-  url: string | null
-  notes: string | null
-  is_primary: boolean
-  created_at: string
-  updated_at: string
-}
-
 export interface CareerProfile {
   id: string
   user_id: string
@@ -61,15 +49,6 @@ export interface InterviewQA {
   difficulty: Difficulty
   created_at: string
   last_reviewed_at: string | null
-}
-
-export const SKILL_CATEGORIES = ['Frontend', 'Backend', 'Testing', 'DevOps', 'Architecture', 'Soft Skills', 'Other'] as const
-
-export const SKILL_LEVEL_CONFIG: Record<SkillLevel, { label: string; color: string }> = {
-  beginner:     { label: 'Beginner',     color: 'bg-slate-500/15 text-slate-400' },
-  intermediate: { label: 'Intermediate', color: 'bg-blue-500/15 text-blue-400' },
-  advanced:     { label: 'Advanced',     color: 'bg-purple-500/15 text-purple-400' },
-  expert:       { label: 'Expert',       color: 'bg-accent/15 text-accent' },
 }
 
 export const DIFFICULTY_CONFIG: Record<Difficulty, { label: string; color: string }> = {
