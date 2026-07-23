@@ -2,6 +2,8 @@
 
 import { askAI } from '@/lib/ai-gateway'
 import { todayIST } from '@/lib/date'
+import { getActiveCompanyPriorityTopics, getInsightsHistory } from '@/features/coding/daily'
+import { computeWeakAreas } from '@/features/coding/daily-core'
 import type { Resource, StudyLog, RecommendedResource } from '@/features/learning/types'
 
 export async function getDailyStudyPlan(resources: Resource[], recentLogs: StudyLog[]): Promise<string> {
@@ -43,6 +45,12 @@ export async function recommendResources(resources: Resource[], excludeTitles: s
   const completed = resources.filter(r => r.status === 'completed')
   const categories = [...new Set(resources.map(r => r.category))]
 
+  // Cross-module signals (Product Principle 4) — Career's active JD priority
+  // topics and Coding's weak areas, the same two signals Coding's own
+  // recommender already uses, reused here rather than recomputed differently.
+  const [company, codingHistory] = await Promise.all([getActiveCompanyPriorityTopics(), getInsightsHistory()])
+  const codingWeakAreas = computeWeakAreas(codingHistory).map(w => w.topic)
+
   const prompt = `Vinay is a frontend engineer targeting senior/staff-level roles. His current learning:
 
 Categories he's studying: ${categories.join(', ') || 'none yet'}
@@ -50,11 +58,14 @@ In progress (${inProgress.length}): ${inProgress.map(r => `${r.title} (${r.categ
 Completed (${completed.length}): ${completed.map(r => r.title).join(', ') || 'none'}
 
 Already suggested or in his list — do NOT recommend any of these again: ${excludeTitles.join(', ') || 'none'}
+${company ? `\nHe has an active application at ${company.company}. Its job description flagged these priority topics: ${company.topics.join(', ')}.` : ''}
+${codingWeakAreas.length ? `\nHe's been struggling with these topics in coding practice: ${codingWeakAreas.join(', ')}.` : ''}
 
 Recommend 5 learning resources he should study next. Base this on:
 1. His actual progress above — fill real gaps, don't repeat what he already knows or is doing.
-2. Your knowledge of current frontend interview trends and what's frequently asked at top product companies right now.
-3. Recent frontend/JS ecosystem developments worth knowing.
+2. The active application's priority topics and coding weak areas above, if any — these are his highest-signal gaps to close.
+3. Your knowledge of current frontend interview trends and what's frequently asked at top product companies right now.
+4. Recent frontend/JS ecosystem developments worth knowing.
 
 Order them by priority — the most important one first, with the reason explaining why it matters right now (interview relevance, ecosystem shift, or gap in his current progress).
 
