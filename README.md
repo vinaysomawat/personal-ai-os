@@ -374,3 +374,161 @@ This app is a single-user system — there's no way around some manual setup and
    ```bash
    node scripts/setup-webhooks.mjs https://your-app.vercel.app
    ```
+
+---
+
+## Design System
+
+Everything below is extracted directly from `tailwind.config.js`, `globals.css`, and the shared component source — this is what's actually rendered today, not an aspirational spec. Written as a standalone reference so it can be handed to a design tool without needing the rest of this document.
+
+**Theme**: dark-only. `src/app/layout.tsx` sets `<html className="dark">` unconditionally — there is no light mode toggle anywhere in the app, even though `globals.css` still defines an unused `:root` light-theme token set alongside the active `.dark` one.
+
+**Color tokens** (`tailwind.config.js` + `globals.css` `.dark` block):
+
+| Token | Hex | Used for |
+|---|---|---|
+| `surface` (DEFAULT) | `#0f0f13` | page/app background |
+| `surface-1` | `#16161d` | card/panel background |
+| `surface-2` | `#1e1e2a` | input fields, hover backgrounds, inset chrome |
+| `surface-3` | `#26263a` | borders, dividers, pill/badge backgrounds, chart gridlines |
+| `accent` (DEFAULT) | `#7c6af7` | primary buttons, active nav/tab states, links, focus rings, progress-bar fills |
+| `accent-muted` | `#4f45a0` | unused directly in components found (reserved token) |
+| `--destructive` | `#f87171` | shadcn destructive variant |
+| `--radius` | `0.625rem` (10px) | base border-radius token (cards use `rounded-xl`, inputs/buttons `rounded-lg`) |
+
+Chart-specific CSS vars (`globals.css`): `--chart-1` `#7c6af7` (purple), `--chart-2` `#34d399` (green), `--chart-3` `#60a5fa` (blue), `--chart-4` `#f59e0b` (amber), `--chart-5` `#f87171` (red) — though in practice the recharts components below hardcode their own per-series hex values rather than reading these vars.
+
+**Semantic colors** (plain Tailwind palette, no custom tokens — used consistently across every module for the same meaning):
+- **Green** (`text-green-400`/`500`, `bg-green-500/15`) — positive/healthy/completed/gain/achieved/offer status
+- **Red** (`text-red-400`, `bg-red-500/15` or `/10`) — negative/over-budget/danger/rejected/missed/high-priority
+- **Amber** (`text-amber-400`, `bg-amber-500/15`) — warning/medium-priority/screening status/partial progress
+- **Blue** (`text-blue-400`) — informational/applied status/Planner module color
+- **Purple** (`text-purple-400`) — interview status/Learning module color (distinct from brand `accent` purple, slightly different hue)
+- **Cyan** (`text-cyan-400`) — Coding module color
+- **Orange** (`text-orange-400`) — Documents module color, calorie-series chart color
+- Text hierarchy on dark background: `text-slate-200` (primary text) → `slate-300` → `slate-400` → `slate-500` (secondary/labels) → `slate-600` (tertiary/muted) → `slate-700` (placeholder/disabled-level, empty-state icons)
+
+**Typography**: Inter (sans, body/UI text) + JetBrains Mono (mono, declared but barely used — only the Documents editor content area and the sidebar version string are monospace). No custom type scale — every size in the app comes from Tailwind's default utilities (`text-xs` labels/meta, `text-sm` body, `text-base` page titles/headings, `text-2xl`/`text-3xl` big score numbers), no custom `font-size` CSS variables exist.
+
+**Layout shell** (`src/app/layout.tsx`): `<body className="flex h-screen overflow-hidden">` — Sidebar (desktop) + a column of Header/page-content, `<main>` padded `p-6 pb-20 md:pb-6` (extra bottom padding on mobile to clear the fixed BottomNav) with a `fade-in` entrance animation on every navigation.
+
+**Navigation — Sidebar** (desktop, `md:` and up, hidden below): fixed-width column, `w-48` expanded / `w-14` collapsed (persisted in `localStorage`), toggle button in the footer. Header block: `Cpu` icon in a small accent-colored rounded box + "Personal OS" wordmark. Items grouped by the four Growth-Engine pillars (uppercase group labels, hidden when collapsed):
+- *(ungrouped, top)* Dashboard — `LayoutDashboard`
+- **Learn** → Learning (`BookOpen`)
+- **Build** → Coding (`Code2`)
+- **Perform** → Planner (`CalendarDays`), Career (`Briefcase`)
+- **Recover** → Health (`HeartPulse`)
+- *(ungrouped, below groups)* Finance (`DollarSign`), Documents (`FileText`)
+- *(footer)* Settings (`Settings`), collapse toggle, `UserInfo` (avatar + email + sign-out), version string
+
+Active item: `bg-accent/20 text-accent` + a 2px left-edge accent rail. Inactive: `text-slate-400`, hover `bg-surface-2` + slides right 2px. Collapsed state shows icon-only with a right-side tooltip per item.
+
+**Navigation — BottomNav** (mobile, below `md:`): fixed bottom bar, 5 equal-width items — **Home, Planner, Health, Finance, More**. "More" opens a bottom sheet (slide-up panel, backdrop-dismiss) listing **Career, Learning, Coding, Documents, Settings** plus `UserInfo`. This mobile grouping is usage-frequency-based, not the same as the desktop Sidebar's pillar grouping. Active color `text-accent`, inactive `text-slate-600`.
+
+**Header** (top bar, all viewports): plain `flex justify-between`, page title on the left (`text-base font-semibold`, looked up per-route, e.g. "Dashboard", "Career" — falls back to "Personal OS" on unmatched routes), and — only on pages that register one — an AI-advisor trigger button on the right (icon + label + a chevron that rotates when the panel is open). No budget/spend indicator lives in the Header itself (that lives on Settings' AI Budget card and Dashboard's Bot Activity card header instead).
+
+**AI Advisor panel** (the shared slide-down/portal panel every module's whole-page AI feature uses — Plan Coach, Career Mentor, Money Advisor, Health Coach, Study Coach, Code Mentor, Ask Brain): triggered from the Header button, renders as a fixed panel `top-14 right-4/6`, `380px` wide, `max-h-[75vh]` scrollable, `bg-surface-1` with a `shadow-2xl` and a slide-in-from-top + fade entrance, dismissed by backdrop click, its own `X` button, or navigating away. Internally, multi-tab advisors (Money Advisor: Ask/Simulate; Health Coach: Recommendations/Weekly Report; Study Coach: Recommendations/Daily Plan; Ask Brain: Ask/Decide/Reflect/Monthly) use an identical pill-toggle tab bar (`bg-surface-2` track, active tab `bg-accent text-white`).
+
+**Modal shell** (used identically everywhere a modal appears — Add Application, Add Loan/Investment/Goal/Expense/Recurring Expense, Health Profile, Coding Settings, Outcome picker, New Reminder, quizzes): full-screen `bg-black/60` backdrop, centered panel `bg-surface-1 border border-surface-3 rounded-xl p-6` (`max-w-sm` for simple forms, `max-w-md`/`max-w-lg` for richer ones like quizzes), fade+zoom-in entrance, header row = title + `X` close, dismissible via Escape key or backdrop click.
+
+**Shared primitives**:
+- **Card** (`bg-surface-1 border border-surface-3 rounded-xl`, default `p-4` padding, usually overridden to `p-3.5`) — the base wrapper for nearly every widget on every page. Optional uppercase title row with a right-aligned `action` slot (a button, icon, or filter toggle).
+- **EmptyState** — centered icon (slate-700) + message (slate-600) + optional accent CTA button with a `Plus` icon; a `compact` variant reduces vertical padding for use inside an already-titled Card.
+- **StatCard** — centered big number (`text-2xl font-bold`) over a small label, used for all summary-stat rows (Planner's Pending/High Priority/Overdue/Completed, Learning's Total/In Progress/Completed/Streak, etc).
+- **FilterPill** — a toggle-button pill, inactive = `bg-surface-1 border-surface-3 text-slate-400`, active = `bg-accent text-white` (or a status-tinted color when used for status filters, e.g. Learning's Not Started/Completed pills).
+- **InlineEdit** pattern (Finance) — a value renders as a plain button with a hover-revealed pencil icon; clicking swaps it for a focused text input + a green checkmark save button, Enter saves, Escape cancels. Used for salary, loan EMI/rate/months, investment amounts. Health's metric tiles use a simpler always-editable variant (bare `<input>` embedded in the tile, saves on blur/Enter, flashes a green checkmark on success) rather than a click-to-reveal step.
+- **Skeleton loading states** — no spinners anywhere in the app; every loading state is `animate-pulse` gray bars (`bg-surface-2`) at varying widths, either a generic `CardSkeleton`/`ListSkeleton`/`StatsSkeleton` (route-level `loading.tsx` files) or a component-local 3–6-bar stack (AI panel responses, chart lazy-load placeholders).
+- **Route-level error state** (`error.tsx`, identical on every page): centered `AlertCircle` icon (red, 60% opacity) + "Something went wrong" heading + a "Try again" button.
+
+**Charts**: every chart in the app is `recharts`, always lazy-loaded via `next/dynamic({ ssr: false })` behind a pulsing placeholder block (never blocks initial page paint) — Dashboard's Life Score Trend, Health's Health Trend, Coding's Difficulty Progression. All share the same visual recipe: horizontal-only `CartesianGrid` (stroke `#26263a`), no axis lines, slate tick labels (`#64748b`, size 11), `monotone` lines with rounded caps and no persistent dots (only an active/hover dot), and a dark custom tooltip (`bg-surface-2 border-surface-3`). The two ring/gauge visualizations (Dashboard's big Life Score ring, Health's Health Score ring, and every small `MiniRing`) are hand-drawn SVG with a purple→cyan or green→cyan gradient stroke, not recharts.
+
+**Iconography**: `lucide-react` throughout, no other icon set. Sizes are almost always 11–16px inline with text, 18–32px for empty-state/placeholder icons. Module-to-icon mapping is consistent everywhere a module is referenced (nav, Bot Activity rows, reminders): Planner `CalendarDays`, Career `Briefcase`, Finance `DollarSign`, Health `HeartPulse`, Learning `BookOpen`, Coding `Code2`, Documents `FileText`, Dashboard `LayoutDashboard`, Settings `Settings`.
+
+**Currency/number formatting**: ₹ amounts use `Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 })` (Indian digit grouping, e.g. `₹1,20,000`, no decimals) everywhere in Finance/Dashboard. AI spend (`$`) formats to 4 decimals when under a cent, else 2. Numbers that update live (scores, counters) use `tabular-nums` so digits don't jitter horizontally as they change.
+
+## UI Reference (screen-by-screen)
+
+Exact current layout of every page, top to bottom, for design-tool consumption. Cross-reference the **Design System** section above for the color/component vocabulary used below, and the numbered module sections (§1–§9) above for what each element *does* — this section only covers what's visually *on screen*.
+
+### Dashboard (`/dashboard`)
+Single column (`space-y-4`), all full-width except the hero:
+1. Slim status line: "Good morning/afternoon/evening, Vinay" (left) + today's date, uppercase tracked (right)
+2. **Top Priority banner** (conditional) — one row, accent-tinted (`bg-accent/10 border-accent/30`), emoji + text + arrow, links to the relevant module
+3. **Quick Stats** — 3 equal stat tiles (Coding streak, Today's budget, Workout done/pending) in a row, plus (if any financial goals exist) a second row of goal-progress mini-bars
+4. **What's Changed** and **Morning Brief** side by side (`grid lg:grid-cols-2`, stacked on mobile) — What's Changed is a short bullet list of day-over-day deltas (weight, expense, Life Score Δ) with a collapsed one-line "nothing new yet" state when empty; Morning Brief is one AI-written paragraph
+5. **Life Score hero** — a full-width gradient card (`from-surface-1 via-surface-2 to-surface-1`): large circular Life Score ring (click opens the "Explain My Score" modal breaking down each module's day-over-day delta) on the left, a divider, then 5 small module-score rings (Health/Finance/Career/Learning/Coding) on the right, each with a hover tooltip naming the single biggest scoring gap
+6. **Life Score Trend** chart — Weekly/Monthly toggle line chart of the combined score
+7. **Needs Attention** — a capped 3-item ranked list (risks → signals → opportunities), each dismissible except plain signal links
+8. **Today's Insight** — one AI-confirmed behavioral pattern sentence (amber lightbulb icon), or an empty-state line
+9. **Evening Reflection** — only visible after 6pm, an AI paragraph
+10. **Daily Mission** ring + checklist of today's unclosed items, each linking out
+11. **Recent Bot Activity** — a paginated (10/page) list of Telegram interactions, module emoji + message + reply preview (reply hidden on mobile) + relative time; header shows AI spend
+12. **7-tile Modules grid** — one tile per module with a live one-line stat and a link
+13. Floating **Quick Add** "+" button (bottom-right) for fast Task/Expense/Metric entry
+14. **Ask Brain** — Header-triggered panel with 4 tabs (Ask/Decide/Reflect/Monthly), not part of the page body
+
+### Planner (`/planner`)
+1. Date label
+2. Stats row — 4 `StatCard`s: Pending, High Priority (red), Overdue (amber), Completed (green), `grid-cols-2 sm:grid-cols-4`
+3. **Overdue** card (conditional, full width) — tasks left incomplete from a prior month
+4. Two-column row (`lg:grid-cols-5`, stacks on mobile): **Today's Tasks** (`lg:col-span-3`) + **By Area** (`lg:col-span-2`)
+   - Today's Tasks: inline add-row (text input, priority select, recurrence select, "+ Add" button) → task rows (toggle circle, text, area badge, recurrence tag, due date, external-link icon for synced tasks, colored priority dot, hover-reveal delete) → collapsible native `<details>` "Completed" section
+   - By Area: area name + count badge + proportion bar per area
+5. **Plan Coach** advisor panel (Header-triggered, not inline) — generic recommendations widget
+
+### Career (`/career`)
+Single column, all full-width cards stacked (`space-y-5`), no side-by-side sections:
+1. **Applications** — 5-button status filter row (counts + labels, color-coded per status) above a list card; each row is collapsible to reveal AI JD-analysis (required/missing skills, match-%, priority topics, company focus) and an on-demand Company Insights lookup (labeled "Company-specific" or "General guidance")
+2. **Interview Prep** — a recommended-topic banner (accent box) above a 10-tile topic grid (`grid-cols-2 sm:grid-cols-3 lg:grid-cols-5`), each tile showing a readiness badge (Not Started/Needs Work/Developing/Ready/Strong, color-coded) and last score
+3. **Career Profile** — inline-editable field grid (Role/Company/Salary [masked with reveal toggle]/Target Role/Years/Bio), with streak badges (🔥 coding, 📚 study) in the header
+4. **Goals** (shared `GoalsCard`) — qualitative "mark achieved" checkboxes, no progress bars (no numeric metric for career goals)
+5. Quiz modal (topic → difficulty → 10 questions → graded results with weak-area pills) and Add Application modal, both triggered on demand
+6. **Career Mentor** advisor panel (Header-triggered) — quick-prompt chips + free-form Q&A
+
+### Finance (`/finance`)
+1. **Net Worth Overview** — 4 stat cards (`grid-cols-2 lg:grid-cols-4`): Monthly Salary (maskable), Portfolio (with gain/loss), Total Debt, Net Worth
+2. Over-budget alert banner (conditional, red)
+3. **Loans & EMIs** + **Investments** side by side (`lg:grid-cols-2`) — both with inline-editable numeric fields; Investments splits into SIPs/Lump Sum sub-groups with type-colored badges
+4. **Financial Goals** — full-width card, goal tiles in a `lg:grid-cols-2` grid, each with an inline-editable progress amount and a progress bar
+5. **By Category** + **Expenses** side by side (`lg:grid-cols-2`) — By Category rows expand into that category's individual expenses; both use a shared category color map (11 categories)
+6. **Recurring Expenses** — full-width, pause/resume toggle per row
+7. **Money Advisor** panel (Header-triggered): Ask tab (quick-prompt chips + Q&A) and Simulate tab (a structured purchase-scenario form → deterministic cash-flow math → AI narrative verdict)
+8. 5 shared-shell modals for adding a Loan/Investment/Goal/Expense/Recurring Expense
+
+### Health (`/health`)
+1. **Today's Workout** card — always first; status pill, exercise meta, Start/Complete/Skip actions, an expandable full-workout detail (warmup/exercise table/cardio/cooldown/coach tips)
+2. Health Profile setup banner (pre-profile only) or an "Edit health profile" link (post-profile)
+3. **Health Score hero** — a big gradient ring (green→cyan) with an "Excellent/Good/Needs Work/Getting Started" label, plus two small Nutrition/Activity sub-rings with hover reasons
+4. **Health Trend** chart — metric picker (Weight/Calories/Protein/Steps) + Weekly/Monthly toggle
+5. Stats strip — Weight, Workouts today, BMI, and (once computable) kcal/protein/carbs/fat daily targets
+6. **Today's Metrics** + **Workouts** side by side (`lg:grid-cols-2`) — Today's Metrics is 4 always-editable emoji tiles (⚖️🔥🥩👟) with weekly-avg subtext and a "left of target" hint; Workouts is an ad-hoc log form + list
+7. **Health Coach** panel (Header-triggered): Recommendations tab + Weekly Report tab
+
+### Learning (`/learning`)
+1. Stats row — Total, In Progress, Completed, Streak (`grid-cols-2 sm:grid-cols-4`)
+2. **Needs Revision** card (conditional) — completed resources idle 14+ days, one-click "+ Log session"
+3. **Suggested Resources** — a collapsible panel (not a Card) with Curated and AI Suggested sub-sections, each row with "+ Add"/dismiss
+4. Status filter pills (All/Not Started/Completed)
+5. **Resources** (`lg:col-span-3`) + **By Category** (`lg:col-span-2`) side by side — resource rows show a status-colored dropdown, progress slider when in-progress, and hover-reveal Log Session/Quiz Me/Delete actions
+6. Three modals: Add Resource, Log Study Session (5 duration pills), Quiz (click-to-reveal Q&A)
+7. **Study Coach** panel (Header-triggered): Recommendations tab + Daily Plan tab
+
+### Coding (`/coding`)
+1. **Today's Coding Challenge** (`lg:col-span-3`) + **Daily Tech Read** (`lg:col-span-2`) side by side — question rows with difficulty pills (green/amber/red), a bottom Easy/Medium/Hard/Completion-% stat strip
+2. **Recommended for You** + **Difficulty Progression** chart side by side (`lg:grid-cols-2`) — recommendations show weak-area pills and an "Add"→"Added" flow; the chart plots 3 lines (Easy/Medium/Hard) over time
+3. **Contribution Calendar** — a GitHub-style dot grid (green=solved, amber=partial, red=missed, gray=none) with a Settings popover (assignment mode, questions/day, Telegram toggle)
+4. **Goals** (shared `GoalsCard`) — supports one auto-tracked metric (coding streak) shown as a progress bar
+5. **Practice Log** — filterable list (All/Completed/Pending/Revision/Favorites/Easy/Medium/Hard) merging questions and readings, with favorite-star and needs-revision toggles
+6. An Outcome modal ("How did it go?" — Solved cleanly / Needed help / Struggled) appears on completing any question
+7. **Code Mentor** panel (Header-triggered) — generic recommendations widget
+
+### Documents (`/documents`)
+No page header — a two-pane layout fills the content area:
+- **Left pane** (`w-64` desktop, full-width on mobile when nothing's selected): search bar, "New document" button, a scrollable list of documents (title, updated date, content preview, up to 2 tag pills, hover-reveal delete)
+- **Right pane**: placeholder ("Select a document or create a new one") when nothing's open; otherwise a title input + tags input + Create/Save button + close button, a full-height plain-text content editor, and (for existing documents only) an "Ask AI" strip at the bottom with a Summarise button and a free-form question input
+- Mobile shows one pane at a time; both show side by side from `md:` up
+
+### Settings (`/settings`)
+1. **Account** — signed-in email + "Sign out"; a "Download everything you've entered" row + "Export as JSON" button
+2. **AI Budget** + **System Health** side by side (`lg:grid-cols-2`) — AI Budget shows Today/This Month as progress bars (turning red past 90% used) plus a top-5 spend-by-feature breakdown; System Health lists all 13 cron jobs with a colored status dot (green/healthy, red/stale, gray/never-run) and a relative last-run time
+3. **Reminders** — a list of label + morning/evening + module, amber (morning) or indigo (evening) bell icon, hover-reveal delete; "New Reminder" modal to add one

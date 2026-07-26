@@ -99,13 +99,15 @@ export default function DashboardView({ data, executive }: { data: DashboardData
           the PRD's "one screen answers what changed/what to do/what needs
           attention/goal progress" philosophy. */}
       <QuickStats codingStreak={executive.codingStreak} budgetRemaining={stats.monthBudget - stats.monthSpend} workoutDoneToday={stats.workoutsToday > 0} goals={data.financialGoals} />
-      <WhatsChanged items={executive.whatsChanged} />
 
-      {/* Executive Brief (Phase 4 PRD) — Morning Brief. Decision Queue and
-          Goal Progress used to live here too; Phase 5's redesign moved them
-          into Needs Attention and Quick Stats above instead of duplicating
-          the same information across cards. */}
-      <ExecutiveBrief brief={executive.brief} />
+      {/* What's Changed + Morning Brief (Phase 4/5 PRDs) side by side on
+          wide viewports — Decision Queue/Goal Progress used to live in the
+          brief too, but Phase 5 moved them into Needs Attention and Quick
+          Stats above instead of duplicating information across cards. */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-start">
+        <WhatsChanged items={executive.whatsChanged} />
+        <ExecutiveBrief brief={executive.brief} />
+      </div>
 
       {/* Hero: Life Score + Module Scores */}
       <div className="bg-gradient-to-br from-surface-1 via-surface-2 to-surface-1 border border-surface-3 rounded-2xl p-3.5">
