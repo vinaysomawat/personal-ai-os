@@ -57,9 +57,9 @@ export interface Skill {
 export type Difficulty = 'easy' | 'medium' | 'hard'
 
 export const DIFFICULTY_CONFIG: Record<Difficulty, { label: string; color: string }> = {
-  easy:   { label: 'Easy',   color: 'bg-green-500/15 text-green-400' },
-  medium: { label: 'Medium', color: 'bg-amber-500/15 text-amber-400' },
-  hard:   { label: 'Hard',   color: 'bg-red-500/15 text-red-400' },
+  easy:   { label: 'Easy',   color: 'bg-good-soft text-green-400' },
+  medium: { label: 'Medium', color: 'bg-warn-soft text-amber-400' },
+  hard:   { label: 'Hard',   color: 'bg-risk-soft text-red-400' },
 }
 
 export const QUIZ_TOPICS = ['JavaScript', 'React', 'TypeScript', 'Next.js', 'HTML/CSS', 'Browser Internals', 'Performance', 'System Design', 'Node.js', 'APIs'] as const
@@ -88,9 +88,9 @@ export interface QuizAttempt {
 export type ReadinessTier = 'not_started' | 'needs_work' | 'developing' | 'ready' | 'strong'
 
 export const READINESS_CONFIG: Record<ReadinessTier, { label: string; color: string }> = {
-  not_started: { label: 'Not Started', color: 'bg-surface-3 text-slate-500' },
-  needs_work:  { label: 'Needs Work',  color: 'bg-red-500/15 text-red-400' },
-  developing:  { label: 'Developing',  color: 'bg-amber-500/15 text-amber-400' },
+  not_started: { label: 'Not Started', color: 'bg-surface-3 text-fg-tertiary' },
+  needs_work:  { label: 'Needs Work',  color: 'bg-risk-soft text-red-400' },
+  developing:  { label: 'Developing',  color: 'bg-warn-soft text-amber-400' },
   ready:       { label: 'Ready',       color: 'bg-blue-500/15 text-blue-400' },
-  strong:      { label: 'Strong',      color: 'bg-green-500/15 text-green-400' },
+  strong:      { label: 'Strong',      color: 'bg-good-soft text-green-400' },
 }

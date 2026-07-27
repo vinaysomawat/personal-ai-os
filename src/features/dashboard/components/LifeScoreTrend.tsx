@@ -20,8 +20,8 @@ function CustomTooltip({ active, payload }: { active?: boolean; payload?: { payl
   const point = payload[0].payload
   return (
     <div className="bg-surface-2 border border-surface-3 rounded-lg px-2.5 py-1.5 text-xs">
-      <p className="text-slate-500">{formatDate(point.date)}</p>
-      <p className="text-slate-200 font-semibold tabular-nums">{point.life}</p>
+      <p className="text-fg-tertiary">{formatDate(point.date)}</p>
+      <p className="text-fg-primary font-semibold tabular-nums">{point.life}</p>
     </div>
   )
 }
@@ -34,6 +34,8 @@ function CustomTooltip({ active, payload }: { active?: boolean; payload?: { payl
 export default function LifeScoreTrend({ scoreHistory }: { scoreHistory: ScorePoint[] }) {
   const [range, setRange] = useState<'weekly' | 'monthly'>('weekly')
   const points = range === 'weekly' ? scoreHistory.slice(-7) : scoreHistory
+  const latest = points.length > 0 ? points[points.length - 1].life : null
+  const delta = points.length >= 2 ? points[points.length - 1].life - points[0].life : null
 
   return (
     <Card title="Life Score Trend" padding="p-3.5" action={
@@ -43,9 +45,18 @@ export default function LifeScoreTrend({ scoreHistory }: { scoreHistory: ScorePo
       </div>
     }>
       {points.length < 2 ? (
-        <p className="text-sm text-slate-400 py-6 text-center">Not enough history yet — check back after a few more days</p>
+        <p className="text-sm text-fg-secondary py-6 text-center">Not enough history yet — check back after a few more days</p>
       ) : (
-        <div className="h-40">
+        <>
+          <div className="flex items-baseline gap-2 mb-2.5">
+            <span className="text-2xl font-bold text-fg-primary tabular-nums">{latest}</span>
+            {delta !== null && (
+              <span className={`text-xs font-medium ${delta > 0 ? 'text-green-400' : delta < 0 ? 'text-red-400' : 'text-fg-tertiary'}`}>
+                {delta > 0 ? '+' : ''}{delta} vs. {range === 'weekly' ? 'last week' : '30 days ago'}
+              </span>
+            )}
+          </div>
+          <div className="h-40">
           <ResponsiveContainer width="100%" height="100%">
             <LineChart data={points} margin={{ top: 8, right: 8, bottom: 0, left: 0 }}>
               <CartesianGrid vertical={false} stroke={GRID} strokeWidth={1} />
@@ -73,11 +84,12 @@ export default function LifeScoreTrend({ scoreHistory }: { scoreHistory: ScorePo
                 strokeWidth={2}
                 strokeLinecap="round"
                 dot={false}
-                activeDot={{ r: 5, fill: ACCENT, stroke: '#16161d', strokeWidth: 2 }}
+                activeDot={{ r: 5, fill: ACCENT, stroke: 'var(--card)', strokeWidth: 2 }}
               />
             </LineChart>
           </ResponsiveContainer>
-        </div>
+          </div>
+        </>
       )}
     </Card>
   )

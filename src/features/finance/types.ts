@@ -94,8 +94,8 @@ export const INVESTMENT_TYPES: { value: InvestmentType; label: string }[] = [
 
 export const INVESTMENT_COLOR: Record<InvestmentType, string> = {
   mutual_fund: 'bg-purple-500/15 text-purple-400',
-  stocks:      'bg-green-500/15 text-green-400',
-  fd:          'bg-amber-500/15 text-amber-400',
+  stocks:      'bg-good-soft text-green-400',
+  fd:          'bg-warn-soft text-amber-400',
   crypto:      'bg-orange-500/15 text-orange-400',
-  other:       'bg-slate-500/15 text-slate-400',
+  other:       'bg-surface-2 text-fg-secondary',
 }

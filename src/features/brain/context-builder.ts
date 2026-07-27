@@ -33,7 +33,7 @@ export function buildBrainContext(data: DashboardData): BrainContext {
     coding: { solved30d: data.stats.codingSolved30d },
     documents: { count: data.stats.documentCount },
     signals: data.topActions,
-    weeklyPatterns: data.recentPatterns,
+    weeklyPatterns: data.recentPatterns.map(p => p.pattern),
     monthlyPatterns: [],
     crossModuleGoals: data.crossModuleGoals,
   }
@@ -59,7 +59,7 @@ export async function getWeeklyReflectionContext(supabase: SupabaseClient, userI
   if (!logs || logs.length < 2) return null
 
   const { daysTracked, avgLife, moduleAvgs, best, worst } = computeScoreStats(logs)
-  return { daysTracked, avgLife, moduleAvgs, best, worst, patterns }
+  return { daysTracked, avgLife, moduleAvgs, best, worst, patterns: patterns.map(p => p.pattern) }
 }
 
 // Trailing-30-days counterpart, feeding Monthly Executive Review. Same
@@ -89,5 +89,5 @@ export async function getMonthlyReviewContext(supabase: SupabaseClient, userId: 
   const categoryTotals = computeCategoryTotals(expenses ?? [])
   const topSpendCategory = categoryTotals.length > 0 ? { name: categoryTotals[0][0], amount: categoryTotals[0][1] } : null
 
-  return { daysTracked, avgLife, moduleAvgs, best, worst, topModule, weakModule, topSpendCategory, patterns }
+  return { daysTracked, avgLife, moduleAvgs, best, worst, topModule, weakModule, topSpendCategory, patterns: patterns.map(p => p.pattern) }
 }

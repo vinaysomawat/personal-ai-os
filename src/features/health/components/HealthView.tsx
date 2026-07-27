@@ -34,8 +34,8 @@ const METRICS: { field: MetricField; label: string; emoji: string; unit: string;
 function StatTile({ value, label }: { value: string | number; label: string }) {
   return (
     <div>
-      <p className="text-lg font-bold text-white">{value}</p>
-      <p className="text-xs text-slate-500">{label}</p>
+      <p className="text-lg font-bold text-fg-primary">{value}</p>
+      <p className="text-xs text-fg-tertiary">{label}</p>
     </div>
   )
 }
@@ -64,7 +64,7 @@ function MetricCard({ label, emoji, unit, decimals = 0, todayValue, weekAvg, onS
   return (
     <div className="bg-surface-1 border border-surface-3 rounded-lg p-2.5 hover:border-surface-3/80 transition-colors">
       <div className="flex items-center justify-between mb-1">
-        <span className="text-xs text-slate-500 uppercase tracking-wider flex items-center gap-1 truncate">
+        <span className="text-xs text-fg-tertiary uppercase tracking-wider flex items-center gap-1 truncate">
           <span className="text-sm shrink-0">{emoji}</span>{label}
         </span>
         {saved && <span className="text-xs text-green-400 shrink-0">✓</span>}
@@ -77,12 +77,12 @@ function MetricCard({ label, emoji, unit, decimals = 0, todayValue, weekAvg, onS
           onBlur={handleSave}
           placeholder="—"
           disabled={saving}
-          className="text-lg font-bold text-white bg-transparent outline-none w-full placeholder-slate-700"
+          className="text-lg font-bold text-fg-primary bg-transparent outline-none w-full placeholder-fg-quaternary"
         />
-        <span className="text-xs text-slate-600 shrink-0">{unit}</span>
+        <span className="text-xs text-fg-quaternary shrink-0">{unit}</span>
       </div>
       <div className="flex items-center justify-between gap-1 mt-0.5">
-        <span className="text-xs text-slate-700 shrink-0">avg {weekAvg !== null ? weekAvg.toFixed(decimals) : '—'}</span>
+        <span className="text-xs text-fg-quaternary shrink-0">avg {weekAvg !== null ? weekAvg.toFixed(decimals) : '—'}</span>
         {leftText && <span className="text-xs text-accent font-medium truncate">{leftText}</span>}
       </div>
     </div>
@@ -107,8 +107,8 @@ function HealthCoachContent({ isOpen, context, metrics }: { isOpen: boolean; con
   return (
     <div>
       <div className="flex gap-1 mb-3 bg-surface-2 rounded-lg p-0.5">
-        <button onClick={() => setTab('recommendations')} className={`flex-1 text-xs py-1.5 rounded-md transition-colors ${tab === 'recommendations' ? 'bg-accent text-white' : 'text-slate-400 hover:text-slate-300'}`}>Recommendations</button>
-        <button onClick={() => setTab('report')} className={`flex-1 text-xs py-1.5 rounded-md transition-colors ${tab === 'report' ? 'bg-accent text-white' : 'text-slate-400 hover:text-slate-300'}`}>Weekly Report</button>
+        <button onClick={() => setTab('recommendations')} className={`flex-1 text-xs py-1.5 rounded-md transition-colors ${tab === 'recommendations' ? 'bg-accent text-white' : 'text-fg-secondary hover:text-fg-secondary'}`}>Recommendations</button>
+        <button onClick={() => setTab('report')} className={`flex-1 text-xs py-1.5 rounded-md transition-colors ${tab === 'report' ? 'bg-accent text-white' : 'text-fg-secondary hover:text-fg-secondary'}`}>Weekly Report</button>
       </div>
       {tab === 'recommendations' ? (
         <ModuleRecommendations moduleLabel="Health" context={context} isOpen={isOpen && tab === 'recommendations'} />
@@ -117,7 +117,7 @@ function HealthCoachContent({ isOpen, context, metrics }: { isOpen: boolean; con
           {[90, 70, 80, 60, 85].map((w, i) => <div key={i} className="h-3 rounded bg-surface-2 animate-pulse" style={{ width: `${w}%` }} />)}
         </div>
       ) : report ? (
-        <p className="text-sm text-slate-300 leading-relaxed whitespace-pre-wrap">{report}</p>
+        <p className="text-sm text-fg-secondary leading-relaxed whitespace-pre-wrap">{report}</p>
       ) : null}
     </div>
   )
@@ -209,6 +209,7 @@ export default function HealthView({ initialMetrics, initialProfile, initialWork
   return (
     <div className="space-y-4">
       {advisorPortal}
+      <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-fg-primary">Health</h1>
 
       <DailyWorkoutCard initialWorkout={initialDailyWorkout} stats={workoutStats} />
 
@@ -216,8 +217,8 @@ export default function HealthView({ initialMetrics, initialProfile, initialWork
       {!profile && (
         <div className="bg-gradient-to-br from-accent/10 to-transparent border border-accent/30 rounded-xl p-5 flex items-center justify-between gap-4">
           <div>
-            <p className="text-sm font-semibold text-slate-200">Set up your Health Profile</p>
-            <p className="text-xs text-slate-500 mt-1">One-time setup unlocks your calorie targets, macros, and a real Health Score.</p>
+            <p className="text-sm font-semibold text-fg-primary">Set up your Health Profile</p>
+            <p className="text-xs text-fg-tertiary mt-1">One-time setup unlocks your calorie targets, macros, and a real Health Score.</p>
           </div>
           <button onClick={() => setShowProfileForm(true)} className="shrink-0 px-4 py-2 rounded-lg bg-accent text-white text-sm font-medium hover:bg-accent/80 transition-colors">
             Set up
@@ -226,7 +227,7 @@ export default function HealthView({ initialMetrics, initialProfile, initialWork
       )}
       {profile && !(dailyTargets && healthScore) && (
         <div className="flex justify-end">
-          <button onClick={() => setShowProfileForm(true)} className="flex items-center gap-1.5 text-xs text-slate-500 hover:text-slate-300 transition-colors">
+          <button onClick={() => setShowProfileForm(true)} className="flex items-center gap-1.5 text-xs text-fg-tertiary hover:text-fg-secondary transition-colors">
             <Settings2 size={12} /> Edit health profile
           </button>
         </div>
@@ -259,12 +260,12 @@ export default function HealthView({ initialMetrics, initialProfile, initialWork
       </div>
 
       {profile && !dailyTargets && (
-        <p className="text-xs text-slate-600 -mt-2">Log today&apos;s weight below to unlock your calorie targets and Health Score.</p>
+        <p className="text-xs text-fg-quaternary -mt-2">Log today&apos;s weight below to unlock your calorie targets and Health Score.</p>
       )}
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-start">
       {/* Today's metrics */}
-      <Card title="Today's Metrics" padding="p-3.5" action={<span className="text-xs text-slate-500">Press Enter to save</span>}>
+      <Card title="Today's Metrics" padding="p-3.5" action={<span className="text-xs text-fg-tertiary">Press Enter to save</span>}>
         <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-2 gap-2">
           {METRICS.map(m => (
             <MetricCard
@@ -281,12 +282,12 @@ export default function HealthView({ initialMetrics, initialProfile, initialWork
       </Card>
 
       {/* Workouts */}
-      <Card title="Workouts" padding="p-3.5" action={<span className="text-xs text-slate-500">{workouts.length} today</span>}>
+      <Card title="Workouts" padding="p-3.5" action={<span className="text-xs text-fg-tertiary">{workouts.length} today</span>}>
         <div className="flex gap-2 mb-3">
           <select
             value={workoutType}
             onChange={e => setWorkoutType(e.target.value)}
-            className="bg-surface-2 border border-surface-3 rounded-lg px-2 py-2 text-sm text-slate-300 outline-none focus:border-accent transition-colors"
+            className="bg-surface-2 border border-surface-3 rounded-lg px-2 py-2 text-sm text-fg-secondary outline-none focus:border-accent transition-colors"
           >
             {WORKOUT_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
           </select>
@@ -297,7 +298,7 @@ export default function HealthView({ initialMetrics, initialProfile, initialWork
             onChange={e => setWorkoutDuration(e.target.value)}
             onKeyDown={e => e.key === 'Enter' && handleLogWorkout()}
             placeholder="Minutes (optional)"
-            className="flex-1 bg-surface-2 border border-surface-3 rounded-lg px-3 py-2 text-sm text-slate-200 placeholder-slate-600 outline-none focus:border-accent transition-colors"
+            className="flex-1 bg-surface-2 border border-surface-3 rounded-lg px-3 py-2 text-sm text-fg-primary placeholder-fg-quaternary outline-none focus:border-accent transition-colors"
           />
           <button
             onClick={handleLogWorkout}
@@ -313,8 +314,8 @@ export default function HealthView({ initialMetrics, initialProfile, initialWork
           <ul className="space-y-1">
             {workouts.map(w => (
               <li key={w.id} className="flex items-center gap-3 p-2 rounded-lg hover:bg-surface-2 transition-colors group">
-                <span className="flex-1 text-sm text-slate-200">{w.type}{w.duration_minutes ? ` — ${w.duration_minutes} min` : ''}</span>
-                <button onClick={() => handleDeleteWorkout(w.id)} aria-label="Delete workout" className="shrink-0 opacity-0 group-hover:opacity-100 text-slate-600 hover:text-red-400 transition-all">
+                <span className="flex-1 text-sm text-fg-primary">{w.type}{w.duration_minutes ? ` — ${w.duration_minutes} min` : ''}</span>
+                <button onClick={() => handleDeleteWorkout(w.id)} aria-label="Delete workout" className="shrink-0 opacity-0 group-hover:opacity-100 text-fg-quaternary hover:text-red-400 transition-all">
                   <Trash2 size={13} />
                 </button>
               </li>

@@ -5,7 +5,9 @@ import { todayIST, daysAgoIST } from '@/lib/date'
 
 export interface ChangeItem {
   emoji: string
-  text: string
+  label: string
+  value: string
+  tone: 'good' | 'risk' | 'neutral'
   href: string
 }
 
@@ -32,28 +34,30 @@ export async function getWhatsChanged(supabase: SupabaseClient, userId: string):
   if (todayWeight != null && yesterdayWeight != null) {
     const delta = todayWeight - yesterdayWeight
     if (delta !== 0) {
-      items.push({ emoji: delta < 0 ? '↓' : '↑', text: `Weight ${delta > 0 ? '+' : ''}${delta.toFixed(1)}kg`, href: '/health' })
+      // Goal is a gradual deficit (§5), so a drop is progress and a gain is a setback.
+      items.push({ emoji: delta < 0 ? '↓' : '↑', label: 'Weight', value: `${delta > 0 ? '+' : ''}${delta.toFixed(1)}kg`, tone: delta < 0 ? 'good' : 'risk', href: '/health' })
     }
   }
 
   const todayExpenseTotal = (todayExpenses ?? []).reduce((s, e) => s + Number(e.amount ?? 0), 0)
   if (todayExpenseTotal > 0) {
-    items.push({ emoji: '💸', text: `Expense logged: ₹${Math.round(todayExpenseTotal).toLocaleString('en-IN')}`, href: '/finance' })
+    items.push({ emoji: '💸', label: 'Expense logged', value: `₹${Math.round(todayExpenseTotal).toLocaleString('en-IN')}`, tone: 'neutral', href: '/finance' })
   }
 
   if ((todayWorkouts ?? []).length > 0) {
-    items.push({ emoji: '🏋️', text: 'Workout completed', href: '/health' })
+    items.push({ emoji: '🏋️', label: 'Workout', value: 'Completed', tone: 'good', href: '/health' })
   }
 
   if ((todayApps ?? []).length > 0) {
-    items.push({ emoji: '💼', text: `${(todayApps ?? []).length} new application${(todayApps ?? []).length > 1 ? 's' : ''} added`, href: '/career' })
+    const count = (todayApps ?? []).length
+    items.push({ emoji: '💼', label: 'Applications', value: `${count} added`, tone: 'neutral', href: '/career' })
   }
 
   const scoreRows = scores ?? []
   if (scoreRows.length === 2) {
     const delta = scoreRows[0].life_score - scoreRows[1].life_score
     if (delta !== 0) {
-      items.push({ emoji: delta > 0 ? '↑' : '↓', text: `Life Score ${delta > 0 ? '+' : ''}${delta}`, href: '/dashboard' })
+      items.push({ emoji: delta > 0 ? '↑' : '↓', label: 'Life Score', value: `${delta > 0 ? '+' : ''}${delta}`, tone: delta > 0 ? 'good' : 'risk', href: '/dashboard' })
     }
   }
 

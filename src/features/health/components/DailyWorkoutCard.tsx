@@ -7,10 +7,10 @@ import { completeWorkout, skipWorkout, beginWorkout, getActiveOrGenerateWorkout 
 import type { DailyWorkout, WorkoutStats } from '../workout-core'
 
 const STATUS_CONFIG: Record<string, { label: string; color: string; bg: string }> = {
-  pending: { label: 'Pending', color: 'text-slate-400', bg: 'bg-slate-500/15' },
-  in_progress: { label: 'In Progress', color: 'text-amber-400', bg: 'bg-amber-500/15' },
-  completed: { label: 'Completed', color: 'text-green-400', bg: 'bg-green-500/15' },
-  skipped: { label: 'Skipped', color: 'text-slate-500', bg: 'bg-slate-500/15' },
+  pending: { label: 'Pending', color: 'text-fg-secondary', bg: 'bg-surface-2' },
+  in_progress: { label: 'In Progress', color: 'text-amber-400', bg: 'bg-warn-soft' },
+  completed: { label: 'Completed', color: 'text-green-400', bg: 'bg-good-soft' },
+  skipped: { label: 'Skipped', color: 'text-fg-tertiary', bg: 'bg-surface-2' },
 }
 
 interface Props {
@@ -26,7 +26,7 @@ export default function DailyWorkoutCard({ initialWorkout, stats }: Props) {
   if (!workout) {
     return (
       <div className="bg-surface-1 border border-surface-3 rounded-xl p-3.5">
-        <h2 className="text-sm font-semibold text-slate-300 uppercase tracking-wider mb-3">Today&apos;s Workout</h2>
+        <h2 className="text-sm font-semibold text-fg-secondary uppercase tracking-wider mb-3">Today&apos;s Workout</h2>
         <EmptyState icon={Dumbbell} message="No workout library found yet — run the pending migration to get started." />
       </div>
     )
@@ -59,10 +59,10 @@ export default function DailyWorkoutCard({ initialWorkout, stats }: Props) {
   return (
     <div className="bg-surface-1 border border-surface-3 rounded-xl p-3.5">
       <div className="flex items-center justify-between mb-3">
-        <h2 className="text-sm font-semibold text-slate-300 uppercase tracking-wider">Today&apos;s Workout</h2>
+        <h2 className="text-sm font-semibold text-fg-secondary uppercase tracking-wider">Today&apos;s Workout</h2>
         <div className="flex items-center gap-3 text-xs">
           <span className="flex items-center gap-1 text-amber-400"><Flame size={12} /> {stats.currentStreakDays}d streak</span>
-          <span className="flex items-center gap-1 text-slate-500"><Trophy size={12} /> {stats.totalCompleted} completed</span>
+          <span className="flex items-center gap-1 text-fg-tertiary"><Trophy size={12} /> {stats.totalCompleted} completed</span>
         </div>
       </div>
 
@@ -72,8 +72,8 @@ export default function DailyWorkoutCard({ initialWorkout, stats }: Props) {
             <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${status.bg} ${status.color}`}>{status.label}</span>
             <span className="text-xs px-2 py-0.5 rounded-full font-medium bg-accent/15 text-accent">{w.category}</span>
           </div>
-          <p className={`text-base font-semibold ${isDone ? 'text-slate-500 line-through' : 'text-slate-200'}`}>{w.name}</p>
-          <div className="flex items-center gap-3 mt-1 text-xs text-slate-500">
+          <p className={`text-base font-semibold ${isDone ? 'text-fg-tertiary line-through' : 'text-fg-primary'}`}>{w.name}</p>
+          <div className="flex items-center gap-3 mt-1 text-xs text-fg-tertiary">
             <span className="flex items-center gap-1"><Clock size={11} /> {w.duration_minutes} min</span>
             <span className="flex items-center gap-1"><Zap size={11} /> ~{w.estimated_calories} kcal</span>
             <span>{w.primary_muscles.join(', ')}</span>
@@ -90,7 +90,7 @@ export default function DailyWorkoutCard({ initialWorkout, stats }: Props) {
               <button onClick={handleComplete} disabled={isPending} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-green-600 text-white text-xs font-medium hover:bg-green-600/80 disabled:opacity-50 transition-colors">
                 <CheckCircle2 size={12} /> Complete
               </button>
-              <button onClick={handleSkip} disabled={isPending} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-surface-2 border border-surface-3 text-slate-400 text-xs font-medium hover:bg-surface-3 disabled:opacity-50 transition-colors">
+              <button onClick={handleSkip} disabled={isPending} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-surface-2 border border-surface-3 text-fg-secondary text-xs font-medium hover:bg-surface-3 disabled:opacity-50 transition-colors">
                 <SkipForward size={12} /> Skip
               </button>
             </>
@@ -98,25 +98,25 @@ export default function DailyWorkoutCard({ initialWorkout, stats }: Props) {
         </div>
       </div>
 
-      <button onClick={() => setShowDetail(v => !v)} className="w-full flex items-center justify-center gap-1 mt-3 pt-3 border-t border-surface-3 text-xs text-slate-500 hover:text-slate-300 transition-colors">
+      <button onClick={() => setShowDetail(v => !v)} className="w-full flex items-center justify-center gap-1 mt-3 pt-3 border-t border-surface-3 text-xs text-fg-tertiary hover:text-fg-secondary transition-colors">
         {showDetail ? 'Hide' : 'Show'} full workout <ChevronDown size={12} className={`transition-transform ${showDetail ? 'rotate-180' : ''}`} />
       </button>
 
       {showDetail && (
         <div className="mt-3 space-y-4 text-sm">
           <div>
-            <p className="text-xs text-slate-500 uppercase tracking-wider mb-1.5">Warm-up</p>
+            <p className="text-xs text-fg-tertiary uppercase tracking-wider mb-1.5">Warm-up</p>
             <ul className="space-y-1">
-              {w.warmup.map((item, i) => <li key={i} className="text-slate-400 text-xs">• {item}</li>)}
+              {w.warmup.map((item, i) => <li key={i} className="text-fg-secondary text-xs">• {item}</li>)}
             </ul>
           </div>
 
           <div>
-            <p className="text-xs text-slate-500 uppercase tracking-wider mb-1.5">Exercises</p>
+            <p className="text-xs text-fg-tertiary uppercase tracking-wider mb-1.5">Exercises</p>
             <div className="overflow-x-auto">
               <table className="w-full text-xs">
                 <thead>
-                  <tr className="text-slate-600 text-left">
+                  <tr className="text-fg-quaternary text-left">
                     <th className="py-1 pr-2 font-medium">Exercise</th>
                     <th className="py-1 px-2 font-medium">Sets</th>
                     <th className="py-1 px-2 font-medium">Reps</th>
@@ -127,11 +127,11 @@ export default function DailyWorkoutCard({ initialWorkout, stats }: Props) {
                 <tbody>
                   {w.exercises.map((ex, i) => (
                     <tr key={i} className="border-t border-surface-3">
-                      <td className="py-1.5 pr-2 text-slate-300">{ex.name}<p className="text-slate-600">{ex.notes}</p></td>
-                      <td className="py-1.5 px-2 text-slate-400">{ex.sets}</td>
-                      <td className="py-1.5 px-2 text-slate-400">{ex.reps}</td>
-                      <td className="py-1.5 px-2 text-slate-400">{ex.rest}</td>
-                      <td className="py-1.5 px-2 text-slate-400">{ex.rpe}</td>
+                      <td className="py-1.5 pr-2 text-fg-secondary">{ex.name}<p className="text-fg-quaternary">{ex.notes}</p></td>
+                      <td className="py-1.5 px-2 text-fg-secondary">{ex.sets}</td>
+                      <td className="py-1.5 px-2 text-fg-secondary">{ex.reps}</td>
+                      <td className="py-1.5 px-2 text-fg-secondary">{ex.rest}</td>
+                      <td className="py-1.5 px-2 text-fg-secondary">{ex.rpe}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -141,27 +141,27 @@ export default function DailyWorkoutCard({ initialWorkout, stats }: Props) {
 
           {w.cardio && (
             <div>
-              <p className="text-xs text-slate-500 uppercase tracking-wider mb-1.5">Cardio Finisher</p>
-              <p className="text-xs text-slate-400">{w.cardio.type} — {w.cardio.duration}, {w.cardio.intensity} ({w.cardio.targetHeartRateZone})</p>
+              <p className="text-xs text-fg-tertiary uppercase tracking-wider mb-1.5">Cardio Finisher</p>
+              <p className="text-xs text-fg-secondary">{w.cardio.type} — {w.cardio.duration}, {w.cardio.intensity} ({w.cardio.targetHeartRateZone})</p>
             </div>
           )}
 
           <div>
-            <p className="text-xs text-slate-500 uppercase tracking-wider mb-1.5">Cool-down</p>
+            <p className="text-xs text-fg-tertiary uppercase tracking-wider mb-1.5">Cool-down</p>
             <ul className="space-y-1">
-              {w.cooldown.map((item, i) => <li key={i} className="text-slate-400 text-xs">• {item}</li>)}
+              {w.cooldown.map((item, i) => <li key={i} className="text-fg-secondary text-xs">• {item}</li>)}
             </ul>
           </div>
 
           <div>
-            <p className="text-xs text-slate-500 uppercase tracking-wider mb-1.5">Coach Tips</p>
+            <p className="text-xs text-fg-tertiary uppercase tracking-wider mb-1.5">Coach Tips</p>
             <ul className="space-y-1">
               {w.coach_tips.map((tip, i) => <li key={i} className="text-xs text-accent/90">💡 {tip}</li>)}
             </ul>
           </div>
 
           <div className="flex gap-1.5 flex-wrap">
-            {w.tags.map(tag => <span key={tag} className="text-xs px-2 py-0.5 rounded-full bg-surface-2 text-slate-500">{tag}</span>)}
+            {w.tags.map(tag => <span key={tag} className="text-xs px-2 py-0.5 rounded-full bg-surface-2 text-fg-tertiary">{tag}</span>)}
           </div>
         </div>
       )}

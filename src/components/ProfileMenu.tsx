@@ -1,0 +1,56 @@
+'use client'
+
+import { useEffect, useState } from 'react'
+import Link from 'next/link'
+import { createClient } from '@/lib/supabase/client'
+import { signout } from '@/app/login/actions'
+import { Settings, LogOut } from 'lucide-react'
+
+export default function ProfileMenu() {
+  const [email, setEmail] = useState<string | null>(null)
+  const [open, setOpen] = useState(false)
+
+  useEffect(() => {
+    const supabase = createClient()
+    supabase.auth.getUser().then(({ data }) => setEmail(data.user?.email ?? null))
+  }, [])
+
+  if (!email) return null
+  const initial = email[0].toUpperCase()
+
+  return (
+    <div className="relative">
+      <button
+        onClick={() => setOpen(v => !v)}
+        aria-label="Account menu"
+        className="w-8 h-8 rounded-full bg-accent flex items-center justify-center text-xs font-bold text-white shrink-0"
+      >
+        {initial}
+      </button>
+
+      {open && (
+        <>
+          <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
+          <div className="absolute top-9 right-0 z-50 w-52 bg-surface-1 border border-surface-3 rounded-xl shadow-popover p-1.5">
+            <p className="px-2.5 py-2 text-xs text-fg-tertiary border-b border-surface-3 mb-1 truncate">{email}</p>
+            <Link
+              href="/settings"
+              onClick={() => setOpen(false)}
+              className="flex items-center gap-2 px-2.5 py-2 rounded-lg text-sm text-fg-secondary hover:bg-surface-2 hover:text-fg-primary transition-colors"
+            >
+              <Settings size={14} /> Settings
+            </Link>
+            <form action={signout}>
+              <button
+                type="submit"
+                className="w-full flex items-center gap-2 px-2.5 py-2 rounded-lg text-sm text-fg-secondary hover:bg-surface-2 hover:text-red-400 transition-colors text-left"
+              >
+                <LogOut size={14} /> Sign out
+              </button>
+            </form>
+          </div>
+        </>
+      )}
+    </div>
+  )
+}

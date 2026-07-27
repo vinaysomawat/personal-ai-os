@@ -1,7 +1,6 @@
 'use client'
 
 import { useState } from 'react'
-import { X } from 'lucide-react'
 import { useEscapeKey } from '@/lib/use-escape-key'
 import ScoreHero from '@/features/dashboard/components/ScoreHero'
 import type { ScoreExplanationResult } from '../types'
@@ -10,51 +9,61 @@ export default function ScoreExplainer({ score, result }: { score: number; resul
   const [open, setOpen] = useState(false)
   useEscapeKey(() => setOpen(false))
 
+  // Highest-impact module surfaces first (design source's scoreBreakdown
+  // sort), and the net change footer sums every module's delta — same math
+  // as the Life Score's own day-over-day delta, just broken out by module.
+  const rows = [...result.modules].sort((a, b) => Math.abs(b.delta ?? 0) - Math.abs(a.delta ?? 0))
+  const netChange = result.modules.reduce((sum, m) => sum + (m.delta ?? 0), 0)
+
   return (
-    <>
-      <button onClick={() => setOpen(true)} aria-label="Explain my Life Score" className="cursor-pointer">
+    <div className="relative w-full flex justify-center">
+      <button onClick={() => setOpen(o => !o)} aria-label="Explain my Life Score" className="cursor-pointer">
         <ScoreHero score={score} />
       </button>
 
       {open && (
-        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4" onClick={() => setOpen(false)}>
+        <>
+          {/* Invisible full-screen click-catcher to dismiss on outside click —
+              not a visible backdrop; this renders as an inline dropdown
+              attached to the ring, not a centered modal. */}
+          <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
           <div
             onClick={e => e.stopPropagation()}
-            className="bg-surface-1 border border-surface-3 rounded-xl p-6 w-full max-w-sm max-h-[85vh] overflow-y-auto animate-in fade-in zoom-in-95 duration-200"
+            className="absolute top-full left-0 right-0 mt-2 bg-surface-1 border border-surface-3 rounded-xl p-4 z-50 shadow-popover animate-in fade-in duration-150"
           >
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-base font-semibold text-slate-200">Explain My Score</h2>
-              <button onClick={() => setOpen(false)} aria-label="Close" className="text-slate-500 hover:text-slate-300"><X size={16} /></button>
+            <div className="flex items-center justify-between mb-2.5">
+              <h2 className="text-[13px] font-bold text-fg-primary">Explain My Score — vs. yesterday</h2>
+              <button onClick={() => setOpen(false)} aria-label="Close" className="text-fg-tertiary hover:text-fg-secondary text-[15px] leading-none">✕</button>
             </div>
 
-            <div className="flex items-baseline gap-2 mb-4">
-              <span className="text-2xl font-bold text-white tabular-nums">{result.life.score}</span>
-              <span className="text-xs text-slate-500">/100</span>
-              {result.life.delta !== null && (
-                <span className={`ml-auto text-sm font-medium ${result.life.delta >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-                  {result.life.delta > 0 ? '+' : ''}{result.life.delta} vs yesterday
-                </span>
-              )}
-            </div>
-
-            <ul className="space-y-3">
-              {result.modules.map(m => (
-                <li key={m.module} className="flex items-start justify-between gap-3 pb-3 border-b border-surface-3 last:border-0 last:pb-0">
-                  <div className="min-w-0">
-                    <p className="text-sm font-medium text-slate-200">{m.label}</p>
-                    <p className="text-xs text-slate-500 mt-0.5">{m.tip}</p>
-                  </div>
-                  <span className={`shrink-0 text-sm font-bold tabular-nums ${
-                    m.delta === null || m.delta === 0 ? 'text-slate-500' : m.delta > 0 ? 'text-green-400' : 'text-red-400'
-                  }`}>
-                    {m.delta === null ? m.score : `${m.delta > 0 ? '+' : ''}${m.delta}`}
-                  </span>
-                </li>
-              ))}
+            <ul>
+              {rows.map((m, i) => {
+                const delta = m.delta
+                const color = delta === null || delta === 0 ? 'text-fg-tertiary' : delta > 0 ? 'text-green-400' : 'text-red-400'
+                const arrow = delta === null ? '' : delta > 0 ? '▲' : delta < 0 ? '▼' : '–'
+                return (
+                  <li key={m.module} className={`flex justify-between items-center gap-3 py-2 px-1.5 text-[12.5px] ${i === 0 ? 'bg-surface-2 rounded-lg' : 'border-t border-surface-3'}`}>
+                    <div className="flex flex-col min-w-0">
+                      <span className="font-semibold text-fg-primary">{m.label}</span>
+                      <span className="text-fg-tertiary text-[11px] truncate">{m.tip}</span>
+                    </div>
+                    <span className={`shrink-0 font-bold whitespace-nowrap tabular-nums ${color}`}>
+                      {arrow} {delta === null ? m.score : `${delta > 0 ? '+' : ''}${delta}`}
+                    </span>
+                  </li>
+                )
+              })}
             </ul>
+
+            <div className="flex justify-between text-xs text-fg-tertiary pt-2.5 mt-1 border-t border-surface-3">
+              <span>Net change</span>
+              <span className={`font-bold tabular-nums ${netChange > 0 ? 'text-green-400' : netChange < 0 ? 'text-red-400' : 'text-fg-tertiary'}`}>
+                {netChange > 0 ? '+' : ''}{netChange}
+              </span>
+            </div>
           </div>
-        </div>
+        </>
       )}
-    </>
+    </div>
   )
 }

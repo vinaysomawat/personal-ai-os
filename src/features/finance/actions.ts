@@ -16,7 +16,7 @@ export async function getFinanceData() {
   const startOfMonth = `${month}-01`
   const threeMonthsAgo = daysAgoIST(90)
 
-  if (!user) return { expenses: [], budgets: [], profile: null, loans: [], investments: [], goals: [], recurringExpenses: [], avgMonthlyExpense: 0, month }
+  if (!user) return { expenses: [], budgets: [], profile: null, loans: [], investments: [], goals: [], recurringExpenses: [], salaryHistory: [], avgMonthlyExpense: 0, month }
 
   const [expensesRes, budgetsRes, profileRes, loansRes, investmentsRes, goalsRes, recentExpensesRes, salaryHistoryRes, recurringRes] = await Promise.all([
     supabase.from('expenses').select('*').eq('user_id', user.id).gte('date', startOfMonth).order('date', { ascending: false }),
@@ -131,12 +131,14 @@ export async function updateInvestmentAmount(id: string, investedAmount: number)
   revalidatePath('/finance')
 }
 
-// Turns an existing investment into a SIP (or edits/cancels one) without
-// needing to delete and re-add it. Passing null cancels the SIP.
+// Edits or cancels an existing SIP without needing to delete and re-add the
+// investment. Passing null cancels contributions but keeps is_sip true —
+// the investment stays grouped under SIPs (cancelled) rather than jumping to
+// Lump Sum, since it's a stopped SIP, not something that was never one.
 export async function updateSipSettings(id: string, sip: { amount: number; dayOfMonth: number } | null) {
   const supabase = await createClient()
   const { error } = await supabase.from('investments').update({
-    is_sip: !!sip, sip_amount: sip?.amount ?? null, sip_day_of_month: sip?.dayOfMonth ?? null,
+    is_sip: true, sip_amount: sip?.amount ?? null, sip_day_of_month: sip?.dayOfMonth ?? null,
   }).eq('id', id)
   if (error) throw new Error(error.message)
   revalidatePath('/finance')

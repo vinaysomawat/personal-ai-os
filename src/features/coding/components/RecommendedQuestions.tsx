@@ -8,9 +8,9 @@ import { addRecommendedQuestion } from '../daily'
 import type { WeakArea } from '../daily-core'
 
 const DIFFICULTY_COLOR: Record<string, string> = {
-  easy: 'text-green-400 bg-green-500/15',
-  medium: 'text-amber-400 bg-amber-500/15',
-  hard: 'text-red-400 bg-red-500/15',
+  easy: 'text-green-400 bg-good-soft',
+  medium: 'text-amber-400 bg-warn-soft',
+  hard: 'text-red-400 bg-risk-soft',
 }
 
 // Separate from the daily-assignment card (DailyCodingCard) rather than
@@ -50,7 +50,7 @@ export default function RecommendedQuestions() {
       </button>
     }>
       {!loaded && !loading && (
-        <p className="text-sm text-slate-500">Picks weighted toward your weak areas, an active application&apos;s priority topics, and current interview trends — from your existing question pool, never invented.</p>
+        <p className="text-sm text-fg-tertiary">Picks weighted toward your weak areas, an active application&apos;s priority topics, and current interview trends — from your existing question pool, never invented.</p>
       )}
 
       {loading && (
@@ -61,20 +61,20 @@ export default function RecommendedQuestions() {
         <div className="space-y-3">
           {weakAreas.length > 0 && (
             <div>
-              <p className="text-xs text-slate-600 uppercase tracking-wider mb-1.5">Weak Areas</p>
+              <p className="text-xs text-fg-quaternary uppercase tracking-wider mb-1.5">Weak Areas</p>
               <div className="flex flex-wrap gap-1">
                 {weakAreas.slice(0, 5).map(w => (
-                  <span key={w.topic} className="text-xs px-1.5 py-0.5 rounded-full bg-red-500/15 text-red-400">{w.topic} ({w.struggleRate}%)</span>
+                  <span key={w.topic} className="text-xs px-1.5 py-0.5 rounded-full bg-risk-soft text-red-400">{w.topic} ({w.struggleRate}%)</span>
                 ))}
               </div>
             </div>
           )}
           {company && (
-            <p className="text-xs text-slate-500">Also weighted for <span className="text-accent font-medium">{company.company}</span>&apos;s priority topics: {company.topics.join(', ')}</p>
+            <p className="text-xs text-fg-tertiary">Also weighted for <span className="text-accent font-medium">{company.company}</span>&apos;s priority topics: {company.topics.join(', ')}</p>
           )}
 
           {recommendations.length === 0 ? (
-            <p className="text-sm text-slate-500">No recommendations right now — try again after solving a few more questions.</p>
+            <p className="text-sm text-fg-tertiary">No recommendations right now — try again after solving a few more questions.</p>
           ) : (
             <ul className="space-y-1.5">
               {recommendations.map(rec => {
@@ -84,13 +84,13 @@ export default function RecommendedQuestions() {
                     <span className={`text-xs px-1.5 py-0.5 rounded-full font-medium shrink-0 mt-0.5 ${DIFFICULTY_COLOR[rec.question.difficulty]}`}>{rec.question.difficulty}</span>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
-                        <span className="text-sm text-slate-200">{rec.question.title}</span>
-                        <a href={rec.question.url} target="_blank" rel="noopener noreferrer" className="text-slate-600 hover:text-accent transition-colors shrink-0"><ExternalLink size={11} /></a>
+                        <span className="text-sm text-fg-primary">{rec.question.title}</span>
+                        <a href={rec.question.url} target="_blank" rel="noopener noreferrer" className="text-fg-quaternary hover:text-accent transition-colors shrink-0"><ExternalLink size={11} /></a>
                       </div>
-                      <p className="text-xs text-slate-500 mt-0.5">{rec.reason}</p>
+                      <p className="text-xs text-fg-tertiary mt-0.5">{rec.reason}</p>
                     </div>
                     <button onClick={() => handleAdd(rec)} disabled={added}
-                      className="shrink-0 flex items-center gap-1 text-xs px-2 py-1 rounded-lg border border-surface-3 text-slate-400 hover:text-accent hover:border-accent/40 disabled:opacity-50 transition-colors">
+                      className="shrink-0 flex items-center gap-1 text-xs px-2 py-1 rounded-lg border border-surface-3 text-fg-secondary hover:text-accent hover:border-accent/40 disabled:opacity-50 transition-colors">
                       {added ? 'Added' : <><Plus size={11} /> Add</>}
                     </button>
                   </li>

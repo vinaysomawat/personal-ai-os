@@ -4,9 +4,9 @@ import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tool
 import Card from '@/components/Card'
 import type { DifficultyProgressionPoint } from '../daily-core'
 
-const GRID = '#26263a'
-const AXIS_TEXT = '#64748b'
-const SURFACE = '#16161d'
+const GRID = 'var(--border)'
+const AXIS_TEXT = 'var(--text-tertiary)'
+const SURFACE = 'var(--card)'
 const COLORS = { easy: '#22c55e', medium: '#f59e0b', hard: '#ef4444' }
 
 function formatWeek(dateStr: string): string {
@@ -18,12 +18,12 @@ function CustomTooltip({ active, payload, label }: { active?: boolean; payload?:
   if (!active || !payload?.length) return null
   return (
     <div className="bg-surface-2 border border-surface-3 rounded-lg px-2.5 py-1.5 text-xs space-y-0.5">
-      <p className="text-slate-500">Week of {formatWeek(label ?? '')}</p>
+      <p className="text-fg-tertiary">Week of {formatWeek(label ?? '')}</p>
       {payload.map(p => (
         <p key={p.name} className="flex items-center gap-1.5">
           <span className="w-2 h-0.5 rounded-full" style={{ backgroundColor: p.color }} />
-          <span className="text-slate-400">{p.name}:</span>
-          <span className="text-slate-200 font-semibold tabular-nums">{p.value}</span>
+          <span className="text-fg-secondary">{p.name}:</span>
+          <span className="text-fg-primary font-semibold tabular-nums">{p.value}</span>
         </p>
       ))}
     </div>
@@ -39,7 +39,7 @@ export default function DifficultyProgression({ data }: { data: DifficultyProgre
   return (
     <Card title="Difficulty Progression" padding="p-3.5">
       {data.length < 2 ? (
-        <p className="text-sm text-slate-400 py-6 text-center">Not enough history yet — check back after a few more weeks</p>
+        <p className="text-sm text-fg-secondary py-6 text-center">Not enough history yet — check back after a few more weeks</p>
       ) : (
         <div className="h-40">
           <ResponsiveContainer width="100%" height="100%">
@@ -50,7 +50,7 @@ export default function DifficultyProgression({ data }: { data: DifficultyProgre
               <Tooltip content={<CustomTooltip />} cursor={{ stroke: GRID, strokeWidth: 1 }} />
               <Legend
                 iconType="plainline"
-                formatter={(value: string) => <span style={{ color: '#94a3b8', fontSize: 11 }}>{value}</span>}
+                formatter={(value: string) => <span style={{ color: 'var(--text-tertiary)', fontSize: 11 }}>{value}</span>}
                 wrapperStyle={{ fontSize: 11 }}
               />
               <Line type="monotone" dataKey="easy" name="Easy" stroke={COLORS.easy} strokeWidth={2} strokeLinecap="round" dot={false} activeDot={{ r: 4, fill: COLORS.easy, stroke: SURFACE, strokeWidth: 2 }} />

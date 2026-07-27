@@ -28,7 +28,7 @@ export default function WeeklyReview() {
   return (
     <div className="space-y-3">
       {stats && <ScoreStatsSummary {...stats} totalDays={7} />}
-      <p className="text-sm text-slate-300 leading-relaxed whitespace-pre-wrap">{paragraph}</p>
+      <p className="text-sm text-fg-secondary leading-relaxed whitespace-pre-wrap">{paragraph}</p>
     </div>
   )
 }

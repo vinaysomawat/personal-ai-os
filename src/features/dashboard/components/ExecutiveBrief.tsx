@@ -8,11 +8,11 @@ import Card from '@/components/Card'
 // multiple cards — see DashboardView.tsx for the current layout.
 export default function ExecutiveBrief({ brief }: { brief: string | null }) {
   return (
-    <Card title="Morning Brief" padding="p-3.5">
+    <Card title="Morning Brief" padding="p-3.5" action={brief && <span className="text-[10.5px] text-fg-tertiary">Generated ~8:30am</span>}>
       {brief ? (
-        <p className="text-sm text-slate-300 leading-relaxed">{brief}</p>
+        <p className="text-sm text-fg-secondary leading-relaxed">{brief}</p>
       ) : (
-        <p className="text-sm text-slate-500">Not generated yet — check back after this morning&apos;s briefing (~8:30am IST).</p>
+        <p className="text-sm text-fg-tertiary">Not generated yet — check back after this morning&apos;s briefing (~8:30am IST).</p>
       )}
     </Card>
   )

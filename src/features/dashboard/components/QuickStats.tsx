@@ -4,7 +4,9 @@ interface Goal { name: string; targetAmount: number; currentAmount: number }
 
 interface QuickStatsProps {
   codingStreak: number
+  codingQuestionPending: boolean
   budgetRemaining: number
+  budgetTotal: number
   workoutDoneToday: boolean
   goals: Goal[]
 }
@@ -18,32 +20,34 @@ interface QuickStatsProps {
 // (also listed in the PRD) would need a new health_profile fetch + target
 // calculation to compute, a bigger lift than this widget's scope justifies.
 // Goal Progress (previously its own Executive Brief card) folds in here too.
-export default function QuickStats({ codingStreak, budgetRemaining, workoutDoneToday, goals }: QuickStatsProps) {
+export default function QuickStats({ codingStreak, codingQuestionPending, budgetRemaining, budgetTotal, workoutDoneToday, goals }: QuickStatsProps) {
   const stats = [
-    { label: 'Coding streak', value: `${codingStreak}d`, to: '/coding' },
-    { label: "Today's budget", value: `₹${Math.round(budgetRemaining).toLocaleString('en-IN')} left`, to: '/finance' },
-    { label: 'Workout', value: workoutDoneToday ? 'Done' : 'Pending', to: '/health' },
+    { label: 'Coding Streak', value: `🔥 ${codingStreak}d`, sub: codingQuestionPending ? "today still open" : "today solved", to: '/coding', color: codingStreak > 0 ? 'text-green-400' : 'text-fg-primary' },
+    { label: 'Budget Remaining', value: `₹${Math.round(budgetRemaining).toLocaleString('en-IN')}`, sub: `of ₹${Math.round(budgetTotal).toLocaleString('en-IN')} this month`, to: '/finance', color: budgetRemaining < 0 ? 'text-red-400' : 'text-fg-primary' },
+    { label: 'Workout Today', value: workoutDoneToday ? '✓ Done' : '○ Pending', sub: workoutDoneToday ? 'Logged' : 'Not yet', to: '/health', color: workoutDoneToday ? 'text-green-400' : 'text-fg-primary' },
   ]
 
   return (
-    <div className="space-y-2">
-      <div className="flex gap-2">
+    <div className="space-y-3">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
         {stats.map(s => (
-          <Link key={s.label} href={s.to} className="flex-1 bg-surface-1 border border-surface-3 rounded-lg px-3 py-2 hover:border-accent/30 hover:bg-surface-2 transition-colors">
-            <p className="text-xs text-slate-500">{s.label}</p>
-            <p className="text-sm font-semibold text-slate-200 tabular-nums">{s.value}</p>
+          <Link key={s.label} href={s.to} className="bg-surface-1 border border-surface-3 rounded-2xl shadow-card px-4 py-3.5 hover:border-accent/30 hover:-translate-y-0.5 transition-all">
+            <p className="text-[11px] text-fg-tertiary uppercase tracking-wide">{s.label}</p>
+            <p className={`text-[22px] font-bold mt-1 tabular-nums ${s.color}`}>{s.value}</p>
+            <p className="text-[11px] text-fg-tertiary mt-0.5">{s.sub}</p>
           </Link>
         ))}
       </div>
       {goals.length > 0 && (
-        <div className="flex gap-2">
+        <div className="bg-surface-1 border border-surface-3 rounded-2xl shadow-card px-4 py-3.5 flex flex-col gap-2.5">
+          <p className="text-[11px] font-bold text-fg-tertiary uppercase tracking-wide">Goal Progress</p>
           {goals.map(g => {
             const pct = g.targetAmount > 0 ? Math.min(100, Math.round((g.currentAmount / g.targetAmount) * 100)) : 0
             return (
-              <Link key={g.name} href="/finance" className="flex-1 bg-surface-1 border border-surface-3 rounded-lg px-3 py-2 hover:border-accent/30 hover:bg-surface-2 transition-colors">
-                <div className="flex items-baseline justify-between mb-1">
-                  <p className="text-xs text-slate-500 truncate">{g.name}</p>
-                  <p className="text-xs text-slate-500 tabular-nums shrink-0">{pct}%</p>
+              <Link key={g.name} href="/finance" className="block group">
+                <div className="flex items-baseline justify-between mb-1 text-[12.5px]">
+                  <span className="text-fg-secondary group-hover:text-fg-primary truncate">{g.name}</span>
+                  <span className="text-fg-tertiary shrink-0 tabular-nums">{pct}%</span>
                 </div>
                 <div className="h-1.5 rounded-full bg-surface-3 overflow-hidden">
                   <div className="h-full rounded-full bg-accent" style={{ width: `${pct}%` }} />

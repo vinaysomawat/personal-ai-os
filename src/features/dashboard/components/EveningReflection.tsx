@@ -33,7 +33,7 @@ export default function EveningReflection() {
           {[90, 75, 85].map((w, i) => <div key={i} className="h-3 rounded bg-surface-2 animate-pulse" style={{ width: `${w}%` }} />)}
         </div>
       ) : (
-        <p className="text-sm text-slate-300 leading-relaxed whitespace-pre-wrap">{reflection}</p>
+        <p className="text-sm text-fg-secondary leading-relaxed whitespace-pre-wrap">{reflection}</p>
       )}
     </Card>
   )

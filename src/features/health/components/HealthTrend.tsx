@@ -27,8 +27,8 @@ function CustomTooltip({ active, payload, decimals }: { active?: boolean; payloa
   const point = payload[0].payload
   return (
     <div className="bg-surface-2 border border-surface-3 rounded-lg px-2.5 py-1.5 text-xs">
-      <p className="text-slate-500">{formatDate(point.date)}</p>
-      <p className="text-slate-200 font-semibold tabular-nums">{point.value!.toFixed(decimals)}</p>
+      <p className="text-fg-tertiary">{formatDate(point.date)}</p>
+      <p className="text-fg-primary font-semibold tabular-nums">{point.value!.toFixed(decimals)}</p>
     </div>
   )
 }
@@ -60,7 +60,7 @@ export default function HealthTrend({ metrics }: { metrics: HealthMetric[] }) {
         ))}
       </div>
       {loggedCount < 2 ? (
-        <p className="text-sm text-slate-400 py-6 text-center">Not enough {config.label.toLowerCase()} logged yet — check back after a few more days</p>
+        <p className="text-sm text-fg-secondary py-6 text-center">Not enough {config.label.toLowerCase()} logged yet — check back after a few more days</p>
       ) : (
         <div className="h-40">
           <ResponsiveContainer width="100%" height="100%">

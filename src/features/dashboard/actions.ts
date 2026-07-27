@@ -19,7 +19,7 @@ import { checkRevisionNeeded } from '@/features/learning/signals'
 import { checkGoalProgress } from '@/features/goals/signals'
 import { getTodayTrendingReading } from '@/features/trending/core'
 import { computeTodayProgress, getTodayRecommendations } from './daily-progress'
-import { getRecentPatterns } from '@/features/brain/signals'
+import { getRecentPatterns, type RecentPattern } from '@/features/brain/signals'
 import { resolveAutoMetric } from '@/features/goals/actions'
 import type { Goal, ResolvedGoal } from '@/features/goals/types'
 
@@ -89,6 +89,7 @@ export async function getDashboardData() {
     scoreHistory: [] as { date: string; life: number; health: number; finance: number; career: number; learning: number; projects: number }[],
     gamification: { xp: 0, level: 1, xpProgress: 0, streak: 0, badges: [] as string[] },
     stats: { pendingTaskCount: 0, activeApplications: 0, workoutsToday: 0, monthSpend: 0, monthBudget: 0, learningInProgress: 0, codingSolved30d: 0, documentCount: 0 },
+    codingQuestionPending: false,
     aiBudget: { callsToday: 0, costTodayUsd: 0, callsMonth: 0, costMonthUsd: 0, cacheHitRateMonth: 0 },
     topActions: [] as TopAction[],
     todayProgress: { items: [], completed: 0, total: 0, score: 100 } as ReturnType<typeof computeTodayProgress>,
@@ -96,7 +97,7 @@ export async function getDashboardData() {
     careerMemory: { currentRole: null, currentCompany: null, targetRole: null, currentSalary: null, bio: null } as { currentRole: string | null; currentCompany: string | null; targetRole: string | null; currentSalary: number | null; bio: string | null },
     financialGoals: [] as { name: string; targetAmount: number; currentAmount: number; targetDate: string | null }[],
     crossModuleGoals: [] as { module: string; name: string; progress: string }[],
-    recentPatterns: [] as string[],
+    recentPatterns: [] as RecentPattern[],
   }
 
   const studyLogsSince = daysAgoIST(14)
@@ -387,6 +388,7 @@ export async function getDashboardData() {
       codingSolved30d,
       documentCount: docsRes.count ?? 0,
     },
+    codingQuestionPending,
     aiBudget,
     topActions,
     todayProgress,

@@ -23,15 +23,15 @@ import FieldError from '@/components/FieldError'
 
 const CATEGORY_COLOR: Record<string, string> = {
   Food: 'bg-orange-500/15 text-orange-400', Transport: 'bg-blue-500/15 text-blue-400',
-  Housing: 'bg-purple-500/15 text-purple-400', Health: 'bg-red-500/15 text-red-400',
+  Housing: 'bg-purple-500/15 text-purple-400', Health: 'bg-risk-soft text-red-400',
   Shopping: 'bg-pink-500/15 text-pink-400', Entertainment: 'bg-cyan-500/15 text-cyan-400',
-  Learning: 'bg-green-500/15 text-green-400', Utilities: 'bg-amber-500/15 text-amber-400',
-  EMIs: 'bg-red-500/15 text-red-400', Bills: 'bg-indigo-500/15 text-indigo-400',
-  Other: 'bg-slate-500/15 text-slate-400',
+  Learning: 'bg-good-soft text-green-400', Utilities: 'bg-warn-soft text-amber-400',
+  EMIs: 'bg-risk-soft text-red-400', Bills: 'bg-indigo-500/15 text-indigo-400',
+  Other: 'bg-surface-2 text-fg-secondary',
 }
 
 const PRIORITY_COLOR: Record<GoalPriority, string> = {
-  high: 'text-red-400', medium: 'text-amber-400', low: 'text-slate-500',
+  high: 'text-red-400', medium: 'text-amber-400', low: 'text-fg-tertiary',
 }
 
 function fmt(n: number) {
@@ -66,11 +66,12 @@ interface Props {
   investments: Investment[]
   goals: FinancialGoal[]
   recurringExpenses: RecurringExpense[]
+  salaryHistory: { amount: number; effective_date: string; note: string | null }[]
   avgMonthlyExpense: number
   month: string
 }
 
-export default function FinanceView({ expenses, budgets, profile, loans, investments, goals, recurringExpenses, avgMonthlyExpense, month }: Props) {
+export default function FinanceView({ expenses, budgets, profile, loans, investments, goals, recurringExpenses, salaryHistory, avgMonthlyExpense, month }: Props) {
   const [, startTransition] = useTransition()
   const [salaryVisible, setSalaryVisible] = useState(false)
 
@@ -103,6 +104,10 @@ export default function FinanceView({ expenses, budgets, profile, loans, investm
 
   // Derived numbers
   const salary = localProfile?.monthly_salary ?? 0
+  // salary_history is already recorded on every salary change (see
+  // upsertProfile) and fetched ascending by effective_date, so the last
+  // entry is the most recent raise.
+  const lastRaise = salaryHistory[salaryHistory.length - 1] ?? null
   const totalEMIs = localLoans.reduce((s, l) => s + Number(l.emi), 0)
   const portfolio = localInvestments.reduce((s, i) => s + Number(i.current_value), 0)
   const invested = localInvestments.reduce((s, i) => s + Number(i.invested_amount), 0)
@@ -137,42 +142,50 @@ export default function FinanceView({ expenses, budgets, profile, loans, investm
               <span className={`text-xs px-1.5 py-0.5 rounded-full font-medium shrink-0 ${INVESTMENT_COLOR[inv.type as InvestmentType]}`}>
                 {INVESTMENT_TYPES.find(t => t.value === inv.type)?.label ?? inv.type}
               </span>
-              <p className="text-sm text-slate-300 truncate">{inv.name}</p>
+              {inv.is_sip && (
+                <span className={`text-[10px] font-bold uppercase px-1.5 py-0.5 rounded-full shrink-0 ${inv.sip_amount !== null ? 'bg-accent-soft text-accent' : 'bg-surface-3 text-fg-tertiary'}`}>
+                  SIP
+                </span>
+              )}
+              <p className="text-sm text-fg-secondary truncate">{inv.name}</p>
             </div>
             <div className="flex items-center gap-3 mt-1 text-xs flex-wrap">
-              <span className="text-slate-600 flex items-center gap-1">
+              <span className="text-fg-quaternary flex items-center gap-1">
                 invested
                 <InlineEdit
                   value={String(inv.invested_amount)} prefix="₹" textSize="text-xs" inputWidth="w-24"
                   onSave={v => handleInvAmountSave(inv.id, v)}
                 />
               </span>
-              <span className="text-slate-300 font-medium flex items-center gap-1">
+              <span className="text-fg-secondary font-medium flex items-center gap-1">
                 current
                 <InlineEdit
                   value={String(inv.current_value)} prefix="₹" textSize="text-xs" inputWidth="w-24"
                   onSave={v => handleInvValueSave(inv.id, v)}
                 />
               </span>
-              {inv.is_sip && (
+              {inv.is_sip && inv.sip_amount !== null && (
                 <span className="text-accent flex items-center gap-1 group/sip">
                   <Repeat size={10} /> {fmt(Number(inv.sip_amount))}/mo · day {inv.sip_day_of_month}
                   <button
                     type="button" title="Cancel SIP (keeps the investment)"
                     onClick={() => handleCancelSip(inv.id)}
-                    className="opacity-0 group-hover/sip:opacity-100 text-slate-600 hover:text-red-400 transition-all"
+                    className="opacity-0 group-hover/sip:opacity-100 text-fg-quaternary hover:text-red-400 transition-all"
                   >
                     <X size={10} />
                   </button>
                 </span>
               )}
             </div>
+            {inv.is_sip && inv.sip_amount === null && (
+              <p className="text-[11px] text-fg-quaternary mt-1">Contributions stopped — investment kept.</p>
+            )}
           </div>
           <div className="flex items-center gap-2 shrink-0">
             <span className={`text-xs font-medium ${pl >= 0 ? 'text-green-400' : 'text-red-400'}`}>
               {pl >= 0 ? '+' : ''}{plPct.toFixed(1)}%
             </span>
-            <button onClick={() => handleDeleteInvestment(inv.id)} aria-label="Delete investment" className="opacity-0 group-hover:opacity-100 text-slate-600 hover:text-red-400 transition-all">
+            <button onClick={() => handleDeleteInvestment(inv.id)} aria-label="Delete investment" className="opacity-0 group-hover:opacity-100 text-fg-quaternary hover:text-red-400 transition-all">
               <Trash2 size={12} />
             </button>
           </div>
@@ -199,7 +212,7 @@ export default function FinanceView({ expenses, budgets, profile, loans, investm
   }
 
   const handleCancelSip = (id: string) => {
-    setLocalInvestments(prev => prev.map(i => i.id === id ? { ...i, is_sip: false, sip_amount: null, sip_day_of_month: null } : i))
+    setLocalInvestments(prev => prev.map(i => i.id === id ? { ...i, sip_amount: null, sip_day_of_month: null } : i))
     startTransition(() => updateSipSettings(id, null))
   }
 
@@ -299,15 +312,15 @@ export default function FinanceView({ expenses, budgets, profile, loans, investm
   const advisorPortal = useAIAdvisor('Money Advisor', Sparkles, (
     <div className="space-y-3">
       <div className="flex gap-1 bg-surface-2 rounded-lg p-0.5">
-        <button onClick={() => setAdvisorTab('ask')} className={`flex-1 text-xs py-1.5 rounded-md transition-colors ${advisorTab === 'ask' ? 'bg-accent text-white' : 'text-slate-400 hover:text-slate-300'}`}>Ask</button>
-        <button onClick={() => setAdvisorTab('simulate')} className={`flex-1 text-xs py-1.5 rounded-md transition-colors ${advisorTab === 'simulate' ? 'bg-accent text-white' : 'text-slate-400 hover:text-slate-300'}`}>Simulate</button>
+        <button onClick={() => setAdvisorTab('ask')} className={`flex-1 text-xs py-1.5 rounded-md transition-colors ${advisorTab === 'ask' ? 'bg-accent text-white' : 'text-fg-secondary hover:text-fg-secondary'}`}>Ask</button>
+        <button onClick={() => setAdvisorTab('simulate')} className={`flex-1 text-xs py-1.5 rounded-md transition-colors ${advisorTab === 'simulate' ? 'bg-accent text-white' : 'text-fg-secondary hover:text-fg-secondary'}`}>Simulate</button>
       </div>
 
       {advisorTab === 'ask' ? (
         <>
-          <div className="flex gap-2 flex-wrap text-xs text-slate-600">
+          <div className="flex gap-2 flex-wrap text-xs text-fg-quaternary">
             {['Can I afford a car?', 'Should I prepay my loan?', 'How much should I invest?', 'When can I retire?'].map(q => (
-              <button key={q} onClick={() => setAiQuestion(q)} className="px-2 py-1 rounded-lg bg-surface-2 hover:bg-surface-3 hover:text-slate-400 transition-colors">{q}</button>
+              <button key={q} onClick={() => setAiQuestion(q)} className="px-2 py-1 rounded-lg bg-surface-2 hover:bg-surface-3 hover:text-fg-secondary transition-colors">{q}</button>
             ))}
           </div>
           <div className="flex gap-2">
@@ -317,7 +330,7 @@ export default function FinanceView({ expenses, budgets, profile, loans, investm
               onKeyDown={e => e.key === 'Enter' && handleAsk()}
               placeholder="Ask about your finances..."
               disabled={aiLoading}
-              className="flex-1 bg-surface-2 border border-surface-3 rounded-lg px-3 py-2 text-sm text-slate-200 placeholder-slate-600 outline-none focus:border-accent transition-colors"
+              className="flex-1 bg-surface-2 border border-surface-3 rounded-lg px-3 py-2 text-sm text-fg-primary placeholder-fg-quaternary outline-none focus:border-accent transition-colors"
             />
             <button onClick={handleAsk} disabled={aiLoading || !aiQuestion.trim()} className="px-4 py-2 rounded-lg bg-accent text-white text-sm font-medium hover:bg-accent/80 disabled:opacity-50 transition-colors">
               {aiLoading ? '...' : 'Ask'}
@@ -328,7 +341,7 @@ export default function FinanceView({ expenses, budgets, profile, loans, investm
               {[90, 75, 80].map((w, i) => <div key={i} className="h-3 rounded bg-surface-2 animate-pulse" style={{ width: `${w}%` }} />)}
             </div>
           )}
-          {aiAnswer && <p className="text-sm text-slate-300 leading-relaxed whitespace-pre-wrap border-l-2 border-accent/40 pl-3">{aiAnswer}</p>}
+          {aiAnswer && <p className="text-sm text-fg-secondary leading-relaxed whitespace-pre-wrap border-l-2 border-accent/40 pl-3">{aiAnswer}</p>}
         </>
       ) : (
         <ScenarioSimulator profile={localProfile} goals={localGoals} avgMonthlyExpense={avgMonthlyExpense} />
@@ -339,16 +352,17 @@ export default function FinanceView({ expenses, budgets, profile, loans, investm
   return (
     <div className="space-y-5">
       {advisorPortal}
+      <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-fg-primary">Finance</h1>
       {/* Net Worth Overview */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         <div className="bg-surface-1 border border-surface-3 rounded-xl p-4">
           <div className="flex items-center justify-between mb-1">
-            <p className="text-xs text-slate-500 uppercase tracking-wider">Monthly Salary</p>
-            <button onClick={() => setSalaryVisible(v => !v)} aria-label={salaryVisible ? 'Hide salary' : 'Show salary'} className="p-1.5 -m-1.5 text-slate-600 hover:text-slate-400 transition-colors">
+            <p className="text-xs text-fg-tertiary uppercase tracking-wider">Monthly Salary</p>
+            <button onClick={() => setSalaryVisible(v => !v)} aria-label={salaryVisible ? 'Hide salary' : 'Show salary'} className="p-1.5 -m-1.5 text-fg-quaternary hover:text-fg-secondary transition-colors">
               {salaryVisible ? <EyeOff size={12} /> : <Eye size={12} />}
             </button>
           </div>
-          <div className="text-xl font-bold text-slate-200">
+          <div className="text-xl font-bold text-fg-primary">
             {salaryVisible ? (
               <InlineEdit
                 value={salary ? Math.round(salary).toString() : ''}
@@ -359,9 +373,14 @@ export default function FinanceView({ expenses, budgets, profile, loans, investm
               <span className="tracking-widest">••••••</span>
             )}
           </div>
+          {lastRaise && (
+            <p className="text-[10.5px] text-fg-quaternary mt-1">
+              Last raised {new Date(lastRaise.effective_date + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+            </p>
+          )}
         </div>
         <div className="bg-surface-1 border border-surface-3 rounded-xl p-4">
-          <p className="text-xs text-slate-500 uppercase tracking-wider mb-1">Portfolio</p>
+          <p className="text-xs text-fg-tertiary uppercase tracking-wider mb-1">Portfolio</p>
           <p className="text-xl font-bold text-green-400">{fmt(portfolio)}</p>
           <p className={`text-xs mt-1 ${portfolio >= invested ? 'text-green-500' : 'text-red-400'}`}>
             {portfolio >= invested ? <TrendingUp size={10} className="inline mr-1" /> : <TrendingDown size={10} className="inline mr-1" />}
@@ -369,12 +388,12 @@ export default function FinanceView({ expenses, budgets, profile, loans, investm
           </p>
         </div>
         <div className="bg-surface-1 border border-surface-3 rounded-xl p-4">
-          <p className="text-xs text-slate-500 uppercase tracking-wider mb-1">Total Debt</p>
+          <p className="text-xs text-fg-tertiary uppercase tracking-wider mb-1">Total Debt</p>
           <p className="text-xl font-bold text-red-400">{fmt(totalDebt)}</p>
-          <p className="text-xs text-slate-600 mt-1">{fmt(totalEMIs)}/mo EMI</p>
+          <p className="text-xs text-fg-quaternary mt-1">{fmt(totalEMIs)}/mo EMI</p>
         </div>
         <div className="bg-surface-1 border border-surface-3 rounded-xl p-4">
-          <p className="text-xs text-slate-500 uppercase tracking-wider mb-1">Net Worth</p>
+          <p className="text-xs text-fg-tertiary uppercase tracking-wider mb-1">Net Worth</p>
           <p className={`text-xl font-bold ${netWorth >= 0 ? 'text-accent' : 'text-red-400'}`}>{fmt(netWorth)}</p>
         </div>
       </div>
@@ -383,9 +402,9 @@ export default function FinanceView({ expenses, budgets, profile, loans, investm
           "urgent signal near the top" pattern Planner's Overdue card
           already uses, rather than burying it past two card rows below. */}
       {remaining < 0 && (
-        <div className="flex items-center gap-3 px-3.5 py-2.5 rounded-xl bg-red-500/10 border border-red-500/30">
+        <div className="flex items-center gap-3 px-3.5 py-2.5 rounded-xl bg-risk-soft border border-red-500/30">
           <span className="text-lg shrink-0">⚠️</span>
-          <p className="flex-1 text-sm text-slate-200">Over budget by <span className="font-medium">{fmt(Math.abs(remaining))}</span> this month</p>
+          <p className="flex-1 text-sm text-fg-primary">Over budget by <span className="font-medium">{fmt(Math.abs(remaining))}</span> this month</p>
         </div>
       )}
 
@@ -407,8 +426,8 @@ export default function FinanceView({ expenses, budgets, profile, loans, investm
                   <li key={loan.id} className="group">
                     <div className="flex items-start justify-between">
                       <div>
-                        <p className="text-sm text-slate-300 font-medium">{loan.name}</p>
-                        <div className="text-xs text-slate-600 mt-0.5 flex items-center flex-wrap gap-x-1">
+                        <p className="text-sm text-fg-secondary font-medium">{loan.name}</p>
+                        <div className="text-xs text-fg-quaternary mt-0.5 flex items-center flex-wrap gap-x-1">
                           <InlineEdit
                             value={String(loan.emi)} prefix="₹" suffix="/mo" textSize="text-xs" inputWidth="w-20"
                             onSave={v => handleLoanEmiSave(loan.id, v)}
@@ -427,7 +446,7 @@ export default function FinanceView({ expenses, budgets, profile, loans, investm
                       </div>
                       <div className="flex items-center gap-2">
                         <span className="text-sm font-medium text-red-400">{fmt(remaining)}</span>
-                        <button onClick={() => handleDeleteLoan(loan.id)} aria-label="Delete loan" className="opacity-0 group-hover:opacity-100 text-slate-600 hover:text-red-400 transition-all">
+                        <button onClick={() => handleDeleteLoan(loan.id)} aria-label="Delete loan" className="opacity-0 group-hover:opacity-100 text-fg-quaternary hover:text-red-400 transition-all">
                           <Trash2 size={12} />
                         </button>
                       </div>
@@ -455,15 +474,22 @@ export default function FinanceView({ expenses, budgets, profile, loans, investm
             <div className="space-y-4">
               {sips.length > 0 && (
                 <div>
-                  <p className="text-xs text-slate-500 uppercase tracking-wider mb-2 flex items-center gap-1.5"><Repeat size={11} /> SIPs</p>
+                  <p className="text-xs text-fg-tertiary uppercase tracking-wider mb-2 flex items-center gap-1.5"><Repeat size={11} /> SIPs</p>
                   <ul className="space-y-3">{sips.map(inv => renderInvestmentItem(inv))}</ul>
                 </div>
               )}
-              {lumpSum.length > 0 && (
+              {sips.length > 0 && (
                 <div>
-                  {sips.length > 0 && <p className="text-xs text-slate-500 uppercase tracking-wider mb-2">Lump Sum</p>}
-                  <ul className="space-y-3">{lumpSum.map(inv => renderInvestmentItem(inv))}</ul>
+                  <p className="text-xs text-fg-tertiary uppercase tracking-wider mb-2">Lump Sum</p>
+                  {lumpSum.length === 0 ? (
+                    <p className="text-xs text-fg-quaternary">No lump-sum investments yet.</p>
+                  ) : (
+                    <ul className="space-y-3">{lumpSum.map(inv => renderInvestmentItem(inv))}</ul>
+                  )}
                 </div>
+              )}
+              {sips.length === 0 && lumpSum.length > 0 && (
+                <ul className="space-y-3">{lumpSum.map(inv => renderInvestmentItem(inv))}</ul>
               )}
             </div>
           )}
@@ -487,10 +513,10 @@ export default function FinanceView({ expenses, budgets, profile, loans, investm
                   <div className="flex items-start justify-between mb-2">
                     <div>
                       <div className="flex items-center gap-2">
-                        <p className="text-sm text-slate-300 font-medium">{goal.name}</p>
+                        <p className="text-sm text-fg-secondary font-medium">{goal.name}</p>
                         <span className={`text-xs font-medium ${PRIORITY_COLOR[goal.priority as GoalPriority]}`}>{goal.priority}</span>
                       </div>
-                      {goal.target_date && <p className="text-xs text-slate-600 mt-0.5">Target: {goal.target_date}</p>}
+                      {goal.target_date && <p className="text-xs text-fg-quaternary mt-0.5">Target: {goal.target_date}</p>}
                     </div>
                     <div className="flex items-center gap-2">
                       {editingGoalId === goal.id ? (
@@ -499,12 +525,12 @@ export default function FinanceView({ expenses, budgets, profile, loans, investm
                           <button onClick={() => handleGoalProgressSave(goal.id)} aria-label="Save goal progress" className="p-1.5 -m-1.5 text-green-400"><Check size={10} /></button>
                         </div>
                       ) : (
-                        <button onClick={() => { setEditingGoalId(goal.id); setEditInput(String(goal.current_amount)) }} className="text-xs text-slate-400 hover:text-white flex items-center gap-1 group/g">
+                        <button onClick={() => { setEditingGoalId(goal.id); setEditInput(String(goal.current_amount)) }} className="text-xs text-fg-secondary hover:text-white flex items-center gap-1 group/g">
                           {fmt(Number(goal.current_amount))} / {fmt(Number(goal.target_amount))}
                           <Pencil size={8} className="opacity-0 group-hover/g:opacity-50 transition-opacity" />
                         </button>
                       )}
-                      <button onClick={() => handleDeleteGoal(goal.id)} aria-label="Delete goal" className="opacity-0 group-hover:opacity-100 text-slate-600 hover:text-red-400 transition-all">
+                      <button onClick={() => handleDeleteGoal(goal.id)} aria-label="Delete goal" className="opacity-0 group-hover:opacity-100 text-fg-quaternary hover:text-red-400 transition-all">
                         <Trash2 size={12} />
                       </button>
                     </div>
@@ -512,7 +538,7 @@ export default function FinanceView({ expenses, budgets, profile, loans, investm
                   <div className="h-1.5 bg-surface-3 rounded-full overflow-hidden">
                     <div className="h-full bg-accent rounded-full transition-all" style={{ width: `${pct}%` }} />
                   </div>
-                  <p className="text-xs text-slate-600 mt-1">{pct.toFixed(0)}% · {fmt(Number(goal.target_amount) - Number(goal.current_amount))} to go</p>
+                  <p className="text-xs text-fg-quaternary mt-1">{pct.toFixed(0)}% · {fmt(Number(goal.target_amount) - Number(goal.current_amount))} to go</p>
                 </div>
               )
             })}
@@ -523,19 +549,19 @@ export default function FinanceView({ expenses, budgets, profile, loans, investm
       {/* Expenses + Budgets */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {/* Category breakdown */}
-        <Card title="By Category" padding="p-3.5" action={<span className="text-xs text-slate-500">{monthLabel}</span>}>
+        <Card title="By Category" padding="p-3.5" action={<span className="text-xs text-fg-tertiary">{monthLabel}</span>}>
           <div className="flex gap-3 mb-3">
             <div className="text-center">
               <p className="text-lg font-bold text-red-400">{fmt(totalSpent)}</p>
-              <p className="text-xs text-slate-600">Spent</p>
+              <p className="text-xs text-fg-quaternary">Spent</p>
             </div>
             <div className="text-center">
-              <p className="text-lg font-bold text-slate-400">{fmt(totalBudget)}</p>
-              <p className="text-xs text-slate-600">Budget</p>
+              <p className="text-lg font-bold text-fg-secondary">{fmt(totalBudget)}</p>
+              <p className="text-xs text-fg-quaternary">Budget</p>
             </div>
             <div className="text-center">
               <p className={`text-lg font-bold ${remaining >= 0 ? 'text-green-400' : 'text-red-400'}`}>{fmt(Math.abs(remaining))}</p>
-              <p className="text-xs text-slate-600">{remaining >= 0 ? 'Left' : 'Over'}</p>
+              <p className="text-xs text-fg-quaternary">{remaining >= 0 ? 'Left' : 'Over'}</p>
             </div>
           </div>
           {byCategory.length === 0 ? (
@@ -555,32 +581,32 @@ export default function FinanceView({ expenses, budgets, profile, loans, investm
                           <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${CATEGORY_COLOR[cat]}`}>{cat}</span>
                           <button
                             onClick={e => { e.stopPropagation(); setEditingBudget(cat); setBudgetInput(String(budget || '')) }}
-                            className="text-xs text-slate-600 hover:text-slate-400 transition-colors"
+                            className="text-xs text-fg-quaternary hover:text-fg-secondary transition-colors"
                           >
                             {budget > 0 ? `/ ${fmt(budget)}` : '+ budget'}
                           </button>
                         </div>
-                        <span className={`text-sm font-medium ${over ? 'text-red-400' : 'text-slate-300'}`}>{fmt(spent)}</span>
+                        <span className={`text-sm font-medium ${over ? 'text-red-400' : 'text-fg-secondary'}`}>{fmt(spent)}</span>
                       </div>
                       {budget > 0 && <div className="h-1 bg-surface-3 rounded-full overflow-hidden"><div className={`h-full rounded-full transition-all ${over ? 'bg-red-400' : 'bg-accent'}`} style={{ width: `${pct}%` }} /></div>}
                     </div>
                     {editingBudget === cat && (
                       <div className="flex gap-2 mt-2">
-                        <input value={budgetInput} onChange={e => setBudgetInput(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') handleBudgetSave(cat); if (e.key === 'Escape') setEditingBudget(null) }} placeholder="Budget amount" type="number" autoFocus className="flex-1 bg-surface-2 border border-accent rounded-lg px-3 py-1.5 text-sm text-slate-200 outline-none" />
+                        <input value={budgetInput} onChange={e => setBudgetInput(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') handleBudgetSave(cat); if (e.key === 'Escape') setEditingBudget(null) }} placeholder="Budget amount" type="number" autoFocus className="flex-1 bg-surface-2 border border-accent rounded-lg px-3 py-1.5 text-sm text-fg-primary outline-none" />
                         <button onClick={() => handleBudgetSave(cat)} className="px-3 py-1.5 rounded-lg bg-accent text-white text-xs">Save</button>
-                        <button onClick={() => setEditingBudget(null)} className="px-3 py-1.5 rounded-lg bg-surface-2 text-slate-400 text-xs">Cancel</button>
+                        <button onClick={() => setEditingBudget(null)} className="px-3 py-1.5 rounded-lg bg-surface-2 text-fg-secondary text-xs">Cancel</button>
                       </div>
                     )}
                     {isOpen && (
                       <ul className="mt-1.5 ml-1 pl-2 border-l border-surface-3 space-y-0.5">
                         {catExpenses.length === 0 ? (
-                          <li className="text-xs text-slate-600 py-1">No expenses logged in this category</li>
+                          <li className="text-xs text-fg-quaternary py-1">No expenses logged in this category</li>
                         ) : catExpenses.map(exp => (
                           <li key={exp.id} className="flex items-center gap-2 py-1 group">
-                            <span className="text-xs text-slate-600 shrink-0">{exp.date}</span>
-                            {exp.description && <span className="text-xs text-slate-500 truncate flex-1">{exp.description}</span>}
-                            <span className="text-xs text-slate-300 font-medium shrink-0 ml-auto">{fmt(Number(exp.amount))}</span>
-                            <button onClick={() => handleDeleteExpense(exp.id)} aria-label="Delete expense" className="p-1 -m-1 shrink-0 opacity-0 group-hover:opacity-100 text-slate-600 hover:text-red-400 transition-all"><Trash2 size={11} /></button>
+                            <span className="text-xs text-fg-quaternary shrink-0">{exp.date}</span>
+                            {exp.description && <span className="text-xs text-fg-tertiary truncate flex-1">{exp.description}</span>}
+                            <span className="text-xs text-fg-secondary font-medium shrink-0 ml-auto">{fmt(Number(exp.amount))}</span>
+                            <button onClick={() => handleDeleteExpense(exp.id)} aria-label="Delete expense" className="p-1 -m-1 shrink-0 opacity-0 group-hover:opacity-100 text-fg-quaternary hover:text-red-400 transition-all"><Trash2 size={11} /></button>
                           </li>
                         ))}
                       </ul>
@@ -605,10 +631,10 @@ export default function FinanceView({ expenses, budgets, profile, loans, investm
               {localExpenses.map(exp => (
                 <li key={exp.id} className="flex items-center gap-2.5 p-2 rounded-lg hover:bg-surface-2 transition-colors group">
                   <span className={`text-xs px-1.5 py-0.5 rounded-full font-medium shrink-0 ${CATEGORY_COLOR[exp.category]}`}>{exp.category}</span>
-                  <span className="text-xs text-slate-600 shrink-0">{exp.date}</span>
-                  {exp.description && <span className="text-xs text-slate-400 truncate flex-1">{exp.description}</span>}
-                  <span className="text-xs text-slate-300 font-medium shrink-0 ml-auto">{fmt(Number(exp.amount))}</span>
-                  <button onClick={() => handleDeleteExpense(exp.id)} aria-label="Delete expense" className="p-1 -m-1 shrink-0 opacity-0 group-hover:opacity-100 text-slate-600 hover:text-red-400 transition-all"><Trash2 size={11} /></button>
+                  <span className="text-xs text-fg-quaternary shrink-0">{exp.date}</span>
+                  {exp.description && <span className="text-xs text-fg-secondary truncate flex-1">{exp.description}</span>}
+                  <span className="text-xs text-fg-secondary font-medium shrink-0 ml-auto">{fmt(Number(exp.amount))}</span>
+                  <button onClick={() => handleDeleteExpense(exp.id)} aria-label="Delete expense" className="p-1 -m-1 shrink-0 opacity-0 group-hover:opacity-100 text-fg-quaternary hover:text-red-400 transition-all"><Trash2 size={11} /></button>
                 </li>
               ))}
             </ul>
@@ -619,14 +645,14 @@ export default function FinanceView({ expenses, budgets, profile, loans, investm
       <Card title="Recurring Expenses" padding="p-3.5" action={
         <div className="flex items-center gap-3">
           {localRecurring.some(r => r.active) && (
-            <span className="text-xs text-slate-500">{fmt(localRecurring.filter(r => r.active).reduce((s, r) => s + Number(r.amount), 0))}/mo total</span>
+            <span className="text-xs text-fg-tertiary">{fmt(localRecurring.filter(r => r.active).reduce((s, r) => s + Number(r.amount), 0))}/mo total</span>
           )}
           <button onClick={() => setModal('recurring')} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-accent text-white text-xs font-medium hover:bg-accent/80 transition-colors">
             <Plus size={12} /> Add
           </button>
         </div>
       }>
-        <p className="text-xs text-slate-600 mb-3">Auto-logged into Expenses each month on its scheduled day — rent, subscriptions, and other fixed monthly costs you&apos;d otherwise have to re-enter by hand.</p>
+        <p className="text-xs text-fg-quaternary mb-3">Auto-logged into Expenses each month on its scheduled day — rent, subscriptions, and other fixed monthly costs you&apos;d otherwise have to re-enter by hand.</p>
         {localRecurring.length === 0 ? (
           <EmptyState icon={Repeat} message="No recurring expenses set up" compact cta={{ label: 'Add', onClick: () => setModal('recurring') }} />
         ) : (
@@ -637,15 +663,15 @@ export default function FinanceView({ expenses, budgets, profile, loans, investm
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
                     <span className={`text-xs px-1.5 py-0.5 rounded-full font-medium ${CATEGORY_COLOR[r.category] ?? CATEGORY_COLOR.Other}`}>{r.category}</span>
-                    <span className="text-sm text-slate-300 truncate">{r.name}</span>
+                    <span className="text-sm text-fg-secondary truncate">{r.name}</span>
                   </div>
-                  <p className="text-xs text-slate-600 mt-0.5">Day {r.day_of_month} of every month</p>
+                  <p className="text-xs text-fg-quaternary mt-0.5">Day {r.day_of_month} of every month</p>
                 </div>
-                <span className="text-sm font-medium text-slate-300 shrink-0">{fmt(Number(r.amount))}</span>
-                <button onClick={() => handleToggleRecurring(r.id, !r.active)} className="shrink-0 text-xs text-slate-500 hover:text-slate-300 transition-colors">
+                <span className="text-sm font-medium text-fg-secondary shrink-0">{fmt(Number(r.amount))}</span>
+                <button onClick={() => handleToggleRecurring(r.id, !r.active)} className="shrink-0 text-xs text-fg-tertiary hover:text-fg-secondary transition-colors">
                   {r.active ? 'Pause' : 'Resume'}
                 </button>
-                <button onClick={() => handleDeleteRecurring(r.id)} aria-label="Delete recurring expense" className="shrink-0 opacity-0 group-hover:opacity-100 text-slate-600 hover:text-red-400 transition-all"><Trash2 size={13} /></button>
+                <button onClick={() => handleDeleteRecurring(r.id)} aria-label="Delete recurring expense" className="shrink-0 opacity-0 group-hover:opacity-100 text-fg-quaternary hover:text-red-400 transition-all"><Trash2 size={13} /></button>
               </li>
             ))}
           </ul>
@@ -654,13 +680,13 @@ export default function FinanceView({ expenses, budgets, profile, loans, investm
 
       {/* Modals */}
       {modal && (
-        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
+        <div className="fixed inset-0 bg-overlay flex items-center justify-center z-50 p-4">
           <div className="bg-surface-1 border border-surface-3 rounded-xl p-6 w-full max-w-sm max-h-[85vh] overflow-y-auto animate-in fade-in zoom-in-95 duration-200">
             <div className="flex items-center justify-between mb-5">
-              <h2 className="text-base font-semibold text-slate-200">
+              <h2 className="text-base font-semibold text-fg-primary">
                 {modal === 'loan' ? 'Add Loan' : modal === 'investment' ? 'Add Investment' : modal === 'goal' ? 'Add Goal' : modal === 'recurring' ? 'Add Recurring Expense' : 'Add Expense'}
               </h2>
-              <button onClick={() => setModal(null)} aria-label="Close" className="p-1.5 -m-1.5 text-slate-500 hover:text-slate-300"><X size={16} /></button>
+              <button onClick={() => setModal(null)} aria-label="Close" className="p-1.5 -m-1.5 text-fg-tertiary hover:text-fg-secondary"><X size={16} /></button>
             </div>
 
             {modal === 'loan' && (
@@ -681,13 +707,13 @@ export default function FinanceView({ expenses, budgets, profile, loans, investm
               }}>
                 {[['name', 'Loan name', 'text', 'Home Loan', true], ['principal', 'Principal amount (₹)', 'number', '2000000', true], ['emi', 'Monthly EMI (₹)', 'number', '15000', true], ['rate', 'Interest rate (% p.a.)', 'number', '8.5', false], ['months', 'Remaining months', 'number', '180', false]].map(([name, label, type, placeholder, required], i) => (
                   <div key={name as string} className="space-y-1">
-                    <label className="text-xs text-slate-500 uppercase tracking-wider">{label as string}{!required && ' (optional)'}</label>
-                    <input name={name as string} type={type as string} placeholder={placeholder as string} required={required as boolean} autoFocus={i === 0} className={`w-full bg-surface-2 border rounded-lg px-3 py-2 text-sm text-slate-200 placeholder-slate-600 outline-none focus:border-accent transition-colors ${invalidFields.has(name as string) ? 'border-red-500' : 'border-surface-3'}`} />
+                    <label className="text-xs text-fg-tertiary uppercase tracking-wider">{label as string}{!required && ' (optional)'}</label>
+                    <input name={name as string} type={type as string} placeholder={placeholder as string} required={required as boolean} autoFocus={i === 0} className={`w-full bg-surface-2 border rounded-lg px-3 py-2 text-sm text-fg-primary placeholder-fg-quaternary outline-none focus:border-accent transition-colors ${invalidFields.has(name as string) ? 'border-red-500' : 'border-surface-3'}`} />
                     <FieldError show={invalidFields.has(name as string)} />
                   </div>
                 ))}
                 <div className="flex gap-2 pt-1">
-                  <button type="button" onClick={() => setModal(null)} className="flex-1 py-2 rounded-lg bg-surface-2 border border-surface-3 text-slate-300 text-sm hover:bg-surface-3 transition-colors">Cancel</button>
+                  <button type="button" onClick={() => setModal(null)} className="flex-1 py-2 rounded-lg bg-surface-2 border border-surface-3 text-fg-secondary text-sm hover:bg-surface-3 transition-colors">Cancel</button>
                   <button type="submit" className="flex-1 py-2 rounded-lg bg-accent text-white text-sm font-medium hover:bg-accent/80 active:scale-95 transition">Add Loan</button>
                 </div>
               </form>
@@ -719,47 +745,47 @@ export default function FinanceView({ expenses, budgets, profile, loans, investm
                 await addInvestment(name, type, invested, current || invested, notes, sip)
               }}>
                 <div className="space-y-1">
-                  <label className="text-xs text-slate-500 uppercase tracking-wider">Name</label>
-                  <input name="name" placeholder="Axis Bluechip Fund" required autoFocus className={`w-full bg-surface-2 border rounded-lg px-3 py-2 text-sm text-slate-200 placeholder-slate-600 outline-none focus:border-accent transition-colors ${invalidFields.has('name') ? 'border-red-500' : 'border-surface-3'}`} />
+                  <label className="text-xs text-fg-tertiary uppercase tracking-wider">Name</label>
+                  <input name="name" placeholder="Axis Bluechip Fund" required autoFocus className={`w-full bg-surface-2 border rounded-lg px-3 py-2 text-sm text-fg-primary placeholder-fg-quaternary outline-none focus:border-accent transition-colors ${invalidFields.has('name') ? 'border-red-500' : 'border-surface-3'}`} />
                   <FieldError show={invalidFields.has('name')} />
                 </div>
                 <div className="space-y-1">
-                  <label className="text-xs text-slate-500 uppercase tracking-wider">Type</label>
-                  <select name="type" className="w-full bg-surface-2 border border-surface-3 rounded-lg px-3 py-2 text-sm text-slate-300 outline-none focus:border-accent transition-colors">
+                  <label className="text-xs text-fg-tertiary uppercase tracking-wider">Type</label>
+                  <select name="type" className="w-full bg-surface-2 border border-surface-3 rounded-lg px-3 py-2 text-sm text-fg-secondary outline-none focus:border-accent transition-colors">
                     {INVESTMENT_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
                   </select>
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1">
-                    <label className="text-xs text-slate-500 uppercase tracking-wider">Invested (₹)</label>
-                    <input name="invested" type="number" placeholder="100000" required className={`w-full bg-surface-2 border rounded-lg px-3 py-2 text-sm text-slate-200 placeholder-slate-600 outline-none focus:border-accent transition-colors ${invalidFields.has('invested') ? 'border-red-500' : 'border-surface-3'}`} />
+                    <label className="text-xs text-fg-tertiary uppercase tracking-wider">Invested (₹)</label>
+                    <input name="invested" type="number" placeholder="100000" required className={`w-full bg-surface-2 border rounded-lg px-3 py-2 text-sm text-fg-primary placeholder-fg-quaternary outline-none focus:border-accent transition-colors ${invalidFields.has('invested') ? 'border-red-500' : 'border-surface-3'}`} />
                     <FieldError show={invalidFields.has('invested')} />
                   </div>
                   <div className="space-y-1">
-                    <label className="text-xs text-slate-500 uppercase tracking-wider">Current value (₹)</label>
-                    <input name="current" type="number" placeholder="120000" className="w-full bg-surface-2 border border-surface-3 rounded-lg px-3 py-2 text-sm text-slate-200 placeholder-slate-600 outline-none focus:border-accent transition-colors" />
+                    <label className="text-xs text-fg-tertiary uppercase tracking-wider">Current value (₹)</label>
+                    <input name="current" type="number" placeholder="120000" className="w-full bg-surface-2 border border-surface-3 rounded-lg px-3 py-2 text-sm text-fg-primary placeholder-fg-quaternary outline-none focus:border-accent transition-colors" />
                   </div>
                 </div>
-                <label className="flex items-center gap-2 text-xs text-slate-400 cursor-pointer">
+                <label className="flex items-center gap-2 text-xs text-fg-secondary cursor-pointer">
                   <input type="checkbox" checked={addingSip} onChange={e => setAddingSip(e.target.checked)} className="accent-accent" />
                   This is a SIP — auto-update invested amount monthly
                 </label>
                 {addingSip && (
                   <div className="grid grid-cols-2 gap-3">
                     <div className="space-y-1">
-                      <label className="text-xs text-slate-500 uppercase tracking-wider">Monthly SIP (₹)</label>
-                      <input name="sipAmount" type="number" placeholder="5000" required className={`w-full bg-surface-2 border rounded-lg px-3 py-2 text-sm text-slate-200 placeholder-slate-600 outline-none focus:border-accent transition-colors ${invalidFields.has('sipAmount') ? 'border-red-500' : 'border-surface-3'}`} />
+                      <label className="text-xs text-fg-tertiary uppercase tracking-wider">Monthly SIP (₹)</label>
+                      <input name="sipAmount" type="number" placeholder="5000" required className={`w-full bg-surface-2 border rounded-lg px-3 py-2 text-sm text-fg-primary placeholder-fg-quaternary outline-none focus:border-accent transition-colors ${invalidFields.has('sipAmount') ? 'border-red-500' : 'border-surface-3'}`} />
                       <FieldError show={invalidFields.has('sipAmount')} />
                     </div>
                     <div className="space-y-1">
-                      <label className="text-xs text-slate-500 uppercase tracking-wider">Contribution day</label>
-                      <input name="sipDay" type="number" min={1} max={28} placeholder="5" required className={`w-full bg-surface-2 border rounded-lg px-3 py-2 text-sm text-slate-200 placeholder-slate-600 outline-none focus:border-accent transition-colors ${invalidFields.has('sipDay') ? 'border-red-500' : 'border-surface-3'}`} />
+                      <label className="text-xs text-fg-tertiary uppercase tracking-wider">Contribution day</label>
+                      <input name="sipDay" type="number" min={1} max={28} placeholder="5" required className={`w-full bg-surface-2 border rounded-lg px-3 py-2 text-sm text-fg-primary placeholder-fg-quaternary outline-none focus:border-accent transition-colors ${invalidFields.has('sipDay') ? 'border-red-500' : 'border-surface-3'}`} />
                       <FieldError show={invalidFields.has('sipDay')} />
                     </div>
                   </div>
                 )}
                 <div className="flex gap-2 pt-1">
-                  <button type="button" onClick={() => { setModal(null); setAddingSip(false) }} className="flex-1 py-2 rounded-lg bg-surface-2 border border-surface-3 text-slate-300 text-sm hover:bg-surface-3 transition-colors">Cancel</button>
+                  <button type="button" onClick={() => { setModal(null); setAddingSip(false) }} className="flex-1 py-2 rounded-lg bg-surface-2 border border-surface-3 text-fg-secondary text-sm hover:bg-surface-3 transition-colors">Cancel</button>
                   <button type="submit" className="flex-1 py-2 rounded-lg bg-accent text-white text-sm font-medium hover:bg-accent/80 active:scale-95 transition">Add</button>
                 </div>
               </form>
@@ -782,29 +808,29 @@ export default function FinanceView({ expenses, budgets, profile, loans, investm
                 await addGoal(name, target, current, date, priority)
               }}>
                 <div className="space-y-1">
-                  <label className="text-xs text-slate-500 uppercase tracking-wider">Goal name</label>
-                  <input name="name" placeholder="Emergency Fund" required autoFocus className={`w-full bg-surface-2 border rounded-lg px-3 py-2 text-sm text-slate-200 placeholder-slate-600 outline-none focus:border-accent transition-colors ${invalidFields.has('name') ? 'border-red-500' : 'border-surface-3'}`} />
+                  <label className="text-xs text-fg-tertiary uppercase tracking-wider">Goal name</label>
+                  <input name="name" placeholder="Emergency Fund" required autoFocus className={`w-full bg-surface-2 border rounded-lg px-3 py-2 text-sm text-fg-primary placeholder-fg-quaternary outline-none focus:border-accent transition-colors ${invalidFields.has('name') ? 'border-red-500' : 'border-surface-3'}`} />
                   <FieldError show={invalidFields.has('name')} />
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1">
-                    <label className="text-xs text-slate-500 uppercase tracking-wider">Target (₹)</label>
-                    <input name="target" type="number" placeholder="300000" required className={`w-full bg-surface-2 border rounded-lg px-3 py-2 text-sm text-slate-200 placeholder-slate-600 outline-none focus:border-accent transition-colors ${invalidFields.has('target') ? 'border-red-500' : 'border-surface-3'}`} />
+                    <label className="text-xs text-fg-tertiary uppercase tracking-wider">Target (₹)</label>
+                    <input name="target" type="number" placeholder="300000" required className={`w-full bg-surface-2 border rounded-lg px-3 py-2 text-sm text-fg-primary placeholder-fg-quaternary outline-none focus:border-accent transition-colors ${invalidFields.has('target') ? 'border-red-500' : 'border-surface-3'}`} />
                     <FieldError show={invalidFields.has('target')} />
                   </div>
                   <div className="space-y-1">
-                    <label className="text-xs text-slate-500 uppercase tracking-wider">Saved so far (₹)</label>
-                    <input name="current" type="number" placeholder="50000" className="w-full bg-surface-2 border border-surface-3 rounded-lg px-3 py-2 text-sm text-slate-200 placeholder-slate-600 outline-none focus:border-accent transition-colors" />
+                    <label className="text-xs text-fg-tertiary uppercase tracking-wider">Saved so far (₹)</label>
+                    <input name="current" type="number" placeholder="50000" className="w-full bg-surface-2 border border-surface-3 rounded-lg px-3 py-2 text-sm text-fg-primary placeholder-fg-quaternary outline-none focus:border-accent transition-colors" />
                   </div>
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1">
-                    <label className="text-xs text-slate-500 uppercase tracking-wider">Target date (optional)</label>
-                    <input name="date" type="date" className="w-full bg-surface-2 border border-surface-3 rounded-lg px-3 py-2 text-sm text-slate-300 outline-none focus:border-accent transition-colors" />
+                    <label className="text-xs text-fg-tertiary uppercase tracking-wider">Target date (optional)</label>
+                    <input name="date" type="date" className="w-full bg-surface-2 border border-surface-3 rounded-lg px-3 py-2 text-sm text-fg-secondary outline-none focus:border-accent transition-colors" />
                   </div>
                   <div className="space-y-1">
-                    <label className="text-xs text-slate-500 uppercase tracking-wider">Priority</label>
-                    <select name="priority" className="w-full bg-surface-2 border border-surface-3 rounded-lg px-3 py-2 text-sm text-slate-300 outline-none focus:border-accent transition-colors">
+                    <label className="text-xs text-fg-tertiary uppercase tracking-wider">Priority</label>
+                    <select name="priority" className="w-full bg-surface-2 border border-surface-3 rounded-lg px-3 py-2 text-sm text-fg-secondary outline-none focus:border-accent transition-colors">
                       <option value="high">High</option>
                       <option value="medium" selected>Medium</option>
                       <option value="low">Low</option>
@@ -812,7 +838,7 @@ export default function FinanceView({ expenses, budgets, profile, loans, investm
                   </div>
                 </div>
                 <div className="flex gap-2 pt-1">
-                  <button type="button" onClick={() => setModal(null)} className="flex-1 py-2 rounded-lg bg-surface-2 border border-surface-3 text-slate-300 text-sm hover:bg-surface-3 transition-colors">Cancel</button>
+                  <button type="button" onClick={() => setModal(null)} className="flex-1 py-2 rounded-lg bg-surface-2 border border-surface-3 text-fg-secondary text-sm hover:bg-surface-3 transition-colors">Cancel</button>
                   <button type="submit" className="flex-1 py-2 rounded-lg bg-accent text-white text-sm font-medium hover:bg-accent/80 active:scale-95 transition">Add Goal</button>
                 </div>
               </form>
@@ -837,28 +863,28 @@ export default function FinanceView({ expenses, budgets, profile, loans, investm
               }}>
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1">
-                    <label className="text-xs text-slate-500 uppercase tracking-wider">Amount *</label>
-                    <input name="amount" type="number" required min="0" step="0.01" placeholder="500" autoFocus className={`w-full bg-surface-2 border rounded-lg px-3 py-2 text-sm text-slate-200 placeholder-slate-600 outline-none focus:border-accent transition-colors ${invalidFields.has('amount') ? 'border-red-500' : 'border-surface-3'}`} />
+                    <label className="text-xs text-fg-tertiary uppercase tracking-wider">Amount *</label>
+                    <input name="amount" type="number" required min="0" step="0.01" placeholder="500" autoFocus className={`w-full bg-surface-2 border rounded-lg px-3 py-2 text-sm text-fg-primary placeholder-fg-quaternary outline-none focus:border-accent transition-colors ${invalidFields.has('amount') ? 'border-red-500' : 'border-surface-3'}`} />
                     <FieldError show={invalidFields.has('amount')} />
                   </div>
                   <div className="space-y-1">
-                    <label className="text-xs text-slate-500 uppercase tracking-wider">Date</label>
-                    <input name="date" type="date" defaultValue={todayIST()} className="w-full bg-surface-2 border border-surface-3 rounded-lg px-3 py-2 text-sm text-slate-300 outline-none focus:border-accent transition-colors" />
+                    <label className="text-xs text-fg-tertiary uppercase tracking-wider">Date</label>
+                    <input name="date" type="date" defaultValue={todayIST()} className="w-full bg-surface-2 border border-surface-3 rounded-lg px-3 py-2 text-sm text-fg-secondary outline-none focus:border-accent transition-colors" />
                   </div>
                 </div>
                 <div className="space-y-1">
-                  <label className="text-xs text-slate-500 uppercase tracking-wider">Category *</label>
-                  <select name="category" required className={`w-full bg-surface-2 border rounded-lg px-3 py-2 text-sm text-slate-300 outline-none focus:border-accent transition-colors ${invalidFields.has('category') ? 'border-red-500' : 'border-surface-3'}`}>
+                  <label className="text-xs text-fg-tertiary uppercase tracking-wider">Category *</label>
+                  <select name="category" required className={`w-full bg-surface-2 border rounded-lg px-3 py-2 text-sm text-fg-secondary outline-none focus:border-accent transition-colors ${invalidFields.has('category') ? 'border-red-500' : 'border-surface-3'}`}>
                     {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
                   </select>
                   <FieldError show={invalidFields.has('category')} />
                 </div>
                 <div className="space-y-1">
-                  <label className="text-xs text-slate-500 uppercase tracking-wider">Description</label>
-                  <input name="description" placeholder="Lunch, Uber, etc." className="w-full bg-surface-2 border border-surface-3 rounded-lg px-3 py-2 text-sm text-slate-200 placeholder-slate-600 outline-none focus:border-accent transition-colors" />
+                  <label className="text-xs text-fg-tertiary uppercase tracking-wider">Description</label>
+                  <input name="description" placeholder="Lunch, Uber, etc." className="w-full bg-surface-2 border border-surface-3 rounded-lg px-3 py-2 text-sm text-fg-primary placeholder-fg-quaternary outline-none focus:border-accent transition-colors" />
                 </div>
                 <div className="flex gap-2 pt-1">
-                  <button type="button" onClick={() => setModal(null)} className="flex-1 py-2 rounded-lg bg-surface-2 border border-surface-3 text-slate-300 text-sm hover:bg-surface-3 transition-colors">Cancel</button>
+                  <button type="button" onClick={() => setModal(null)} className="flex-1 py-2 rounded-lg bg-surface-2 border border-surface-3 text-fg-secondary text-sm hover:bg-surface-3 transition-colors">Cancel</button>
                   <button type="submit" className="flex-1 py-2 rounded-lg bg-accent text-white text-sm font-medium hover:bg-accent/80 active:scale-95 transition">Add</button>
                 </div>
               </form>
@@ -882,31 +908,31 @@ export default function FinanceView({ expenses, budgets, profile, loans, investm
                 await addRecurringExpense(name, amount, category, dayOfMonth)
               }}>
                 <div className="space-y-1">
-                  <label className="text-xs text-slate-500 uppercase tracking-wider">Name *</label>
-                  <input name="name" required autoFocus placeholder="Rent" className={`w-full bg-surface-2 border rounded-lg px-3 py-2 text-sm text-slate-200 placeholder-slate-600 outline-none focus:border-accent transition-colors ${invalidFields.has('name') ? 'border-red-500' : 'border-surface-3'}`} />
+                  <label className="text-xs text-fg-tertiary uppercase tracking-wider">Name *</label>
+                  <input name="name" required autoFocus placeholder="Rent" className={`w-full bg-surface-2 border rounded-lg px-3 py-2 text-sm text-fg-primary placeholder-fg-quaternary outline-none focus:border-accent transition-colors ${invalidFields.has('name') ? 'border-red-500' : 'border-surface-3'}`} />
                   <FieldError show={invalidFields.has('name')} />
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1">
-                    <label className="text-xs text-slate-500 uppercase tracking-wider">Amount *</label>
-                    <input name="amount" type="number" required min="0" step="0.01" placeholder="15000" className={`w-full bg-surface-2 border rounded-lg px-3 py-2 text-sm text-slate-200 placeholder-slate-600 outline-none focus:border-accent transition-colors ${invalidFields.has('amount') ? 'border-red-500' : 'border-surface-3'}`} />
+                    <label className="text-xs text-fg-tertiary uppercase tracking-wider">Amount *</label>
+                    <input name="amount" type="number" required min="0" step="0.01" placeholder="15000" className={`w-full bg-surface-2 border rounded-lg px-3 py-2 text-sm text-fg-primary placeholder-fg-quaternary outline-none focus:border-accent transition-colors ${invalidFields.has('amount') ? 'border-red-500' : 'border-surface-3'}`} />
                     <FieldError show={invalidFields.has('amount')} />
                   </div>
                   <div className="space-y-1">
-                    <label className="text-xs text-slate-500 uppercase tracking-wider">Day of month *</label>
-                    <input name="day" type="number" required min="1" max="28" placeholder="1" className={`w-full bg-surface-2 border rounded-lg px-3 py-2 text-sm text-slate-200 placeholder-slate-600 outline-none focus:border-accent transition-colors ${invalidFields.has('day') ? 'border-red-500' : 'border-surface-3'}`} />
+                    <label className="text-xs text-fg-tertiary uppercase tracking-wider">Day of month *</label>
+                    <input name="day" type="number" required min="1" max="28" placeholder="1" className={`w-full bg-surface-2 border rounded-lg px-3 py-2 text-sm text-fg-primary placeholder-fg-quaternary outline-none focus:border-accent transition-colors ${invalidFields.has('day') ? 'border-red-500' : 'border-surface-3'}`} />
                     <FieldError show={invalidFields.has('day')} />
                   </div>
                 </div>
                 <div className="space-y-1">
-                  <label className="text-xs text-slate-500 uppercase tracking-wider">Category *</label>
-                  <select name="category" required className={`w-full bg-surface-2 border rounded-lg px-3 py-2 text-sm text-slate-300 outline-none focus:border-accent transition-colors ${invalidFields.has('category') ? 'border-red-500' : 'border-surface-3'}`}>
+                  <label className="text-xs text-fg-tertiary uppercase tracking-wider">Category *</label>
+                  <select name="category" required className={`w-full bg-surface-2 border rounded-lg px-3 py-2 text-sm text-fg-secondary outline-none focus:border-accent transition-colors ${invalidFields.has('category') ? 'border-red-500' : 'border-surface-3'}`}>
                     {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
                   </select>
                   <FieldError show={invalidFields.has('category')} />
                 </div>
                 <div className="flex gap-2 pt-1">
-                  <button type="button" onClick={() => setModal(null)} className="flex-1 py-2 rounded-lg bg-surface-2 border border-surface-3 text-slate-300 text-sm hover:bg-surface-3 transition-colors">Cancel</button>
+                  <button type="button" onClick={() => setModal(null)} className="flex-1 py-2 rounded-lg bg-surface-2 border border-surface-3 text-fg-secondary text-sm hover:bg-surface-3 transition-colors">Cancel</button>
                   <button type="submit" className="flex-1 py-2 rounded-lg bg-accent text-white text-sm font-medium hover:bg-accent/80 active:scale-95 transition">Add</button>
                 </div>
               </form>

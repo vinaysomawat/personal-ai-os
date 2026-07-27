@@ -51,30 +51,30 @@ export default function ScenarioSimulator({ profile, goals, avgMonthlyExpense }:
         <input
           value={what} onChange={e => setWhat(e.target.value)}
           placeholder="What (e.g. Car)"
-          className="col-span-2 bg-surface-2 border border-surface-3 rounded-lg px-3 py-2 text-sm text-slate-200 placeholder-slate-600 outline-none focus:border-accent transition-colors"
+          className="col-span-2 bg-surface-2 border border-surface-3 rounded-lg px-3 py-2 text-sm text-fg-primary placeholder-fg-quaternary outline-none focus:border-accent transition-colors"
         />
-        <label className="text-xs text-slate-500">
+        <label className="text-xs text-fg-tertiary">
           Total cost
           <input type="number" value={totalCost} onChange={e => setTotalCost(e.target.value)} placeholder="₹"
-            className="mt-1 w-full bg-surface-2 border border-surface-3 rounded-lg px-3 py-2 text-sm text-slate-200 placeholder-slate-600 outline-none focus:border-accent transition-colors" />
+            className="mt-1 w-full bg-surface-2 border border-surface-3 rounded-lg px-3 py-2 text-sm text-fg-primary placeholder-fg-quaternary outline-none focus:border-accent transition-colors" />
         </label>
-        <label className="text-xs text-slate-500">
+        <label className="text-xs text-fg-tertiary">
           Paid upfront
           <input type="number" value={paidUpfront} onChange={e => setPaidUpfront(e.target.value)} placeholder="₹0"
-            className="mt-1 w-full bg-surface-2 border border-surface-3 rounded-lg px-3 py-2 text-sm text-slate-200 placeholder-slate-600 outline-none focus:border-accent transition-colors" />
+            className="mt-1 w-full bg-surface-2 border border-surface-3 rounded-lg px-3 py-2 text-sm text-fg-primary placeholder-fg-quaternary outline-none focus:border-accent transition-colors" />
         </label>
-        <label className="text-xs text-slate-500">
+        <label className="text-xs text-fg-tertiary">
           EMI amount
           <input type="number" value={emiAmount} onChange={e => setEmiAmount(e.target.value)} placeholder="₹/month"
-            className="mt-1 w-full bg-surface-2 border border-surface-3 rounded-lg px-3 py-2 text-sm text-slate-200 placeholder-slate-600 outline-none focus:border-accent transition-colors" />
+            className="mt-1 w-full bg-surface-2 border border-surface-3 rounded-lg px-3 py-2 text-sm text-fg-primary placeholder-fg-quaternary outline-none focus:border-accent transition-colors" />
         </label>
-        <label className="text-xs text-slate-500">
+        <label className="text-xs text-fg-tertiary">
           EMI duration
           <input type="number" value={emiDurationMonths} onChange={e => setEmiDurationMonths(e.target.value)} placeholder="months"
-            className="mt-1 w-full bg-surface-2 border border-surface-3 rounded-lg px-3 py-2 text-sm text-slate-200 placeholder-slate-600 outline-none focus:border-accent transition-colors" />
+            className="mt-1 w-full bg-surface-2 border border-surface-3 rounded-lg px-3 py-2 text-sm text-fg-primary placeholder-fg-quaternary outline-none focus:border-accent transition-colors" />
         </label>
       </div>
-      {Number(totalCost) > 0 && <p className="text-xs text-slate-600">Financed: ₹{financed.toLocaleString('en-IN')}</p>}
+      {Number(totalCost) > 0 && <p className="text-xs text-fg-quaternary">Financed: ₹{financed.toLocaleString('en-IN')}</p>}
 
       <button onClick={handleSimulate} disabled={!canSimulate} className="w-full px-4 py-2 rounded-lg bg-accent text-white text-sm font-medium hover:bg-accent/80 disabled:opacity-50 transition-colors">
         Simulate →
@@ -83,8 +83,8 @@ export default function ScenarioSimulator({ profile, goals, avgMonthlyExpense }:
       {result && (
         <div className="space-y-2 bg-surface-2 rounded-lg p-3">
           <div className="flex items-baseline justify-between">
-            <span className="text-xs text-slate-500">Free cash / month</span>
-            <span className="text-sm text-slate-400 tabular-nums">₹{Math.round(result.freeCashBefore).toLocaleString('en-IN')} → <span className={result.goesNegative ? 'text-red-400 font-semibold' : 'text-slate-200 font-semibold'}>₹{Math.round(result.freeCashAfter).toLocaleString('en-IN')}</span></span>
+            <span className="text-xs text-fg-tertiary">Free cash / month</span>
+            <span className="text-sm text-fg-secondary tabular-nums">₹{Math.round(result.freeCashBefore).toLocaleString('en-IN')} → <span className={result.goesNegative ? 'text-red-400 font-semibold' : 'text-fg-primary font-semibold'}>₹{Math.round(result.freeCashAfter).toLocaleString('en-IN')}</span></span>
           </div>
           {result.goesNegative && (
             <p className="text-xs text-red-400">⚠️ This would put you in negative monthly cash flow.</p>
@@ -92,7 +92,7 @@ export default function ScenarioSimulator({ profile, goals, avgMonthlyExpense }:
           {result.goalPaces.length > 0 && (
             <ul className="space-y-1 pt-1 border-t border-surface-3">
               {result.goalPaces.map(g => (
-                <li key={g.name} className="text-xs text-slate-500">
+                <li key={g.name} className="text-xs text-fg-tertiary">
                   {g.name}: {g.remaining === 0 ? 'already funded' : g.monthsAtNewFreeCash === null ? 'unfundable at this new free cash level' : `~${g.monthsAtNewFreeCash} months if all new free cash went to it`}
                 </li>
               ))}
@@ -106,7 +106,7 @@ export default function ScenarioSimulator({ profile, goals, avgMonthlyExpense }:
           {[90, 75, 80].map((w, i) => <div key={i} className="h-3 rounded bg-surface-2 animate-pulse" style={{ width: `${w}%` }} />)}
         </div>
       )}
-      {narrative && <p className="text-sm text-slate-300 leading-relaxed whitespace-pre-wrap border-l-2 border-accent/40 pl-3">{narrative}</p>}
+      {narrative && <p className="text-sm text-fg-secondary leading-relaxed whitespace-pre-wrap border-l-2 border-accent/40 pl-3">{narrative}</p>}
     </div>
   )
 }

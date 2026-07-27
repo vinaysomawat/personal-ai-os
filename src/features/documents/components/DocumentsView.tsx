@@ -107,12 +107,12 @@ export default function DocumentsView({ initialDocuments }: Props) {
   }
 
   return (
-    <div className="flex gap-4 h-[calc(100vh-8rem)]">
+    <div className="flex gap-4 h-[calc(100vh-7.5rem)] md:h-[calc(100vh-6rem)]">
       {/* Sidebar */}
       <div className={`${(selected || showForm) ? 'hidden md:flex' : 'flex'} w-full md:w-64 shrink-0 flex-col gap-3`}>
         <div className="flex items-center gap-2 bg-surface-1 border border-surface-3 rounded-lg px-3 py-2">
-          <Search size={13} className="text-slate-500 shrink-0" />
-          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search..." className="flex-1 bg-transparent text-sm text-slate-300 placeholder-slate-600 outline-none" />
+          <Search size={13} className="text-fg-tertiary shrink-0" />
+          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search..." className="flex-1 bg-transparent text-sm text-fg-secondary placeholder-fg-quaternary outline-none" />
         </div>
         <button onClick={() => { setShowForm(true); setSelected(null); setEditTitle(''); setEditContent(''); setEditTags(''); setAiAnswer(null) }}
           className="flex items-center justify-center gap-1.5 py-2 rounded-lg bg-accent text-white text-sm font-medium hover:bg-accent/80 transition-colors">
@@ -125,21 +125,21 @@ export default function DocumentsView({ initialDocuments }: Props) {
               onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openDoc(doc) } }}
               className={`w-full text-left p-3 rounded-lg border transition-colors group cursor-pointer ${selected?.id === doc.id ? 'bg-accent/10 border-accent/30' : 'bg-surface-1 border-surface-3 hover:bg-surface-2'}`}>
               <div className="flex items-start gap-2">
-                <FileText size={13} className="shrink-0 mt-0.5 text-slate-500" />
+                <FileText size={13} className="shrink-0 mt-0.5 text-fg-tertiary" />
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center justify-between gap-2">
-                    <p className="text-sm text-slate-300 truncate font-medium">{doc.title}</p>
-                    <span className="text-xs text-slate-700 shrink-0">{doc.updated_at.slice(0, 10)}</span>
+                    <p className="text-sm text-fg-secondary truncate font-medium">{doc.title}</p>
+                    <span className="text-xs text-fg-quaternary shrink-0">{doc.updated_at.slice(0, 10)}</span>
                   </div>
-                  <p className="text-xs text-slate-600 mt-0.5 truncate">{doc.content.slice(0, 50) || 'Empty'}</p>
+                  <p className="text-xs text-fg-quaternary mt-0.5 truncate">{doc.content.slice(0, 50) || 'Empty'}</p>
                   {doc.tags.length > 0 && (
                     <div className="flex gap-1 mt-1 flex-wrap">
-                      {doc.tags.slice(0, 2).map(t => <span key={t} className="text-xs px-1.5 py-0.5 rounded bg-surface-3 text-slate-500">{t}</span>)}
+                      {doc.tags.slice(0, 2).map(t => <span key={t} className="text-xs px-1.5 py-0.5 rounded bg-surface-3 text-fg-tertiary">{t}</span>)}
                     </div>
                   )}
                 </div>
                 <button onClick={e => { e.stopPropagation(); handleDelete(doc.id) }} aria-label="Delete document"
-                  className="opacity-0 group-hover:opacity-100 text-slate-600 hover:text-red-400 transition-all shrink-0">
+                  className="opacity-0 group-hover:opacity-100 text-fg-quaternary hover:text-red-400 transition-all shrink-0">
                   <Trash2 size={12} />
                 </button>
               </div>
@@ -159,13 +159,13 @@ export default function DocumentsView({ initialDocuments }: Props) {
                 onKeyDown={e => e.key === 'Enter' && (showForm ? handleAdd() : handleSave())}
                 placeholder="Document title..."
                 autoFocus={showForm}
-                className="flex-1 min-w-[120px] bg-transparent text-base font-semibold text-slate-200 placeholder-slate-600 outline-none"
+                className="flex-1 min-w-[120px] bg-transparent text-base font-semibold text-fg-primary placeholder-fg-quaternary outline-none"
               />
               <input
                 value={editTags}
                 onChange={e => setEditTags(e.target.value)}
                 placeholder="tags, comma, separated"
-                className="bg-surface-2 border border-surface-3 rounded-lg px-3 py-1.5 text-xs text-slate-400 placeholder-slate-600 outline-none focus:border-accent transition-colors w-28 sm:w-40"
+                className="bg-surface-2 border border-surface-3 rounded-lg px-3 py-1.5 text-xs text-fg-secondary placeholder-fg-quaternary outline-none focus:border-accent transition-colors w-28 sm:w-40"
               />
               <button
                 onClick={showForm ? handleAdd : handleSave}
@@ -174,7 +174,7 @@ export default function DocumentsView({ initialDocuments }: Props) {
               >
                 {showForm ? 'Create' : 'Save'}
               </button>
-              <button onClick={() => { setSelected(null); setShowForm(false) }} aria-label="Close document" className="p-1.5 -m-1.5 text-slate-500 hover:text-slate-300">
+              <button onClick={() => { setSelected(null); setShowForm(false) }} aria-label="Close document" className="p-1.5 -m-1.5 text-fg-tertiary hover:text-fg-secondary">
                 <X size={15} />
               </button>
             </div>
@@ -182,7 +182,7 @@ export default function DocumentsView({ initialDocuments }: Props) {
               value={editContent}
               onChange={e => setEditContent(e.target.value)}
               placeholder="Start writing..."
-              className="flex-1 bg-transparent px-5 py-4 text-sm text-slate-300 placeholder-slate-600 outline-none resize-none leading-relaxed font-mono"
+              className="flex-1 bg-transparent px-5 py-4 text-sm text-fg-secondary placeholder-fg-quaternary outline-none resize-none leading-relaxed font-mono"
             />
 
             {/* AI Q&A panel */}
@@ -192,13 +192,13 @@ export default function DocumentsView({ initialDocuments }: Props) {
                   <Sparkles size={12} className="text-accent" />
                   <span className="text-xs font-medium text-accent uppercase tracking-widest">Ask AI</span>
                   {editContent && (
-                    <button onClick={handleSummarise} disabled={aiAction !== null} className="ml-auto text-xs text-slate-500 hover:text-slate-300 transition-colors">
+                    <button onClick={handleSummarise} disabled={aiAction !== null} className="ml-auto text-xs text-fg-tertiary hover:text-fg-secondary transition-colors">
                       {aiAction === 'summarise' ? 'Summarising…' : 'Summarise'}
                     </button>
                   )}
                 </div>
                 {aiAnswer && (
-                  <div className="text-xs text-slate-300 bg-accent/5 border border-accent/15 rounded-lg p-3 whitespace-pre-wrap leading-relaxed max-h-32 overflow-y-auto">
+                  <div className="text-xs text-fg-secondary bg-accent/5 border border-accent/15 rounded-lg p-3 whitespace-pre-wrap leading-relaxed max-h-32 overflow-y-auto">
                     {aiAnswer}
                   </div>
                 )}
@@ -209,7 +209,7 @@ export default function DocumentsView({ initialDocuments }: Props) {
                     onKeyDown={e => e.key === 'Enter' && handleAsk()}
                     placeholder="Ask a question about this document..."
                     disabled={aiAction !== null}
-                    className="flex-1 bg-surface-2 border border-surface-3 rounded-lg px-3 py-1.5 text-xs text-slate-300 placeholder-slate-600 outline-none focus:border-accent transition-colors"
+                    className="flex-1 bg-surface-2 border border-surface-3 rounded-lg px-3 py-1.5 text-xs text-fg-secondary placeholder-fg-quaternary outline-none focus:border-accent transition-colors"
                   />
                   <button
                     onClick={handleAsk}
@@ -224,7 +224,7 @@ export default function DocumentsView({ initialDocuments }: Props) {
             )}
           </>
         ) : (
-          <div className="flex-1 flex flex-col items-center justify-center text-slate-600">
+          <div className="flex-1 flex flex-col items-center justify-center text-fg-quaternary">
             <FileText size={32} className="mb-3 opacity-30" />
             <p className="text-sm">Select a document or create a new one</p>
           </div>

@@ -2,20 +2,26 @@
 
 import { useCountUp } from '@/lib/use-count-up'
 
-export default function MiniRing({ score, color }: { score: number; color: string }) {
+// CSS conic-gradient ring (design source's `ringStyle()` recipe) instead of
+// an SVG stroke — a solid-color disc masked by an inner var(--card)-filled
+// hole, so it stays theme-aware for free with no hardcoded hex track color.
+// `size` matches the design source's per-context sizing (e.g. 74px for
+// Module Scores, 52px for the Daily Mission ring) rather than one fixed size
+// everywhere.
+export default function MiniRing({ score, color, size = 40 }: { score: number; color: string; size?: number }) {
   const animated = useCountUp(score)
-  const r = 16, circ = 2 * Math.PI * r
-  const dash = (animated / 100) * circ
+  const deg = (animated / 100) * 360
+  const inset = Math.max(2, Math.round(size * 0.08))
+  const fontSize = Math.max(9, Math.round(size * 0.26))
+
   return (
-    <div className="relative">
-      <svg width="40" height="40" viewBox="0 0 40 40" style={{ transform: 'rotate(-90deg)' }}>
-        <circle cx="20" cy="20" r={r} fill="none" stroke="#26263a" strokeWidth="4" />
-        <circle cx="20" cy="20" r={r} fill="none" stroke={color} strokeWidth="4"
-          strokeDasharray={`${dash.toFixed(1)} ${circ.toFixed(1)}`} strokeLinecap="round" />
-      </svg>
-      <span className="absolute inset-0 flex items-center justify-center text-xs font-bold tabular-nums" style={{ color }}>
-        {animated}
-      </span>
+    <div
+      className="relative rounded-full"
+      style={{ width: size, height: size, background: `conic-gradient(${color} ${deg}deg, var(--border) ${deg}deg 360deg)` }}
+    >
+      <div className="absolute rounded-full bg-surface-1 flex items-center justify-center" style={{ inset }}>
+        <span className="font-bold tabular-nums" style={{ color, fontSize }}>{animated}</span>
+      </div>
     </div>
   )
 }

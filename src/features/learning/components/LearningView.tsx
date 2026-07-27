@@ -22,9 +22,9 @@ const TYPE_ICON: Record<ResourceType, string> = {
   course: '🎓', book: '📚', video: '🎬', article: '📄', podcast: '🎙️',
 }
 const STATUS_CONFIG: Record<ResourceStatus, { label: string; color: string; bg: string }> = {
-  'not-started': { label: 'Not started', color: 'text-slate-400',  bg: 'bg-slate-500/15' },
-  'in-progress':  { label: 'In progress', color: 'text-amber-400',  bg: 'bg-amber-500/15' },
-  'completed':    { label: 'Completed',   color: 'text-green-400',  bg: 'bg-green-500/15' },
+  'not-started': { label: 'Not started', color: 'text-fg-secondary',  bg: 'bg-surface-2' },
+  'in-progress':  { label: 'In progress', color: 'text-amber-400',  bg: 'bg-warn-soft' },
+  'completed':    { label: 'Completed',   color: 'text-green-400',  bg: 'bg-good-soft' },
 }
 const STATUSES = Object.keys(STATUS_CONFIG) as ResourceStatus[]
 const TYPES: ResourceType[] = ['course', 'book', 'video', 'article', 'podcast']
@@ -52,8 +52,8 @@ function StudyCoachContent({ isOpen, context, resources, studyLogs }: { isOpen: 
   return (
     <div>
       <div className="flex gap-1 mb-3 bg-surface-2 rounded-lg p-0.5">
-        <button onClick={() => setTab('recommendations')} className={`flex-1 text-xs py-1.5 rounded-md transition-colors ${tab === 'recommendations' ? 'bg-accent text-white' : 'text-slate-400 hover:text-slate-300'}`}>Recommendations</button>
-        <button onClick={() => setTab('plan')} className={`flex-1 text-xs py-1.5 rounded-md transition-colors ${tab === 'plan' ? 'bg-accent text-white' : 'text-slate-400 hover:text-slate-300'}`}>Daily Plan</button>
+        <button onClick={() => setTab('recommendations')} className={`flex-1 text-xs py-1.5 rounded-md transition-colors ${tab === 'recommendations' ? 'bg-accent text-white' : 'text-fg-secondary hover:text-fg-secondary'}`}>Recommendations</button>
+        <button onClick={() => setTab('plan')} className={`flex-1 text-xs py-1.5 rounded-md transition-colors ${tab === 'plan' ? 'bg-accent text-white' : 'text-fg-secondary hover:text-fg-secondary'}`}>Daily Plan</button>
       </div>
       {tab === 'recommendations' ? (
         <ModuleRecommendations moduleLabel="Learning" context={context} isOpen={isOpen && tab === 'recommendations'} />
@@ -62,7 +62,7 @@ function StudyCoachContent({ isOpen, context, resources, studyLogs }: { isOpen: 
           {[85, 70, 90, 60, 75].map((w, i) => <div key={i} className="h-3 rounded bg-surface-2 animate-pulse" style={{ width: `${w}%` }} />)}
         </div>
       ) : plan ? (
-        <p className="text-sm text-slate-300 leading-relaxed whitespace-pre-wrap">{plan}</p>
+        <p className="text-sm text-fg-secondary leading-relaxed whitespace-pre-wrap">{plan}</p>
       ) : null}
     </div>
   )
@@ -216,6 +216,7 @@ export default function LearningView({ initialResources, initialStudyLogs }: Pro
   return (
     <div className="space-y-5">
       {advisorPortal}
+      <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-fg-primary">Learning</h1>
       {/* Stats row */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
         <StatCard value={resources.length} label="Total" />
@@ -227,15 +228,15 @@ export default function LearningView({ initialResources, initialStudyLogs }: Pro
       {/* Revision nudge — rule-based, not AI: completed resources with no study activity in 14+ days */}
       {needsRevision.length > 0 && (
         <Card title="Needs Revision" padding="p-3.5" action={
-          <span className="text-xs text-slate-500 flex items-center gap-1"><RotateCcw size={11} className="text-amber-400" /> 14+ days idle</span>
+          <span className="text-xs text-fg-tertiary flex items-center gap-1"><RotateCcw size={11} className="text-amber-400" /> 14+ days idle</span>
         }>
           <ul className="space-y-1">
             {needsRevision.map(r => (
               <li key={r.id} className="flex items-center gap-2 py-1 px-1.5 -mx-1.5 rounded-lg hover:bg-surface-2 transition-colors group">
                 <span className="text-sm shrink-0">{TYPE_ICON[r.type]}</span>
-                <p className="flex-1 text-sm text-slate-300 truncate">{r.title}</p>
+                <p className="flex-1 text-sm text-fg-secondary truncate">{r.title}</p>
                 <button onClick={() => setShowLog(r)}
-                  className="text-xs px-2 py-0.5 rounded-lg border border-surface-3 text-slate-500 hover:text-slate-300 hover:border-slate-500 transition-colors opacity-0 group-hover:opacity-100">
+                  className="text-xs px-2 py-0.5 rounded-lg border border-surface-3 text-fg-tertiary hover:text-fg-secondary hover:border-border-strong transition-colors opacity-0 group-hover:opacity-100">
                   + Log session
                 </button>
               </li>
@@ -250,15 +251,15 @@ export default function LearningView({ initialResources, initialStudyLogs }: Pro
         <button onClick={() => setShowSuggestions(v => !v)} className="w-full flex items-center justify-between px-4 py-3 bg-surface-1 hover:bg-surface-2 transition-colors">
           <div className="flex items-center gap-2">
             <Lightbulb size={14} className="text-amber-400" />
-            <span className="text-sm font-medium text-slate-300">Suggested Resources</span>
-            <span className="text-xs text-slate-600">{suggestions.length + visibleAiSuggestions.length} picks</span>
+            <span className="text-sm font-medium text-fg-secondary">Suggested Resources</span>
+            <span className="text-xs text-fg-quaternary">{suggestions.length + visibleAiSuggestions.length} picks</span>
           </div>
-          <ChevronDown size={14} className={`text-slate-500 transition-transform ${showSuggestions ? 'rotate-180' : ''}`} />
+          <ChevronDown size={14} className={`text-fg-tertiary transition-transform ${showSuggestions ? 'rotate-180' : ''}`} />
         </button>
         {showSuggestions && (
           <div className="px-4 py-3 bg-surface-1 border-t border-surface-3">
             {suggestions.length === 0 && visibleAiSuggestions.length === 0 && !aiSuggestionsLoading && (
-              <p className="text-xs text-slate-600 mb-3">No curated picks left — try AI Suggested for more.</p>
+              <p className="text-xs text-fg-quaternary mb-3">No curated picks left — try AI Suggested for more.</p>
             )}
             {Object.entries(
               suggestions.reduce<Record<string, typeof suggestions>>((acc, s) => {
@@ -267,24 +268,24 @@ export default function LearningView({ initialResources, initialStudyLogs }: Pro
               }, {})
             ).map(([category, items]) => (
               <div key={category} className="mb-3 last:mb-0">
-                <p className="text-xs text-slate-600 uppercase tracking-wider mb-1.5">{category}</p>
+                <p className="text-xs text-fg-quaternary uppercase tracking-wider mb-1.5">{category}</p>
                 <ul className="space-y-1">
                   {items.map(s => (
                     <li key={s.url} className="flex items-start gap-2 py-1 group">
                       <span className="text-base shrink-0">{TYPE_ICON[s.type]}</span>
                       <div className="flex-1 min-w-0">
-                        <a href={s.url} target="_blank" rel="noopener noreferrer" className="text-sm text-slate-300 hover:text-accent transition-colors">
+                        <a href={s.url} target="_blank" rel="noopener noreferrer" className="text-sm text-fg-secondary hover:text-accent transition-colors">
                           {s.title}
                         </a>
-                        <p className="text-xs text-slate-600 mt-0.5">{s.notes}</p>
+                        <p className="text-xs text-fg-quaternary mt-0.5">{s.notes}</p>
                       </div>
                       <div className="shrink-0 flex items-center gap-1">
                         <button onClick={() => handleAddSuggestion(s)}
-                          className="text-xs px-2 py-0.5 rounded-lg border border-surface-3 text-slate-500 hover:text-accent hover:border-accent/40 transition-colors">
+                          className="text-xs px-2 py-0.5 rounded-lg border border-surface-3 text-fg-tertiary hover:text-accent hover:border-accent/40 transition-colors">
                           + Add
                         </button>
                         <button onClick={() => handleDismissCurated(s.url)} aria-label="Remove suggestion"
-                          className="p-1 text-slate-600 hover:text-red-400 transition-colors">
+                          className="p-1 text-fg-quaternary hover:text-red-400 transition-colors">
                           <X size={12} />
                         </button>
                       </div>
@@ -296,7 +297,7 @@ export default function LearningView({ initialResources, initialStudyLogs }: Pro
 
             {visibleAiSuggestions.length > 0 && (
               <div className="mb-3 last:mb-0">
-                <p className="text-xs text-slate-600 uppercase tracking-wider mb-1.5 flex items-center gap-1">
+                <p className="text-xs text-fg-quaternary uppercase tracking-wider mb-1.5 flex items-center gap-1">
                   <Sparkles size={11} className="text-accent" /> AI Suggested
                 </p>
                 <ul className="space-y-1">
@@ -304,16 +305,16 @@ export default function LearningView({ initialResources, initialStudyLogs }: Pro
                     <li key={s.title} className="flex items-start gap-2 py-1 group">
                       <span className="text-base shrink-0">{TYPE_ICON[s.type]}</span>
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm text-slate-300">{s.title}</p>
-                        <p className="text-xs text-slate-600 mt-0.5">{s.reason}</p>
+                        <p className="text-sm text-fg-secondary">{s.title}</p>
+                        <p className="text-xs text-fg-quaternary mt-0.5">{s.reason}</p>
                       </div>
                       <div className="shrink-0 flex items-center gap-1">
                         <button onClick={() => handleAddAiSuggestion(s)}
-                          className="text-xs px-2 py-0.5 rounded-lg border border-surface-3 text-slate-500 hover:text-accent hover:border-accent/40 transition-colors">
+                          className="text-xs px-2 py-0.5 rounded-lg border border-surface-3 text-fg-tertiary hover:text-accent hover:border-accent/40 transition-colors">
                           + Add
                         </button>
                         <button onClick={() => handleDismissAiSuggestion(s.title)} aria-label="Remove suggestion"
-                          className="p-1 text-slate-600 hover:text-red-400 transition-colors">
+                          className="p-1 text-fg-quaternary hover:text-red-400 transition-colors">
                           <X size={12} />
                         </button>
                       </div>
@@ -328,7 +329,7 @@ export default function LearningView({ initialResources, initialStudyLogs }: Pro
             )}
 
             <button onClick={handleAddMoreResources} disabled={aiSuggestionsLoading}
-              className="w-full flex items-center justify-center gap-1.5 mt-1 py-1.5 rounded-lg border border-surface-3 text-xs text-slate-400 hover:text-accent hover:border-accent/40 disabled:opacity-50 transition-colors">
+              className="w-full flex items-center justify-center gap-1.5 mt-1 py-1.5 rounded-lg border border-surface-3 text-xs text-fg-secondary hover:text-accent hover:border-accent/40 disabled:opacity-50 transition-colors">
               <Sparkles size={12} className="text-accent" /> {aiSuggestionsLoading ? 'Finding resources...' : 'Add More Resources'}
             </button>
           </div>
@@ -366,8 +367,8 @@ export default function LearningView({ initialResources, initialStudyLogs }: Pro
                   <span className="text-base shrink-0">{TYPE_ICON[r.type]}</span>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <span className="text-sm font-medium text-slate-200 truncate">{r.title}</span>
-                      {r.url && <a href={r.url} target="_blank" rel="noopener noreferrer" className="text-slate-600 hover:text-accent transition-colors shrink-0"><ExternalLink size={11} /></a>}
+                      <span className="text-sm font-medium text-fg-primary truncate">{r.title}</span>
+                      {r.url && <a href={r.url} target="_blank" rel="noopener noreferrer" className="text-fg-quaternary hover:text-accent transition-colors shrink-0"><ExternalLink size={11} /></a>}
                       {studiedToday && <span className="text-xs text-green-400/70 flex items-center gap-0.5 shrink-0"><Flame size={10} />studied today</span>}
                     </div>
                     <div className="flex items-center gap-2 mt-0.5 flex-wrap">
@@ -375,19 +376,19 @@ export default function LearningView({ initialResources, initialStudyLogs }: Pro
                         className={`text-xs px-2 py-0.5 rounded-full border-0 outline-none cursor-pointer font-medium ${cfg.color} ${cfg.bg}`}>
                         {STATUSES.map(s => <option key={s} value={s}>{STATUS_CONFIG[s].label}</option>)}
                       </select>
-                      <span className="text-xs text-slate-600">{r.category}</span>
+                      <span className="text-xs text-fg-quaternary">{r.category}</span>
                       {r.status === 'in-progress' && (
-                        <span className="text-xs text-slate-500">{r.progress}%</span>
+                        <span className="text-xs text-fg-tertiary">{r.progress}%</span>
                       )}
                       <div className="flex items-center gap-2 ml-auto opacity-0 group-hover:opacity-100 transition-opacity">
                         <button onClick={() => setShowLog(r)}
-                          className={`text-xs px-2 py-0.5 rounded-lg border transition-colors ${studiedToday ? 'border-green-500/30 text-green-400' : 'border-surface-3 text-slate-500 hover:text-slate-300 hover:border-slate-500'}`}>
+                          className={`text-xs px-2 py-0.5 rounded-lg border transition-colors ${studiedToday ? 'border-green-500/30 text-green-400' : 'border-surface-3 text-fg-tertiary hover:text-fg-secondary hover:border-border-strong'}`}>
                           {studiedToday ? '✓ Logged' : '+ Log session'}
                         </button>
-                        <button onClick={() => handleQuiz(r)} className="text-xs px-2 py-0.5 rounded-lg border border-surface-3 text-slate-500 hover:text-accent hover:border-accent/40 transition-colors">
+                        <button onClick={() => handleQuiz(r)} className="text-xs px-2 py-0.5 rounded-lg border border-surface-3 text-fg-tertiary hover:text-accent hover:border-accent/40 transition-colors">
                           Quiz me
                         </button>
-                        <button onClick={() => handleDelete(r.id)} aria-label="Delete resource" className="p-1.5 -m-1.5 text-slate-600 hover:text-red-400 transition-all">
+                        <button onClick={() => handleDelete(r.id)} aria-label="Delete resource" className="p-1.5 -m-1.5 text-fg-quaternary hover:text-red-400 transition-all">
                           <Trash2 size={13} />
                         </button>
                       </div>
@@ -413,8 +414,8 @@ export default function LearningView({ initialResources, initialStudyLogs }: Pro
             {categoryEntries.map(([category, count]) => (
               <li key={category} className="py-0.5">
                 <div className="flex items-center gap-2 mb-1">
-                  <p className="flex-1 text-sm text-slate-300 truncate">{category}</p>
-                  <span className="text-xs text-slate-500 bg-surface-2 rounded-full px-2 py-0.5 shrink-0">{count}</span>
+                  <p className="flex-1 text-sm text-fg-secondary truncate">{category}</p>
+                  <span className="text-xs text-fg-tertiary bg-surface-2 rounded-full px-2 py-0.5 shrink-0">{count}</span>
                 </div>
                 <div className="h-1 bg-surface-3 rounded-full overflow-hidden">
                   <div className="h-full bg-accent/60 rounded-full" style={{ width: `${(count / resources.length) * 100}%` }} />
@@ -428,11 +429,11 @@ export default function LearningView({ initialResources, initialStudyLogs }: Pro
 
       {/* Add resource modal */}
       {showForm && (
-        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
+        <div className="fixed inset-0 bg-overlay flex items-center justify-center z-50 p-4">
           <div className="bg-surface-1 border border-surface-3 rounded-xl p-6 w-full max-w-sm max-h-[85vh] overflow-y-auto animate-in fade-in zoom-in-95 duration-200">
             <div className="flex items-center justify-between mb-5">
-              <h2 className="text-base font-semibold text-slate-200">Add Resource</h2>
-              <button onClick={() => setShowForm(false)} aria-label="Close" className="p-1.5 -m-1.5 text-slate-500 hover:text-slate-300"><X size={16} /></button>
+              <h2 className="text-base font-semibold text-fg-primary">Add Resource</h2>
+              <button onClick={() => setShowForm(false)} aria-label="Close" className="p-1.5 -m-1.5 text-fg-tertiary hover:text-fg-secondary"><X size={16} /></button>
             </div>
             <form noValidate onInput={onFieldInput} onSubmit={async e => {
               e.preventDefault()
@@ -451,32 +452,32 @@ export default function LearningView({ initialResources, initialStudyLogs }: Pro
               await addResource(fd)
             }} className="space-y-3">
               <div className="space-y-1">
-                <label className="text-xs text-slate-500 uppercase tracking-wider">Title *</label>
-                <input name="title" required autoFocus defaultValue={prefill?.title ?? ''} placeholder="The Pragmatic Programmer" className={`w-full bg-surface-2 border rounded-lg px-3 py-2 text-sm text-slate-200 placeholder-slate-600 outline-none focus:border-accent transition-colors ${invalidFields.has('title') ? 'border-red-500' : 'border-surface-3'}`} />
+                <label className="text-xs text-fg-tertiary uppercase tracking-wider">Title *</label>
+                <input name="title" required autoFocus defaultValue={prefill?.title ?? ''} placeholder="The Pragmatic Programmer" className={`w-full bg-surface-2 border rounded-lg px-3 py-2 text-sm text-fg-primary placeholder-fg-quaternary outline-none focus:border-accent transition-colors ${invalidFields.has('title') ? 'border-red-500' : 'border-surface-3'}`} />
                 <FieldError show={invalidFields.has('title')} />
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">
-                  <label className="text-xs text-slate-500 uppercase tracking-wider">Type</label>
-                  <select name="type" defaultValue={prefill?.type ?? 'course'} className="w-full bg-surface-2 border border-surface-3 rounded-lg px-3 py-2 text-sm text-slate-300 outline-none focus:border-accent transition-colors">
+                  <label className="text-xs text-fg-tertiary uppercase tracking-wider">Type</label>
+                  <select name="type" defaultValue={prefill?.type ?? 'course'} className="w-full bg-surface-2 border border-surface-3 rounded-lg px-3 py-2 text-sm text-fg-secondary outline-none focus:border-accent transition-colors">
                     {TYPES.map(t => <option key={t} value={t}>{TYPE_ICON[t]} {t.charAt(0).toUpperCase() + t.slice(1)}</option>)}
                   </select>
                 </div>
                 <div className="space-y-1">
-                  <label className="text-xs text-slate-500 uppercase tracking-wider">Category</label>
-                  <input name="category" defaultValue={prefill?.category ?? ''} placeholder="React, DSA, Playwright..." className="w-full bg-surface-2 border border-surface-3 rounded-lg px-3 py-2 text-sm text-slate-200 placeholder-slate-600 outline-none focus:border-accent transition-colors" />
+                  <label className="text-xs text-fg-tertiary uppercase tracking-wider">Category</label>
+                  <input name="category" defaultValue={prefill?.category ?? ''} placeholder="React, DSA, Playwright..." className="w-full bg-surface-2 border border-surface-3 rounded-lg px-3 py-2 text-sm text-fg-primary placeholder-fg-quaternary outline-none focus:border-accent transition-colors" />
                 </div>
               </div>
               <div className="space-y-1">
-                <label className="text-xs text-slate-500 uppercase tracking-wider">URL{prefill && ' — AI-suggested, verify before pasting a link'}</label>
-                <input name="url" type="url" placeholder="https://..." className="w-full bg-surface-2 border border-surface-3 rounded-lg px-3 py-2 text-sm text-slate-200 placeholder-slate-600 outline-none focus:border-accent transition-colors" />
+                <label className="text-xs text-fg-tertiary uppercase tracking-wider">URL{prefill && ' — AI-suggested, verify before pasting a link'}</label>
+                <input name="url" type="url" placeholder="https://..." className="w-full bg-surface-2 border border-surface-3 rounded-lg px-3 py-2 text-sm text-fg-primary placeholder-fg-quaternary outline-none focus:border-accent transition-colors" />
               </div>
               <div className="space-y-1">
-                <label className="text-xs text-slate-500 uppercase tracking-wider">Notes</label>
-                <textarea name="notes" rows={2} defaultValue={prefill?.notes ?? ''} placeholder="Why you want to learn this..." className="w-full bg-surface-2 border border-surface-3 rounded-lg px-3 py-2 text-sm text-slate-200 placeholder-slate-600 outline-none focus:border-accent transition-colors resize-none" />
+                <label className="text-xs text-fg-tertiary uppercase tracking-wider">Notes</label>
+                <textarea name="notes" rows={2} defaultValue={prefill?.notes ?? ''} placeholder="Why you want to learn this..." className="w-full bg-surface-2 border border-surface-3 rounded-lg px-3 py-2 text-sm text-fg-primary placeholder-fg-quaternary outline-none focus:border-accent transition-colors resize-none" />
               </div>
               <div className="flex gap-2 pt-1">
-                <button type="button" onClick={() => setShowForm(false)} className="flex-1 py-2 rounded-lg bg-surface-2 border border-surface-3 text-slate-300 text-sm hover:bg-surface-3 transition-colors">Cancel</button>
+                <button type="button" onClick={() => setShowForm(false)} className="flex-1 py-2 rounded-lg bg-surface-2 border border-surface-3 text-fg-secondary text-sm hover:bg-surface-3 transition-colors">Cancel</button>
                 <button type="submit" className="flex-1 py-2 rounded-lg bg-accent text-white text-sm font-medium hover:bg-accent/80 active:scale-95 transition">Add</button>
               </div>
             </form>
@@ -486,27 +487,27 @@ export default function LearningView({ initialResources, initialStudyLogs }: Pro
 
       {/* Log session modal */}
       {showLog !== undefined && showLog !== null && (
-        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
+        <div className="fixed inset-0 bg-overlay flex items-center justify-center z-50 p-4">
           <div className="bg-surface-1 border border-surface-3 rounded-xl p-6 w-full max-w-sm animate-in fade-in zoom-in-95 duration-200">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-base font-semibold text-slate-200">Log Study Session</h2>
-              <button onClick={() => setShowLog(null)} aria-label="Close" className="p-1.5 -m-1.5 text-slate-500 hover:text-slate-300"><X size={16} /></button>
+              <h2 className="text-base font-semibold text-fg-primary">Log Study Session</h2>
+              <button onClick={() => setShowLog(null)} aria-label="Close" className="p-1.5 -m-1.5 text-fg-tertiary hover:text-fg-secondary"><X size={16} /></button>
             </div>
-            <p className="text-sm text-slate-400 mb-4">{showLog.title}</p>
+            <p className="text-sm text-fg-secondary mb-4">{showLog.title}</p>
             <div className="space-y-3">
               <div className="space-y-1">
-                <label className="text-xs text-slate-500 uppercase tracking-wider">Duration (minutes)</label>
+                <label className="text-xs text-fg-tertiary uppercase tracking-wider">Duration (minutes)</label>
                 <div className="flex gap-2">
                   {[15, 30, 45, 60, 90].map(d => (
                     <button key={d} onClick={() => setLogDuration(String(d))}
-                      className={`flex-1 py-2 rounded-lg text-sm transition-colors ${logDuration === String(d) ? 'bg-accent text-white' : 'bg-surface-2 border border-surface-3 text-slate-400 hover:bg-surface-3'}`}>
+                      className={`flex-1 py-2 rounded-lg text-sm transition-colors ${logDuration === String(d) ? 'bg-accent text-white' : 'bg-surface-2 border border-surface-3 text-fg-secondary hover:bg-surface-3'}`}>
                       {d}m
                     </button>
                   ))}
                 </div>
               </div>
               <div className="flex gap-2 pt-1">
-                <button onClick={() => setShowLog(null)} className="flex-1 py-2 rounded-lg bg-surface-2 border border-surface-3 text-slate-300 text-sm hover:bg-surface-3 transition-colors">Cancel</button>
+                <button onClick={() => setShowLog(null)} className="flex-1 py-2 rounded-lg bg-surface-2 border border-surface-3 text-fg-secondary text-sm hover:bg-surface-3 transition-colors">Cancel</button>
                 <button onClick={() => handleLogSession(showLog)} className="flex-1 py-2 rounded-lg bg-accent text-white text-sm font-medium hover:bg-accent/80 active:scale-95 transition flex items-center justify-center gap-1.5">
                   <Flame size={13} /> Log {logDuration}m
                 </button>
@@ -518,14 +519,14 @@ export default function LearningView({ initialResources, initialStudyLogs }: Pro
 
       {/* Quiz modal */}
       {quizResource && (
-        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
+        <div className="fixed inset-0 bg-overlay flex items-center justify-center z-50 p-4">
           <div className="bg-surface-1 border border-surface-3 rounded-xl p-6 w-full max-w-lg max-h-[80vh] overflow-y-auto animate-in fade-in zoom-in-95 duration-200">
             <div className="flex items-center justify-between mb-4">
               <div>
-                <h2 className="text-base font-semibold text-slate-200">Quiz: {quizResource.title}</h2>
-                <p className="text-xs text-slate-500 mt-0.5">Click an answer to reveal it</p>
+                <h2 className="text-base font-semibold text-fg-primary">Quiz: {quizResource.title}</h2>
+                <p className="text-xs text-fg-tertiary mt-0.5">Click an answer to reveal it</p>
               </div>
-              <button onClick={() => { setQuizResource(null); setQuizItems([]) }} aria-label="Close quiz" className="p-1.5 -m-1.5 text-slate-500 hover:text-slate-300"><X size={16} /></button>
+              <button onClick={() => { setQuizResource(null); setQuizItems([]) }} aria-label="Close quiz" className="p-1.5 -m-1.5 text-fg-tertiary hover:text-fg-secondary"><X size={16} /></button>
             </div>
 
             {quizLoading ? (
@@ -539,8 +540,8 @@ export default function LearningView({ initialResources, initialStudyLogs }: Pro
               </div>
             ) : quizItems.length === 0 ? (
               <div className="text-center py-8">
-                <BookOpen size={32} className="mx-auto text-slate-700 mb-2" />
-                <p className="text-sm text-slate-600">Couldn&apos;t generate questions. Try adding notes to this resource for better results.</p>
+                <BookOpen size={32} className="mx-auto text-fg-quaternary mb-2" />
+                <p className="text-sm text-fg-quaternary">Couldn&apos;t generate questions. Try adding notes to this resource for better results.</p>
               </div>
             ) : (
               <div className="space-y-3">
@@ -549,22 +550,22 @@ export default function LearningView({ initialResources, initialStudyLogs }: Pro
                   return (
                     <div key={i} className="border border-surface-3 rounded-lg overflow-hidden">
                       <div className="p-3">
-                        <p className="text-sm text-slate-300 font-medium">{i + 1}. {item.question}</p>
+                        <p className="text-sm text-fg-secondary font-medium">{i + 1}. {item.question}</p>
                       </div>
                       <button onClick={() => setRevealed(prev => { const n = new Set(prev); if (isRevealed) n.delete(i); else n.add(i); return n })}
                         className="w-full flex items-center gap-2 px-3 py-2 bg-surface-2 border-t border-surface-3 hover:bg-surface-3 transition-colors text-left">
                         <ChevronRight size={12} className={`text-accent shrink-0 transition-transform ${isRevealed ? 'rotate-90' : ''}`} />
-                        <span className="text-xs text-slate-500">{isRevealed ? 'Hide answer' : 'Show answer'}</span>
+                        <span className="text-xs text-fg-tertiary">{isRevealed ? 'Hide answer' : 'Show answer'}</span>
                       </button>
                       {isRevealed && (
                         <div className="px-3 pb-3 pt-2 bg-surface-2 border-t border-surface-3">
-                          <p className="text-sm text-slate-400 leading-relaxed">{item.answer}</p>
+                          <p className="text-sm text-fg-secondary leading-relaxed">{item.answer}</p>
                         </div>
                       )}
                     </div>
                   )
                 })}
-                <button onClick={() => setRevealed(new Set(quizItems.map((_, i) => i)))} className="w-full py-2 text-xs text-slate-600 hover:text-slate-400 transition-colors">
+                <button onClick={() => setRevealed(new Set(quizItems.map((_, i) => i)))} className="w-full py-2 text-xs text-fg-quaternary hover:text-fg-secondary transition-colors">
                   Reveal all answers
                 </button>
               </div>

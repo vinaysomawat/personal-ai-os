@@ -57,30 +57,30 @@ export default function GoalsCard({ module, initialGoals, autoMetric }: GoalsCar
 
   return (
     <Card title="Goals" padding="p-3.5" action={
-      <button onClick={() => setShowForm(v => !v)} aria-label="Add goal" className="text-slate-500 hover:text-accent transition-colors"><Plus size={15} /></button>
+      <button onClick={() => setShowForm(v => !v)} aria-label="Add goal" className="text-fg-tertiary hover:text-accent transition-colors"><Plus size={15} /></button>
     }>
       {showForm && (
         <div className="space-y-2 mb-3 pb-3 border-b border-surface-3">
           <input value={name} onChange={e => setName(e.target.value)} placeholder="Goal name"
-            className="w-full bg-surface-2 border border-surface-3 rounded-lg px-3 py-2 text-sm text-slate-200 placeholder-slate-600 outline-none focus:border-accent transition-colors" />
+            className="w-full bg-surface-2 border border-surface-3 rounded-lg px-3 py-2 text-sm text-fg-primary placeholder-fg-quaternary outline-none focus:border-accent transition-colors" />
           {autoMetric && (
-            <label className="flex items-center gap-2 text-xs text-slate-400">
+            <label className="flex items-center gap-2 text-xs text-fg-secondary">
               <input type="checkbox" checked={useAutoMetric} onChange={e => setUseAutoMetric(e.target.checked)} />
               {AUTO_METRIC_LABEL[autoMetric]}
             </label>
           )}
           <div className="flex gap-2">
             <input type="number" value={targetValue} onChange={e => setTargetValue(e.target.value)} placeholder="Target number (optional)"
-              className="flex-1 bg-surface-2 border border-surface-3 rounded-lg px-3 py-2 text-sm text-slate-200 placeholder-slate-600 outline-none focus:border-accent transition-colors" />
+              className="flex-1 bg-surface-2 border border-surface-3 rounded-lg px-3 py-2 text-sm text-fg-primary placeholder-fg-quaternary outline-none focus:border-accent transition-colors" />
             <input type="date" value={targetDate} onChange={e => setTargetDate(e.target.value)}
-              className="bg-surface-2 border border-surface-3 rounded-lg px-3 py-2 text-sm text-slate-200 outline-none focus:border-accent transition-colors" />
+              className="bg-surface-2 border border-surface-3 rounded-lg px-3 py-2 text-sm text-fg-primary outline-none focus:border-accent transition-colors" />
           </div>
           <button onClick={handleAdd} disabled={!name.trim()} className="w-full px-3 py-1.5 rounded-lg bg-accent text-white text-sm font-medium hover:bg-accent/80 disabled:opacity-50 transition-colors">Add</button>
         </div>
       )}
 
       {goals.length === 0 ? (
-        <p className="text-sm text-slate-400">No goals set yet</p>
+        <p className="text-sm text-fg-secondary">No goals set yet</p>
       ) : (
         <ul className="space-y-3">
           {goals.map(g => {
@@ -89,8 +89,8 @@ export default function GoalsCard({ module, initialGoals, autoMetric }: GoalsCar
             return (
               <li key={g.id}>
                 <div className="flex items-start justify-between gap-2 mb-1">
-                  <p className="text-sm text-slate-300">{g.name}</p>
-                  <button onClick={() => handleDelete(g.id)} aria-label="Delete goal" className="shrink-0 text-slate-600 hover:text-red-400 transition-colors"><Trash2 size={13} /></button>
+                  <p className="text-sm text-fg-secondary">{g.name}</p>
+                  <button onClick={() => handleDelete(g.id)} aria-label="Delete goal" className="shrink-0 text-fg-quaternary hover:text-red-400 transition-colors"><Trash2 size={13} /></button>
                 </div>
                 {hasMetric ? (
                   <>
@@ -98,15 +98,15 @@ export default function GoalsCard({ module, initialGoals, autoMetric }: GoalsCar
                       <div className="h-full rounded-full bg-accent" style={{ width: `${pct}%` }} />
                     </div>
                     <div className="flex items-center justify-between mt-1">
-                      <p className="text-xs text-slate-600">{g.resolvedCurrentValue ?? 0} of {g.target_value}{g.target_date ? ` · by ${g.target_date}` : ''}</p>
+                      <p className="text-xs text-fg-quaternary">{g.resolvedCurrentValue ?? 0} of {g.target_value}{g.target_date ? ` · by ${g.target_date}` : ''}</p>
                       {!g.auto_metric && (
                         <input type="number" defaultValue={g.current_value ?? 0} onBlur={e => handleProgress(g.id, e.target.value)}
-                          className="w-16 bg-surface-2 border border-surface-3 rounded px-1.5 py-0.5 text-xs text-slate-300 outline-none focus:border-accent transition-colors" />
+                          className="w-16 bg-surface-2 border border-surface-3 rounded px-1.5 py-0.5 text-xs text-fg-secondary outline-none focus:border-accent transition-colors" />
                       )}
                     </div>
                   </>
                 ) : (
-                  <button onClick={() => handleAchieved(g.id, !g.achieved_at)} className={`flex items-center gap-1.5 text-xs ${g.achieved_at ? 'text-green-400' : 'text-slate-500 hover:text-slate-400'} transition-colors`}>
+                  <button onClick={() => handleAchieved(g.id, !g.achieved_at)} className={`flex items-center gap-1.5 text-xs ${g.achieved_at ? 'text-green-400' : 'text-fg-tertiary hover:text-fg-secondary'} transition-colors`}>
                     <Check size={13} /> {g.achieved_at ? 'Achieved' : 'Mark as achieved'}
                   </button>
                 )}

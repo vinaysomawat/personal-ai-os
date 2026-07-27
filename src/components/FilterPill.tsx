@@ -3,7 +3,7 @@ export default function FilterPill({ label, active, onClick, activeClassName = '
     <button
       onClick={onClick}
       className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
-        active ? activeClassName : 'bg-surface-1 border border-surface-3 text-slate-400 hover:bg-surface-2'
+        active ? activeClassName : 'bg-surface-1 border border-surface-3 text-fg-secondary hover:bg-surface-2'
       }`}
     >
       {label}

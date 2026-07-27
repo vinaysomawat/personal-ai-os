@@ -15,7 +15,7 @@ import type { Task, Priority, Recurrence } from '../types'
 const priorityDot: Record<Priority, string> = {
   high: 'bg-red-400',
   medium: 'bg-amber-400',
-  low: 'bg-slate-500',
+  low: 'bg-fg-quaternary',
 }
 
 // A task's "relevant month" is its due_date's month if set, else the month
@@ -29,28 +29,28 @@ function PendingTaskRow({ task, onToggle, onDelete }: { task: Task; onToggle: (i
   return (
     <li className="flex items-center gap-2.5 p-2 rounded-lg hover:bg-surface-2 transition-colors group">
       <button onClick={() => onToggle(task.id, task.done)} aria-label="Mark task complete" className="p-1.5 -m-1.5 shrink-0">
-        <Circle size={16} className="text-slate-600 group-hover:text-accent transition-colors" />
+        <Circle size={16} className="text-fg-quaternary group-hover:text-accent transition-colors" />
       </button>
-      <p className="flex-1 min-w-0 text-sm text-slate-200 truncate">{task.text}</p>
-      <span className="shrink-0 text-[10px] px-1.5 py-0.5 rounded-full bg-surface-2 text-slate-500">{task.area}</span>
+      <p className="flex-1 min-w-0 text-sm text-fg-primary truncate">{task.text}</p>
+      <span className="shrink-0 text-[10px] px-1.5 py-0.5 rounded-full bg-surface-2 text-fg-tertiary">{task.area}</span>
       {task.recurrence && (
         <span className="shrink-0 flex items-center gap-0.5 text-xs text-accent/70">
           <RefreshCw size={9} />{task.recurrence}
         </span>
       )}
       {task.due_date && (
-        <span className={`shrink-0 text-xs ${task.due_date < todayIST() ? 'text-red-400' : 'text-slate-600'}`}>
+        <span className={`shrink-0 text-xs ${task.due_date < todayIST() ? 'text-red-400' : 'text-fg-quaternary'}`}>
           due {task.due_date}
         </span>
       )}
       {task.external_url && (
         <a href={task.external_url} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()}
-          className="shrink-0 text-slate-600 hover:text-accent transition-colors">
+          className="shrink-0 text-fg-quaternary hover:text-accent transition-colors">
           <ExternalLink size={13} />
         </a>
       )}
       <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${priorityDot[task.priority]}`} />
-      <button onClick={() => onDelete(task.id)} aria-label="Delete task" className="shrink-0 opacity-0 group-hover:opacity-100 text-slate-600 hover:text-red-400 transition-all">
+      <button onClick={() => onDelete(task.id)} aria-label="Delete task" className="shrink-0 opacity-0 group-hover:opacity-100 text-fg-quaternary hover:text-red-400 transition-all">
         <Trash2 size={13} />
       </button>
     </li>
@@ -147,9 +147,7 @@ export default function PlannerView({ initialTasks }: Props) {
   return (
     <div className="space-y-4">
       {advisorPortal}
-      <p className="text-xs text-slate-500 uppercase tracking-widest px-0.5">
-        {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
-      </p>
+      <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-fg-primary">Planner</h1>
 
       {/* Stats row */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
@@ -159,23 +157,12 @@ export default function PlannerView({ initialTasks }: Props) {
         <StatCard value={done.length} label="Completed" valueClassName="text-green-400" />
       </div>
 
-      {/* Tasks left incomplete from a previous month — surfaced separately
-          rather than silently mixed into (or dropped from) Today's Tasks,
-          which is scoped to the current month */}
-      {overduePending.length > 0 && (
-        <Card title="Overdue" padding="p-3.5" action={<span className="text-xs text-red-400">{overduePending.length} from previous months</span>}>
-          <ul className="space-y-1">
-            {overduePending.map(task => <PendingTaskRow key={task.id} task={task} onToggle={handleToggle} onDelete={handleDelete} />)}
-          </ul>
-        </Card>
-      )}
-
-      <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
+      <div className="grid grid-cols-1 lg:grid-cols-5 gap-4 items-start">
+      <div className="lg:col-span-3 flex flex-col gap-3.5">
       <Card
         title="Today's Tasks"
         padding="p-3.5"
-        className="lg:col-span-3"
-        action={<span className="text-xs text-slate-500">{thisMonthPending.length} remaining</span>}
+        action={<span className="text-xs text-fg-tertiary">{thisMonthPending.length} remaining</span>}
       >
         {/* Add task row — wraps on narrow viewports (iPhone 16 Pro: 393px) instead of clipping the recurrence select */}
         <div className="flex flex-wrap gap-2 mb-2.5">
@@ -184,12 +171,12 @@ export default function PlannerView({ initialTasks }: Props) {
             onChange={e => setInput(e.target.value)}
             onKeyDown={e => e.key === 'Enter' && handleAdd()}
             placeholder="Add a task..."
-            className="flex-1 min-w-[140px] bg-surface-2 border border-surface-3 rounded-lg px-3 py-2 text-sm text-slate-200 placeholder-slate-600 outline-none focus:border-accent transition-colors"
+            className="flex-1 min-w-[140px] bg-surface-2 border border-surface-3 rounded-lg px-3 py-2 text-sm text-fg-primary placeholder-fg-quaternary outline-none focus:border-accent transition-colors"
           />
           <select
             value={priority}
             onChange={e => setPriority(e.target.value as Priority)}
-            className="bg-surface-2 border border-surface-3 rounded-lg px-2 py-2 text-sm text-slate-300 outline-none focus:border-accent transition-colors"
+            className="bg-surface-2 border border-surface-3 rounded-lg px-2 py-2 text-sm text-fg-secondary outline-none focus:border-accent transition-colors"
           >
             <option value="high">High</option>
             <option value="medium">Medium</option>
@@ -198,7 +185,7 @@ export default function PlannerView({ initialTasks }: Props) {
           <select
             value={recurrence ?? ''}
             onChange={e => setRecurrence((e.target.value as Recurrence) || null)}
-            className="bg-surface-2 border border-surface-3 rounded-lg px-2 py-2 text-sm text-slate-300 outline-none focus:border-accent transition-colors"
+            className="bg-surface-2 border border-surface-3 rounded-lg px-2 py-2 text-sm text-fg-secondary outline-none focus:border-accent transition-colors"
           >
             <option value="">Once</option>
             <option value="daily">Daily</option>
@@ -224,7 +211,7 @@ export default function PlannerView({ initialTasks }: Props) {
 
         {done.length > 0 && (
           <details className="mt-4">
-            <summary className="flex items-center gap-2 text-xs text-slate-500 cursor-pointer select-none list-none">
+            <summary className="flex items-center gap-2 text-xs text-fg-tertiary cursor-pointer select-none list-none">
               <span>›</span> Completed ({done.length})
             </summary>
             <ul className="space-y-1 mt-2">
@@ -233,11 +220,11 @@ export default function PlannerView({ initialTasks }: Props) {
                   <button onClick={() => handleToggle(task.id, task.done)} aria-label="Mark task incomplete" className="p-1.5 -m-1.5 shrink-0">
                     <CheckCircle2 size={16} className="text-green-500" />
                   </button>
-                  <p className="flex-1 text-sm text-slate-500 line-through">{task.text}</p>
+                  <p className="flex-1 text-sm text-fg-tertiary line-through">{task.text}</p>
                   <button
                     onClick={() => handleDelete(task.id)}
                     aria-label="Delete task"
-                    className="shrink-0 opacity-0 group-hover:opacity-100 text-slate-600 hover:text-red-400 transition-all"
+                    className="shrink-0 opacity-0 group-hover:opacity-100 text-fg-quaternary hover:text-red-400 transition-all"
                   >
                     <Trash2 size={13} />
                   </button>
@@ -248,6 +235,23 @@ export default function PlannerView({ initialTasks }: Props) {
         )}
       </Card>
 
+      {/* Tasks left incomplete from a previous month — surfaced separately
+          rather than silently mixed into (or dropped from) Today's Tasks,
+          which is scoped to the current month. Matches the design's
+          risk-tinted banner chrome (not the generic Card wrapper). */}
+      {overduePending.length > 0 && (
+        <div className="rounded-2xl bg-risk-soft border border-risk-border p-4">
+          <div className="flex items-center justify-between mb-2">
+            <p className="text-sm font-bold text-risk-strong">Overdue</p>
+            <span className="text-xs text-red-400">{overduePending.length} from previous months</span>
+          </div>
+          <ul className="space-y-1">
+            {overduePending.map(task => <PendingTaskRow key={task.id} task={task} onToggle={handleToggle} onDelete={handleDelete} />)}
+          </ul>
+        </div>
+      )}
+      </div>
+
       <Card title="By Area" padding="p-3.5" className="lg:col-span-2">
         {areaEntries.length === 0 ? (
           <EmptyState icon={ListTodo} message="No pending tasks" compact />
@@ -256,8 +260,8 @@ export default function PlannerView({ initialTasks }: Props) {
             {areaEntries.map(([area, count]) => (
               <li key={area} className="py-0.5">
                 <div className="flex items-center gap-2 mb-1">
-                  <p className="flex-1 text-sm text-slate-300 truncate">{area}</p>
-                  <span className="text-xs text-slate-500 bg-surface-2 rounded-full px-2 py-0.5 shrink-0">{count}</span>
+                  <p className="flex-1 text-sm text-fg-secondary truncate">{area}</p>
+                  <span className="text-xs text-fg-tertiary bg-surface-2 rounded-full px-2 py-0.5 shrink-0">{count}</span>
                 </div>
                 <div className="h-1 bg-surface-3 rounded-full overflow-hidden">
                   <div className="h-full bg-accent/60 rounded-full" style={{ width: `${(count / pending.length) * 100}%` }} />

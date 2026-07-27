@@ -12,9 +12,9 @@ import type { DailyQuestion, Outcome } from '../daily-core'
 import type { TrendingReading } from '@/features/trending/types'
 
 const DIFFICULTY_COLOR: Record<string, string> = {
-  easy: 'text-green-400 bg-green-500/15',
-  medium: 'text-amber-400 bg-amber-500/15',
-  hard: 'text-red-400 bg-red-500/15',
+  easy: 'text-green-400 bg-good-soft',
+  medium: 'text-amber-400 bg-warn-soft',
+  hard: 'text-red-400 bg-risk-soft',
 }
 
 type Filter = 'all' | 'completed' | 'pending' | 'revision' | 'favorites' | 'easy' | 'medium' | 'hard'
@@ -95,13 +95,13 @@ export default function QuestionHistory({ initialHistory, readingHistory }: Prop
               <span className="text-xs px-2 py-0.5 rounded-full font-medium shrink-0 text-accent bg-accent/15 flex items-center gap-1">
                 <Newspaper size={10} /> Read
               </span>
-              <span className={`flex-1 min-w-0 text-sm truncate ${reading.completed ? 'text-slate-400' : 'text-slate-300'}`}>{reading.title}</span>
-              <span className="text-xs text-slate-600 shrink-0">{reading.assigned_date}</span>
+              <span className={`flex-1 min-w-0 text-sm truncate ${reading.completed ? 'text-fg-secondary' : 'text-fg-secondary'}`}>{reading.title}</span>
+              <span className="text-xs text-fg-quaternary shrink-0">{reading.assigned_date}</span>
               <button onClick={() => handleReadingComplete(reading.id)} disabled={reading.completed} aria-label="Mark reading complete"
-                className={`p-1.5 -m-1.5 shrink-0 transition-colors ${reading.completed ? 'text-green-500' : 'text-slate-600 hover:text-green-400'}`}>
+                className={`p-1.5 -m-1.5 shrink-0 transition-colors ${reading.completed ? 'text-green-500' : 'text-fg-quaternary hover:text-green-400'}`}>
                 {reading.completed ? <CheckCircle2 size={14} /> : <Circle size={14} />}
               </button>
-              <a href={reading.url} target="_blank" rel="noopener noreferrer" className="shrink-0 text-slate-600 hover:text-accent transition-colors">
+              <a href={reading.url} target="_blank" rel="noopener noreferrer" className="shrink-0 text-fg-quaternary hover:text-accent transition-colors">
                 <ExternalLink size={13} />
               </a>
             </li>
@@ -109,19 +109,19 @@ export default function QuestionHistory({ initialHistory, readingHistory }: Prop
           {filtered.map(h => (
             <li key={h.id} className="flex items-center gap-2.5 p-2 rounded-lg hover:bg-surface-2 transition-colors group">
               <span className={`text-xs px-2 py-0.5 rounded-full font-medium shrink-0 ${DIFFICULTY_COLOR[h.question.difficulty]}`}>{h.question.difficulty}</span>
-              <span className={`flex-1 min-w-0 text-sm truncate ${h.completed ? 'text-slate-400' : 'text-slate-300'}`}>{h.question.title}</span>
-              <span className="text-xs text-slate-600 shrink-0">{h.assigned_date}</span>
+              <span className={`flex-1 min-w-0 text-sm truncate ${h.completed ? 'text-fg-secondary' : 'text-fg-secondary'}`}>{h.question.title}</span>
+              <span className="text-xs text-fg-quaternary shrink-0">{h.assigned_date}</span>
               <button onClick={() => !h.completed && setOutcomeFor(h)} disabled={h.completed} aria-label="Mark question complete"
-                className={`p-1.5 -m-1.5 shrink-0 transition-colors ${h.completed ? 'text-green-500' : 'text-slate-600 hover:text-green-400'}`}>
+                className={`p-1.5 -m-1.5 shrink-0 transition-colors ${h.completed ? 'text-green-500' : 'text-fg-quaternary hover:text-green-400'}`}>
                 {h.completed ? <CheckCircle2 size={14} /> : <Circle size={14} />}
               </button>
-              <button onClick={() => handleFavorite(h.id)} aria-label={h.favorite ? 'Unfavorite question' : 'Favorite question'} className={`p-1.5 -m-1.5 shrink-0 transition-colors ${h.favorite ? 'text-amber-400' : 'text-slate-600 hover:text-amber-400'}`}>
+              <button onClick={() => handleFavorite(h.id)} aria-label={h.favorite ? 'Unfavorite question' : 'Favorite question'} className={`p-1.5 -m-1.5 shrink-0 transition-colors ${h.favorite ? 'text-amber-400' : 'text-fg-quaternary hover:text-amber-400'}`}>
                 <Star size={13} fill={h.favorite ? 'currentColor' : 'none'} />
               </button>
-              <button onClick={() => handleRevision(h.id)} aria-label={h.needs_revision ? 'Unflag for revision' : 'Flag for revision'} className={`p-1.5 -m-1.5 shrink-0 transition-colors ${h.needs_revision ? 'text-accent' : 'text-slate-600 hover:text-accent'}`}>
+              <button onClick={() => handleRevision(h.id)} aria-label={h.needs_revision ? 'Unflag for revision' : 'Flag for revision'} className={`p-1.5 -m-1.5 shrink-0 transition-colors ${h.needs_revision ? 'text-accent' : 'text-fg-quaternary hover:text-accent'}`}>
                 <RotateCcw size={13} />
               </button>
-              <a href={h.question.url} target="_blank" rel="noopener noreferrer" className="shrink-0 text-slate-600 hover:text-accent transition-colors">
+              <a href={h.question.url} target="_blank" rel="noopener noreferrer" className="shrink-0 text-fg-quaternary hover:text-accent transition-colors">
                 <ExternalLink size={13} />
               </a>
             </li>

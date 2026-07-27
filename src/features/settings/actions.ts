@@ -7,6 +7,10 @@ import { getCronJobHealth, type CronJobHealth } from '@/lib/cron-log'
 import { todayIST, istMidnightUtc, istDateStrToUtcMidnight } from '@/lib/date'
 import type { ReminderSlot } from './types'
 
+// Settings shows every reminder (active or paused) so the toggle below has
+// something to switch back on — actual Telegram delivery (src/lib/reminders.ts,
+// the Telegram planner module) queries this same table directly with its own
+// .eq('active', true) filter, so pausing here never touches delivery logic.
 export async function getReminders() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -16,7 +20,6 @@ export async function getReminders() {
     .from('reminders')
     .select('*')
     .eq('user_id', user.id)
-    .eq('active', true)
     .order('created_at', { ascending: false })
 
   if (error) throw new Error(error.message)
@@ -29,6 +32,13 @@ export async function addReminder(label: string, slot: ReminderSlot, module: str
   if (!user) throw new Error('Not authenticated')
 
   const { error } = await supabase.from('reminders').insert({ user_id: user.id, label, slot, module })
+  if (error) throw new Error(error.message)
+  revalidatePath('/settings')
+}
+
+export async function toggleReminder(id: string, active: boolean) {
+  const supabase = await createClient()
+  const { error } = await supabase.from('reminders').update({ active }).eq('id', id)
   if (error) throw new Error(error.message)
   revalidatePath('/settings')
 }

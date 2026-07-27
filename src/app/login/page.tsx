@@ -18,12 +18,12 @@ export default async function LoginPage({
             <span className="text-white font-bold text-xl">V</span>
           </div>
           <h1 className="text-xl font-semibold text-foreground">Personal OS</h1>
-          <p className="text-sm text-slate-500 mt-1">Your personal AI operating system</p>
+          <p className="text-sm text-fg-tertiary mt-1">Your personal AI operating system</p>
         </div>
 
         {/* Alerts */}
         {error === 'invalid_credentials' && (
-          <div className="mb-4 px-4 py-3 rounded-lg bg-red-500/10 border border-red-500/20 text-sm text-red-400">
+          <div className="mb-4 px-4 py-3 rounded-lg bg-risk-soft border border-red-500/20 text-sm text-red-400">
             Invalid email or password.
           </div>
         )}
@@ -31,7 +31,7 @@ export default async function LoginPage({
         <div className="bg-surface-1 border border-surface-3 rounded-xl p-6">
           <form className="space-y-4">
             <div className="space-y-1.5">
-              <label htmlFor="email" className="text-xs font-medium text-slate-400 uppercase tracking-wider">
+              <label htmlFor="email" className="text-xs font-medium text-fg-secondary uppercase tracking-wider">
                 Email
               </label>
               <input
@@ -41,12 +41,12 @@ export default async function LoginPage({
                 required
                 autoComplete="email"
                 placeholder="you@example.com"
-                className="w-full bg-surface-2 border border-surface-3 rounded-lg px-3 py-2.5 text-sm text-slate-200 placeholder-slate-600 outline-none focus:border-accent transition-colors"
+                className="w-full bg-surface-2 border border-surface-3 rounded-lg px-3 py-2.5 text-sm text-fg-primary placeholder-fg-quaternary outline-none focus:border-accent transition-colors"
               />
             </div>
 
             <div className="space-y-1.5">
-              <label htmlFor="password" className="text-xs font-medium text-slate-400 uppercase tracking-wider">
+              <label htmlFor="password" className="text-xs font-medium text-fg-secondary uppercase tracking-wider">
                 Password
               </label>
               <input
@@ -56,7 +56,7 @@ export default async function LoginPage({
                 required
                 autoComplete="current-password"
                 placeholder="••••••••"
-                className="w-full bg-surface-2 border border-surface-3 rounded-lg px-3 py-2.5 text-sm text-slate-200 placeholder-slate-600 outline-none focus:border-accent transition-colors"
+                className="w-full bg-surface-2 border border-surface-3 rounded-lg px-3 py-2.5 text-sm text-fg-primary placeholder-fg-quaternary outline-none focus:border-accent transition-colors"
               />
             </div>
 
@@ -69,7 +69,7 @@ export default async function LoginPage({
               </button>
               <Link
                 href="/self-host"
-                className="flex-1 py-2.5 rounded-lg bg-surface-2 border border-surface-3 text-slate-300 text-sm font-medium hover:bg-surface-3 transition-colors text-center"
+                className="flex-1 py-2.5 rounded-lg bg-surface-2 border border-surface-3 text-fg-secondary text-sm font-medium hover:bg-surface-3 transition-colors text-center"
               >
                 Not the owner? Build your own
               </Link>
@@ -77,7 +77,7 @@ export default async function LoginPage({
           </form>
         </div>
 
-        <footer className="text-center mt-8 text-xs text-slate-600">
+        <footer className="text-center mt-8 text-xs text-fg-quaternary">
           Made by Vinay, using Claude
         </footer>
       </div>

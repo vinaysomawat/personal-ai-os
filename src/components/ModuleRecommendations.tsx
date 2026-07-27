@@ -40,9 +40,9 @@ export default function ModuleRecommendations({ moduleLabel, context, isOpen }: 
   return (
     <div>
       <div className="flex items-center justify-between mb-3">
-        <p className="text-xs text-slate-500">Recommendations</p>
+        <p className="text-xs text-fg-tertiary">Recommendations</p>
         {items && !loading && (
-          <button onClick={regenerate} className="text-slate-500 hover:text-accent transition-colors" title="Regenerate">
+          <button onClick={regenerate} className="text-fg-tertiary hover:text-accent transition-colors" title="Regenerate">
             <RefreshCw size={12} />
           </button>
         )}
@@ -59,14 +59,14 @@ export default function ModuleRecommendations({ moduleLabel, context, isOpen }: 
             <li key={i} className="flex items-start gap-3">
               <span className="text-lg shrink-0">{r.emoji}</span>
               <div className="min-w-0">
-                <p className="text-sm text-slate-300">{r.action}</p>
+                <p className="text-sm text-fg-secondary">{r.action}</p>
                 <p className="text-xs text-accent mt-0.5">{r.impact}</p>
               </div>
             </li>
           ))}
         </ul>
       ) : (
-        <p className="text-sm text-slate-600">No recommendations right now — try again in a moment.</p>
+        <p className="text-sm text-fg-quaternary">No recommendations right now — try again in a moment.</p>
       )}
     </div>
   )

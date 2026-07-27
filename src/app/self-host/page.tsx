@@ -9,13 +9,13 @@ export default function SelfHostPage() {
             <span className="text-white font-bold text-xl">V</span>
           </div>
           <h1 className="text-xl font-semibold text-foreground">Run your own Personal OS</h1>
-          <p className="text-sm text-slate-500 mt-1">
+          <p className="text-sm text-fg-tertiary mt-1">
             This is a personal, single-user instance — not a shared app. Here&apos;s how to get your own, free.
           </p>
         </div>
 
         <div className="bg-surface-1 border border-surface-3 rounded-xl p-6">
-          <ol className="list-decimal list-inside space-y-3 text-sm text-slate-300">
+          <ol className="list-decimal list-inside space-y-3 text-sm text-fg-secondary">
             <li>
               Clone the repo:{' '}
               <a
@@ -53,7 +53,7 @@ export default function SelfHostPage() {
             </li>
             <li>Lock down signups on your own Supabase project once your account exists.</li>
           </ol>
-          <p className="text-xs text-slate-500 pt-4 mt-4 border-t border-surface-3">
+          <p className="text-xs text-fg-tertiary pt-4 mt-4 border-t border-surface-3">
             Full walkthrough — including optional per-module Telegram bots — is in the repo&apos;s README under
             &ldquo;Deploying your own instance.&rdquo;
           </p>
@@ -64,12 +64,12 @@ export default function SelfHostPage() {
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" alt="Buy Me A Coffee" className="h-10" />
           </a>
-          <Link href="/login" className="text-xs text-slate-500 hover:text-slate-300 transition-colors">
+          <Link href="/login" className="text-xs text-fg-tertiary hover:text-fg-secondary transition-colors">
             ← Back to sign in
           </Link>
         </div>
 
-        <footer className="text-center mt-8 text-xs text-slate-600">
+        <footer className="text-center mt-8 text-xs text-fg-quaternary">
           Made by Vinay, using Claude
         </footer>
       </div>

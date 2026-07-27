@@ -33,7 +33,7 @@ export default function DecisionHelper({ context }: { context: BrainContext }) {
       {!decision && !loading && (
         <div className="flex flex-wrap gap-2">
           {QUICK_DECISIONS.map(q => (
-            <button key={q} onClick={() => ask(q)} className="text-xs text-slate-600 px-2 py-1 rounded-lg bg-surface-2 hover:bg-surface-3 hover:text-slate-400 transition-colors">{q}</button>
+            <button key={q} onClick={() => ask(q)} className="text-xs text-fg-quaternary px-2 py-1 rounded-lg bg-surface-2 hover:bg-surface-3 hover:text-fg-secondary transition-colors">{q}</button>
           ))}
         </div>
       )}
@@ -53,7 +53,7 @@ export default function DecisionHelper({ context }: { context: BrainContext }) {
           onKeyDown={e => e.key === 'Enter' && ask(question)}
           disabled={loading}
           placeholder="Should I...?"
-          className="flex-1 bg-surface-2 border border-surface-3 rounded-lg px-3 py-2 text-sm text-slate-200 placeholder-slate-600 outline-none focus:border-accent transition-colors"
+          className="flex-1 bg-surface-2 border border-surface-3 rounded-lg px-3 py-2 text-sm text-fg-primary placeholder-fg-quaternary outline-none focus:border-accent transition-colors"
         />
         <button onClick={() => ask(question)} disabled={loading || !question.trim()} className="px-3 py-2 rounded-lg bg-accent text-white text-sm font-medium hover:bg-accent/80 disabled:opacity-40 transition-colors">
           Ask

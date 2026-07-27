@@ -46,16 +46,16 @@ export function AIAdvisorProvider({ children }: { children: ReactNode }) {
           captures a node and panelBody stays null forever. Visibility is
           purely CSS-driven instead. */}
       <div
-        className={`fixed inset-0 z-40 bg-black/40 ${isOpen && label ? '' : 'hidden'}`}
+        className={`fixed inset-0 z-40 bg-overlay ${isOpen && label ? '' : 'hidden'}`}
         onClick={() => setIsOpen(false)}
       />
       <div className={`fixed top-14 right-4 md:right-6 z-50 w-[380px] max-w-[calc(100vw-2rem)] max-h-[75vh] overflow-y-auto bg-surface-1 border border-surface-3 rounded-xl shadow-2xl animate-in slide-in-from-top-2 fade-in duration-150 ${isOpen && label ? '' : 'hidden'}`}>
         <div className="flex items-center justify-between px-4 py-3 border-b border-surface-3 sticky top-0 bg-surface-1 z-10">
           <div className="flex items-center gap-2">
             {Icon && <Icon size={15} className="text-accent" />}
-            <span className="text-sm font-semibold text-slate-200">{label}</span>
+            <span className="text-sm font-semibold text-fg-primary">{label}</span>
           </div>
-          <button onClick={() => setIsOpen(false)} aria-label="Close AI advisor panel" className="p-1.5 -m-1.5 text-slate-500 hover:text-slate-300 transition-colors">
+          <button onClick={() => setIsOpen(false)} aria-label="Close AI advisor panel" className="p-1.5 -m-1.5 text-fg-tertiary hover:text-fg-secondary transition-colors">
             <X size={16} />
           </button>
         </div>

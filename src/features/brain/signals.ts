@@ -161,14 +161,22 @@ export async function detectPatterns(supabase: SupabaseClient, userId: string): 
   return patterns
 }
 
+export interface RecentPattern {
+  pattern: string
+  timesConfirmed: number
+}
+
 // Feeds Ask Brain's context — recent, repeatedly-confirmed patterns only
 // (times_confirmed > 1 means it's shown up on more than one weekly run, not
 // a one-off), so a fluke doesn't get presented as an established pattern.
-export async function getRecentPatterns(supabase: SupabaseClient, userId: string): Promise<string[]> {
+// Callers that just need prompt text should `.map(p => p.pattern)` — the
+// count is carried through for Dashboard's Today's Insight "seen N× in the
+// last 30 days" badge, the one consumer that needs more than the text.
+export async function getRecentPatterns(supabase: SupabaseClient, userId: string): Promise<RecentPattern[]> {
   const since = daysAgoIST(30)
   const { data } = await supabase
     .from('brain_patterns').select('pattern, times_confirmed')
     .eq('user_id', userId).gte('last_seen', since).gt('times_confirmed', 1)
     .order('times_confirmed', { ascending: false }).limit(5)
-  return (data ?? []).map(r => r.pattern as string)
+  return (data ?? []).map(r => ({ pattern: r.pattern as string, timesConfirmed: r.times_confirmed as number }))
 }
