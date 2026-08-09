@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useTransition } from 'react'
-import { Plus, Trash2, X, Sparkles, Pencil, Check, TrendingUp, TrendingDown, Eye, EyeOff, Repeat, Landmark, Target, Receipt } from 'lucide-react'
+import { Sparkles, Pencil, Check, Eye, EyeOff, Repeat, Landmark, Target, Receipt } from 'lucide-react'
 import Card from '@/components/Card'
 import EmptyState from '@/components/EmptyState'
 import Modal, { modalLabelClass, modalInputClass, modalSelectClass, modalCancelButtonClass, modalSaveButtonClass } from '@/components/Modal'
@@ -17,7 +17,7 @@ import {
 import { askFinanceAdvisor } from '@/features/ai/finance-advisor'
 import ScenarioSimulator from './ScenarioSimulator'
 import SpendingHistory from './SpendingHistoryLazy'
-import { CATEGORIES, INVESTMENT_TYPES, INVESTMENT_COLOR } from '../types'
+import { CATEGORIES, INVESTMENT_TYPES } from '../types'
 import type { Expense, Budget, FinanceProfile, Loan, Investment, FinancialGoal, RecurringExpense, InvestmentType, GoalPriority } from '../types'
 import { useEscapeKey } from '@/lib/use-escape-key'
 import { useFormValidation } from '@/lib/use-form-validation'
@@ -35,6 +35,13 @@ const CATEGORY_COLOR: Record<string, string> = {
 const PRIORITY_COLOR: Record<GoalPriority, string> = {
   high: 'text-red-400', medium: 'text-amber-400', low: 'text-fg-tertiary',
 }
+
+// Outlined mini "+ Add" trigger — design's style for Loans/Investments/Goals/
+// Recurring section headers (distinct from By Category's filled "+ Add Expense").
+const outlineAddBtn = 'px-2.5 py-1 rounded-[6px] border border-border-strong text-[11.5px] text-fg-secondary hover:bg-surface-2 transition-colors whitespace-nowrap'
+// Design uses a plain "✕" glyph for every delete control in Finance (expenses,
+// investments, recurring, loans) rather than a trash icon.
+const deleteGlyphBtn = 'shrink-0 opacity-0 group-hover:opacity-100 text-fg-quaternary hover:text-red-400 text-[11px] p-0.5 transition-all'
 
 function fmt(n: number) {
   return new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(n)
@@ -130,69 +137,40 @@ export default function FinanceView({ expenses, budgets, profile, loans, investm
     return { cat, spent, budget }
   }).filter(c => c.spent > 0 || c.budget > 0).sort((a, b) => b.spent - a.spent)
 
-  const monthLabel = new Date(month + '-01').toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
+  // Design's over-budget banner names the single (first, by list order)
+  // category that's over — not an aggregate "over budget overall" figure.
+  const overBudgetCategory = byCategory.find(c => c.budget > 0 && c.spent > c.budget) ?? null
 
   const sips = localInvestments.filter(i => i.is_sip)
   const lumpSum = localInvestments.filter(i => !i.is_sip)
   const renderInvestmentItem = (inv: Investment) => {
-    const pl = Number(inv.current_value) - Number(inv.invested_amount)
-    const plPct = Number(inv.invested_amount) > 0 ? (pl / Number(inv.invested_amount)) * 100 : 0
+    const gain = Number(inv.current_value) - Number(inv.invested_amount)
+    const gainPct = Number(inv.invested_amount) > 0 ? (gain / Number(inv.invested_amount)) * 100 : 0
     return (
-      <li key={inv.id} className="group">
-        <div className="flex items-start justify-between">
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2">
-              <span className={`text-xs px-1.5 py-0.5 rounded-full font-medium shrink-0 ${INVESTMENT_COLOR[inv.type as InvestmentType]}`}>
-                {INVESTMENT_TYPES.find(t => t.value === inv.type)?.label ?? inv.type}
-              </span>
-              {inv.is_sip && (
-                <span className={`text-[10px] font-bold uppercase px-1.5 py-0.5 rounded-full shrink-0 ${inv.sip_amount !== null ? 'bg-accent-soft text-accent' : 'bg-surface-3 text-fg-tertiary'}`}>
-                  SIP
-                </span>
-              )}
-              <p className="text-sm text-fg-secondary truncate">{inv.name}</p>
-            </div>
-            <div className="flex items-center gap-3 mt-1 text-xs flex-wrap">
-              <span className="text-fg-quaternary flex items-center gap-1">
-                invested
-                <InlineEdit
-                  value={String(inv.invested_amount)} prefix="₹" textSize="text-xs" inputWidth="w-24"
-                  onSave={v => handleInvAmountSave(inv.id, v)}
-                />
-              </span>
-              <span className="text-fg-secondary font-medium flex items-center gap-1">
-                current
-                <InlineEdit
-                  value={String(inv.current_value)} prefix="₹" textSize="text-xs" inputWidth="w-24"
-                  onSave={v => handleInvValueSave(inv.id, v)}
-                />
-              </span>
-              {inv.is_sip && inv.sip_amount !== null && (
-                <span className="text-accent flex items-center gap-1 group/sip">
-                  <Repeat size={10} /> {fmt(Number(inv.sip_amount))}/mo · day {inv.sip_day_of_month}
-                  <button
-                    type="button" title="Cancel SIP (keeps the investment)"
-                    onClick={() => handleCancelSip(inv.id)}
-                    className="opacity-0 group-hover/sip:opacity-100 text-fg-quaternary hover:text-red-400 transition-all"
-                  >
-                    <X size={10} />
-                  </button>
-                </span>
-              )}
-            </div>
-            {inv.is_sip && inv.sip_amount === null && (
-              <p className="text-[11px] text-fg-quaternary mt-1">Contributions stopped — investment kept.</p>
-            )}
-          </div>
-          <div className="flex items-center gap-2 shrink-0">
-            <span className={`text-xs font-medium ${pl >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-              {pl >= 0 ? '+' : ''}{plPct.toFixed(1)}%
-            </span>
-            <button onClick={() => handleDeleteInvestment(inv.id)} aria-label="Delete investment" className="opacity-0 group-hover:opacity-100 text-fg-quaternary hover:text-red-400 transition-all">
-              <Trash2 size={12} />
-            </button>
-          </div>
-        </div>
+      <li key={inv.id} className="flex items-center gap-x-1.5 gap-y-1 flex-wrap text-[12.5px] text-fg-secondary group">
+        {inv.is_sip && (
+          <button type="button" onClick={() => handleCancelSip(inv.id)} title="Cancel SIP (keeps the investment)" className="text-fg-quaternary hover:text-red-400 transition-colors text-xs p-0.5 -m-0.5">✕</button>
+        )}
+        <span className={`text-[10px] font-bold uppercase px-1.5 py-0.5 rounded-full shrink-0 ${inv.is_sip ? (inv.sip_amount !== null ? 'bg-accent-soft text-accent' : 'bg-surface-3 text-fg-tertiary') : 'bg-surface-3 text-fg-tertiary'}`}>
+          {inv.is_sip ? 'SIP' : (INVESTMENT_TYPES.find(t => t.value === inv.type)?.label ?? inv.type)}
+        </span>
+        <span>{inv.name} —</span>
+        <span className="flex items-center gap-1">
+          <InlineEdit value={String(inv.current_value)} prefix="₹" textSize="text-[12.5px]" inputWidth="w-24" onSave={v => handleInvValueSave(inv.id, v)} /> current,
+        </span>
+        <span className="flex items-center gap-1">
+          <InlineEdit value={String(inv.invested_amount)} prefix="₹" textSize="text-[12.5px]" inputWidth="w-24" onSave={v => handleInvAmountSave(inv.id, v)} /> invested
+        </span>
+        <span className={gain >= 0 ? 'text-green-400' : 'text-red-400'}>({gain >= 0 ? '+' : ''}{fmt(gain)} · {gainPct.toFixed(1)}%)</span>
+        {inv.is_sip && inv.sip_amount !== null && (
+          <span className="text-accent flex items-center gap-1">
+            <Repeat size={10} /> {fmt(Number(inv.sip_amount))}/mo · day {inv.sip_day_of_month}
+          </span>
+        )}
+        {inv.is_sip && inv.sip_amount === null && (
+          <span className="text-[11px] text-fg-quaternary">Contributions stopped — investment kept.</span>
+        )}
+        <button onClick={() => handleDeleteInvestment(inv.id)} aria-label="Delete investment" className={deleteGlyphBtn}>✕</button>
       </li>
     )
   }
@@ -363,14 +341,27 @@ export default function FinanceView({ expenses, budgets, profile, loans, investm
   ))
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-4">
       {advisorPortal}
-      <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-fg-primary">Finance</h1>
-      {/* Net Worth Overview */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <div className="bg-surface-1 border border-surface-3 rounded-xl p-4">
+      <div className="flex items-center gap-3 flex-wrap">
+        <h1 className="text-[34px] font-bold tracking-[-0.02em] text-fg-primary">Finance</h1>
+        <span className="text-[11px] font-semibold bg-surface-2 rounded-full px-2.5 py-1 text-accent">💰 Net Worth {fmt(netWorth)}</span>
+        <span className="text-[11px] font-semibold bg-surface-2 rounded-full px-2.5 py-1 text-fg-secondary">📊 3mo avg spend {fmt(avgMonthlyExpense)}</span>
+      </div>
+
+      {/* Over-budget alert — names the specific over-budget category, matching
+          the design's exact message format, not just an aggregate figure. */}
+      {overBudgetCategory && (
+        <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-risk-soft border border-risk-border">
+          <p className="text-[13px] text-risk-strong">⚠ {overBudgetCategory.cat} is over budget by {fmt(overBudgetCategory.spent - overBudgetCategory.budget)} this month.</p>
+        </div>
+      )}
+
+      {/* Stat tiles */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3.5">
+        <div className="bg-surface-1 border border-surface-3 rounded-2xl p-[var(--card-pad-sm)]">
           <div className="flex items-center justify-between mb-1">
-            <p className="text-xs text-fg-tertiary uppercase tracking-wider">Monthly Salary</p>
+            <p className="text-[11px] text-fg-tertiary uppercase">Monthly Salary</p>
             <button onClick={() => setSalaryVisible(v => !v)} aria-label={salaryVisible ? 'Hide salary' : 'Show salary'} className="p-1.5 -m-1.5 text-fg-quaternary hover:text-fg-secondary transition-colors">
               {salaryVisible ? <EyeOff size={12} /> : <Eye size={12} />}
             </button>
@@ -392,177 +383,32 @@ export default function FinanceView({ expenses, budgets, profile, loans, investm
             </p>
           )}
         </div>
-        <div className="bg-surface-1 border border-surface-3 rounded-xl p-4">
-          <p className="text-xs text-fg-tertiary uppercase tracking-wider mb-1">Portfolio</p>
-          <p className="text-xl font-bold text-green-400">{fmt(portfolio)}</p>
-          <p className={`text-xs mt-1 ${portfolio >= invested ? 'text-green-500' : 'text-red-400'}`}>
-            {portfolio >= invested ? <TrendingUp size={10} className="inline mr-1" /> : <TrendingDown size={10} className="inline mr-1" />}
-            {fmt(Math.abs(portfolio - invested))} {portfolio >= invested ? 'gain' : 'loss'}
+        <div className="bg-surface-1 border border-surface-3 rounded-2xl p-[var(--card-pad-sm)]">
+          <p className="text-[11px] text-fg-tertiary uppercase mb-1">Portfolio</p>
+          <p className="text-xl font-bold text-fg-primary">
+            {fmt(portfolio)} <span className={`text-xs ${portfolio >= invested ? 'text-green-400' : 'text-red-400'}`}>({portfolio >= invested ? '+' : '-'}{fmt(Math.abs(portfolio - invested))})</span>
           </p>
         </div>
-        <div className="bg-surface-1 border border-surface-3 rounded-xl p-4">
-          <p className="text-xs text-fg-tertiary uppercase tracking-wider mb-1">Total Debt</p>
+        <div className="bg-surface-1 border border-surface-3 rounded-2xl p-[var(--card-pad-sm)]">
+          <p className="text-[11px] text-fg-tertiary uppercase mb-1">Total Debt</p>
           <p className="text-xl font-bold text-red-400">{fmt(totalDebt)}</p>
-          <p className="text-xs text-fg-quaternary mt-1">{fmt(totalEMIs)}/mo EMI</p>
+          <p className="text-[10.5px] text-fg-quaternary mt-1">{fmt(totalEMIs)}/mo EMI</p>
         </div>
-        <div className="bg-surface-1 border border-surface-3 rounded-xl p-4">
-          <p className="text-xs text-fg-tertiary uppercase tracking-wider mb-1">Net Worth</p>
+        <div className="bg-surface-1 border border-surface-3 rounded-2xl p-[var(--card-pad-sm)]">
+          <p className="text-[11px] text-fg-tertiary uppercase mb-1">Net Worth</p>
           <p className={`text-xl font-bold ${netWorth >= 0 ? 'text-accent' : 'text-red-400'}`}>{fmt(netWorth)}</p>
         </div>
       </div>
 
-      {/* Over-budget alert — surfaced right after the stat row, same
-          "urgent signal near the top" pattern Planner's Overdue card
-          already uses, rather than burying it past two card rows below. */}
-      {remaining < 0 && (
-        <div className="flex items-center gap-3 px-3.5 py-2.5 rounded-xl bg-risk-soft border border-red-500/30">
-          <span className="text-lg shrink-0">⚠️</span>
-          <p className="flex-1 text-sm text-fg-primary">Over budget by <span className="font-medium">{fmt(Math.abs(remaining))}</span> this month</p>
-        </div>
-      )}
-
-      {/* Loans + Investments */}
+      {/* By Category (left) + Loans/Investments/Goals/Expenses stack (right) —
+          matches the design's two-column grouping instead of stacking every
+          section full-width. */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-start">
-        <Card title="Loans & EMIs" padding="p-3.5" action={
-          <button onClick={() => setModal('loan')} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-accent text-white text-xs font-medium hover:bg-accent/80 transition-colors">
-            <Plus size={12} /> Add loan
+        <Card title="By Category" action={
+          <button onClick={() => setModal('expense')} className="px-3.5 py-[7px] rounded-[7px] bg-accent text-white text-[12.5px] font-semibold hover:bg-accent/80 transition-colors whitespace-nowrap">
+            + Add Expense
           </button>
         }>
-          {localLoans.length === 0 ? (
-            <EmptyState icon={Landmark} message="No loans added" compact cta={{ label: 'Add loan', onClick: () => setModal('loan') }} />
-          ) : (
-            <ul className="space-y-3">
-              {localLoans.map(loan => {
-                const totalMonths = loan.remaining_months ?? 0
-                const remaining = totalMonths > 0 ? loan.emi * totalMonths : loan.principal
-                return (
-                  <li key={loan.id} className="group">
-                    <div className="flex items-start justify-between">
-                      <div>
-                        <p className="text-sm text-fg-secondary font-medium">{loan.name}</p>
-                        <div className="text-xs text-fg-quaternary mt-0.5 flex items-center flex-wrap gap-x-1">
-                          <InlineEdit
-                            value={String(loan.emi)} prefix="₹" suffix="/mo" textSize="text-xs" inputWidth="w-20"
-                            onSave={v => handleLoanEmiSave(loan.id, v)}
-                          />
-                          <span>·</span>
-                          <InlineEdit
-                            value={loan.remaining_months !== null ? String(loan.remaining_months) : ''} prefix="" suffix=" months left" placeholder="?" textSize="text-xs" inputWidth="w-14"
-                            onSave={v => handleLoanMonthsSave(loan.id, v)}
-                          />
-                          <span>·</span>
-                          <InlineEdit
-                            value={loan.interest_rate !== null ? String(loan.interest_rate) : ''} prefix="" suffix="% p.a." placeholder="set rate" textSize="text-xs" inputWidth="w-14"
-                            onSave={v => handleLoanRateSave(loan.id, v)}
-                          />
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm font-medium text-red-400">{fmt(remaining)}</span>
-                        <button onClick={() => handleDeleteLoan(loan.id)} aria-label="Delete loan" className="opacity-0 group-hover:opacity-100 text-fg-quaternary hover:text-red-400 transition-all">
-                          <Trash2 size={12} />
-                        </button>
-                      </div>
-                    </div>
-                    {loan.remaining_months && (
-                      <div className="mt-2 h-1 bg-surface-3 rounded-full overflow-hidden">
-                        <div className="h-full bg-red-400/60 rounded-full" style={{ width: '30%' }} />
-                      </div>
-                    )}
-                  </li>
-                )
-              })}
-            </ul>
-          )}
-        </Card>
-
-        <Card title="Investments" padding="p-3.5" action={
-          <button onClick={() => setModal('investment')} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-accent text-white text-xs font-medium hover:bg-accent/80 transition-colors">
-            <Plus size={12} /> Add
-          </button>
-        }>
-          {localInvestments.length === 0 ? (
-            <EmptyState icon={TrendingUp} message="No investments added" compact cta={{ label: 'Add', onClick: () => setModal('investment') }} />
-          ) : (
-            <div className="space-y-4">
-              {sips.length > 0 && (
-                <div>
-                  <p className="text-xs text-fg-tertiary uppercase tracking-wider mb-2 flex items-center gap-1.5"><Repeat size={11} /> SIPs</p>
-                  <ul className="space-y-3">{sips.map(inv => renderInvestmentItem(inv))}</ul>
-                </div>
-              )}
-              {sips.length > 0 && (
-                <div>
-                  <p className="text-xs text-fg-tertiary uppercase tracking-wider mb-2">Lump Sum</p>
-                  {lumpSum.length === 0 ? (
-                    <p className="text-xs text-fg-quaternary">No lump-sum investments yet.</p>
-                  ) : (
-                    <ul className="space-y-3">{lumpSum.map(inv => renderInvestmentItem(inv))}</ul>
-                  )}
-                </div>
-              )}
-              {sips.length === 0 && lumpSum.length > 0 && (
-                <ul className="space-y-3">{lumpSum.map(inv => renderInvestmentItem(inv))}</ul>
-              )}
-            </div>
-          )}
-        </Card>
-      </div>
-
-      {/* Goals */}
-      <Card title="Financial Goals" padding="p-3.5" action={
-        <button onClick={() => setModal('goal')} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-accent text-white text-xs font-medium hover:bg-accent/80 transition-colors">
-          <Plus size={12} /> Add goal
-        </button>
-      }>
-        {localGoals.length === 0 ? (
-          <EmptyState icon={Target} message="No goals set — add one to track your savings" compact cta={{ label: 'Add goal', onClick: () => setModal('goal') }} />
-        ) : (
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            {localGoals.map(goal => {
-              const pct = Math.min((Number(goal.current_amount) / Number(goal.target_amount)) * 100, 100)
-              return (
-                <div key={goal.id} className="group">
-                  <div className="flex items-start justify-between mb-2">
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <p className="text-sm text-fg-secondary font-medium">{goal.name}</p>
-                        <span className={`text-xs font-medium ${PRIORITY_COLOR[goal.priority as GoalPriority]}`}>{goal.priority}</span>
-                      </div>
-                      {goal.target_date && <p className="text-xs text-fg-quaternary mt-0.5">Target: {goal.target_date}</p>}
-                    </div>
-                    <div className="flex items-center gap-2">
-                      {editingGoalId === goal.id ? (
-                        <div className="flex items-center gap-1">
-                          <input value={editInput} onChange={e => setEditInput(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') handleGoalProgressSave(goal.id); if (e.key === 'Escape') setEditingGoalId(null) }} autoFocus className="w-24 bg-surface-2 border border-accent rounded px-2 py-0.5 text-xs outline-none" />
-                          <button onClick={() => handleGoalProgressSave(goal.id)} aria-label="Save goal progress" className="p-1.5 -m-1.5 text-green-400"><Check size={10} /></button>
-                        </div>
-                      ) : (
-                        <button onClick={() => { setEditingGoalId(goal.id); setEditInput(String(goal.current_amount)) }} className="text-xs text-fg-secondary hover:text-white flex items-center gap-1 group/g">
-                          {fmt(Number(goal.current_amount))} / {fmt(Number(goal.target_amount))}
-                          <Pencil size={8} className="opacity-0 group-hover/g:opacity-50 transition-opacity" />
-                        </button>
-                      )}
-                      <button onClick={() => handleDeleteGoal(goal.id)} aria-label="Delete goal" className="opacity-0 group-hover:opacity-100 text-fg-quaternary hover:text-red-400 transition-all">
-                        <Trash2 size={12} />
-                      </button>
-                    </div>
-                  </div>
-                  <div className="h-1.5 bg-surface-3 rounded-full overflow-hidden">
-                    <div className="h-full bg-accent rounded-full transition-all" style={{ width: `${pct}%` }} />
-                  </div>
-                  <p className="text-xs text-fg-quaternary mt-1">{pct.toFixed(0)}% · {fmt(Number(goal.target_amount) - Number(goal.current_amount))} to go</p>
-                </div>
-              )
-            })}
-          </div>
-        )}
-      </Card>
-
-      {/* Expenses + Budgets */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        {/* Category breakdown */}
-        <Card title="By Category" padding="p-3.5" action={<span className="text-xs text-fg-tertiary">{monthLabel}</span>}>
           <div className="flex gap-3 mb-3">
             <div className="text-center">
               <p className="text-lg font-bold text-red-400">{fmt(totalSpent)}</p>
@@ -582,27 +428,40 @@ export default function FinanceView({ expenses, budgets, profile, loans, investm
           ) : (
             <ul className="space-y-2">
               {byCategory.map(({ cat, spent, budget }) => {
-                const pct = budget > 0 ? Math.min((spent / budget) * 100, 100) : 0
-                const over = budget > 0 && spent > budget
+                const pctRaw = budget > 0 ? Math.round((spent / budget) * 100) : 0
+                const pct = Math.min(100, pctRaw)
+                // Design's spending-bar tier colors: green under 90%, amber
+                // 90-99%, red at/over 100% — not the accent/red binary this
+                // page used before.
+                const tier = pctRaw >= 100 ? 'over' : pctRaw >= 90 ? 'near' : 'ok'
+                const barColor = tier === 'over' ? 'bg-red-400' : tier === 'near' ? 'bg-amber-400' : 'bg-green-400'
+                const textColor = tier === 'over' ? 'text-red-400' : tier === 'near' ? 'text-amber-400' : 'text-green-400'
+                const badgeText = pctRaw > 100 ? 'Over' : pctRaw === 100 ? 'At limit' : pctRaw >= 90 ? 'Near limit' : null
                 const catExpenses = localExpenses.filter(e => e.category === cat)
                 const isOpen = expandedCategory === cat
                 return (
                   <li key={cat}>
                     <div onClick={() => setExpandedCategory(isOpen ? null : cat)} className="cursor-pointer">
-                      <div className="flex items-center justify-between mb-1">
-                        <div className="flex items-center gap-2">
-                          <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${CATEGORY_COLOR[cat]}`}>{cat}</span>
-                          <button
-                            onClick={e => { e.stopPropagation(); setEditingBudget(cat); setBudgetInput(String(budget || '')) }}
-                            className="text-xs text-fg-quaternary hover:text-fg-secondary transition-colors"
-                          >
-                            {budget > 0 ? `/ ${fmt(budget)}` : '+ budget'}
-                          </button>
-                        </div>
-                        <span className={`text-sm font-medium ${over ? 'text-red-400' : 'text-fg-secondary'}`}>{fmt(spent)}</span>
+                      <div className="flex items-center justify-between mb-[5px] flex-wrap gap-1 text-[12.5px]">
+                        <span className="flex items-center gap-1.5 text-fg-primary">
+                          <span className={`inline-block transition-transform text-[10px] ${isOpen ? 'rotate-90' : ''}`}>▸</span>
+                          {cat}
+                          {badgeText && (
+                            <span className={`text-[9.5px] font-bold uppercase px-1.5 py-0.5 rounded ${tier === 'over' ? 'bg-risk-soft text-red-400' : 'bg-warn-soft text-amber-400'}`}>{badgeText}</span>
+                          )}
+                        </span>
+                        <span className="text-fg-tertiary whitespace-nowrap">
+                          {budget > 0 ? <>{fmt(spent)} / {fmt(budget)} <span className={`font-semibold ${textColor}`}>({pctRaw}%)</span></> : fmt(spent)}
+                        </span>
                       </div>
-                      {budget > 0 && <div className="h-1 bg-surface-3 rounded-full overflow-hidden"><div className={`h-full rounded-full transition-all ${over ? 'bg-red-400' : 'bg-accent'}`} style={{ width: `${pct}%` }} /></div>}
+                      {budget > 0 && <div className="h-[6px] rounded-[4px] bg-border"><div className={`h-full rounded-[4px] ${barColor}`} style={{ width: `${pct}%` }} /></div>}
                     </div>
+                    <button
+                      onClick={e => { e.stopPropagation(); setEditingBudget(cat); setBudgetInput(String(budget || '')) }}
+                      className="text-[10px] text-fg-quaternary hover:text-fg-secondary transition-colors mt-1"
+                    >
+                      {budget > 0 ? 'Edit budget' : '+ Set budget'}
+                    </button>
                     {editingBudget === cat && (
                       <div className="flex gap-2 mt-2">
                         <input value={budgetInput} onChange={e => setBudgetInput(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') handleBudgetSave(cat); if (e.key === 'Escape') setEditingBudget(null) }} placeholder="Budget amount" type="number" autoFocus className="flex-1 bg-surface-2 border border-accent rounded-lg px-3 py-1.5 text-sm text-fg-primary outline-none" />
@@ -620,7 +479,7 @@ export default function FinanceView({ expenses, budgets, profile, loans, investm
                             <span className="text-xs text-fg-quaternary shrink-0">{exp.date}</span>
                             {exp.description && <span className="text-xs text-fg-tertiary truncate flex-1">{exp.description}</span>}
                             <span className="text-xs text-fg-secondary font-medium shrink-0 ml-auto">{fmt(Number(exp.amount))}</span>
-                            <button onClick={() => handleDeleteExpense(exp.id)} aria-label="Delete expense" className="p-1 -m-1 shrink-0 opacity-0 group-hover:opacity-100 text-fg-quaternary hover:text-red-400 transition-all"><Trash2 size={11} /></button>
+                            <button onClick={() => handleDeleteExpense(exp.id)} aria-label="Delete expense" className={deleteGlyphBtn}>✕</button>
                           </li>
                         ))}
                       </ul>
@@ -632,60 +491,146 @@ export default function FinanceView({ expenses, budgets, profile, loans, investm
           )}
         </Card>
 
-        {/* Expense list */}
-        <Card title="Expenses" padding="p-3.5" action={
-          <button onClick={() => setModal('expense')} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-accent text-white text-xs font-medium hover:bg-accent/80 transition-colors">
-            <Plus size={12} /> Add
-          </button>
-        }>
-          {localExpenses.length === 0 ? (
-            <EmptyState icon={Receipt} message="No expenses this month" compact cta={{ label: 'Add', onClick: () => setModal('expense') }} />
-          ) : (
-            <ul className="space-y-0.5 max-h-80 overflow-y-auto">
-              {localExpenses.map(exp => (
-                <li key={exp.id} className="flex items-center gap-2.5 p-2 rounded-lg hover:bg-surface-2 transition-colors group">
-                  <span className={`text-xs px-1.5 py-0.5 rounded-full font-medium shrink-0 ${CATEGORY_COLOR[exp.category]}`}>{exp.category}</span>
-                  <span className="text-xs text-fg-quaternary shrink-0">{exp.date}</span>
-                  {exp.description && <span className="text-xs text-fg-secondary truncate flex-1">{exp.description}</span>}
-                  <span className="text-xs text-fg-secondary font-medium shrink-0 ml-auto">{fmt(Number(exp.amount))}</span>
-                  <button onClick={() => handleDeleteExpense(exp.id)} aria-label="Delete expense" className="p-1 -m-1 shrink-0 opacity-0 group-hover:opacity-100 text-fg-quaternary hover:text-red-400 transition-all"><Trash2 size={11} /></button>
-                </li>
-              ))}
-            </ul>
-          )}
-        </Card>
+        <div className="flex flex-col gap-3.5">
+          <Card title="Loans" padding="p-[var(--card-pad-md)]" action={
+            <button onClick={() => setModal('loan')} className={outlineAddBtn}>+ Add</button>
+          }>
+            {localLoans.length === 0 ? (
+              <EmptyState icon={Landmark} message="No loans added" compact cta={{ label: 'Add loan', onClick: () => setModal('loan') }} />
+            ) : (
+              <ul className="flex flex-col gap-2">
+                {localLoans.map(loan => (
+                  <li key={loan.id} className="flex items-center gap-x-1.5 gap-y-1 flex-wrap text-[12.5px] text-fg-secondary group">
+                    <span>{loan.name} — EMI</span>
+                    <InlineEdit value={String(loan.emi)} prefix="₹" textSize="text-[12.5px]" inputWidth="w-20" onSave={v => handleLoanEmiSave(loan.id, v)} />
+                    <span>·</span>
+                    <InlineEdit value={loan.remaining_months !== null ? String(loan.remaining_months) : ''} prefix="" suffix=" months left" placeholder="?" textSize="text-[12.5px]" inputWidth="w-14" onSave={v => handleLoanMonthsSave(loan.id, v)} />
+                    <span>·</span>
+                    <InlineEdit value={loan.interest_rate !== null ? String(loan.interest_rate) : ''} prefix="" suffix="% p.a." placeholder="set rate" textSize="text-[12.5px]" inputWidth="w-14" onSave={v => handleLoanRateSave(loan.id, v)} />
+                    <button onClick={() => handleDeleteLoan(loan.id)} aria-label="Delete loan" className={deleteGlyphBtn}>✕</button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </Card>
+
+          <Card title="Investments" padding="p-[var(--card-pad-md)]" action={
+            <button onClick={() => setModal('investment')} className={outlineAddBtn}>+ Add</button>
+          }>
+            {localInvestments.length === 0 ? (
+              <EmptyState icon={Target} message="No investments added" compact cta={{ label: 'Add', onClick: () => setModal('investment') }} />
+            ) : (
+              <div className="space-y-3">
+                {sips.length > 0 && (
+                  <div>
+                    <p className="text-[10.5px] text-fg-tertiary uppercase tracking-[0.4px] font-bold mb-1.5">SIPs</p>
+                    <ul className="flex flex-col gap-2">{sips.map(inv => renderInvestmentItem(inv))}</ul>
+                  </div>
+                )}
+                <div>
+                  <p className="text-[10.5px] text-fg-tertiary uppercase tracking-[0.4px] font-bold mb-1.5">Lump Sum</p>
+                  {lumpSum.length === 0 ? (
+                    <p className="text-xs text-fg-quaternary">No lump-sum investments yet.</p>
+                  ) : (
+                    <ul className="flex flex-col gap-2">{lumpSum.map(inv => renderInvestmentItem(inv))}</ul>
+                  )}
+                </div>
+              </div>
+            )}
+          </Card>
+
+          <Card title="Financial Goals" padding="p-[var(--card-pad-md)]" action={
+            <button onClick={() => setModal('goal')} className={outlineAddBtn}>+ Add</button>
+          }>
+            {localGoals.length === 0 ? (
+              <EmptyState icon={Target} message="No goals set — add one to track your savings" compact cta={{ label: 'Add goal', onClick: () => setModal('goal') }} />
+            ) : (
+              <div className="flex flex-col gap-3">
+                {localGoals.map(goal => {
+                  const pct = Math.min((Number(goal.current_amount) / Number(goal.target_amount)) * 100, 100)
+                  return (
+                    <div key={goal.id} className="group">
+                      <div className="flex items-start justify-between mb-1">
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <p className="text-[12.5px] text-fg-secondary font-medium">{goal.name}</p>
+                            <span className={`text-xs font-medium ${PRIORITY_COLOR[goal.priority as GoalPriority]}`}>{goal.priority}</span>
+                          </div>
+                          {goal.target_date && <p className="text-xs text-fg-quaternary mt-0.5">Target: {goal.target_date}</p>}
+                        </div>
+                        <div className="flex items-center gap-2">
+                          {editingGoalId === goal.id ? (
+                            <div className="flex items-center gap-1">
+                              <input value={editInput} onChange={e => setEditInput(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') handleGoalProgressSave(goal.id); if (e.key === 'Escape') setEditingGoalId(null) }} autoFocus className="w-24 bg-surface-2 border border-accent rounded px-2 py-0.5 text-xs outline-none" />
+                              <button onClick={() => handleGoalProgressSave(goal.id)} aria-label="Save goal progress" className="p-1.5 -m-1.5 text-green-400"><Check size={10} /></button>
+                            </div>
+                          ) : (
+                            <button onClick={() => { setEditingGoalId(goal.id); setEditInput(String(goal.current_amount)) }} className="text-xs text-fg-secondary hover:text-white flex items-center gap-1 group/g">
+                              {fmt(Number(goal.current_amount))} / {fmt(Number(goal.target_amount))}
+                              <Pencil size={8} className="opacity-0 group-hover/g:opacity-50 transition-opacity" />
+                            </button>
+                          )}
+                          <button onClick={() => handleDeleteGoal(goal.id)} aria-label="Delete goal" className={deleteGlyphBtn}>✕</button>
+                        </div>
+                      </div>
+                      <div className="flex items-center justify-between text-xs text-fg-tertiary mb-[5px]">
+                        <span>{pct.toFixed(0)}%</span>
+                        <span>{fmt(Number(goal.target_amount) - Number(goal.current_amount))} to go</span>
+                      </div>
+                      <div className="h-[5px] rounded-[3px] bg-border">
+                        <div className="h-full bg-accent rounded-[3px] transition-all" style={{ width: `${pct}%` }} />
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </Card>
+
+          <Card title="Expenses" padding="p-[var(--card-pad-md)]" action={
+            <button onClick={() => setModal('expense')} className={outlineAddBtn}>+ Add</button>
+          }>
+            {localExpenses.length === 0 ? (
+              <EmptyState icon={Receipt} message="No expenses this month" compact cta={{ label: 'Add', onClick: () => setModal('expense') }} />
+            ) : (
+              <ul className="space-y-0.5 max-h-80 overflow-y-auto">
+                {localExpenses.map(exp => (
+                  <li key={exp.id} className="flex items-center gap-2.5 p-2 rounded-lg hover:bg-surface-2 transition-colors group">
+                    <span className={`text-xs px-1.5 py-0.5 rounded-full font-medium shrink-0 ${CATEGORY_COLOR[exp.category]}`}>{exp.category}</span>
+                    <span className="text-xs text-fg-quaternary shrink-0">{exp.date}</span>
+                    {exp.description && <span className="text-xs text-fg-secondary truncate flex-1">{exp.description}</span>}
+                    <span className="text-xs text-fg-secondary font-medium shrink-0 ml-auto">{fmt(Number(exp.amount))}</span>
+                    <button onClick={() => handleDeleteExpense(exp.id)} aria-label="Delete expense" className={deleteGlyphBtn}>✕</button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </Card>
+        </div>
       </div>
 
-      <Card title="Recurring Expenses" padding="p-3.5" action={
+      <Card title="Recurring Expenses" action={
         <div className="flex items-center gap-3">
           {localRecurring.some(r => r.active) && (
             <span className="text-xs text-fg-tertiary">{fmt(localRecurring.filter(r => r.active).reduce((s, r) => s + Number(r.amount), 0))}/mo total</span>
           )}
-          <button onClick={() => setModal('recurring')} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-accent text-white text-xs font-medium hover:bg-accent/80 transition-colors">
-            <Plus size={12} /> Add
-          </button>
+          <button onClick={() => setModal('recurring')} className={outlineAddBtn}>+ Add</button>
         </div>
       }>
         <p className="text-xs text-fg-quaternary mb-3">Auto-logged into Expenses each month on its scheduled day — rent, subscriptions, and other fixed monthly costs you&apos;d otherwise have to re-enter by hand.</p>
         {localRecurring.length === 0 ? (
           <EmptyState icon={Repeat} message="No recurring expenses set up" compact cta={{ label: 'Add', onClick: () => setModal('recurring') }} />
         ) : (
-          <ul className="space-y-1.5">
+          <ul className="flex flex-col gap-2">
             {localRecurring.map(r => (
-              <li key={r.id} className={`flex items-center gap-2.5 p-2 rounded-lg hover:bg-surface-2 transition-colors group ${!r.active ? 'opacity-50' : ''}`}>
-                <Repeat size={14} className="text-accent shrink-0" />
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
-                    <span className={`text-xs px-1.5 py-0.5 rounded-full font-medium ${CATEGORY_COLOR[r.category] ?? CATEGORY_COLOR.Other}`}>{r.category}</span>
-                    <span className="text-sm text-fg-secondary truncate">{r.name}</span>
-                  </div>
-                  <p className="text-xs text-fg-quaternary mt-0.5">Day {r.day_of_month} of every month</p>
-                </div>
-                <span className="text-sm font-medium text-fg-secondary shrink-0">{fmt(Number(r.amount))}</span>
-                <button onClick={() => handleToggleRecurring(r.id, !r.active)} className="shrink-0 text-xs text-fg-tertiary hover:text-fg-secondary transition-colors">
+              <li key={r.id} className="flex items-center gap-2 flex-wrap group">
+                <span className={`text-[12.5px] ${r.active ? 'text-fg-secondary' : 'text-fg-quaternary line-through'}`}>
+                  {r.name} — {fmt(Number(r.amount))} · day {r.day_of_month} of month · {r.category}
+                </span>
+                <button onClick={() => handleToggleRecurring(r.id, !r.active)} className="px-2 py-0.5 rounded-[6px] border border-border-strong text-[10.5px] text-fg-tertiary hover:text-fg-secondary transition-colors whitespace-nowrap">
                   {r.active ? 'Pause' : 'Resume'}
                 </button>
-                <button onClick={() => handleDeleteRecurring(r.id)} aria-label="Delete recurring expense" className="shrink-0 opacity-0 group-hover:opacity-100 text-fg-quaternary hover:text-red-400 transition-all"><Trash2 size={13} /></button>
+                <button onClick={() => handleDeleteRecurring(r.id)} aria-label="Delete recurring expense" className={deleteGlyphBtn}>✕</button>
               </li>
             ))}
           </ul>
