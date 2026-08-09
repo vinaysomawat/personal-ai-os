@@ -26,9 +26,9 @@ export default function WeeklyReview() {
   const { paragraph, stats } = data
 
   return (
-    <div className="space-y-3">
-      {stats && <ScoreStatsSummary {...stats} totalDays={7} />}
-      <p className="text-sm text-fg-secondary leading-relaxed whitespace-pre-wrap">{paragraph}</p>
+    <div className="flex flex-col gap-3.5">
+      {stats && <ScoreStatsSummary {...stats} totalDays={7} periodLabel="This week" />}
+      <p className="text-[13px] leading-[1.55] text-fg-secondary whitespace-pre-wrap border-t border-surface-3 pt-3">{paragraph}</p>
     </div>
   )
 }

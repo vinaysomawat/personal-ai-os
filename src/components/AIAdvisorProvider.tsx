@@ -3,7 +3,7 @@
 import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { usePathname } from 'next/navigation'
-import { X, type LucideIcon } from 'lucide-react'
+import { type LucideIcon } from 'lucide-react'
 
 interface AIAdvisorContextValue {
   label: string | null
@@ -44,22 +44,27 @@ export function AIAdvisorProvider({ children }: { children: ReactNode }) {
       {/* Always mounted (never conditionally rendered on `label`) so bodyRef
           attaches on Provider's first render — otherwise the ref never
           captures a node and panelBody stays null forever. Visibility is
-          purely CSS-driven instead. */}
+          purely CSS-driven instead.
+          Design specifies every module advisor (Career Mentor, Money Advisor,
+          Health Coach, Study Coach, Code Mentor) as a full-height right-side
+          drawer — `top:0 right:0 bottom:0 width:min(400px,100vw)` — not a
+          small top-right dropdown. Matches the same drawer pattern already
+          used for Ask Brain and Executive Summary. */}
       <div
         className={`fixed inset-0 z-40 bg-overlay ${isOpen && label ? '' : 'hidden'}`}
         onClick={() => setIsOpen(false)}
       />
-      <div className={`fixed top-14 right-4 md:right-6 z-50 w-[380px] max-w-[calc(100vw-2rem)] max-h-[75vh] overflow-y-auto bg-surface-1 border border-surface-3 rounded-xl shadow-2xl animate-in slide-in-from-top-2 fade-in duration-150 ${isOpen && label ? '' : 'hidden'}`}>
-        <div className="flex items-center justify-between px-4 py-3 border-b border-surface-3 sticky top-0 bg-surface-1 z-10">
-          <div className="flex items-center gap-2">
+      <div className={`fixed top-0 right-0 bottom-0 z-[60] w-[min(400px,100vw)] bg-surface-1 border-l border-surface-3 flex flex-col animate-in slide-in-from-right fade-in duration-150 ${isOpen && label ? '' : 'hidden'}`}>
+        <div className="flex items-center justify-between px-[var(--card-pad-lg)] py-[var(--card-pad-lg)] border-b border-surface-3 shrink-0">
+          <span className="text-[14px] font-bold text-fg-primary flex items-center gap-2">
             {Icon && <Icon size={15} className="text-accent" />}
-            <span className="text-sm font-semibold text-fg-primary">{label}</span>
-          </div>
-          <button onClick={() => setIsOpen(false)} aria-label="Close AI advisor panel" className="p-1.5 -m-1.5 text-fg-tertiary hover:text-fg-secondary transition-colors">
-            <X size={16} />
+            {label}
+          </span>
+          <button onClick={() => setIsOpen(false)} aria-label="Close AI advisor panel" className="text-fg-tertiary hover:text-fg-secondary text-base leading-none transition-colors">
+            ✕
           </button>
         </div>
-        <div ref={bodyRef} className="p-4" />
+        <div ref={bodyRef} className="flex-1 overflow-y-auto p-[var(--card-pad-lg)]" />
       </div>
     </AIAdvisorContext.Provider>
   )

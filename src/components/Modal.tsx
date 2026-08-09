@@ -17,13 +17,16 @@ interface ModalProps {
   onClose: () => void
   children: ReactNode
   footer?: ReactNode
+  // Design's data-entry modals are all 440px; the Quiz modal is the one
+  // exception at 520px (more horizontal room for its 4-option question rows).
+  maxWidthClass?: string
 }
 
-export default function Modal({ title, onClose, children, footer }: ModalProps) {
+export default function Modal({ title, onClose, children, footer, maxWidthClass = 'max-w-[440px]' }: ModalProps) {
   return (
     <div className="fixed inset-0 bg-overlay flex items-center justify-center z-[60] p-4" onClick={onClose}>
       <div
-        className="bg-surface-1 border border-surface-3 rounded-2xl p-6 w-full max-w-[440px] max-h-[85vh] overflow-y-auto shadow-popover animate-in fade-in zoom-in-95 duration-200"
+        className={`bg-surface-1 border border-surface-3 rounded-2xl p-6 w-full ${maxWidthClass} max-h-[85vh] overflow-y-auto shadow-popover animate-in fade-in zoom-in-95 duration-200`}
         onClick={e => e.stopPropagation()}
       >
         <div className="flex items-center justify-between mb-[18px]">

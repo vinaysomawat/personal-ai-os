@@ -1,9 +1,10 @@
 'use client'
 
 import { useState, useEffect, useTransition } from 'react'
-import { Plus, Trash2, ExternalLink, X, Sparkles, ChevronRight, Pencil, Check, Brain, Bell } from 'lucide-react'
+import { Plus, ExternalLink, X, Sparkles, ChevronRight, Pencil, Check, Bell } from 'lucide-react'
 import Card from '@/components/Card'
 import EmptyState from '@/components/EmptyState'
+import Modal, { modalLabelClass, modalInputClass, modalSelectClass, modalCancelButtonClass, modalSaveButtonClass } from '@/components/Modal'
 import { useAIAdvisor } from '@/components/AIAdvisorProvider'
 import { todayIST } from '@/lib/date'
 import {
@@ -246,13 +247,19 @@ export default function CareerView({ applications, profile, skills, quizAttempts
   const handleOpenQuiz = (topic: string) => setQuiz({ topic, difficulty: 'medium', stage: 'picking', questions: [], answers: [], score: 0, weakAreas: [] })
   const handleCloseQuiz = () => setQuiz(null)
 
-  const handleGenerateQuiz = async () => {
+  const handleGenerateQuiz = async (difficulty?: Difficulty) => {
     if (!quiz) return
-    setQuiz(q => q ? { ...q, stage: 'generating' } : q)
+    const targetDifficulty = difficulty ?? quiz.difficulty
+    setQuiz(q => q ? { ...q, difficulty: targetDifficulty, stage: 'generating' } : q)
     const priorWeakAreas = [...new Set(localQuizAttempts.filter(a => a.topic === quiz.topic).flatMap(a => a.weak_areas))]
-    const questions = await generateTopicQuiz(quiz.topic, quiz.difficulty, priorWeakAreas)
+    const questions = await generateTopicQuiz(quiz.topic, targetDifficulty, priorWeakAreas)
     if (questions.length === 0) { setQuiz(null); return }
     setQuiz(q => q ? { ...q, stage: 'taking', questions, answers: new Array(questions.length).fill(-1) } : q)
+  }
+
+  const handleRetakeQuiz = () => {
+    if (!quiz) return
+    setQuiz(q => q ? { ...q, stage: 'picking', questions: [], answers: [], score: 0, weakAreas: [] } : q)
   }
 
   const handleSelectAnswer = (qIndex: number, optIndex: number) => {
@@ -563,166 +570,166 @@ export default function CareerView({ applications, profile, skills, quizAttempts
 
       {/* Quiz modal */}
       {quiz && (
-        <div className="fixed inset-0 bg-overlay flex items-center justify-center z-50 p-4">
-          <div className="bg-surface-1 border border-surface-3 rounded-xl p-6 w-full max-w-lg max-h-[85vh] overflow-y-auto animate-in fade-in zoom-in-95 duration-200">
-            <div className="flex items-center justify-between mb-5">
-              <h2 className="text-base font-semibold text-fg-primary flex items-center gap-2"><Brain size={16} className="text-accent" /> {quiz.topic} Quiz</h2>
-              <button onClick={handleCloseQuiz} aria-label="Close" className="p-1.5 -m-1.5 text-fg-tertiary hover:text-fg-secondary"><X size={16} /></button>
-            </div>
-
-            {quiz.stage === 'picking' && (
-              <div className="space-y-3">
-                <p className="text-sm text-fg-secondary">Generate a 10-question quiz on <span className="text-accent font-medium">{quiz.topic}</span>.</p>
-                <div className="space-y-1">
-                  <label className="text-xs text-fg-tertiary uppercase tracking-wider">Difficulty</label>
-                  <select value={quiz.difficulty} onChange={e => setQuiz(q => q ? { ...q, difficulty: e.target.value as Difficulty } : q)}
-                    className="w-full bg-surface-2 border border-surface-3 rounded-lg px-3 py-2 text-sm text-fg-secondary outline-none focus:border-accent transition-colors">
-                    {(['easy', 'medium', 'hard'] as Difficulty[]).map(d => <option key={d} value={d}>{DIFFICULTY_CONFIG[d].label}</option>)}
-                  </select>
+        <Modal title={`${quiz.topic} Quiz`} onClose={handleCloseQuiz} maxWidthClass="max-w-[520px]">
+            {quiz.stage === 'picking' && (() => {
+              const seededSubtopics = [...new Set(localQuizAttempts.filter(a => a.topic === quiz.topic).flatMap(a => a.weak_areas))]
+              return (
+                <div>
+                  <p className="text-[13px] text-fg-secondary mb-2.5">Pick a difficulty to generate 10 questions{seededSubtopics.length > 0 ? ', seeded toward your weak subtopics.' : '.'}</p>
+                  {seededSubtopics.length > 0 && (
+                    <p className="text-[11.5px] text-accent-strong bg-accent-soft rounded-[8px] px-[11px] py-2 mb-3.5">Seeded toward: {seededSubtopics.join(', ')}</p>
+                  )}
+                  <div className="flex gap-2.5">
+                    {(['easy', 'medium', 'hard'] as Difficulty[]).map(d => (
+                      <button key={d} onClick={() => handleGenerateQuiz(d)}
+                        className="flex-1 bg-surface-2 border border-surface-3 rounded-[10px] p-3.5 text-center hover:border-accent/40 transition-colors">
+                        <span className="text-[14px] font-bold text-fg-primary">{DIFFICULTY_CONFIG[d].label}</span>
+                      </button>
+                    ))}
+                  </div>
                 </div>
-                <div className="flex gap-2 pt-1">
-                  <button type="button" onClick={handleCloseQuiz} className="flex-1 py-2 rounded-lg bg-surface-2 border border-surface-3 text-fg-secondary text-sm hover:bg-surface-3 transition-colors">Cancel</button>
-                  <button onClick={handleGenerateQuiz} className="flex-1 py-2 rounded-lg bg-accent text-white text-sm font-medium hover:bg-accent/80 active:scale-95 transition">Generate Quiz</button>
-                </div>
-              </div>
-            )}
+              )
+            })()}
 
             {quiz.stage === 'generating' && (
               <div className="space-y-2 py-4">{[90, 70, 85, 60, 75].map((w, i) => <div key={i} className="h-3 rounded bg-surface-2 animate-pulse" style={{ width: `${w}%` }} />)}</div>
             )}
 
-            {quiz.stage === 'taking' && (
-              <div className="space-y-4">
-                {quiz.questions.map((q, qi) => (
-                  <div key={qi} className="space-y-1.5">
-                    <p className="text-sm text-fg-primary">{qi + 1}. {q.question}</p>
-                    <div className="space-y-1">
-                      {q.options.map((opt, oi) => (
-                        <label key={oi} className={`flex items-center gap-2 p-2 rounded-lg border cursor-pointer text-sm transition-colors ${quiz.answers[qi] === oi ? 'border-accent bg-accent/10 text-fg-primary' : 'border-surface-3 text-fg-secondary hover:bg-surface-2'}`}>
-                          <input type="radio" name={`q${qi}`} checked={quiz.answers[qi] === oi} onChange={() => handleSelectAnswer(qi, oi)} className="accent-accent shrink-0" />
-                          {opt}
-                        </label>
-                      ))}
-                    </div>
+            {quiz.stage === 'taking' && (() => {
+              const answeredCount = quiz.answers.filter(a => a !== -1).length
+              const total = quiz.questions.length
+              const submitDisabled = quiz.answers.includes(-1)
+              return (
+                <div>
+                  <p className="text-xs text-fg-tertiary mb-1.5">{DIFFICULTY_CONFIG[quiz.difficulty].label} · {answeredCount} of {total} answered</p>
+                  <div className="h-1 rounded-[3px] bg-border mb-3.5">
+                    <div className="h-full rounded-[3px] bg-accent transition-all" style={{ width: `${Math.round((answeredCount / total) * 100)}%` }} />
                   </div>
-                ))}
-                <div className="flex gap-2 pt-1">
-                  <button type="button" onClick={handleCloseQuiz} className="flex-1 py-2 rounded-lg bg-surface-2 border border-surface-3 text-fg-secondary text-sm hover:bg-surface-3 transition-colors">Cancel</button>
-                  <button onClick={handleSubmitQuiz} disabled={quiz.answers.includes(-1)}
-                    className="flex-1 py-2 rounded-lg bg-accent text-white text-sm font-medium hover:bg-accent/80 active:scale-95 disabled:opacity-50 transition">
-                    Submit Quiz
-                  </button>
+                  <div className="flex flex-col gap-4">
+                    {quiz.questions.map((q, qi) => (
+                      <div key={qi}>
+                        <p className="text-[13.5px] font-semibold text-fg-primary mb-2">{qi + 1}. {q.question}</p>
+                        <div className="flex flex-col gap-1.5">
+                          {q.options.map((opt, oi) => (
+                            <button key={oi} onClick={() => handleSelectAnswer(qi, oi)}
+                              className={`text-left w-full rounded-[8px] px-3 py-[9px] text-[12.5px] border transition-colors ${quiz.answers[qi] === oi ? 'bg-accent-soft border-accent text-fg-primary' : 'bg-surface-2 border-surface-3 text-fg-primary hover:border-border-strong'}`}>
+                              {opt}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="flex justify-end gap-2.5 mt-5">
+                    <button type="button" onClick={handleCloseQuiz} className={modalCancelButtonClass}>Cancel</button>
+                    <button onClick={handleSubmitQuiz} disabled={submitDisabled} className={modalSaveButtonClass}>Submit Quiz</button>
+                  </div>
                 </div>
-              </div>
-            )}
+              )
+            })()}
 
             {quiz.stage === 'results' && (() => {
               const nextTopic = suggestNextTopic(localQuizAttempts, QUIZ_TOPICS)
               const wrongQuestions = quiz.questions.filter((q, qi) => quiz.answers[qi] !== q.correctIndex)
+              const scoreColor = quiz.score >= 80 ? 'var(--good)' : quiz.score >= 60 ? 'var(--accent)' : quiz.score >= 40 ? 'var(--warn)' : 'var(--risk)'
+              const readinessNote = quiz.score >= 80 ? 'Readiness → Strong' : quiz.score >= 60 ? 'Readiness → Ready' : quiz.score >= 40 ? 'Readiness → Developing' : 'Readiness → Needs Work'
+              const weakAreasText = wrongQuestions.length ? quiz.weakAreas.join(', ') : 'None — clean sweep'
               return (
-                <div className="space-y-4">
-                  <div className="text-center py-2">
-                    <p className="text-3xl font-bold text-fg-primary">{quiz.score}/{quiz.questions.length}</p>
+                <div>
+                  <div className="text-center mb-[18px]">
+                    <p className="text-[34px] font-bold" style={{ color: scoreColor }}>{quiz.score}%</p>
+                    <p className="text-[12.5px] text-fg-tertiary mt-0.5">{quiz.questions.length - wrongQuestions.length} of {quiz.questions.length} correct · {DIFFICULTY_CONFIG[quiz.difficulty].label}</p>
+                    <p className="text-[11.5px] font-semibold mt-1.5" style={{ color: scoreColor }}>{readinessNote}</p>
                   </div>
-                  {quiz.weakAreas.length > 0 && (
-                    <div>
-                      <p className="text-xs text-fg-quaternary uppercase tracking-wider mb-1">Weak Areas</p>
-                      <div className="flex flex-wrap gap-1">{quiz.weakAreas.map(w => <span key={w} className="text-xs px-1.5 py-0.5 rounded-full bg-risk-soft text-red-400">{w}</span>)}</div>
-                    </div>
+                  {wrongQuestions.length > 0 && (
+                    <>
+                      <p className="text-[11px] font-bold text-fg-tertiary uppercase tracking-[0.4px] mb-2">Review</p>
+                      <div className="flex flex-col gap-2.5 mb-4">
+                        {quiz.questions.map((q, qi) => quiz.answers[qi] !== q.correctIndex && (
+                          <div key={qi} className="bg-risk-soft border border-risk-border rounded-[10px] px-3 py-2.5">
+                            <p className="text-[12.5px] font-semibold text-fg-primary mb-1">{q.question}</p>
+                            <p className="text-xs text-fg-secondary">{q.explanation}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </>
                   )}
-                  {wrongQuestions.length > 0 ? (
-                    <div className="space-y-2">
-                      <p className="text-xs text-fg-quaternary uppercase tracking-wider">Incorrect Answers</p>
-                      {quiz.questions.map((q, qi) => quiz.answers[qi] !== q.correctIndex && (
-                        <div key={qi} className="p-2.5 rounded-lg bg-surface-2 border border-surface-3">
-                          <p className="text-sm text-fg-secondary">{q.question}</p>
-                          <p className="text-xs text-red-400 mt-1">Your answer: {q.options[quiz.answers[qi]]}</p>
-                          <p className="text-xs text-green-400 mt-0.5">Correct: {q.options[q.correctIndex]}</p>
-                          <p className="text-xs text-fg-tertiary mt-1">{q.explanation}</p>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <p className="text-sm text-green-400 text-center">Perfect score — no incorrect answers.</p>
-                  )}
-                  <p className="text-xs text-fg-tertiary">Next up: <span className="text-accent font-medium">{nextTopic}</span></p>
-                  <button onClick={handleCloseQuiz} className="w-full py-2 rounded-lg bg-accent text-white text-sm font-medium hover:bg-accent/80 active:scale-95 transition">Close</button>
+                  <div className="bg-surface-2 rounded-[10px] px-3.5 py-3 mb-4">
+                    <p className="text-xs text-fg-secondary">Weak areas: <span className="text-fg-primary font-semibold">{weakAreasText}</span></p>
+                    <p className="text-xs text-fg-secondary mt-1">Next up: <span className="text-accent font-semibold">{nextTopic}</span></p>
+                  </div>
+                  <div className="flex justify-end gap-2.5">
+                    <button onClick={handleRetakeQuiz} className={modalCancelButtonClass}>Retake</button>
+                    <button onClick={handleCloseQuiz} className={modalSaveButtonClass}>Done</button>
+                  </div>
                 </div>
               )
             })()}
-          </div>
-        </div>
+        </Modal>
       )}
 
       {/* Add Application modal */}
       {modal === 'app' && (
-        <div className="fixed inset-0 bg-overlay flex items-center justify-center z-50 p-4">
-          <div className="bg-surface-1 border border-surface-3 rounded-xl p-6 w-full max-w-md max-h-[85vh] overflow-y-auto animate-in fade-in zoom-in-95 duration-200">
-            <div className="flex items-center justify-between mb-5">
-              <h2 className="text-base font-semibold text-fg-primary">Add Application</h2>
-              <button onClick={() => setModal(null)} aria-label="Close" className="p-1.5 -m-1.5 text-fg-tertiary hover:text-fg-secondary"><X size={16} /></button>
-            </div>
-
-            <form className="space-y-3" noValidate onInput={onFieldInput} onSubmit={async e => {
+        <Modal title="Add Application" onClose={() => setModal(null)}>
+            <form className="flex flex-col gap-3.5" noValidate onInput={onFieldInput} onSubmit={async e => {
               e.preventDefault()
               if (!validate(e.currentTarget)) return
               const fd = new FormData(e.currentTarget)
               await handleAddApplication(fd)
             }}>
               <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1">
-                  <label className="text-xs text-fg-tertiary uppercase tracking-wider">Company *</label>
-                  <input name="company" required autoFocus defaultValue={prefillApp?.company ?? ''} placeholder="Google" className={`w-full bg-surface-2 border rounded-lg px-3 py-2 text-sm text-fg-primary placeholder-fg-quaternary outline-none focus:border-accent transition-colors ${invalidFields.has('company') ? 'border-red-500' : 'border-surface-3'}`} />
+                <div>
+                  <label className={modalLabelClass}>Company</label>
+                  <input name="company" required autoFocus defaultValue={prefillApp?.company ?? ''} placeholder="Google" className={modalInputClass(invalidFields.has('company'))} />
                   <FieldError show={invalidFields.has('company')} />
                 </div>
-                <div className="space-y-1">
-                  <label className="text-xs text-fg-tertiary uppercase tracking-wider">Role *</label>
-                  <input name="role" required defaultValue={prefillApp?.role ?? ''} placeholder="Senior Engineer" className={`w-full bg-surface-2 border rounded-lg px-3 py-2 text-sm text-fg-primary placeholder-fg-quaternary outline-none focus:border-accent transition-colors ${invalidFields.has('role') ? 'border-red-500' : 'border-surface-3'}`} />
+                <div>
+                  <label className={modalLabelClass}>Role</label>
+                  <input name="role" required defaultValue={prefillApp?.role ?? ''} placeholder="Senior Engineer" className={modalInputClass(invalidFields.has('role'))} />
                   <FieldError show={invalidFields.has('role')} />
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1">
-                  <label className="text-xs text-fg-tertiary uppercase tracking-wider">Status</label>
-                  <select name="status" defaultValue="applied" className="w-full bg-surface-2 border border-surface-3 rounded-lg px-3 py-2 text-sm text-fg-secondary outline-none focus:border-accent transition-colors">
+                <div>
+                  <label className={modalLabelClass}>Status</label>
+                  <select name="status" defaultValue="applied" className={modalSelectClass}>
                     {STATUSES.map(s => <option key={s} value={s}>{STATUS_CONFIG[s].label}</option>)}
                   </select>
                 </div>
-                <div className="space-y-1">
-                  <label className="text-xs text-fg-tertiary uppercase tracking-wider">Applied On</label>
-                  <input name="applied_at" type="date" defaultValue={todayIST()} className="w-full bg-surface-2 border border-surface-3 rounded-lg px-3 py-2 text-sm text-fg-secondary outline-none focus:border-accent transition-colors" />
+                <div>
+                  <label className={modalLabelClass}>Applied On</label>
+                  <input name="applied_at" type="date" defaultValue={todayIST()} className={modalInputClass()} />
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1">
-                  <label className="text-xs text-fg-tertiary uppercase tracking-wider">Location</label>
-                  <input name="location" placeholder="Remote / Bangalore" className="w-full bg-surface-2 border border-surface-3 rounded-lg px-3 py-2 text-sm text-fg-primary placeholder-fg-quaternary outline-none focus:border-accent transition-colors" />
+                <div>
+                  <label className={modalLabelClass}>Location</label>
+                  <input name="location" placeholder="Remote / Bangalore" className={modalInputClass()} />
                 </div>
-                <div className="space-y-1">
-                  <label className="text-xs text-fg-tertiary uppercase tracking-wider">Salary Range</label>
-                  <input name="salary_range" placeholder="₹40–60 LPA" className="w-full bg-surface-2 border border-surface-3 rounded-lg px-3 py-2 text-sm text-fg-primary placeholder-fg-quaternary outline-none focus:border-accent transition-colors" />
+                <div>
+                  <label className={modalLabelClass}>Salary Range</label>
+                  <input name="salary_range" placeholder="₹40–60 LPA" className={modalInputClass()} />
                 </div>
               </div>
-              <div className="space-y-1">
-                <label className="text-xs text-fg-tertiary uppercase tracking-wider">Job URL</label>
-                <input name="url" type="url" defaultValue={prefillApp?.url ?? ''} placeholder="https://..." className="w-full bg-surface-2 border border-surface-3 rounded-lg px-3 py-2 text-sm text-fg-primary placeholder-fg-quaternary outline-none focus:border-accent transition-colors" />
+              <div>
+                <label className={modalLabelClass}>Job URL</label>
+                <input name="url" type="url" defaultValue={prefillApp?.url ?? ''} placeholder="https://..." className={modalInputClass()} />
               </div>
-              <div className="space-y-1">
-                <label className="text-xs text-fg-tertiary uppercase tracking-wider">Job Description *</label>
-                <textarea name="job_description" required rows={5} placeholder="Paste the full job description — used to auto-analyze required skills, match %, and prep topics" className={`w-full bg-surface-2 border rounded-lg px-3 py-2 text-sm text-fg-primary placeholder-fg-quaternary outline-none focus:border-accent transition-colors resize-none ${invalidFields.has('job_description') ? 'border-red-500' : 'border-surface-3'}`} />
+              <div>
+                <label className={modalLabelClass}>Job Description</label>
+                <textarea name="job_description" required rows={5} placeholder="Paste the full job description — used to auto-analyze required skills, match %, and prep topics" className={`${modalInputClass(invalidFields.has('job_description'))} resize-none`} />
                 <FieldError show={invalidFields.has('job_description')} />
               </div>
-              <div className="space-y-1">
-                <label className="text-xs text-fg-tertiary uppercase tracking-wider">Notes</label>
-                <textarea name="notes" rows={2} placeholder="Referral from X, interesting stack..." className="w-full bg-surface-2 border border-surface-3 rounded-lg px-3 py-2 text-sm text-fg-primary placeholder-fg-quaternary outline-none focus:border-accent transition-colors resize-none" />
+              <div>
+                <label className={modalLabelClass}>Notes</label>
+                <textarea name="notes" rows={2} placeholder="Referral from X, interesting stack..." className={`${modalInputClass()} resize-none`} />
               </div>
-              <div className="flex gap-2 pt-1">
-                <button type="button" onClick={() => setModal(null)} className="flex-1 py-2 rounded-lg bg-surface-2 border border-surface-3 text-fg-secondary text-sm hover:bg-surface-3 transition-colors">Cancel</button>
-                <button type="submit" className="flex-1 py-2 rounded-lg bg-accent text-white text-sm font-medium hover:bg-accent/80 active:scale-95 transition">Add Application</button>
+              <div className="flex justify-end gap-2.5 mt-1.5">
+                <button type="button" onClick={() => setModal(null)} className={modalCancelButtonClass}>Cancel</button>
+                <button type="submit" className={modalSaveButtonClass}>Add Application</button>
               </div>
             </form>
-          </div>
-        </div>
+        </Modal>
       )}
     </div>
   )

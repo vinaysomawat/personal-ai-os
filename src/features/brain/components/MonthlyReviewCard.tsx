@@ -14,34 +14,37 @@ export default function MonthlyReviewCard({ review }: { review: MonthlyReview })
   }
 
   return (
-    <div className="space-y-3">
-      <p className="text-sm text-fg-secondary leading-relaxed">{review.overall}</p>
+    <div className="flex flex-col gap-3">
+      <div className="bg-surface-2 rounded-[10px] px-3.5 py-3">
+        <p className="text-[11px] font-bold text-fg-tertiary uppercase tracking-[0.4px]">Overall</p>
+        <p className="text-[13px] text-fg-primary mt-1">{review.overall}</p>
+      </div>
 
-      <ul className="space-y-2">
+      <ul className="flex flex-col gap-2">
         {MODULE_ROWS.map(({ key, label }) => review[key] && (
-          <li key={key} className="pb-2 border-b border-surface-3 last:border-0 last:pb-0">
-            <p className="text-xs text-fg-tertiary uppercase tracking-wider mb-0.5">{label}</p>
-            <p className="text-sm text-fg-secondary">{review[key]}</p>
+          <li key={key} className="pt-2 border-t border-surface-3 first:border-0 first:pt-0">
+            <p className="text-[11px] font-bold text-fg-tertiary uppercase tracking-[0.4px]">{label}</p>
+            <p className="text-[13px] text-fg-secondary mt-0.5">{review[key]}</p>
           </li>
         ))}
       </ul>
 
       {review.biggestAchievement && (
-        <div>
-          <p className="text-xs text-fg-tertiary uppercase tracking-wider mb-1">Biggest achievement</p>
-          <p className="text-sm text-green-400">{review.biggestAchievement}</p>
+        <div className="bg-good-soft rounded-[10px] px-3.5 py-3">
+          <p className="text-[11px] font-bold text-good uppercase tracking-[0.4px]">🏆 Biggest Achievement</p>
+          <p className="text-[13px] text-fg-primary mt-1">{review.biggestAchievement}</p>
         </div>
       )}
       {review.biggestMistake && (
-        <div>
-          <p className="text-xs text-fg-tertiary uppercase tracking-wider mb-1">Biggest mistake</p>
-          <p className="text-sm text-red-400">{review.biggestMistake}</p>
+        <div className="bg-risk-soft rounded-[10px] px-3.5 py-3">
+          <p className="text-[11px] font-bold text-risk uppercase tracking-[0.4px]">⚠ Biggest Mistake</p>
+          <p className="text-[13px] text-fg-primary mt-1">{review.biggestMistake}</p>
         </div>
       )}
       {review.recommendation && (
-        <div>
-          <p className="text-xs text-fg-tertiary uppercase tracking-wider mb-1">Recommendation</p>
-          <p className="text-sm text-accent">{review.recommendation}</p>
+        <div className="bg-accent-soft rounded-[10px] px-3.5 py-3">
+          <p className="text-[11px] font-bold text-accent-strong uppercase tracking-[0.4px]">→ Recommendation</p>
+          <p className="text-[13px] text-fg-primary mt-1">{review.recommendation}</p>
         </div>
       )}
     </div>

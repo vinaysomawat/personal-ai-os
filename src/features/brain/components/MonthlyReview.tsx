@@ -28,8 +28,8 @@ export default function MonthlyReview({ context }: { context: BrainContext }) {
   const { review, stats } = data
 
   return (
-    <div className="space-y-3">
-      {stats && <ScoreStatsSummary {...stats} totalDays={30} />}
+    <div className="flex flex-col gap-3.5">
+      {stats && <ScoreStatsSummary {...stats} totalDays={30} periodLabel="This month" />}
       <MonthlyReviewCard review={review} />
     </div>
   )
