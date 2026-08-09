@@ -58,10 +58,23 @@ Status legend: MATCH / MISMATCH / MISSING (design element absent from repo) / EX
 | D6 | "Ready" tier color | `this.ACCENT` (brand purple) | **FIXED** | `READINESS_CONFIG` restructured to hold raw CSS-var colors (`var(--good)`/`var(--accent)`/`var(--warn)`/`var(--risk)`/`var(--border-strong)`) instead of Tailwind bg+text pill classes — the only other consumer (`career-mentor.ts`) only reads `.label`, so this was safe to change without wider blast radius. |
 | D7 | Last-score label | `"Last score: {N}%"` (a percentage) | **FIXED** | Now computed as `Math.round(score/total*100)`, rendered as `"Last score: N%"`; falls back to "No attempts yet" when there's no history (previously rendered nothing in that case). |
 
+## Section E — Job Alerts card
+
+| # | Element | Design spec | Verdict | Detail |
+|---|---|---|---|---|
+| E1 | Card title | Static literal text **"Job Alerts"**, 13px/700, no count badge in header | OPEN (kept) | Repo keeps a `"{N} in the last 30 days"` count badge in the `Card` action slot — real glanceable info not in the static mock, same "kept over mock" pattern as A2/A3/C9. |
+| E2 | Row list container | `flex-direction: column`, 4px gap between rows | **FIXED** | Was `<ul className="space-y-2">` (8px gap); now `flex flex-col gap-1` (4px). |
+| E3 | Row layout | Flat row, no background pill — `padding: 9px 0`, `border-bottom: 1px solid var(--border)`, 10px gap | **FIXED** | Was a `bg-surface-2` hover-pill row (`p-2.5 rounded-lg gap-3`); now `flex items-center gap-2.5 py-[9px] border-b border-surface-3` (border-only separator, no fill). |
+| E4 | Company / title text | 13px — company 600 weight primary, title regular secondary, joined by `" · "` on one line | **FIXED** | Was `text-sm` (14px) with company/title/date stacked on two lines and a separate `·` span. Now `text-[13px]` single line, `" · "` inlined into the title span, matching design's markup shape. |
+| E5 | Date position/style | Inline at the end of the row (before the link icon), 11px tertiary, nowrap | **FIXED** | Was stacked below the company/title as a second line at `text-xs` (12px). Now inline in the row at `text-[11px]`. |
+| E6 | External link | Plain **"↗"** glyph, 12px tertiary text, no button chrome | **FIXED** | Was a Lucide `ExternalLink` icon (size 13) wrapped in a padded hover button. Now a plain `↗` character at `text-[12px]`, `hover:text-accent` kept as a non-visual-conflicting interactive affordance. |
+| E7 | Track button | Outlined, `border: 1px solid var(--border-strong)`, `border-radius: 6px`, `padding: 4px 10px`, `font-size: 11.5px` | **FIXED** | Was `rounded-lg` (8px) / `border-surface-3` / `text-xs` (12px). Now `rounded-[6px]` / `border-border-strong` / `text-[11.5px]`, padding unchanged (`px-2.5 py-1` already matched). |
+| E8 | Empty state | Not shown in design's mock (design has no `sc-if` for a Job Alerts empty state) | OPEN (kept) | Repo's `EmptyState` (Bell icon + explanatory copy) kept — real functionality the static mock never had to represent. |
+
 ---
 
 ## Summary
 
-All 24 MISMATCH/MISSING rows across Sections A-D are **FIXED**. Remaining OPEN (deliberate, not oversights): A4 and GoalsCard (shared advisor/component architecture, out of scope), B1 (3-col grid adapted to `sm:` breakpoint for mobile safety rather than literally every breakpoint), B3/C9/C10 (real functionality kept over the static mock), D3 (fixed-breakpoint grid kept over the fluid pattern).
+All 24 MISMATCH/MISSING rows across Sections A-D are **FIXED**, and Section E's 6 CHANGED rows (E2-E7) found during this sync are now **FIXED**. Remaining OPEN (deliberate, not oversights): A4 and GoalsCard (shared advisor/component architecture, out of scope), B1 (3-col grid adapted to `sm:` breakpoint for mobile safety rather than literally every breakpoint), B3/C9/C10 (real functionality kept over the static mock), D3 (fixed-breakpoint grid kept over the fluid pattern), E1/E8 (Job Alerts count badge and empty state kept over the static mock, same pattern).
 
 Verified: `tsc --noEmit` and `eslint` both clean. Live-checked in the browser in both light and dark theme — filter pills, sort dropdown, card expand/collapse (including catching and fixing a grid `items-start` stretching bug during verification), salary reveal toggle, and the Interview Prep tiles' dot/color/percentage all confirmed working.

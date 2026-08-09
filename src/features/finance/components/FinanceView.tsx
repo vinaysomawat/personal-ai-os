@@ -644,6 +644,7 @@ export default function FinanceView({ expenses, budgets, profile, loans, investm
         <Modal
           title={modal === 'loan' ? 'Add Loan' : modal === 'investment' ? 'Add Investment' : modal === 'goal' ? 'Add Financial Goal' : modal === 'recurring' ? 'Add Recurring Expense' : 'Add Expense'}
           onClose={() => setModal(null)}
+          maxWidthClass={modal === 'expense' ? 'max-w-[400px]' : undefined}
         >
             {modal === 'loan' && (
               <form className="flex flex-col gap-3.5" noValidate onInput={onFieldInput} onSubmit={async e => {
@@ -839,9 +840,9 @@ export default function FinanceView({ expenses, budgets, profile, loans, investm
               }}>
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className={modalLabelClass}>Amount *</label>
+                    <label className={modalLabelClass}>Amount (₹)</label>
                     <input name="amount" type="number" required min="0" step="0.01" placeholder="500" autoFocus className={modalInputClass(invalidFields.has('amount'))} />
-                    <FieldError show={invalidFields.has('amount')} />
+                    <FieldError show={invalidFields.has('amount')} message="Enter an amount before saving." />
                   </div>
                   <div>
                     <label className={modalLabelClass}>Date</label>
@@ -849,7 +850,7 @@ export default function FinanceView({ expenses, budgets, profile, loans, investm
                   </div>
                 </div>
                 <div>
-                  <label className={modalLabelClass}>Category *</label>
+                  <label className={modalLabelClass}>Category</label>
                   <select name="category" required className={modalSelectClass}>
                     {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
                   </select>
@@ -861,7 +862,7 @@ export default function FinanceView({ expenses, budgets, profile, loans, investm
                 </div>
                 <div className="flex justify-end gap-2.5 mt-1.5">
                   <button type="button" onClick={() => setModal(null)} className={modalCancelButtonClass}>Cancel</button>
-                  <button type="submit" className={modalSaveButtonClass}>Save</button>
+                  <button type="submit" className={modalSaveButtonClass}>Add Expense</button>
                 </div>
               </form>
             )}

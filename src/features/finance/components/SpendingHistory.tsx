@@ -98,7 +98,7 @@ export default function SpendingHistory({ expenseHistory, currentMonth }: { expe
   }
 
   return (
-    <Card title="Spending History" padding="p-3.5">
+    <Card title="Spending History">
       <div className="h-36 mb-4">
         <ResponsiveContainer width="100%" height="100%">
           <BarChart data={monthlyTotals} margin={{ top: 8, right: 0, bottom: 0, left: 0 }}>
@@ -138,11 +138,18 @@ export default function SpendingHistory({ expenseHistory, currentMonth }: { expe
         </button>
       </div>
 
+      {/* Design's "{month} spend by category" + running-total header —
+          separates the trend chart above from the category breakdown below. */}
+      <div className="flex items-baseline justify-between mt-4 mb-3.5 pt-3.5 border-t border-surface-3">
+        <p className="text-[13px] font-bold text-fg-primary">{monthLabel(selectedMonth)} spend by category</p>
+        <p className="text-[13px] text-fg-secondary">{fmt(selectedTotal)}</p>
+      </div>
+
       {categoryBreakdown.length === 0 ? (
         <p className="text-sm text-fg-quaternary text-center py-6">No expenses logged this month</p>
       ) : (
-        <div>
-          <div className="h-32">
+        <div className="flex items-center gap-6 flex-wrap">
+          <div className="w-32 h-32 shrink-0">
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
                 {/* isAnimationActive=false: recharts 3's Pie entry animation never
@@ -157,21 +164,21 @@ export default function SpendingHistory({ expenseHistory, currentMonth }: { expe
               </PieChart>
             </ResponsiveContainer>
           </div>
-          <ul className="space-y-1 mt-2">
-            {categoryBreakdown.slice(0, 6).map(c => (
-              <li key={c.name} className="flex items-center gap-2 text-xs">
-                <span className="w-2 h-2 rounded-full shrink-0" style={{ background: CATEGORY_CHART_COLOR[c.name] ?? FALLBACK_COLOR }} />
-                <span className="flex-1 text-fg-secondary truncate">{c.name}</span>
-                <span className="text-fg-tertiary tabular-nums shrink-0">{fmt(c.value)}</span>
-              </li>
-            ))}
+          <ul className="flex-1 min-w-[140px] space-y-2">
+            {categoryBreakdown.slice(0, 6).map(c => {
+              const pct = selectedTotal > 0 ? (c.value / selectedTotal) * 100 : 0
+              return (
+                <li key={c.name} className="flex items-center gap-2 text-[12.5px]">
+                  <span className="w-2 h-2 rounded-full shrink-0" style={{ background: CATEGORY_CHART_COLOR[c.name] ?? FALLBACK_COLOR }} />
+                  <span className="flex-1 text-fg-secondary truncate">{c.name}</span>
+                  <span className="text-fg-secondary tabular-nums shrink-0">{fmt(c.value)}</span>
+                  <span className="text-fg-tertiary tabular-nums shrink-0 w-8 text-right">{pct.toFixed(0)}%</span>
+                </li>
+              )
+            })}
           </ul>
         </div>
       )}
-
-      <p className="text-xs text-fg-quaternary mt-3 pt-3 border-t border-surface-3">
-        Total: <span className="text-fg-secondary font-medium">{fmt(selectedTotal)}</span>
-      </p>
     </Card>
   )
 }

@@ -491,26 +491,21 @@ export default function CareerView({ applications, profile, skills, quizAttempts
         {jobAlerts.length === 0 ? (
           <EmptyState icon={Bell} message="No new postings yet — checked daily against 16 companies' public job boards" compact />
         ) : (
-          <ul className="space-y-2">
+          <div className="flex flex-col gap-1">
             {jobAlerts.map(alert => (
-              <li key={alert.id} className="flex items-center gap-3 p-2.5 rounded-lg bg-surface-2 hover:bg-surface-3/60 transition-colors">
+              <div key={alert.id} className="flex items-center gap-2.5 py-[9px] border-b border-surface-3">
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="text-sm font-medium text-fg-primary">{alert.company}</span>
-                    <span className="text-fg-quaternary">·</span>
-                    <span className="text-sm text-fg-secondary truncate">{alert.title}</span>
-                  </div>
-                  <span className="text-xs text-fg-quaternary">{shortDate(alert.created_at)}</span>
+                  <span className="text-[13px] font-semibold text-fg-primary">{alert.company}</span>
+                  <span className="text-[13px] text-fg-secondary"> · {alert.title}</span>
                 </div>
-                <a href={alert.url} target="_blank" rel="noopener noreferrer" aria-label="View posting" className="shrink-0 p-1.5 -m-1.5 text-fg-quaternary hover:text-accent transition-colors">
-                  <ExternalLink size={13} />
-                </a>
-                <button onClick={() => handleTrackJobAlert(alert)} className="shrink-0 text-xs px-2.5 py-1 rounded-lg border border-surface-3 text-fg-secondary hover:text-accent hover:border-accent/40 transition-colors whitespace-nowrap">
+                <span className="text-[11px] text-fg-tertiary whitespace-nowrap">{shortDate(alert.created_at)}</span>
+                <a href={alert.url} target="_blank" rel="noopener noreferrer" aria-label="View posting" className="text-[12px] text-fg-tertiary hover:text-accent transition-colors no-underline">↗</a>
+                <button onClick={() => handleTrackJobAlert(alert)} className="shrink-0 text-[11.5px] px-2.5 py-1 rounded-[6px] border border-border-strong text-fg-secondary hover:text-accent hover:border-accent/40 transition-colors whitespace-nowrap">
                   Track
                 </button>
-              </li>
+              </div>
             ))}
-          </ul>
+          </div>
         )}
       </Card>
 
@@ -670,7 +665,7 @@ export default function CareerView({ applications, profile, skills, quizAttempts
 
       {/* Add Application modal */}
       {modal === 'app' && (
-        <Modal title="Add Application" onClose={() => setModal(null)}>
+        <Modal title="Add Application" onClose={() => setModal(null)} maxWidthClass="max-w-[460px]">
             <form className="flex flex-col gap-3.5" noValidate onInput={onFieldInput} onSubmit={async e => {
               e.preventDefault()
               if (!validate(e.currentTarget)) return
@@ -697,8 +692,8 @@ export default function CareerView({ applications, profile, skills, quizAttempts
                   </select>
                 </div>
                 <div>
-                  <label className={modalLabelClass}>Applied On</label>
-                  <input name="applied_at" type="date" defaultValue={todayIST()} className={modalInputClass()} />
+                  <label className={modalLabelClass}>Salary Range</label>
+                  <input name="salary_range" placeholder="₹40–60 LPA" className={modalInputClass()} />
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-3">
@@ -707,18 +702,18 @@ export default function CareerView({ applications, profile, skills, quizAttempts
                   <input name="location" placeholder="Remote / Bangalore" className={modalInputClass()} />
                 </div>
                 <div>
-                  <label className={modalLabelClass}>Salary Range</label>
-                  <input name="salary_range" placeholder="₹40–60 LPA" className={modalInputClass()} />
+                  <label className={modalLabelClass}>Job URL</label>
+                  <input name="url" type="url" defaultValue={prefillApp?.url ?? ''} placeholder="https://..." className={modalInputClass()} />
                 </div>
               </div>
               <div>
-                <label className={modalLabelClass}>Job URL</label>
-                <input name="url" type="url" defaultValue={prefillApp?.url ?? ''} placeholder="https://..." className={modalInputClass()} />
+                <label className={modalLabelClass}>Applied On</label>
+                <input name="applied_at" type="date" defaultValue={todayIST()} className={modalInputClass()} />
               </div>
               <div>
-                <label className={modalLabelClass}>Job Description</label>
-                <textarea name="job_description" required rows={5} placeholder="Paste the full job description — used to auto-analyze required skills, match %, and prep topics" className={`${modalInputClass(invalidFields.has('job_description'))} resize-none`} />
-                <FieldError show={invalidFields.has('job_description')} />
+                <label className={modalLabelClass}>Job Description <span className="text-risk">*</span></label>
+                <textarea name="job_description" required rows={4} placeholder="Paste the full job description — used to auto-analyze required skills, match %, and prep topics" className={`${modalInputClass(invalidFields.has('job_description'))} resize-none`} />
+                <FieldError show={invalidFields.has('job_description')} message="Job description is required for match analysis." />
               </div>
               <div>
                 <label className={modalLabelClass}>Notes</label>

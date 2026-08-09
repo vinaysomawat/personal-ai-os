@@ -24,7 +24,7 @@ export default function MonthlyReviewCard({ review }: { review: MonthlyReview })
         {MODULE_ROWS.map(({ key, label }) => review[key] && (
           <li key={key} className="pt-2 border-t border-surface-3 first:border-0 first:pt-0">
             <p className="text-[11px] font-bold text-fg-tertiary uppercase tracking-[0.4px]">{label}</p>
-            <p className="text-[13px] text-fg-secondary mt-0.5">{review[key]}</p>
+            <p className="text-[13px] text-fg-secondary mt-[3px]">{review[key]}</p>
           </li>
         ))}
       </ul>

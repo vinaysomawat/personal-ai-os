@@ -101,7 +101,7 @@ export default function DailyWorkoutCard({ initialWorkout, stats }: Props) {
       {showDetail && (
         <div className="mt-3.5 pt-3.5 border-t border-surface-3 space-y-4 text-sm">
           <div>
-            <p className="text-[11px] font-bold text-fg-tertiary uppercase tracking-[0.4px] mb-1.5">Warm-up</p>
+            <p className="text-[11px] font-bold text-fg-tertiary uppercase tracking-[0.4px] mb-1.5">Warmup</p>
             <ul className="space-y-1">
               {w.warmup.map((item, i) => <li key={i} className="text-fg-secondary text-xs">• {item}</li>)}
             </ul>
@@ -143,7 +143,7 @@ export default function DailyWorkoutCard({ initialWorkout, stats }: Props) {
           )}
 
           <div>
-            <p className="text-[11px] font-bold text-fg-tertiary uppercase tracking-[0.4px] mb-1.5">Cool-down</p>
+            <p className="text-[11px] font-bold text-fg-tertiary uppercase tracking-[0.4px] mb-1.5">Cooldown</p>
             <ul className="space-y-1">
               {w.cooldown.map((item, i) => <li key={i} className="text-fg-secondary text-xs">• {item}</li>)}
             </ul>

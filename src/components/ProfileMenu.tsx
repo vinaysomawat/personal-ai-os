@@ -30,8 +30,8 @@ export default function ProfileMenu() {
 
       {open && (
         <>
-          <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
-          <div className="absolute top-9 right-0 z-50 w-52 bg-surface-1 border border-surface-3 rounded-xl shadow-popover p-1.5">
+          <div className="fixed inset-0 z-20" onClick={() => setOpen(false)} />
+          <div className="absolute top-11 right-0 z-30 w-[200px] bg-surface-1 border border-surface-3 rounded-xl shadow-popover p-2">
             <p className="px-2.5 py-2 text-[12.5px] text-fg-secondary border-b border-surface-3 mb-1.5 truncate">{email}</p>
             <Link
               href="/documents"

@@ -67,7 +67,7 @@ export default function QuickAdd() {
       <button
         onClick={() => setOpen(true)}
         aria-label="Quick add"
-        className="fixed bottom-[86px] md:bottom-7 right-7 z-40 w-[52px] h-[52px] bg-accent rounded-full shadow-[0_8px_24px_var(--shadow-lg)] flex items-center justify-center hover:bg-accent/80 transition-colors">
+        className="fixed bottom-[86px] md:bottom-7 right-7 z-[25] w-[52px] h-[52px] bg-accent rounded-full shadow-[0_8px_24px_var(--shadow-lg)] flex items-center justify-center hover:bg-accent/80 transition-colors">
         <Plus size={24} className="text-white" />
       </button>
 

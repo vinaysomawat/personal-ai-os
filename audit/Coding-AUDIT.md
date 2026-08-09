@@ -40,12 +40,14 @@ Status legend: MATCH / MISMATCH / MISSING (design element absent from repo) / OP
 | D3 | Action button | Explicit **"Mark Solved"** button, `bg-good`/`text-on-good` | **FIXED** | Was an inline click-to-complete circle icon with no explicit button → added the explicit button per question, matching design's action pattern (and this pass's Health/Coding "Mark X" button convention). |
 | D4 | Multiple assigned questions | Design's mock only ever shows one question | OPEN (kept) | Real functionality — "Fixed count per day" assignment mode can assign more than one question daily; the list structure and Easy/Medium/Hard breakdown footer are kept as necessary, real behavior the single-question mock doesn't attempt to represent. |
 
-## Section E — Daily Tech Read (`TrendingReadingCard`)
+## Section E — Daily Tech Read (`TrendingReadingCard`) — DESIGN STALE, NOT IMPLEMENTED
+
+The design mock (`design_coding.html` lines 62-72) still renders a "Daily Tech Read" card unchanged from the last sync. Since that sync, Coding underwent a deliberate, user-approved product change: "Daily Tech Read" and its reading-tagged Practice Log rows were removed from Coding entirely and the habit moved into Learning (surfaced there as a "Today's Read" badge on the resource list). The mockup was never updated to reflect this real decision. Per the standing "preserve real functionality over literal mock-matching" precedent, this is NOT re-applied — `TrendingReadingCard` no longer exists in the codebase and should stay that way even though the design still shows it.
 
 | # | Element | Design spec | Verdict | Detail |
 |---|---|---|---|---|
-| E1 | Card shell/header | Standard shell; title + status badge in header row | **FIXED** | Was `rounded-xl p-4` with an icon+uppercase-tracking title and the status pill inline with content instead of the header → restructured to match. |
-| E2 | Content layout | Title (14px/600) + `"{source} · ~{X} min read"` below, then an explicit **"Mark Read"** button | **FIXED** | Was a single inline row (click-circle + title + pill + link) → restructured into title/meta lines plus an explicit good-colored button, matching D3's pattern. |
+| E1 | Card shell/header | Standard shell; title + status badge in header row | **CONFLICT (not applied)** | Design unchanged from last sync (still shows this card) — the mismatch is code-vs-real-product-decision, not code-vs-design. Left removed. |
+| E2 | Content layout | Title (14px/600) + `"{source} · ~{X} min read"` below, then an explicit **"Mark Read"** button | **CONFLICT (not applied)** | Same as E1 — design-only content, intentionally not implemented. |
 
 ## Section F — Contribution Calendar
 
@@ -99,9 +101,9 @@ Status legend: MATCH / MISMATCH / MISSING (design element absent from repo) / OP
 
 | # | Element | Design spec | Verdict | Detail |
 |---|---|---|---|---|
-| K1 | Today's Question + Daily Tech Read + Contribution Calendar | 2-column grid: left column stacks the two question/read cards, right column is the calendar | **FIXED** | Was a `lg:grid-cols-5` row (DailyCodingCard 3-col, TrendingReadingCard 2-col) followed by a separate full-width Calendar row below → restructured into design's actual 1fr/1fr grouping. |
+| K1 | Today's Question + Daily Tech Read + Contribution Calendar | 2-column grid: left column stacks the two question/read cards, right column is the calendar | **FIXED, since narrowed by product change** | Design still depicts two stacked cards in the left column. Since Daily Tech Read was removed from the product (see Section E), the left column now holds only `DailyCodingCard`; the 1fr/1fr grid with the calendar in the right column is otherwise unchanged and still matches. |
 | K2 | Difficulty Progression chart | Not present in design's mock at all | OPEN (kept) | Real feature (trend chart) added in an earlier phase — kept, positioned directly after the 2-column grid since design has no equivalent slot to place it in. |
-| K3 | Section order | Header → stats → Weak Areas → [Question/Read \| Calendar] → Goals → Practice Log → Recommended for You | **FIXED** | Corrected full page order (was: stats → Weak Areas → [Daily/Reading] → [Recommended \| DifficultyProgression] → Calendar → Goals → Practice Log). |
+| K3 | Section order | Header → stats → Weak Areas → [Question/Read \| Calendar] → Goals → Practice Log → Recommended for You | **FIXED, since narrowed by product change** | Design's order unchanged. Real order is Header → stats → Weak Areas → [Question \| Calendar] → Difficulty Progression (K2, extra) → Goals → Practice Log → Recommended for You — "Read" dropped from the bracketed pair per Section E. |
 
 ---
 
@@ -110,3 +112,9 @@ Status legend: MATCH / MISMATCH / MISSING (design element absent from repo) / OP
 All MISMATCH/MISSING rows across Sections A–K are **FIXED**. The Contribution Calendar gained the most real functionality beyond styling: today/selected-day ring indicators, future-day dashed treatment, click-to-select with a detail readout, and a month summary line were all **entirely missing** — the calendar was previously a static, non-interactive color grid. Every status/difficulty badge across the module (Today's Question, Daily Tech Read, Practice Log, Recommended for You) was converted from a filled colored pill to design's `bg-border` + colored-text convention. Page structure now matches design's grouping (Question/Read cards + Calendar side by side; Goals → Practice Log → Recommended for You in that order). Remaining OPEN items (deliberate, not oversights): the struggle-rate 60%/70% threshold (real pre-existing scoring logic), multi-question daily assignments, `GoalsCard`'s shared multi-goal architecture (same tradeoff as Career), Practice Log's 8 filters + row-level interactive actions, the AI-gated "Get Recommendations" flow, the settings gear's icon-over-glyph choice, and the Difficulty Progression chart.
 
 Verified: `tsc --noEmit` and `eslint` both clean. Live-checked in the browser — header badges, stat tiles, Today's Question/Daily Tech Read cards, the fully-interactive Contribution Calendar (today ring, click-to-select, future dashing, month summary), Goals, Practice Log, and Recommended for You all confirmed rendering and working correctly.
+
+---
+
+## Re-sync pass (later date) — see `CHANGELOG-coding.md`
+
+Compared the current `design_coding.html`'s `isCoding` block against every row above, property by property. Result: **zero CHANGED/ADDED/REMOVED elements** — every literal value (box, layout, type, color, border, depth, states, responsive) in the current design still matches what this file already recorded, across Sections A, B, C, D, F, G, H, I, K. The only update this pass made was reclassifying Section E's two rows from FIXED to CONFLICT (not applied): the design mock is unchanged and still shows a Daily Tech Read card, but the real product removed that card from Coding (moved to Learning) since the last sync — the old FIXED verdict was misleadingly implying code-design agreement on a section that's now deliberately absent from code. K1/K3 details were also adjusted to describe the current single-card left column (down from two stacked cards) without changing their FIXED verdict, since the underlying grid/order they describe is otherwise untouched. Section J (`CodingSettingsPopover`) was out of scope for this pass — owned by a parallel modal-audit agent, not re-diffed here.

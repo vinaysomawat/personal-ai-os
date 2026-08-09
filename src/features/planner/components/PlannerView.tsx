@@ -31,13 +31,17 @@ function ExecutiveSummaryTrigger() {
       </button>
       {open && (
         <>
-          <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
-          <div className="absolute right-0 top-full mt-2 z-50 w-[380px] max-w-[calc(100vw-2rem)] max-h-[75vh] overflow-y-auto bg-surface-1 border border-surface-3 rounded-xl shadow-2xl animate-in slide-in-from-top-2 fade-in duration-150">
-            <div className="flex items-center justify-between px-4 py-3 border-b border-surface-3 sticky top-0 bg-surface-1 z-10">
+          {/* Design specifies Executive Summary as a full-height right-side
+              drawer (position:fixed; top:0; right:0; bottom:0; width:min(460px,100vw)),
+              same family as the AIAdvisorProvider drawer and Ask Brain — was
+              a small top-right absolute dropdown with no dimming overlay. */}
+          <div className="fixed inset-0 z-40 bg-overlay" onClick={() => setOpen(false)} />
+          <div className="fixed top-0 right-0 bottom-0 z-[60] w-[min(460px,100vw)] bg-surface-1 border-l border-surface-3 flex flex-col animate-in fade-in duration-[180ms] ease-out">
+            <div className="flex items-center justify-between p-[var(--card-pad-lg)] border-b border-surface-3 shrink-0">
               <span className="text-sm font-bold text-fg-primary">◆ Executive Summary</span>
               <button onClick={() => setOpen(false)} aria-label="Close" className="text-fg-tertiary hover:text-fg-secondary text-base leading-none">✕</button>
             </div>
-            <div className="p-4 flex flex-col gap-4">
+            <div className="flex-1 overflow-y-auto p-[var(--card-pad-lg)] flex flex-col gap-[18px]">
               {loading || !data ? (
                 <div className="space-y-2">
                   {[90, 75, 85, 60, 95].map((w, i) => <div key={i} className="h-3 rounded bg-surface-2 animate-pulse" style={{ width: `${w}%` }} />)}

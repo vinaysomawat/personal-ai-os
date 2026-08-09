@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { useRouter, usePathname } from 'next/navigation'
 import {
   LayoutDashboard, CalendarDays, Briefcase, DollarSign, HeartPulse,
-  BookOpen, Code2, Cpu, Sun, Moon, ChevronDown, MoreHorizontal,
+  BookOpen, Code2, Sun, Moon, ChevronDown, MoreHorizontal,
 } from 'lucide-react'
 import { useTheme } from './ThemeProvider'
 import { useAIAdvisorTrigger } from './AIAdvisorProvider'
@@ -72,11 +72,8 @@ export default function TopNav() {
         style={{ background: 'var(--bg-translucent)' }}
       >
         <div className="flex items-center gap-3">
-          <Link href="/dashboard" className="flex items-center gap-2 shrink-0">
-            <span className="flex items-center justify-center w-6 h-6 rounded-md bg-accent">
-              <Cpu size={13} className="text-white" />
-            </span>
-            <span className="hidden sm:inline text-sm font-semibold text-fg-primary tracking-wide">Personal OS</span>
+          <Link href="/dashboard" className="flex items-center shrink-0">
+            <span className="text-base font-bold text-fg-primary tracking-[0.2px]">Personal OS</span>
           </Link>
           <nav className="hidden md:flex items-center gap-0.5 flex-1 min-w-0 overflow-x-auto no-scrollbar">
             {MODULES.map(m => (
@@ -99,7 +96,7 @@ export default function TopNav() {
                 aria-label={trigger.label}
                 className="flex items-center gap-1.5 px-3 py-[7px] rounded-full bg-accent-soft border border-accent-border text-accent-strong text-[12.5px] font-semibold hover:bg-accent/25 transition-colors whitespace-nowrap"
               >
-                <trigger.icon size={13} />
+                <trigger.icon size={15} />
                 <span className="hidden sm:inline">{trigger.label}</span>
                 <ChevronDown size={11} className={`hidden sm:inline transition-transform ${trigger.isOpen ? 'rotate-180' : ''}`} />
               </button>
@@ -111,7 +108,7 @@ export default function TopNav() {
 
       {/* Mobile bottom nav — fixed bar with 4 primary tabs + "More" sheet,
           matching the design source (replaces the old horizontal pill strip). */}
-      <div className="md:hidden fixed bottom-0 left-0 right-0 h-[58px] bg-surface-1 border-t border-surface-3 flex z-40">
+      <div className="md:hidden fixed bottom-0 left-0 right-0 h-[58px] bg-surface-1 border-t border-surface-3 flex z-[45]">
         {MOBILE_PRIMARY.map(m => {
           const active = pathname === m.to
           return (
@@ -132,8 +129,8 @@ export default function TopNav() {
       </div>
       {moreOpen && (
         <>
-          <div className="md:hidden fixed inset-0 z-40 bg-overlay" onClick={() => setMoreOpen(false)} />
-          <div className="md:hidden fixed bottom-[58px] left-0 right-0 z-40 bg-surface-1 border-t border-surface-3 rounded-t-2xl p-2 shadow-popover">
+          <div className="md:hidden fixed inset-0 z-[46] bg-overlay" onClick={() => setMoreOpen(false)} />
+          <div className="md:hidden fixed bottom-[58px] left-0 right-0 z-[47] bg-surface-1 border-t border-surface-3 rounded-t-2xl p-2 shadow-popover">
             {MOBILE_MORE.map(m => {
               const active = pathname === m.to
               return (

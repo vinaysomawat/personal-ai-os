@@ -47,7 +47,9 @@ Density tokens also match exactly:
 
 This means "land the token set" for these categories is a category error — there is nothing to centralize because the source itself doesn't centralize it. The correct match to that convention (which is what every module audit so far has actually been doing) is: **per-element literal Tailwind arbitrary values** (`text-[13px]`, `rounded-[10px]`, `z-[60]`, etc.), verified one getter at a time against the source, not a shared scale. Building a fake central "type scale" or "radius scale" the design doesn't have would itself be a fidelity gap, not a fix.
 
-Z-index layers *are* consistent in practice even without a named token — confirmed and applied so far: header `z-20`, mobile bottom bar/sheet `z-40`, dropdowns/modals `z-50`, full-height drawer panels (Executive Summary dropdown, Ask Brain) `z-[60]` matching the design's `Ask Brain`/`Executive Summary`/generic-modal panels which are all literally `z-index: 40` (backdrop) / `50` (panel) in source — already matched in the Modal system and Executive Summary work.
+Z-index layers *are* consistent in practice even without a named token: header `z-20`, mobile bottom bar/sheet `z-40`/`z-[45-47]`, dropdowns/modals `z-50`, full-height drawer panels (Ask Brain, Executive Summary) `z-[60]` matching the design's panels which are all literally `z-index: 40` (backdrop) / `50` (panel) in source.
+
+**Correction (2026-08-10 re-sync):** this line previously claimed Executive Summary's drawer/z-layering was "already matched" — that was stale. Executive Summary (`PlannerView.tsx`'s `ExecutiveSummaryTrigger`) was actually still a small `z-50` top-right dropdown with no overlay dimming until the 2026-08-10 sync fixed it to a proper `z-[60]` full-height drawer — see `audit/CHANGELOG.md`. Ask Brain's z-layering was correct as previously claimed.
 
 ## Status
 
