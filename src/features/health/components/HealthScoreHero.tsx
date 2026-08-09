@@ -17,9 +17,10 @@ function MiniRing({ score, color, size = 32 }: { score: number; color: string; s
   )
 }
 
-const SUB_SCORES: { key: keyof Omit<HealthScoreBreakdown, 'overall'>; label: string; color: string }[] = [
-  { key: 'nutrition',   label: 'Nutrition',   color: 'var(--warn)' },
-  { key: 'activity',    label: 'Activity',    color: 'var(--good)' },
+// Weights match calculations.ts's healthScore formula (nutrition*0.6 + activity*0.4).
+const SUB_SCORES: { key: keyof Omit<HealthScoreBreakdown, 'overall'>; label: string; color: string; weight: string }[] = [
+  { key: 'nutrition',   label: 'Nutrition',   color: 'var(--warn)', weight: '0.6×' },
+  { key: 'activity',    label: 'Activity',    color: 'var(--good)', weight: '0.4×' },
 ]
 
 export default function HealthScoreHero({ score, onEditProfile }: { score: HealthScoreBreakdown; onEditProfile?: () => void }) {
@@ -35,31 +36,38 @@ export default function HealthScoreHero({ score, onEditProfile }: { score: Healt
     score.overall >= 40 ? 'text-amber-400' : 'text-red-400'
 
   return (
-    <div className="bg-surface-1 border border-surface-3 rounded-xl p-3.5 relative">
-      {onEditProfile && (
-        <button onClick={onEditProfile} className="absolute top-3 right-3 flex items-center gap-1.5 text-xs text-fg-tertiary hover:text-fg-secondary transition-colors">
-          <Settings2 size={12} /> Edit health profile
-        </button>
-      )}
-      <div className="flex flex-col sm:flex-row items-center gap-4">
+    <div className="bg-surface-1 border border-surface-3 rounded-2xl p-[var(--card-pad-lg)]">
+      <div className="flex items-center justify-between gap-2 mb-2.5">
+        <p className="text-[13px] font-bold text-fg-primary">Health Score</p>
+        {onEditProfile && (
+          <button onClick={onEditProfile} className="flex items-center gap-1.5 px-2.5 py-1 rounded-[6px] border border-border-strong text-[11.5px] text-fg-secondary hover:bg-surface-2 transition-colors whitespace-nowrap">
+            <Settings2 size={11} /> Edit profile
+          </button>
+        )}
+      </div>
+      <div className="flex items-center gap-[18px]">
         <div className="relative shrink-0 rounded-full" style={{ width: 82, height: 82, background: `conic-gradient(var(--good) ${deg}deg, var(--border) ${deg}deg 360deg)` }}>
-          <div className="absolute inset-2 rounded-full bg-surface-1 flex flex-col items-center justify-center">
-            <span className="text-2xl font-bold text-fg-primary tabular-nums">{score.overall}</span>
-            <span className="text-[10px] text-fg-tertiary">/100</span>
+          <div className="absolute inset-2 rounded-full bg-surface-1 flex items-center justify-center">
+            <span className="text-xl font-bold text-fg-primary tabular-nums">{score.overall}</span>
           </div>
         </div>
 
-        <div className="flex-1 w-full">
-          <p className={`text-sm font-bold mb-2 ${levelColor}`}>{level}</p>
-          <div className="flex flex-wrap gap-3">
-            {SUB_SCORES.map(({ key, label, color }) => {
+        <div className="min-w-0">
+          <p className={`text-[13px] font-bold ${levelColor}`}>{level}</p>
+          <div className="flex flex-wrap gap-3 mt-2">
+            {SUB_SCORES.map(({ key, label, color, weight }) => {
               const s = score[key]
               return (
-                <div key={key} className="flex items-center gap-2 min-w-0">
-                  <MiniRing score={s.score} color={color} />
+                <div key={key} className="flex items-center gap-1.5 min-w-0">
+                  <MiniRing score={s.score} color={color} size={22} />
                   <div className="min-w-0">
-                    <p className="text-xs font-medium text-fg-secondary">{label} <span className="text-fg-quaternary font-normal">{s.score}/100</span></p>
-                    <p className="text-[11px] text-fg-quaternary truncate" title={s.reason}>{s.reason}</p>
+                    <p className="text-[11px] text-fg-tertiary">{label} · {weight}</p>
+                    {/* Reason text kept always-visible rather than design's hover-only
+                        title tooltip — tooltips aren't reachable on touch devices, and
+                        this explains *why* the sub-score is what it is (CLAUDE.md's
+                        "every page should answer what happened, why, and what to do
+                        next"). */}
+                    <p className="text-[10.5px] text-fg-quaternary truncate max-w-[140px]" title={s.reason}>{s.reason}</p>
                   </div>
                 </div>
               )
