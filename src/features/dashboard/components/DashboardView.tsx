@@ -21,6 +21,7 @@ import { buildPriorityItems, KIND_HREF } from '../priority'
 import type { getDashboardData } from '../actions'
 import type { ExecutiveData } from '@/features/brain/executive-actions'
 import LifeScoreTrend from './LifeScoreTrendLazy'
+import { todayISTLabel, istHour } from '@/lib/date'
 
 type DashboardData = Awaited<ReturnType<typeof getDashboardData>>
 
@@ -29,8 +30,8 @@ export default function DashboardView({ data, executive }: { data: DashboardData
   const MODULE_BADGE_COLOR: Record<string, string> = { Career: 'var(--accent)', Coding: '#22d3ee', Learning: '#a78bfa' }
   const scoreExplanation = explainScore(scoreHistory, scores, scoreTips)
   const brainContext = buildBrainContext(data)
-  const today = new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })
-  const hour = new Date().getHours()
+  const today = todayISTLabel()
+  const hour = istHour()
   const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening'
 
   const moduleScores = [

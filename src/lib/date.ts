@@ -12,6 +12,29 @@ export function todayIST(): string {
   return new Date(Date.now() + IST_OFFSET_MS).toISOString().split('T')[0]
 }
 
+// The current instant, pre-shifted so that reading it out with `timeZone:
+// 'UTC'` (or any getUTC* getter) yields IST calendar digits — same trick as
+// todayIST()'s toISOString() split, generalized for callers that need more
+// than just the date, e.g. a human-readable label or the current hour.
+export function nowIST(): Date {
+  return new Date(Date.now() + IST_OFFSET_MS)
+}
+
+// "Wednesday, August 10" — for user-facing greetings/briefings. Must be
+// formatted with an explicit UTC timeZone (not the runtime's default, which
+// on a server is UTC anyway but shouldn't be assumed) so it reads the
+// pre-shifted IST digits rather than re-shifting them again.
+export function todayISTLabel(): string {
+  return nowIST().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', timeZone: 'UTC' })
+}
+
+// The current IST hour-of-day (0-23) — for time-of-day greetings computed
+// server-side, where a plain `new Date().getHours()` reflects the server's
+// runtime timezone (UTC on Vercel), not IST.
+export function istHour(): number {
+  return nowIST().getUTCHours()
+}
+
 export function toISTDateStr(date: Date | string): string {
   const d = typeof date === 'string' ? new Date(date) : date
   return new Date(d.getTime() + IST_OFFSET_MS).toISOString().split('T')[0]

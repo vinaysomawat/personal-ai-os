@@ -2,7 +2,7 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { askAI } from '@/lib/ai-gateway'
-import { todayIST } from '@/lib/date'
+import { todayIST, todayISTLabel } from '@/lib/date'
 
 const PRIORITY_DOT: Record<string, string> = { high: '🔴', medium: '🟡', low: '⚪' }
 const PRIORITY_RANK: Record<string, number> = { high: 0, medium: 1, low: 2 }
@@ -98,7 +98,7 @@ export async function generateDailyBriefing(db: SupabaseClient, userId: string):
   const activeApps = apps.filter((a: { status: string }) => ['applied', 'screening', 'interview'].includes(a.status)).length
   const inProgress = resources.filter((r: { status: string }) => r.status === 'in-progress').length
 
-  const prompt = `Morning briefing for Vinay. Today: ${new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}.
+  const prompt = `Morning briefing for Vinay. Today: ${todayISTLabel()}.
 
 Life Score: ${lifeScore}/100${delta !== null ? ` (${delta >= 0 ? '+' : ''}${delta} from yesterday)` : ''}
 Budget: ₹${Math.round(monthSpend).toLocaleString('en-IN')} of ₹${Math.round(monthBudget).toLocaleString('en-IN')} this month
