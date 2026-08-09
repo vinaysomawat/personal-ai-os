@@ -1,16 +1,16 @@
 'use client'
 
 import { useState, useTransition } from 'react'
-import { CheckCircle2, Circle, ExternalLink, Moon } from 'lucide-react'
+import { ExternalLink, Moon } from 'lucide-react'
 import EmptyState from '@/components/EmptyState'
 import { markQuestionComplete } from '../daily'
 import OutcomeModal from './OutcomeModal'
 import type { DailyQuestion, CodingStats, Outcome } from '../daily-core'
 
 const DIFFICULTY_COLOR: Record<string, string> = {
-  easy: 'text-green-400 bg-good-soft',
-  medium: 'text-amber-400 bg-warn-soft',
-  hard: 'text-red-400 bg-risk-soft',
+  easy: 'text-green-400',
+  medium: 'text-amber-400',
+  hard: 'text-red-400',
 }
 
 interface Props {
@@ -29,32 +29,42 @@ export default function DailyCodingCard({ initialAssignment, stats }: Props) {
     startTransition(async () => { await markQuestionComplete(id, outcome ? { outcome } : undefined) })
   }
 
+  const allCompleted = assignment.length > 0 && assignment.every(a => a.completed)
+
   return (
-    <div className="bg-surface-1 border border-surface-3 rounded-xl p-5">
-      <h2 className="text-sm font-semibold text-fg-secondary uppercase tracking-wider mb-4">Today&apos;s Coding Challenge</h2>
+    <div className="bg-surface-1 border border-surface-3 rounded-2xl p-[var(--card-pad-lg)]">
+      <div className="flex items-center justify-between gap-2.5 mb-2.5">
+        <h2 className="text-[13px] font-bold text-fg-primary whitespace-nowrap">Today&apos;s Question{assignment.length > 1 ? 's' : ''}</h2>
+        {assignment.length > 0 && (
+          <span className={`text-[11px] font-bold px-2.5 py-[3px] rounded-[6px] bg-border whitespace-nowrap ${allCompleted ? 'text-green-400' : 'text-amber-400'}`}>
+            {allCompleted ? 'Solved' : 'Pending'}
+          </span>
+        )}
+      </div>
 
       {assignment.length === 0 ? (
         <EmptyState icon={Moon} message="No new questions today — revision day. Browse your history below." />
       ) : (
-        <ul className="space-y-2">
+        <ul className="flex flex-col gap-2">
           {assignment.map(a => (
-            <li key={a.id} className={`flex items-center gap-3 p-3 rounded-lg border ${a.completed ? 'bg-surface-2/50 border-surface-3' : 'bg-surface-2 border-surface-3'}`}>
-              <button onClick={() => !a.completed && setOutcomeFor(a)} disabled={a.completed || isPending} aria-label="Mark question complete" className="p-1.5 -m-1.5 shrink-0">
-                {a.completed ? <CheckCircle2 size={18} className="text-green-500" /> : <Circle size={18} className="text-fg-quaternary hover:text-accent transition-colors" />}
-              </button>
-              <div className="flex-1 min-w-0">
-                <p className={`text-sm font-medium ${a.completed ? 'text-fg-tertiary line-through' : 'text-fg-primary'}`}>{a.question.title}</p>
-                {a.question.topics && a.question.topics.length > 0 && (
-                  <p className="text-xs text-fg-tertiary mt-0.5 truncate">Topics: {a.question.topics.join(', ')}</p>
-                )}
+            <li key={a.id}>
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <p className={`text-[14px] font-semibold ${a.completed ? 'text-fg-tertiary line-through' : 'text-fg-primary'}`}>{a.question.title}</p>
+                <span className={`text-[11px] font-medium ${DIFFICULTY_COLOR[a.question.difficulty]}`}>{a.question.difficulty}</span>
+                <a href={a.question.url} target="_blank" rel="noopener noreferrer" className="shrink-0 text-fg-tertiary hover:text-accent transition-colors">
+                  <ExternalLink size={12} />
+                </a>
               </div>
-              <span className={`text-xs px-2 py-0.5 rounded-full font-medium shrink-0 ${a.completed ? 'text-green-400 bg-good-soft' : 'text-fg-tertiary bg-surface-3'}`}>
-                {a.completed ? 'Solved' : 'Pending'}
-              </span>
-              <span className={`text-xs px-2 py-0.5 rounded-full font-medium shrink-0 ${DIFFICULTY_COLOR[a.question.difficulty]}`}>{a.question.difficulty}</span>
-              <a href={a.question.url} target="_blank" rel="noopener noreferrer" className="shrink-0 text-fg-tertiary hover:text-accent transition-colors">
-                <ExternalLink size={14} />
-              </a>
+              {a.question.topics && a.question.topics.length > 0 && (
+                <p className="text-[12.5px] text-fg-tertiary mt-0.5 truncate">Topics: {a.question.topics.join(', ')}</p>
+              )}
+              {!a.completed && (
+                <div className="flex gap-2 mt-2">
+                  <button onClick={() => setOutcomeFor(a)} disabled={isPending} className="px-3.5 py-2 rounded-[7px] bg-good text-on-good text-[12.5px] font-semibold hover:opacity-90 disabled:opacity-50 transition-colors">
+                    Mark Solved
+                  </button>
+                </div>
+              )}
             </li>
           ))}
         </ul>

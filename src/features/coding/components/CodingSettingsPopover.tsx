@@ -21,7 +21,7 @@ export default function CodingSettingsPopover({ initialSettings }: { initialSett
   return (
     <>
       <button onClick={() => setOpen(true)} title="Settings" aria-label="Coding settings"
-        className="flex items-center justify-center w-7 h-7 rounded-full border border-surface-3 text-fg-secondary hover:text-fg-primary hover:border-accent/40 transition-colors shrink-0">
+        className="flex items-center justify-center w-7 h-7 rounded-full border border-border-strong text-fg-secondary hover:text-fg-primary hover:border-accent/40 transition-colors shrink-0">
         <Settings2 size={13} />
       </button>
       {open && (

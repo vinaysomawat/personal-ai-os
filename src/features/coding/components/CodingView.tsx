@@ -58,46 +58,50 @@ export default function CodingView({ dailyAssignment, codingStats, calendar, cod
   return (
     <div className="space-y-5">
       {advisorPortal}
-      <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-fg-primary">Coding</h1>
+      <div className="flex items-center gap-3 flex-wrap">
+        <h1 className="text-[34px] font-bold tracking-[-0.02em] text-fg-primary">Coding</h1>
+        <span className="text-[11px] font-semibold bg-surface-2 rounded-full px-2.5 py-1 text-fg-secondary">🔥 {codingStats.currentStreak}-day streak</span>
+        <span className="text-[11px] font-semibold bg-surface-2 rounded-full px-2.5 py-1 text-fg-secondary">{MODE_LABEL[codingSettings.mode](codingSettings.fixed_count)}</span>
+      </div>
 
       {/* Streak/Solved/Completion/Assignment — persistent top-level stats,
           matching the design; previously Streak/Solved lived only as small
           chips inside DailyCodingCard's header, and Assignment mode was
           never shown on the page at all (only inside the settings modal). */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <div className="bg-surface-1 border border-surface-3 rounded-xl p-3">
-          <p className="text-xs text-fg-tertiary uppercase tracking-wider">Streak</p>
-          <p className="text-lg font-bold text-fg-primary mt-0.5">🔥 {codingStats.currentStreak} days</p>
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3.5">
+        <div className="bg-surface-1 border border-surface-3 rounded-2xl p-[var(--card-pad-sm)]">
+          <p className="text-[11px] text-fg-tertiary uppercase">Streak</p>
+          <p className="text-xl font-bold text-fg-primary mt-1">🔥 {codingStats.currentStreak} days</p>
         </div>
-        <div className="bg-surface-1 border border-surface-3 rounded-xl p-3">
-          <p className="text-xs text-fg-tertiary uppercase tracking-wider">Solved</p>
-          <p className="text-lg font-bold text-fg-primary mt-0.5">{codingStats.totalSolved}</p>
+        <div className="bg-surface-1 border border-surface-3 rounded-2xl p-[var(--card-pad-sm)]">
+          <p className="text-[11px] text-fg-tertiary uppercase">Solved</p>
+          <p className="text-xl font-bold text-fg-primary mt-1">{codingStats.totalSolved}</p>
         </div>
-        <div className="bg-surface-1 border border-surface-3 rounded-xl p-3">
-          <p className="text-xs text-fg-tertiary uppercase tracking-wider">Completion rate</p>
-          <p className="text-lg font-bold text-fg-primary mt-0.5">{codingStats.completionRate}%</p>
+        <div className="bg-surface-1 border border-surface-3 rounded-2xl p-[var(--card-pad-sm)]">
+          <p className="text-[11px] text-fg-tertiary uppercase">Completion rate</p>
+          <p className="text-xl font-bold text-fg-primary mt-1">{codingStats.completionRate}%</p>
         </div>
-        <div className="bg-surface-1 border border-surface-3 rounded-xl p-3 flex items-center justify-between gap-2">
+        <div className="bg-surface-1 border border-surface-3 rounded-2xl p-[var(--card-pad-sm)] flex items-center justify-between gap-2">
           <div className="min-w-0">
-            <p className="text-xs text-fg-tertiary uppercase tracking-wider">Assignment</p>
-            <p className="text-sm font-bold text-fg-primary mt-0.5 truncate">{MODE_LABEL[codingSettings.mode](codingSettings.fixed_count)}</p>
+            <p className="text-[11px] text-fg-tertiary uppercase">Assignment</p>
+            <p className="text-sm font-bold text-fg-primary mt-1 truncate">{MODE_LABEL[codingSettings.mode](codingSettings.fixed_count)}</p>
           </div>
           <CodingSettingsPopover initialSettings={codingSettings} />
         </div>
       </div>
 
       {weakAreas.length > 0 && (
-        <Card title="Weak Areas" padding="p-3.5">
-          <p className="text-xs text-fg-tertiary mb-3">Topics with ≥2 attempts where struggles recur, worst first</p>
-          <div className="space-y-2.5">
+        <Card title="Weak Areas">
+          <p className="text-[11px] text-fg-tertiary mb-3">Topics with ≥2 attempts where struggles recur, worst first</p>
+          <div className="flex flex-col gap-2.5">
             {weakAreas.slice(0, 5).map(w => (
               <div key={w.topic}>
-                <div className="flex items-center justify-between text-xs mb-1">
-                  <span className="font-medium text-fg-secondary">{w.topic}</span>
+                <div className="flex items-center justify-between text-[12.5px] mb-1">
+                  <span className="font-semibold text-fg-primary">{w.topic}</span>
                   <span className="text-fg-tertiary">{w.strugglingCount} of {w.total} struggled · {w.struggleRate}%</span>
                 </div>
-                <div className="h-1.5 rounded-full bg-surface-3 overflow-hidden">
-                  <div className={`h-full rounded-full ${w.struggleRate >= 60 ? 'bg-risk' : 'bg-warn'}`} style={{ width: `${w.struggleRate}%` }} />
+                <div className="h-[5px] rounded-[3px] bg-border">
+                  <div className={`h-full rounded-[3px] ${w.struggleRate >= 60 ? 'bg-risk' : 'bg-warn'}`} style={{ width: `${w.struggleRate}%` }} />
                 </div>
               </div>
             ))}
@@ -105,27 +109,25 @@ export default function CodingView({ dailyAssignment, codingStats, calendar, cod
         </Card>
       )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-5 gap-4 items-start">
-        <div className="lg:col-span-3">
+      {/* Today's Question + Daily Tech Read stacked left, Contribution Calendar
+          right — matching design's two-column grouping. */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-start">
+        <div className="flex flex-col gap-4">
           <DailyCodingCard initialAssignment={dailyAssignment} stats={codingStats} />
-        </div>
-        <div className="lg:col-span-2">
           <TrendingReadingCard initialReading={trendingReading} />
         </div>
+        <Card title="Contribution Calendar">
+          <CodingCalendar days={calendar} />
+        </Card>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-start">
-        <RecommendedQuestions />
-        <DifficultyProgression data={difficultyProgression} />
-      </div>
-
-      <Card title="Contribution Calendar" padding="p-3.5">
-        <CodingCalendar days={calendar} />
-      </Card>
+      <DifficultyProgression data={difficultyProgression} />
 
       <GoalsCard module="coding" initialGoals={goals} autoMetric="coding_streak" />
 
       <QuestionHistory initialHistory={history} readingHistory={readingHistory} />
+
+      <RecommendedQuestions />
     </div>
   )
 }

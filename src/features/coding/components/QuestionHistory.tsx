@@ -12,9 +12,9 @@ import type { DailyQuestion, Outcome } from '../daily-core'
 import type { TrendingReading } from '@/features/trending/types'
 
 const DIFFICULTY_COLOR: Record<string, string> = {
-  easy: 'text-green-400 bg-good-soft',
-  medium: 'text-amber-400 bg-warn-soft',
-  hard: 'text-red-400 bg-risk-soft',
+  easy: 'text-green-400',
+  medium: 'text-amber-400',
+  hard: 'text-red-400',
 }
 
 type Filter = 'all' | 'completed' | 'pending' | 'revision' | 'favorites' | 'easy' | 'medium' | 'hard'
@@ -80,7 +80,7 @@ export default function QuestionHistory({ initialHistory, readingHistory }: Prop
   ]
 
   return (
-    <Card title="Practice Log" padding="p-3.5">
+    <Card title="Practice Log">
       <div className="flex gap-1.5 flex-wrap mb-4">
         {filters.map(f => (
           <FilterPill key={f.key} label={f.label} active={filter === f.key} onClick={() => setFilter(f.key)} />
@@ -89,13 +89,13 @@ export default function QuestionHistory({ initialHistory, readingHistory }: Prop
       {filtered.length === 0 && filteredReadings.length === 0 ? (
         <EmptyState icon={SearchX} message="No questions match this filter." compact />
       ) : (
-        <ul className="space-y-1.5 max-h-96 overflow-y-auto">
+        <ul className="flex flex-col gap-2 max-h-96 overflow-y-auto">
           {filteredReadings.map(reading => (
-            <li key={reading.id} className="flex items-center gap-2.5 p-2 rounded-lg hover:bg-surface-2 transition-colors group">
-              <span className="text-xs px-2 py-0.5 rounded-full font-medium shrink-0 text-accent bg-accent/15 flex items-center gap-1">
-                <Newspaper size={10} /> Read
+            <li key={reading.id} className="flex items-center gap-2.5 bg-surface-2 rounded-[10px] px-3.5 py-2.5 group">
+              <span className="text-[10px] font-bold uppercase px-1.5 py-0.5 rounded-[5px] bg-border text-accent flex items-center gap-1 shrink-0">
+                <Newspaper size={9} /> Read
               </span>
-              <span className={`flex-1 min-w-0 text-sm truncate ${reading.completed ? 'text-fg-secondary' : 'text-fg-secondary'}`}>{reading.title}</span>
+              <span className="flex-1 min-w-0 text-[12.5px] text-fg-secondary truncate">{reading.title}</span>
               <span className="text-xs text-fg-quaternary shrink-0">{reading.assigned_date}</span>
               <button onClick={() => handleReadingComplete(reading.id)} disabled={reading.completed} aria-label="Mark reading complete"
                 className={`p-1.5 -m-1.5 shrink-0 transition-colors ${reading.completed ? 'text-green-500' : 'text-fg-quaternary hover:text-green-400'}`}>
@@ -107,9 +107,9 @@ export default function QuestionHistory({ initialHistory, readingHistory }: Prop
             </li>
           ))}
           {filtered.map(h => (
-            <li key={h.id} className="flex items-center gap-2.5 p-2 rounded-lg hover:bg-surface-2 transition-colors group">
-              <span className={`text-xs px-2 py-0.5 rounded-full font-medium shrink-0 ${DIFFICULTY_COLOR[h.question.difficulty]}`}>{h.question.difficulty}</span>
-              <span className={`flex-1 min-w-0 text-sm truncate ${h.completed ? 'text-fg-secondary' : 'text-fg-secondary'}`}>{h.question.title}</span>
+            <li key={h.id} className="flex items-center gap-2.5 bg-surface-2 rounded-[10px] px-3.5 py-2.5 group">
+              <span className={`text-[10px] font-bold uppercase px-1.5 py-0.5 rounded-[5px] bg-border shrink-0 ${DIFFICULTY_COLOR[h.question.difficulty]}`}>{h.question.difficulty}</span>
+              <span className="flex-1 min-w-0 text-[12.5px] text-fg-secondary truncate">{h.question.title}</span>
               <span className="text-xs text-fg-quaternary shrink-0">{h.assigned_date}</span>
               <button onClick={() => !h.completed && setOutcomeFor(h)} disabled={h.completed} aria-label="Mark question complete"
                 className={`p-1.5 -m-1.5 shrink-0 transition-colors ${h.completed ? 'text-green-500' : 'text-fg-quaternary hover:text-green-400'}`}>

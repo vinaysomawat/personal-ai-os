@@ -1,16 +1,16 @@
 'use client'
 
 import { useState } from 'react'
-import { Sparkles, ExternalLink, Plus } from 'lucide-react'
+import { Sparkles, ExternalLink } from 'lucide-react'
 import Card from '@/components/Card'
 import { getCodingRecommendations, type CodingRecommendation } from '../recommendations'
 import { addRecommendedQuestion } from '../daily'
 import type { WeakArea } from '../daily-core'
 
 const DIFFICULTY_COLOR: Record<string, string> = {
-  easy: 'text-green-400 bg-good-soft',
-  medium: 'text-amber-400 bg-warn-soft',
-  hard: 'text-red-400 bg-risk-soft',
+  easy: 'text-green-400',
+  medium: 'text-amber-400',
+  hard: 'text-red-400',
 }
 
 // Separate from the daily-assignment card (DailyCodingCard) rather than
@@ -44,7 +44,7 @@ export default function RecommendedQuestions() {
   }
 
   return (
-    <Card title="Recommended for You" padding="p-3.5" action={
+    <Card title="Recommended for You" action={
       <button onClick={handleLoad} disabled={loading} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-accent text-white text-xs font-medium hover:bg-accent/80 disabled:opacity-50 transition-colors">
         <Sparkles size={12} /> {loading ? 'Thinking...' : loaded ? 'Refresh' : 'Get Recommendations'}
       </button>
@@ -76,22 +76,22 @@ export default function RecommendedQuestions() {
           {recommendations.length === 0 ? (
             <p className="text-sm text-fg-tertiary">No recommendations right now — try again after solving a few more questions.</p>
           ) : (
-            <ul className="space-y-1.5">
+            <ul className="flex flex-col gap-2">
               {recommendations.map(rec => {
                 const added = addedIds.has(rec.question.id)
                 return (
-                  <li key={rec.question.id} className="flex items-start gap-2 p-2 rounded-lg bg-surface-2 border border-surface-3">
-                    <span className={`text-xs px-1.5 py-0.5 rounded-full font-medium shrink-0 mt-0.5 ${DIFFICULTY_COLOR[rec.question.difficulty]}`}>{rec.question.difficulty}</span>
+                  <li key={rec.question.id} className="flex items-center gap-2.5 bg-surface-2 rounded-[10px] px-3.5 py-2.5">
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="text-sm text-fg-primary">{rec.question.title}</span>
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className="text-[12.5px] font-semibold text-fg-primary">{rec.question.title}</span>
+                        <span className={`text-[11px] font-medium ${DIFFICULTY_COLOR[rec.question.difficulty]}`}>{rec.question.difficulty}</span>
                         <a href={rec.question.url} target="_blank" rel="noopener noreferrer" className="text-fg-quaternary hover:text-accent transition-colors shrink-0"><ExternalLink size={11} /></a>
                       </div>
-                      <p className="text-xs text-fg-tertiary mt-0.5">{rec.reason}</p>
+                      <p className="text-[11px] text-fg-tertiary mt-0.5">{rec.reason}</p>
                     </div>
                     <button onClick={() => handleAdd(rec)} disabled={added}
-                      className="shrink-0 flex items-center gap-1 text-xs px-2 py-1 rounded-lg border border-surface-3 text-fg-secondary hover:text-accent hover:border-accent/40 disabled:opacity-50 transition-colors">
-                      {added ? 'Added' : <><Plus size={11} /> Add</>}
+                      className={`shrink-0 text-[11px] font-semibold px-2.5 py-1 rounded-[6px] whitespace-nowrap transition-colors ${added ? 'border border-border-strong text-fg-tertiary cursor-default' : 'bg-accent text-white hover:bg-accent/80'}`}>
+                      {added ? 'Added' : '+ Add'}
                     </button>
                   </li>
                 )
