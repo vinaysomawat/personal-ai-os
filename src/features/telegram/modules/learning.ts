@@ -93,7 +93,15 @@ export async function execute(action: Record<string, unknown>, db: SupabaseClien
       const { generateResourceQuiz } = await import('@/features/ai/study-plan')
       const questions = await generateResourceQuiz(r.title, r.category, r.type, r.notes)
       if (!questions.length) return `❌ Couldn't generate a quiz for *${r.title}* right now.`
-      return `🧠 *Quiz — ${r.title}:*\n\n` + questions.map((q, i) => `*${i + 1}. ${q.question}*\n${q.answer}`).join('\n\n')
+      // Telegram has no interactive answer-submission UI, so this is a
+      // read-only quiz sheet (question + options + answer key) rather than a
+      // graded attempt — grading/weak-area tracking only happens in the web
+      // app's quiz flow, which is also the only place "Completed" is gated
+      // on taking a quiz (impractical to enforce through a chat command).
+      const letters = ['A', 'B', 'C', 'D']
+      return `🧠 *Quiz — ${r.title}:*\n\n` + questions.map((q, i) =>
+        `*${i + 1}. ${q.question}*\n${q.options.map((opt, oi) => `${letters[oi]}. ${opt}`).join('\n')}\n✅ ${letters[q.correctIndex]} — ${q.explanation}`
+      ).join('\n\n')
     }
     case 'undo_last': {
       const { data } = await db.from('resources').select('id, title').eq('user_id', userId).order('created_at', { ascending: false }).limit(1)

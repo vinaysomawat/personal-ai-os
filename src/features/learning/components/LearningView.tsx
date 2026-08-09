@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useTransition } from 'react'
-import { ExternalLink, Sparkles, ChevronRight, Flame, BookOpen, Inbox } from 'lucide-react'
+import { ExternalLink, Sparkles, Flame, BookOpen, Inbox } from 'lucide-react'
 import Card from '@/components/Card'
 import EmptyState from '@/components/EmptyState'
 import StatCard from '@/components/StatCard'
@@ -9,15 +9,16 @@ import FilterPill from '@/components/FilterPill'
 import ModuleRecommendations from '@/components/ModuleRecommendations'
 import Modal, { modalLabelClass, modalInputClass, modalSelectClass, modalCancelButtonClass, modalSaveButtonClass } from '@/components/Modal'
 import { useAIAdvisor, useAIAdvisorOpen } from '@/components/AIAdvisorProvider'
-import { addResource, updateResource, deleteResource, logStudySession } from '../actions'
+import { addResource, updateResource, deleteResource, logStudySession, saveResourceQuizAttempt } from '../actions'
 import { getDailyStudyPlan, generateResourceQuiz, recommendResources } from '@/features/ai/study-plan'
-import { getResourcesNeedingRevision, getStudyStreak } from '../calculations'
+import { getStudyStreak } from '../calculations'
+import { gradeQuiz, computeCategoryWeakAreas } from '../quiz-calculations'
 import { SUGGESTED_RESOURCES } from '../suggested-resources'
 import { todayIST, daysAgoIST } from '@/lib/date'
 import { useEscapeKey } from '@/lib/use-escape-key'
 import { useFormValidation } from '@/lib/use-form-validation'
 import FieldError from '@/components/FieldError'
-import type { Resource, ResourceStatus, ResourceType, StudyLog, RecommendedResource } from '../types'
+import type { Resource, ResourceStatus, ResourceType, StudyLog, RecommendedResource, QuizQuestion, ResourceQuizAttempt } from '../types'
 
 const TYPE_ICON: Record<ResourceType, string> = {
   course: '🎓', book: '📚', video: '🎬', article: '📄', podcast: '🎙️',
@@ -69,25 +70,35 @@ function StudyCoachContent({ isOpen, context, resources, studyLogs }: { isOpen: 
   )
 }
 
-interface QuizItem { question: string; answer: string }
+// Mandatory quiz (marking a resource "Completed" requires taking one) plus
+// voluntary quizzing at any time — same session shape either way, just
+// gated by `completesOnFinish`.
+interface QuizSession {
+  resource: Resource
+  stage: 'generating' | 'taking' | 'results'
+  questions: QuizQuestion[]
+  answers: number[]
+  score: number
+  weakAreas: string[]
+  completesOnFinish: boolean
+}
 
 interface Props {
   initialResources: Resource[]
   initialStudyLogs: StudyLog[]
+  initialQuizAttempts: ResourceQuizAttempt[]
 }
 
-export default function LearningView({ initialResources, initialStudyLogs }: Props) {
+export default function LearningView({ initialResources, initialStudyLogs, initialQuizAttempts }: Props) {
   const [, startTransition] = useTransition()
   const [resources, setResources] = useState(initialResources)
   const [studyLogs, setStudyLogs] = useState(initialStudyLogs)
+  const [quizAttempts, setQuizAttempts] = useState(initialQuizAttempts)
   const [filter, setFilter] = useState<'active' | 'all' | 'completed'>('active')
   const [showForm, setShowForm] = useState(false)
 
   // Quiz
-  const [quizResource, setQuizResource] = useState<Resource | null>(null)
-  const [quizItems, setQuizItems] = useState<QuizItem[]>([])
-  const [quizLoading, setQuizLoading] = useState(false)
-  const [revealed, setRevealed] = useState<Set<number>>(new Set())
+  const [quiz, setQuiz] = useState<QuizSession | null>(null)
 
   // Log session modal — 'general' logs study time not tied to any resource
   // (design's header-level "Log Session" button, distinct from per-resource logging)
@@ -109,7 +120,7 @@ export default function LearningView({ initialResources, initialStudyLogs }: Pro
   useEscapeKey(() => {
     if (showForm) setShowForm(false)
     if (showLog) setShowLog(null)
-    if (quizResource) setQuizResource(null)
+    if (quiz) setQuiz(null)
   })
   const { invalidFields, validate, clear, onFieldInput } = useFormValidation()
   useEffect(() => { clear(); if (!showForm) setPrefill(null) }, [showForm, clear])
@@ -123,7 +134,7 @@ export default function LearningView({ initialResources, initialStudyLogs }: Pro
     : filter === 'completed' ? resources.filter(r => r.status === 'completed')
     : resources.filter(r => r.status !== 'completed')
   const counts = STATUSES.reduce((acc, s) => ({ ...acc, [s]: resources.filter(r => r.status === s).length }), {} as Record<ResourceStatus, number>)
-  const needsRevision = getResourcesNeedingRevision(resources, studyLogs)
+  const weakAreasByCategory = computeCategoryWeakAreas(quizAttempts)
 
   const byCategory = resources.reduce<Record<string, number>>((acc, r) => {
     acc[r.category] = (acc[r.category] ?? 0) + 1
@@ -138,6 +149,15 @@ export default function LearningView({ initialResources, initialStudyLogs }: Pro
   const handleStatus = (id: string, status: ResourceStatus) => {
     setResources(prev => prev.map(r => r.id === id ? { ...r, status, progress: status === 'completed' ? 100 : r.progress } : r))
     startTransition(() => updateResource(id, { status, ...(status === 'completed' ? { progress: 100 } : {}) }))
+  }
+
+  // Marking a resource "Completed" is gated on taking its quiz — the status
+  // select doesn't persist 'completed' directly, it opens the mandatory quiz
+  // instead, and handleSubmitQuiz is what actually flips the status once
+  // it's graded. Every other status change still applies immediately.
+  const handleStatusChange = (resource: Resource, status: ResourceStatus) => {
+    if (status === 'completed') { handleQuiz(resource, true); return }
+    handleStatus(resource.id, status)
   }
 
   const handleProgress = (id: string, progress: number) => {
@@ -155,6 +175,7 @@ export default function LearningView({ initialResources, initialStudyLogs }: Pro
     const optimistic: Resource = {
       id: `temp-${Date.now()}`, user_id: '', title: s.title, type: s.type, url: s.url,
       category: s.category, status: 'not-started', progress: 0, notes: s.notes, created_at: new Date().toISOString(), task_id: null,
+      estimated_minutes: null,
     }
     setResources(prev => [optimistic, ...prev])
     const fd = new FormData()
@@ -203,15 +224,41 @@ export default function LearningView({ initialResources, initialStudyLogs }: Pro
     await logStudySession(resourceObj?.id ?? null, duration, notes)
   }
 
-  const handleQuiz = async (resource: Resource) => {
-    setQuizResource(resource); setQuizItems([]); setRevealed(new Set()); setQuizLoading(true)
-    try {
-      const items = await generateResourceQuiz(resource.title, resource.category, resource.type, resource.notes)
-      setQuizItems(items)
-    } finally { setQuizLoading(false) }
+  const handleQuiz = async (resource: Resource, completesOnFinish = false) => {
+    setQuiz({ resource, stage: 'generating', questions: [], answers: [], score: 0, weakAreas: [], completesOnFinish })
+    const questions = await generateResourceQuiz(resource.title, resource.category, resource.type, resource.notes)
+    if (questions.length === 0) { setQuiz(null); return }
+    setQuiz(q => q ? { ...q, stage: 'taking', questions, answers: new Array(questions.length).fill(-1) } : q)
   }
 
-  const learningContext = `Resources tracked: ${resources.length} (${STATUSES.map(s => `${counts[s]} ${STATUS_CONFIG[s].label.toLowerCase()}`).join(', ')}). Study streak: ${streak} days. Minutes studied this week: ${weekMinutes}. In-progress resources: ${resources.filter(r => r.status === 'in-progress').map(r => r.title).join(', ') || 'none'}. Needs revision (completed, no activity in 14+ days): ${needsRevision.map(r => r.title).join(', ') || 'none'}.`
+  const handleSelectAnswer = (qIndex: number, optIndex: number) => {
+    setQuiz(q => {
+      if (!q) return q
+      const answers = [...q.answers]
+      answers[qIndex] = optIndex
+      return { ...q, answers }
+    })
+  }
+
+  const handleSubmitQuiz = async () => {
+    if (!quiz) return
+    const { score, weakAreas } = gradeQuiz(quiz.questions, quiz.answers)
+    setQuiz(q => q ? { ...q, stage: 'results', score, weakAreas } : q)
+
+    const newAttempt: ResourceQuizAttempt = {
+      id: `temp-${Date.now()}`, user_id: '', resource_id: quiz.resource.id, resource_title: quiz.resource.title,
+      category: quiz.resource.category, questions: quiz.questions, user_answers: quiz.answers,
+      score, total: quiz.questions.length, weak_areas: weakAreas, created_at: new Date().toISOString(),
+    }
+    setQuizAttempts(prev => [newAttempt, ...prev])
+    await saveResourceQuizAttempt(quiz.resource.id, quiz.resource.title, quiz.resource.category, quiz.questions, quiz.answers, score, weakAreas)
+
+    if (quiz.completesOnFinish) handleStatus(quiz.resource.id, 'completed')
+  }
+
+  const handleCloseQuiz = () => setQuiz(null)
+
+  const learningContext = `Resources tracked: ${resources.length} (${STATUSES.map(s => `${counts[s]} ${STATUS_CONFIG[s].label.toLowerCase()}`).join(', ')}). Study streak: ${streak} days. Minutes studied this week: ${weekMinutes}. In-progress resources: ${resources.filter(r => r.status === 'in-progress').map(r => r.title).join(', ') || 'none'}. Weak areas by category (from quiz scores): ${weakAreasByCategory.length ? weakAreasByCategory.map(w => `${w.category} ${w.avgPercent}%`).join(', ') : 'none yet'}.`
 
   const advisorOpen = useAIAdvisorOpen()
   const advisorPortal = useAIAdvisor('Study Coach', Sparkles, (
@@ -234,21 +281,32 @@ export default function LearningView({ initialResources, initialStudyLogs }: Pro
         <StatCard value={`${streak}d`} label={`Streak · ${weekMinutes}m this week`} valueClassName="text-amber-400" icon={<Flame size={16} className="text-amber-400" />} />
       </div>
 
-      {/* Revision nudge — rule-based, not AI: completed resources with no study activity in 14+ days */}
-      {needsRevision.length > 0 && (
-        <div className="rounded-2xl bg-risk-soft border border-risk-border px-5 py-3.5">
-          <ul className="flex flex-col gap-2">
-            {needsRevision.map(r => (
-              <li key={r.id} className="flex items-center gap-3 flex-wrap">
-                <p className="flex-1 min-w-0 text-[13px] text-risk-strong truncate">📚 &quot;{r.title}&quot; not revised in 14+ days</p>
-                <button onClick={() => setShowLog(r)}
-                  className="shrink-0 px-3 py-1.5 rounded-[7px] border border-risk-border text-xs text-risk-strong hover:bg-risk-soft/50 transition-colors whitespace-nowrap">
-                  + Log Session
-                </button>
-              </li>
-            ))}
-          </ul>
-        </div>
+      {/* Weak areas by category — from quiz scores (quiz is now mandatory to
+          mark a resource Completed, so this fills in as real data accrues).
+          Resources needing revision are no longer nudged manually; they're
+          silently re-added to the pending queue instead (see getLearningData). */}
+      {weakAreasByCategory.length > 0 && (
+        <Card title="Weak Areas by Category">
+          <p className="text-[11px] text-fg-tertiary mb-3">Average quiz score per category, worst first</p>
+          <div className="flex flex-col gap-2.5">
+            {weakAreasByCategory.map(w => {
+              const tier = w.avgPercent < 50 ? 'risk' : w.avgPercent < 75 ? 'warn' : 'good'
+              const barColor = tier === 'risk' ? 'bg-red-400' : tier === 'warn' ? 'bg-amber-400' : 'bg-green-400'
+              const textColor = tier === 'risk' ? 'text-red-400' : tier === 'warn' ? 'text-amber-400' : 'text-green-400'
+              return (
+                <div key={w.category}>
+                  <div className="flex items-center justify-between text-[12.5px] mb-1">
+                    <span className="font-semibold text-fg-primary">{w.category}</span>
+                    <span className={`font-bold ${textColor}`}>{w.avgPercent}% <span className="font-normal text-fg-tertiary">({w.attempts} quiz{w.attempts === 1 ? '' : 'zes'})</span></span>
+                  </div>
+                  <div className="h-[5px] rounded-[3px] bg-border">
+                    <div className={`h-full rounded-[3px] ${barColor}`} style={{ width: `${w.avgPercent}%` }} />
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </Card>
       )}
 
       {/* Status filter — Not started + In progress collapsed into one "Not started"
@@ -287,10 +345,10 @@ export default function LearningView({ initialResources, initialStudyLogs }: Pro
                   <span className="text-[13px] font-semibold text-fg-primary flex-1 min-w-0 truncate">{r.title}</span>
                   {r.url && <a href={r.url} target="_blank" rel="noopener noreferrer" className="text-fg-quaternary hover:text-accent transition-colors shrink-0"><ExternalLink size={11} /></a>}
                   {studiedToday && <span className="text-xs text-green-400/70 flex items-center gap-0.5 shrink-0"><Flame size={10} />studied today</span>}
-                  <select value={r.status} onChange={e => handleStatus(r.id, e.target.value as ResourceStatus)}
+                  <select value={r.status} onChange={e => handleStatusChange(r, e.target.value as ResourceStatus)}
                     className="text-[11px] px-2 py-0.5 rounded-[6px] border border-border-strong outline-none cursor-pointer font-semibold bg-transparent shrink-0"
                     style={{ color: r.status === 'completed' ? 'var(--good)' : r.status === 'in-progress' ? 'var(--accent)' : 'var(--text-tertiary)' }}>
-                    {STATUSES.map(s => <option key={s} value={s}>{STATUS_CONFIG[s].label}</option>)}
+                    {STATUSES.map(s => <option key={s} value={s}>{s === 'completed' ? 'Completed (quiz)' : STATUS_CONFIG[s].label}</option>)}
                   </select>
                   <button onClick={() => setShowLog(r)}
                     className="shrink-0 text-[11px] px-2 py-0.5 rounded-[6px] border border-border-strong text-fg-secondary hover:bg-surface-3 transition-colors whitespace-nowrap">
@@ -303,6 +361,7 @@ export default function LearningView({ initialResources, initialStudyLogs }: Pro
                 </div>
                 <div className="flex items-center gap-2 mt-1.5 pl-[26px]">
                   <span className="text-xs text-fg-quaternary shrink-0">{r.category}</span>
+                  {r.estimated_minutes && <span className="text-xs text-fg-quaternary shrink-0">· ~{r.estimated_minutes} min</span>}
                 </div>
                 <div className="h-[5px] rounded-[3px] bg-border mt-2">
                   <div className="h-full rounded-[3px] bg-accent" style={{ width: `${r.status === 'completed' ? 100 : r.status === 'in-progress' ? r.progress : 0}%` }} />
@@ -396,12 +455,14 @@ export default function LearningView({ initialResources, initialStudyLogs }: Pro
               e.preventDefault()
               if (!validate(e.currentTarget)) return
               const fd = new FormData(e.currentTarget)
+              const estMinutes = fd.get('estimated_minutes') as string
               const newR: Resource = {
                 id: `temp-${Date.now()}`, user_id: '',
                 title: fd.get('title') as string, type: fd.get('type') as ResourceType,
                 url: fd.get('url') as string || null, category: fd.get('category') as string || 'General',
                 status: 'not-started', progress: 0, notes: fd.get('notes') as string || null,
                 created_at: new Date().toISOString(), task_id: null,
+                estimated_minutes: estMinutes ? parseInt(estMinutes, 10) : null,
               }
               setResources(prev => [newR, ...prev])
               if (prefill) setHandledAiTitles(p => new Set(p).add(prefill.title))
@@ -425,9 +486,15 @@ export default function LearningView({ initialResources, initialStudyLogs }: Pro
                   <input name="category" defaultValue={prefill?.category ?? ''} placeholder="e.g. React" className={modalInputClass()} />
                 </div>
               </div>
-              <div>
-                <label className={modalLabelClass}>URL{prefill && ' — AI-suggested, verify before pasting a link'}</label>
-                <input name="url" type="url" placeholder="https://..." className={modalInputClass()} />
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className={modalLabelClass}>URL{prefill && ' — AI-suggested, verify before pasting a link'}</label>
+                  <input name="url" type="url" placeholder="https://..." className={modalInputClass()} />
+                </div>
+                <div>
+                  <label className={modalLabelClass}>Est. time (min)</label>
+                  <input name="estimated_minutes" type="number" min={1} placeholder="e.g. 90" className={modalInputClass()} />
+                </div>
               </div>
               <div>
                 <label className={modalLabelClass}>Notes</label>
@@ -474,52 +541,84 @@ export default function LearningView({ initialResources, initialStudyLogs }: Pro
         </Modal>
       )}
 
-      {/* Quiz modal */}
-      {quizResource && (
-        <Modal title={`Quiz: ${quizResource.title}`} onClose={() => { setQuizResource(null); setQuizItems([]) }}>
-            <p className="text-xs text-fg-tertiary -mt-2 mb-3">Click an answer to reveal it</p>
-
-            {quizLoading ? (
-              <div className="space-y-3">
-                {[1,2,3,4,5].map(i => (
-                  <div key={i} className="p-4 bg-surface-2 rounded-lg space-y-2">
-                    <div className="h-3 bg-surface-3 rounded animate-pulse" style={{ width: '80%' }} />
-                    <div className="h-3 bg-surface-3 rounded animate-pulse" style={{ width: '60%' }} />
-                  </div>
-                ))}
-              </div>
-            ) : quizItems.length === 0 ? (
-              <div className="text-center py-8">
-                <BookOpen size={32} className="mx-auto text-fg-quaternary mb-2" />
-                <p className="text-sm text-fg-quaternary">Couldn&apos;t generate questions. Try adding notes to this resource for better results.</p>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {quizItems.map((item, i) => {
-                  const isRevealed = revealed.has(i)
-                  return (
-                    <div key={i} className="border border-surface-3 rounded-lg overflow-hidden">
-                      <div className="p-3">
-                        <p className="text-sm text-fg-secondary font-medium">{i + 1}. {item.question}</p>
-                      </div>
-                      <button onClick={() => setRevealed(prev => { const n = new Set(prev); if (isRevealed) n.delete(i); else n.add(i); return n })}
-                        className="w-full flex items-center gap-2 px-3 py-2 bg-surface-2 border-t border-surface-3 hover:bg-surface-3 transition-colors text-left">
-                        <ChevronRight size={12} className={`text-accent shrink-0 transition-transform ${isRevealed ? 'rotate-90' : ''}`} />
-                        <span className="text-xs text-fg-tertiary">{isRevealed ? 'Hide answer' : 'Show answer'}</span>
-                      </button>
-                      {isRevealed && (
-                        <div className="px-3 pb-3 pt-2 bg-surface-2 border-t border-surface-3">
-                          <p className="text-sm text-fg-secondary leading-relaxed">{item.answer}</p>
-                        </div>
-                      )}
-                    </div>
-                  )
-                })}
-                <button onClick={() => setRevealed(new Set(quizItems.map((_, i) => i)))} className="w-full py-2 text-xs text-fg-quaternary hover:text-fg-secondary transition-colors">
-                  Reveal all answers
-                </button>
-              </div>
+      {/* Quiz modal — graded multiple-choice. Mandatory (completesOnFinish)
+          when triggered by picking "Completed"; voluntary otherwise via
+          "Quiz me". Either way, closing before submitting leaves the
+          resource's status untouched — "mandatory" just means completion
+          never happens without a submitted attempt. */}
+      {quiz && (
+        <Modal title={`${quiz.resource.title} Quiz`} onClose={handleCloseQuiz} maxWidthClass="max-w-[520px]">
+            {quiz.completesOnFinish && quiz.stage !== 'results' && (
+              <p className="text-[11.5px] text-accent-strong bg-accent-soft rounded-[8px] px-[11px] py-2 mb-3.5">Marking this Completed requires passing this quiz first.</p>
             )}
+
+            {quiz.stage === 'generating' && (
+              <div className="space-y-2 py-4">{[90, 70, 85, 60, 75].map((w, i) => <div key={i} className="h-3 rounded bg-surface-2 animate-pulse" style={{ width: `${w}%` }} />)}</div>
+            )}
+
+            {quiz.stage === 'taking' && (() => {
+              const answeredCount = quiz.answers.filter(a => a !== -1).length
+              const total = quiz.questions.length
+              const submitDisabled = quiz.answers.includes(-1)
+              return (
+                <div>
+                  <p className="text-xs text-fg-tertiary mb-1.5">{answeredCount} of {total} answered</p>
+                  <div className="h-1 rounded-[3px] bg-border mb-3.5">
+                    <div className="h-full rounded-[3px] bg-accent transition-all" style={{ width: `${Math.round((answeredCount / total) * 100)}%` }} />
+                  </div>
+                  <div className="flex flex-col gap-4">
+                    {quiz.questions.map((q, qi) => (
+                      <div key={qi}>
+                        <p className="text-[13.5px] font-semibold text-fg-primary mb-2">{qi + 1}. {q.question}</p>
+                        <div className="flex flex-col gap-1.5">
+                          {q.options.map((opt, oi) => (
+                            <button key={oi} onClick={() => handleSelectAnswer(qi, oi)}
+                              className={`text-left w-full rounded-[8px] px-3 py-[9px] text-[12.5px] border transition-colors ${quiz.answers[qi] === oi ? 'bg-accent-soft border-accent text-fg-primary' : 'bg-surface-2 border-surface-3 text-fg-primary hover:border-border-strong'}`}>
+                              {opt}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="flex justify-end gap-2.5 mt-5">
+                    <button type="button" onClick={handleCloseQuiz} className={modalCancelButtonClass}>Cancel</button>
+                    <button onClick={handleSubmitQuiz} disabled={submitDisabled} className={modalSaveButtonClass}>Submit Quiz</button>
+                  </div>
+                </div>
+              )
+            })()}
+
+            {quiz.stage === 'results' && (() => {
+              const wrongQuestions = quiz.questions.filter((q, qi) => quiz.answers[qi] !== q.correctIndex)
+              const percent = Math.round((quiz.score / quiz.questions.length) * 100)
+              const scoreColor = percent >= 80 ? 'var(--good)' : percent >= 60 ? 'var(--accent)' : percent >= 40 ? 'var(--warn)' : 'var(--risk)'
+              return (
+                <div>
+                  <div className="text-center mb-[18px]">
+                    <p className="text-[34px] font-bold" style={{ color: scoreColor }}>{percent}%</p>
+                    <p className="text-[12.5px] text-fg-tertiary mt-0.5">{quiz.score} of {quiz.questions.length} correct · {quiz.resource.category}</p>
+                    {quiz.completesOnFinish && <p className="text-[11.5px] font-semibold mt-1.5 text-good">✓ Marked Completed</p>}
+                  </div>
+                  {wrongQuestions.length > 0 ? (
+                    <>
+                      <p className="text-[11px] font-bold text-fg-tertiary uppercase tracking-[0.4px] mb-2">Review</p>
+                      <div className="flex flex-col gap-2.5 mb-4">
+                        {quiz.questions.map((q, qi) => quiz.answers[qi] !== q.correctIndex && (
+                          <div key={qi} className="bg-risk-soft border border-risk-border rounded-[10px] px-3 py-2.5">
+                            <p className="text-[12.5px] font-semibold text-fg-primary mb-1">{q.question}</p>
+                            <p className="text-xs text-fg-secondary">{q.explanation}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </>
+                  ) : (
+                    <p className="text-sm text-green-400 text-center mb-4">Perfect score — no incorrect answers.</p>
+                  )}
+                  <button onClick={handleCloseQuiz} className={`${modalSaveButtonClass} w-full`}>Done</button>
+                </div>
+              )
+            })()}
         </Modal>
       )}
     </div>

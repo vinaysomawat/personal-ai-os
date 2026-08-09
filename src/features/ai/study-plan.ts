@@ -4,7 +4,7 @@ import { askAI } from '@/lib/ai-gateway'
 import { todayIST } from '@/lib/date'
 import { getActiveCompanyPriorityTopics, getInsightsHistory } from '@/features/coding/daily'
 import { computeWeakAreas } from '@/features/coding/daily-core'
-import type { Resource, StudyLog, RecommendedResource } from '@/features/learning/types'
+import type { Resource, StudyLog, RecommendedResource, QuizQuestion } from '@/features/learning/types'
 
 export async function getDailyStudyPlan(resources: Resource[], recentLogs: StudyLog[]): Promise<string> {
   const inProgress = resources.filter(r => r.status === 'in-progress')
@@ -86,18 +86,35 @@ Do NOT include a "url" field — specific links aren't reliable from you. title 
   }
 }
 
-export async function generateResourceQuiz(title: string, category: string, type: string, notes: string | null): Promise<{ question: string; answer: string }[]> {
-  const prompt = `Generate 5 comprehension questions for: "${title}" (${type}, category: ${category})${notes ? `\nContext: ${notes}` : ''}
+// Graded multiple-choice quiz (was ungraded question/answer flashcards) —
+// scoring is what lets weak areas be identified per category (Learning
+// Stage: mandatory quiz gate on marking a resource "Completed").
+export async function generateResourceQuiz(title: string, category: string, type: string, notes: string | null): Promise<QuizQuestion[]> {
+  const prompt = `Generate a comprehension quiz on: "${title}" (${type}, category: ${category})${notes ? `\nContext: ${notes}` : ''}
 
-Return ONLY a JSON array:
+10 multiple-choice questions testing real understanding of this specific resource's material, not generic trivia about the category.
+
+Return ONLY a JSON array in this exact format:
 [
-  {"question": "...", "answer": "..."},
+  {
+    "question": "...",
+    "options": ["...", "...", "...", "..."],
+    "correctIndex": 0,
+    "explanation": "...",
+    "subtopic": "..."
+  },
   ...
 ]
 
-Questions should test real understanding, not just trivia. Mix conceptual, applied, and comparison questions. Answers in 2-3 sentences.`
+Rules:
+- Exactly 4 options per question, only one correct.
+- correctIndex is the 0-based index of the correct option.
+- explanation is 1-2 sentences explaining why the correct answer is right.
+- subtopic is a short 2-4 word label for the specific concept this question tests (used to identify weak areas later), e.g. "Closures", "Event Loop".
+- Mix conceptual, applied, and comparison questions.
+- If a question needs a code snippet, write it inline as plain text — do NOT use markdown code fences, the UI renders this as plain text.`
 
-  const raw = await askAI('resource_quiz', prompt, 'You are a knowledgeable tutor. Return only valid JSON, no extra text.')
+  const raw = await askAI('resource_quiz', prompt, 'You are a knowledgeable tutor writing a comprehension quiz. Return only valid JSON, no extra text, no markdown fences.')
   try {
     const match = raw.match(/\[[\s\S]*\]/)
     return match ? JSON.parse(match[0]) : []

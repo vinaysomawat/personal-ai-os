@@ -15,6 +15,7 @@ export interface Resource {
   // Linked Planner task ("Read: {title}") — null for resources added before
   // this sync existed; not backfilled.
   task_id: string | null
+  estimated_minutes: number | null
 }
 
 // AI-recommended resource — deliberately has no `url`. Suggested-resources.ts's
@@ -36,5 +37,30 @@ export interface StudyLog {
   resource_id: string | null
   duration_minutes: number
   notes: string | null
+  created_at: string
+}
+
+// Graded multiple-choice quiz — same shape as Career's QuizQuestion, mirrored
+// here rather than imported cross-module (Learning and Career are independent
+// features; sharing a type import would create a coupling neither needs).
+export interface QuizQuestion {
+  question: string
+  options: string[]
+  correctIndex: number
+  explanation: string
+  subtopic: string
+}
+
+export interface ResourceQuizAttempt {
+  id: string
+  user_id: string
+  resource_id: string | null
+  resource_title: string
+  category: string
+  questions: QuizQuestion[]
+  user_answers: number[]
+  score: number
+  total: number
+  weak_areas: string[]
   created_at: string
 }
