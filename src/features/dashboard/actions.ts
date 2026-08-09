@@ -96,7 +96,7 @@ export async function getDashboardData() {
     todayRecommendations: [] as ReturnType<typeof getTodayRecommendations>,
     careerMemory: { currentRole: null, currentCompany: null, targetRole: null, currentSalary: null, bio: null } as { currentRole: string | null; currentCompany: string | null; targetRole: string | null; currentSalary: number | null; bio: string | null },
     financialGoals: [] as { name: string; targetAmount: number; currentAmount: number; targetDate: string | null }[],
-    crossModuleGoals: [] as { module: string; name: string; progress: string }[],
+    crossModuleGoals: [] as { module: string; name: string; progress: string; achieved: boolean; current: number | null; target: number | null }[],
     recentPatterns: [] as RecentPattern[],
   }
 
@@ -353,6 +353,11 @@ export async function getDashboardData() {
     module: g.module,
     name: g.name,
     progress: g.achieved_at ? 'achieved' : g.target_value != null ? `${g.resolvedCurrentValue ?? 0} of ${g.target_value}` : 'in progress',
+    // Raw fields for the Dashboard's Goals card (Ask Brain's prompt context
+    // only reads the formatted `progress` string above, unaffected by these).
+    achieved: !!g.achieved_at,
+    current: g.resolvedCurrentValue ?? null,
+    target: g.target_value ?? null,
   }))
 
   const codingWeakAreas = computeWeakAreas(codingHistoryForWeakAreas)

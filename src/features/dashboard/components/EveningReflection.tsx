@@ -27,7 +27,7 @@ export default function EveningReflection() {
   if (!visible) return null
 
   return (
-    <Card title="Evening Reflection" padding="p-3.5">
+    <Card title="Evening Reflection">
       {loading ? (
         <div className="space-y-2">
           {[90, 75, 85].map((w, i) => <div key={i} className="h-3 rounded bg-surface-2 animate-pulse" style={{ width: `${w}%` }} />)}

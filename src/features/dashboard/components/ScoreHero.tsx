@@ -20,7 +20,7 @@ export default function ScoreHero({ score }: { score: number }) {
       style={{ width: SIZE, height: SIZE, background: `conic-gradient(var(--accent) ${deg}deg, var(--border) ${deg}deg 360deg)` }}
     >
       <div className="absolute inset-4 rounded-full bg-surface-1 flex flex-col items-center justify-center">
-        <span className="text-[44px] font-bold tracking-tight text-fg-primary tabular-nums leading-none">{animated}</span>
+        <span className="text-[44px] font-bold tracking-[-0.02em] text-fg-primary tabular-nums leading-none">{animated}</span>
         <span className="text-[11px] text-fg-tertiary mt-1">/ 100</span>
       </div>
     </div>

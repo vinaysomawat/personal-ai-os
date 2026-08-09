@@ -7,6 +7,7 @@ import EmptyState from '@/components/EmptyState'
 import StatCard from '@/components/StatCard'
 import FilterPill from '@/components/FilterPill'
 import ModuleRecommendations from '@/components/ModuleRecommendations'
+import Modal, { modalLabelClass, modalInputClass, modalSelectClass, modalCancelButtonClass, modalSaveButtonClass } from '@/components/Modal'
 import { useAIAdvisor, useAIAdvisorOpen } from '@/components/AIAdvisorProvider'
 import { addResource, updateResource, deleteResource, logStudySession } from '../actions'
 import { getDailyStudyPlan, generateResourceQuiz, recommendResources } from '@/features/ai/study-plan'
@@ -91,6 +92,7 @@ export default function LearningView({ initialResources, initialStudyLogs }: Pro
   // Log session modal
   const [showLog, setShowLog] = useState<Resource | null>(null)
   const [logDuration, setLogDuration] = useState('30')
+  const [logNotes, setLogNotes] = useState('')
 
   // Suggested resources
   const [showSuggestions, setShowSuggestions] = useState(false)
@@ -189,13 +191,15 @@ export default function LearningView({ initialResources, initialStudyLogs }: Pro
 
   const handleLogSession = async (resource: Resource | null) => {
     const duration = parseInt(logDuration) || 30
+    const notes = logNotes.trim() || null
     const newLog: StudyLog = {
       id: `temp-${Date.now()}`, user_id: '', date: today,
-      resource_id: resource?.id ?? null, duration_minutes: duration, notes: null, created_at: new Date().toISOString(),
+      resource_id: resource?.id ?? null, duration_minutes: duration, notes, created_at: new Date().toISOString(),
     }
     setStudyLogs(prev => [newLog, ...prev])
     setShowLog(null)
-    await logStudySession(resource?.id ?? null, duration, null)
+    setLogNotes('')
+    await logStudySession(resource?.id ?? null, duration, notes)
   }
 
   const handleQuiz = async (resource: Resource) => {
@@ -429,12 +433,7 @@ export default function LearningView({ initialResources, initialStudyLogs }: Pro
 
       {/* Add resource modal */}
       {showForm && (
-        <div className="fixed inset-0 bg-overlay flex items-center justify-center z-50 p-4">
-          <div className="bg-surface-1 border border-surface-3 rounded-xl p-6 w-full max-w-sm max-h-[85vh] overflow-y-auto animate-in fade-in zoom-in-95 duration-200">
-            <div className="flex items-center justify-between mb-5">
-              <h2 className="text-base font-semibold text-fg-primary">Add Resource</h2>
-              <button onClick={() => setShowForm(false)} aria-label="Close" className="p-1.5 -m-1.5 text-fg-tertiary hover:text-fg-secondary"><X size={16} /></button>
-            </div>
+        <Modal title="Add Resource" onClose={() => setShowForm(false)}>
             <form noValidate onInput={onFieldInput} onSubmit={async e => {
               e.preventDefault()
               if (!validate(e.currentTarget)) return
@@ -450,84 +449,77 @@ export default function LearningView({ initialResources, initialStudyLogs }: Pro
               if (prefill) setHandledAiTitles(p => new Set(p).add(prefill.title))
               setShowForm(false)
               await addResource(fd)
-            }} className="space-y-3">
-              <div className="space-y-1">
-                <label className="text-xs text-fg-tertiary uppercase tracking-wider">Title *</label>
-                <input name="title" required autoFocus defaultValue={prefill?.title ?? ''} placeholder="The Pragmatic Programmer" className={`w-full bg-surface-2 border rounded-lg px-3 py-2 text-sm text-fg-primary placeholder-fg-quaternary outline-none focus:border-accent transition-colors ${invalidFields.has('title') ? 'border-red-500' : 'border-surface-3'}`} />
+            }} className="flex flex-col gap-3.5">
+              <div>
+                <label className={modalLabelClass}>Title</label>
+                <input name="title" required autoFocus defaultValue={prefill?.title ?? ''} placeholder="e.g. Advanced React Patterns" className={modalInputClass(invalidFields.has('title'))} />
                 <FieldError show={invalidFields.has('title')} />
               </div>
               <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1">
-                  <label className="text-xs text-fg-tertiary uppercase tracking-wider">Type</label>
-                  <select name="type" defaultValue={prefill?.type ?? 'course'} className="w-full bg-surface-2 border border-surface-3 rounded-lg px-3 py-2 text-sm text-fg-secondary outline-none focus:border-accent transition-colors">
+                <div>
+                  <label className={modalLabelClass}>Type</label>
+                  <select name="type" defaultValue={prefill?.type ?? 'course'} className={modalSelectClass}>
                     {TYPES.map(t => <option key={t} value={t}>{TYPE_ICON[t]} {t.charAt(0).toUpperCase() + t.slice(1)}</option>)}
                   </select>
                 </div>
-                <div className="space-y-1">
-                  <label className="text-xs text-fg-tertiary uppercase tracking-wider">Category</label>
-                  <input name="category" defaultValue={prefill?.category ?? ''} placeholder="React, DSA, Playwright..." className="w-full bg-surface-2 border border-surface-3 rounded-lg px-3 py-2 text-sm text-fg-primary placeholder-fg-quaternary outline-none focus:border-accent transition-colors" />
+                <div>
+                  <label className={modalLabelClass}>Category</label>
+                  <input name="category" defaultValue={prefill?.category ?? ''} placeholder="e.g. React" className={modalInputClass()} />
                 </div>
               </div>
-              <div className="space-y-1">
-                <label className="text-xs text-fg-tertiary uppercase tracking-wider">URL{prefill && ' — AI-suggested, verify before pasting a link'}</label>
-                <input name="url" type="url" placeholder="https://..." className="w-full bg-surface-2 border border-surface-3 rounded-lg px-3 py-2 text-sm text-fg-primary placeholder-fg-quaternary outline-none focus:border-accent transition-colors" />
+              <div>
+                <label className={modalLabelClass}>URL{prefill && ' — AI-suggested, verify before pasting a link'}</label>
+                <input name="url" type="url" placeholder="https://..." className={modalInputClass()} />
               </div>
-              <div className="space-y-1">
-                <label className="text-xs text-fg-tertiary uppercase tracking-wider">Notes</label>
-                <textarea name="notes" rows={2} defaultValue={prefill?.notes ?? ''} placeholder="Why you want to learn this..." className="w-full bg-surface-2 border border-surface-3 rounded-lg px-3 py-2 text-sm text-fg-primary placeholder-fg-quaternary outline-none focus:border-accent transition-colors resize-none" />
+              <div>
+                <label className={modalLabelClass}>Notes</label>
+                <textarea name="notes" rows={2} defaultValue={prefill?.notes ?? ''} placeholder="Why you want to learn this..." className={`${modalInputClass()} resize-none`} />
               </div>
-              <div className="flex gap-2 pt-1">
-                <button type="button" onClick={() => setShowForm(false)} className="flex-1 py-2 rounded-lg bg-surface-2 border border-surface-3 text-fg-secondary text-sm hover:bg-surface-3 transition-colors">Cancel</button>
-                <button type="submit" className="flex-1 py-2 rounded-lg bg-accent text-white text-sm font-medium hover:bg-accent/80 active:scale-95 transition">Add</button>
+              <div className="flex justify-end gap-2.5 mt-1.5">
+                <button type="button" onClick={() => setShowForm(false)} className={modalCancelButtonClass}>Cancel</button>
+                <button type="submit" className={modalSaveButtonClass}>Save</button>
               </div>
             </form>
-          </div>
-        </div>
+        </Modal>
       )}
 
       {/* Log session modal */}
       {showLog !== undefined && showLog !== null && (
-        <div className="fixed inset-0 bg-overlay flex items-center justify-center z-50 p-4">
-          <div className="bg-surface-1 border border-surface-3 rounded-xl p-6 w-full max-w-sm animate-in fade-in zoom-in-95 duration-200">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-base font-semibold text-fg-primary">Log Study Session</h2>
-              <button onClick={() => setShowLog(null)} aria-label="Close" className="p-1.5 -m-1.5 text-fg-tertiary hover:text-fg-secondary"><X size={16} /></button>
-            </div>
-            <p className="text-sm text-fg-secondary mb-4">{showLog.title}</p>
-            <div className="space-y-3">
-              <div className="space-y-1">
-                <label className="text-xs text-fg-tertiary uppercase tracking-wider">Duration (minutes)</label>
+        <Modal title="Log Study Session" onClose={() => setShowLog(null)}>
+            <div className="flex flex-col gap-3.5">
+              <div>
+                <label className={modalLabelClass}>Resource</label>
+                <p className="text-[13px] text-fg-primary">{showLog.title}</p>
+              </div>
+              <div>
+                <label className={modalLabelClass}>Duration</label>
                 <div className="flex gap-2">
                   {[15, 30, 45, 60, 90].map(d => (
                     <button key={d} onClick={() => setLogDuration(String(d))}
-                      className={`flex-1 py-2 rounded-lg text-sm transition-colors ${logDuration === String(d) ? 'bg-accent text-white' : 'bg-surface-2 border border-surface-3 text-fg-secondary hover:bg-surface-3'}`}>
+                      className={`rounded-[7px] px-3 py-[7px] text-[12.5px] transition-colors ${logDuration === String(d) ? 'bg-accent text-white' : 'bg-surface-2 border border-surface-3 text-fg-primary hover:bg-surface-3'}`}>
                       {d}m
                     </button>
                   ))}
                 </div>
               </div>
-              <div className="flex gap-2 pt-1">
-                <button onClick={() => setShowLog(null)} className="flex-1 py-2 rounded-lg bg-surface-2 border border-surface-3 text-fg-secondary text-sm hover:bg-surface-3 transition-colors">Cancel</button>
-                <button onClick={() => handleLogSession(showLog)} className="flex-1 py-2 rounded-lg bg-accent text-white text-sm font-medium hover:bg-accent/80 active:scale-95 transition flex items-center justify-center gap-1.5">
+              <div>
+                <label className={modalLabelClass}>Notes</label>
+                <input value={logNotes} onChange={e => setLogNotes(e.target.value)} placeholder="optional" className={modalInputClass()} />
+              </div>
+              <div className="flex justify-end gap-2.5 mt-1.5">
+                <button onClick={() => setShowLog(null)} className={modalCancelButtonClass}>Cancel</button>
+                <button onClick={() => handleLogSession(showLog)} className={`${modalSaveButtonClass} flex items-center gap-1.5`}>
                   <Flame size={13} /> Log {logDuration}m
                 </button>
               </div>
             </div>
-          </div>
-        </div>
+        </Modal>
       )}
 
       {/* Quiz modal */}
       {quizResource && (
-        <div className="fixed inset-0 bg-overlay flex items-center justify-center z-50 p-4">
-          <div className="bg-surface-1 border border-surface-3 rounded-xl p-6 w-full max-w-lg max-h-[80vh] overflow-y-auto animate-in fade-in zoom-in-95 duration-200">
-            <div className="flex items-center justify-between mb-4">
-              <div>
-                <h2 className="text-base font-semibold text-fg-primary">Quiz: {quizResource.title}</h2>
-                <p className="text-xs text-fg-tertiary mt-0.5">Click an answer to reveal it</p>
-              </div>
-              <button onClick={() => { setQuizResource(null); setQuizItems([]) }} aria-label="Close quiz" className="p-1.5 -m-1.5 text-fg-tertiary hover:text-fg-secondary"><X size={16} /></button>
-            </div>
+        <Modal title={`Quiz: ${quizResource.title}`} onClose={() => { setQuizResource(null); setQuizItems([]) }}>
+            <p className="text-xs text-fg-tertiary -mt-2 mb-3">Click an answer to reveal it</p>
 
             {quizLoading ? (
               <div className="space-y-3">
@@ -570,8 +562,7 @@ export default function LearningView({ initialResources, initialStudyLogs }: Pro
                 </button>
               </div>
             )}
-          </div>
-        </div>
+        </Modal>
       )}
     </div>
   )

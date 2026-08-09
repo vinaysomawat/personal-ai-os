@@ -13,6 +13,7 @@ const QUICK_DECISIONS = [
 
 export default function DecisionHelper({ context }: { context: BrainContext }) {
   const [question, setQuestion] = useState('')
+  const [askedQuestion, setAskedQuestion] = useState('')
   const [decision, setDecision] = useState<Decision | null>(null)
   const [loading, setLoading] = useState(false)
 
@@ -20,6 +21,7 @@ export default function DecisionHelper({ context }: { context: BrainContext }) {
     if (!q.trim() || loading) return
     setLoading(true)
     setDecision(null)
+    setAskedQuestion(q)
     try {
       const result = await askBrainDecision(q, context)
       setDecision(result)
@@ -44,7 +46,12 @@ export default function DecisionHelper({ context }: { context: BrainContext }) {
         </div>
       )}
 
-      {decision && !loading && <DecisionCard decision={decision} />}
+      {decision && !loading && (
+        <div className="flex flex-col gap-2.5">
+          <p className="text-[12.5px] text-fg-tertiary">&quot;{askedQuestion}&quot;</p>
+          <DecisionCard decision={decision} />
+        </div>
+      )}
 
       <div className="flex gap-2">
         <input

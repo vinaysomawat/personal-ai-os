@@ -38,7 +38,7 @@ const THEME_INIT_SCRIPT = `(function(){try{
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang="en" data-density="comfortable" suppressHydrationWarning>
       <head>
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
@@ -55,7 +55,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <TooltipProvider>
             <AIAdvisorProvider>
               <TopNav />
-              <main className="max-w-[1180px] mx-auto px-4 sm:px-6 py-4 animate-in fade-in duration-200">{children}</main>
+              <main className="max-w-[1180px] mx-auto px-8 pt-7 pb-[70px] md:pb-0 animate-in fade-in duration-200">{children}</main>
               <QuickAdd />
             </AIAdvisorProvider>
           </TooltipProvider>

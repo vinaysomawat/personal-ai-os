@@ -38,7 +38,7 @@ export default function BotActivityCard({ botActivity, aiBudget }: {
   const shown = botActivity.slice(0, visible)
 
   return (
-    <Card title="Recent Bot Activity" padding="p-3.5" action={
+    <Card title="Recent bot activity" className="mb-5" action={
       <div className="flex items-center gap-3 text-xs text-fg-tertiary">
         {aiBudget && (
           <span title={`${aiBudget.callsMonth} AI calls this month`}>
@@ -64,12 +64,12 @@ export default function BotActivityCard({ botActivity, aiBudget }: {
               const firstLine = entry.response?.split('\n')[0]?.replace(/\*/g, '') ?? ''
               const timeAgo = formatDistanceToNow(new Date(entry.created_at), { addSuffix: true })
               return (
-                <li key={i} className="flex items-center gap-2.5 py-1.5 border-b border-surface-3 last:border-0 text-xs hover:bg-surface-2 transition-colors">
-                  <span className="shrink-0">{meta.emoji}</span>
-                  <span className={`shrink-0 w-16 truncate font-medium ${meta.color}`}>{meta.label}</span>
+                <li key={i} className="flex items-baseline gap-2.5 py-[9px] border-t border-surface-3 first:border-t-0 text-[12.5px] hover:bg-surface-2 transition-colors">
+                  <span className="shrink-0 w-5">{meta.emoji}</span>
+                  <span className={`shrink-0 w-[78px] truncate font-medium ${meta.color}`}>{meta.label}</span>
                   <span className="flex-1 min-w-0 truncate text-fg-secondary">{entry.message}</span>
                   {firstLine && <span className="flex-1 min-w-0 truncate text-fg-quaternary hidden md:block">{firstLine}</span>}
-                  <span className="shrink-0 text-fg-quaternary">{timeAgo}</span>
+                  <span className="shrink-0 text-border-strong">{timeAgo}</span>
                 </li>
               )
             })}

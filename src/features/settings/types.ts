@@ -11,5 +11,5 @@ export interface Reminder {
 }
 
 export const REMINDER_MODULES = [
-  'planner', 'career', 'finance', 'health', 'learning', 'coding', 'documents',
+  'planner', 'career', 'finance', 'health', 'learning', 'coding',
 ] as const

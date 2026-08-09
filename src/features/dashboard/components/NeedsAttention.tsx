@@ -51,44 +51,45 @@ export default function NeedsAttention({ topActions, risks, opportunities }: Nee
   const items = buildPriorityItems(queue.risks, topActions, queue.opportunities).slice(0, MAX_ITEMS)
 
   return (
-    <Card title="Needs Attention" padding="p-3.5" action={<span className="text-xs text-fg-tertiary">capped at 3</span>}>
+    <Card title="Needs Attention" action={<span className="text-[11px] text-fg-tertiary">capped at 3</span>}>
       {items.length === 0 ? (
-        <div className="text-center py-4">
-          <p className="text-sm text-fg-secondary">Nothing urgent — you&apos;re on top of everything 🎉</p>
+        <div className="text-center py-5">
+          <p className="text-[22px] mb-1.5">✅</p>
+          <p className="text-[13px] text-fg-tertiary">All clear — nothing urgent today.</p>
         </div>
       ) : (
         <ul className="space-y-2">
           {items.map((item, i) => {
             if (item.type === 'signal') {
               return (
-                <li key={`signal-${i}`} className="flex items-start gap-3 bg-surface-2 border-l-[3px] border-warn rounded-lg px-3 py-2.5">
-                  <span className="text-lg shrink-0">{item.emoji}</span>
+                <li key={`signal-${i}`} className="flex items-start gap-3 bg-surface-2 border-l-[3px] border-warn rounded-lg px-3.5 py-[11px]">
+                  <span className="text-[17px] shrink-0">{item.emoji}</span>
                   <Link href={item.href} className="flex-1 min-w-0 group">
                     <p className="text-sm text-fg-primary group-hover:text-accent transition-colors">{item.text}</p>
-                    <p className="text-[10px] font-bold uppercase tracking-wide text-warn mt-0.5">Signal</p>
+                    <p className="text-[10px] font-bold uppercase tracking-[0.3px] text-warn mt-0.5">Signal</p>
                   </Link>
                 </li>
               )
             }
             if (item.type === 'risk') {
               return (
-                <li key={item.kind} className={`flex items-start gap-3 bg-surface-2 border-l-[3px] rounded-lg px-3 py-2.5 ${IMPACT_BORDER[item.impact]}`}>
-                  <span className="text-lg shrink-0">{IMPACT_EMOJI[item.impact]}</span>
+                <li key={item.kind} className={`flex items-start gap-3 bg-surface-2 border-l-[3px] rounded-lg px-3.5 py-[11px] ${IMPACT_BORDER[item.impact]}`}>
+                  <span className="text-[17px] shrink-0">{IMPACT_EMOJI[item.impact]}</span>
                   <Link href={KIND_HREF[item.kind]} className="flex-1 min-w-0 group">
                     <p className="text-sm text-fg-primary group-hover:text-accent transition-colors">{item.text}</p>
                     <p className="text-xs text-fg-tertiary mt-0.5">→ {item.action}</p>
-                    <p className={`text-[10px] font-bold uppercase tracking-wide mt-1 ${IMPACT_TEXT[item.impact]}`}>Risk</p>
+                    <p className={`text-[10px] font-bold uppercase tracking-[0.3px] mt-1 ${IMPACT_TEXT[item.impact]}`}>Risk</p>
                   </Link>
                   <button onClick={() => dismiss(item.kind)} aria-label="Dismiss" className="shrink-0 text-fg-quaternary hover:text-fg-secondary text-xs px-1">✕</button>
                 </li>
               )
             }
             return (
-              <li key={item.kind} className="flex items-start gap-3 bg-surface-2 border-l-[3px] border-good rounded-lg px-3 py-2.5">
+              <li key={item.kind} className="flex items-start gap-3 bg-surface-2 border-l-[3px] border-good rounded-lg px-3.5 py-[11px]">
                 <Rocket size={17} className="text-good shrink-0" />
                 <Link href={KIND_HREF[item.kind]} className="flex-1 min-w-0 group">
                   <p className="text-sm text-fg-primary group-hover:text-accent transition-colors">{item.text}</p>
-                  <p className="text-[10px] font-bold uppercase tracking-wide text-good mt-0.5">Opportunity</p>
+                  <p className="text-[10px] font-bold uppercase tracking-[0.3px] text-good mt-0.5">Opportunity</p>
                 </Link>
                 <button onClick={() => dismiss(item.kind)} aria-label="Dismiss" className="shrink-0 text-fg-quaternary hover:text-fg-secondary text-xs px-1">✕</button>
               </li>

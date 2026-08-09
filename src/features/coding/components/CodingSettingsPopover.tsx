@@ -1,7 +1,8 @@
 'use client'
 
 import { useState } from 'react'
-import { Settings2, X } from 'lucide-react'
+import { Settings2 } from 'lucide-react'
+import Modal, { modalLabelClass, modalInputClass, modalSelectClass, modalCancelButtonClass, modalSaveButtonClass } from '@/components/Modal'
 import { upsertCodingSettings } from '../daily'
 import type { CodingSettings } from '../daily-core'
 
@@ -24,43 +25,38 @@ export default function CodingSettingsPopover({ initialSettings }: { initialSett
         <Settings2 size={13} />
       </button>
       {open && (
-        <div className="fixed inset-0 bg-overlay flex items-center justify-center z-50 p-4">
-          <div className="bg-surface-1 border border-surface-3 rounded-xl p-6 w-full max-w-sm">
-            <div className="flex items-center justify-between mb-5">
-              <h2 className="text-base font-semibold text-fg-primary">Coding Settings</h2>
-              <button onClick={() => setOpen(false)} aria-label="Close" className="p-1.5 -m-1.5 text-fg-tertiary hover:text-fg-secondary"><X size={16} /></button>
+        <Modal title="Coding Settings" onClose={() => setOpen(false)}>
+          <div className="flex flex-col gap-3.5">
+            <div>
+              <label className={modalLabelClass}>Assignment Mode</label>
+              <select value={settings.mode} onChange={e => setSettings(s => ({ ...s, mode: e.target.value as CodingSettings['mode'] }))}
+                className={modalSelectClass}>
+                <option value="rotation">Rotation (weekday difficulty mix)</option>
+                <option value="fixed">Fixed count per day</option>
+              </select>
             </div>
-            <div className="space-y-4">
-              <div className="space-y-1.5">
-                <label className="text-xs text-fg-tertiary uppercase tracking-wider">Assignment mode</label>
-                <select value={settings.mode} onChange={e => setSettings(s => ({ ...s, mode: e.target.value as CodingSettings['mode'] }))}
-                  className="w-full bg-surface-2 border border-surface-3 rounded-lg px-3 py-2 text-sm text-fg-secondary outline-none focus:border-accent transition-colors">
-                  <option value="rotation">Smart rotation (recommended)</option>
-                  <option value="fixed">Fixed number per day</option>
-                </select>
+            {settings.mode === 'fixed' && (
+              <div>
+                <label className={modalLabelClass}>Questions per Day</label>
+                <input type="number" min={1} max={10} value={settings.fixed_count}
+                  onChange={e => setSettings(s => ({ ...s, fixed_count: parseInt(e.target.value) || 1 }))}
+                  className={modalInputClass()} />
               </div>
-              {settings.mode === 'fixed' && (
-                <div className="space-y-1.5">
-                  <label className="text-xs text-fg-tertiary uppercase tracking-wider">Questions per day</label>
-                  <input type="number" min={1} max={10} value={settings.fixed_count}
-                    onChange={e => setSettings(s => ({ ...s, fixed_count: parseInt(e.target.value) || 1 }))}
-                    className="w-full bg-surface-2 border border-surface-3 rounded-lg px-3 py-2 text-sm text-fg-primary outline-none focus:border-accent transition-colors" />
-                </div>
-              )}
-              <label className="flex items-center gap-2 text-sm text-fg-secondary cursor-pointer">
-                <input type="checkbox" checked={settings.telegram_notify} onChange={e => setSettings(s => ({ ...s, telegram_notify: e.target.checked }))}
-                  className="rounded border-surface-3" />
-                Morning Telegram notification
-              </label>
-              <div className="flex gap-2 pt-2">
-                <button onClick={() => setOpen(false)} className="flex-1 py-2 rounded-lg bg-surface-2 border border-surface-3 text-fg-secondary text-sm hover:bg-surface-3 transition-colors">Cancel</button>
-                <button onClick={handleSave} disabled={saving} className="flex-1 py-2 rounded-lg bg-accent text-white text-sm font-medium hover:bg-accent/80 disabled:opacity-60 transition-colors">
-                  {saving ? 'Saving...' : 'Save'}
-                </button>
-              </div>
+            )}
+            <button
+              onClick={() => setSettings(s => ({ ...s, telegram_notify: !s.telegram_notify }))}
+              className="flex items-center justify-between w-full bg-surface-2 border border-surface-3 rounded-[8px] px-3 py-[10px] text-[13px] text-fg-primary"
+            >
+              <span>Telegram notifications</span><span>{settings.telegram_notify ? 'On' : 'Off'}</span>
+            </button>
+            <div className="flex justify-end gap-2.5 mt-1.5">
+              <button onClick={() => setOpen(false)} className={modalCancelButtonClass}>Cancel</button>
+              <button onClick={handleSave} disabled={saving} className={modalSaveButtonClass}>
+                {saving ? 'Saving...' : 'Save'}
+              </button>
             </div>
           </div>
-        </div>
+        </Modal>
       )}
     </>
   )

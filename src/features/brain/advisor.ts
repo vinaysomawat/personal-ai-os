@@ -9,6 +9,9 @@ import {
   buildMonthlyReviewContextSummary, buildMonthlyReviewPrompt, BRAIN_MONTHLY_REVIEW_SYSTEM_PROMPT,
   type BrainMessage,
 } from './prompts'
+import { computeCategoryTotals } from '@/features/ai/score-stats'
+import { getModuleRecommendations, type Recommendation } from '@/features/ai/recommendations'
+import { todayIST } from '@/lib/date'
 import type { BrainContext, Decision, WeeklyReflectionContext, MonthlyReview, MonthlyReviewContext } from './types'
 
 export async function askBrain(question: string, context: BrainContext, history: BrainMessage[] = []): Promise<string> {
@@ -116,4 +119,54 @@ export async function getMonthlyReview(context: BrainContext): Promise<MonthlyRe
   } catch {
     return { review: EMPTY_MONTHLY_REVIEW, stats }
   }
+}
+
+export interface ExecutiveSummaryData {
+  scorecard: { name: string; value: number }[]
+  reflection: string
+  spendBreakdown: { name: string; amount: number }[]
+  recommendations: Recommendation[]
+}
+
+const MODULE_DISPLAY_NAME: Record<string, string> = { Projects: 'Coding' }
+
+// Planner's "Executive Summary" trigger — composes three already-built,
+// already-cached data sources (weekly module averages + reflection paragraph
+// from Weekly Reflection, spend-by-category shared with the Telegram digest,
+// cross-module recommendations shared with the Telegram executive summary)
+// into one panel. No new AI Gateway task and no new queries beyond this
+// month's expenses — everything else is a reuse of an existing call.
+export async function getExecutiveSummaryData(): Promise<ExecutiveSummaryData> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) {
+    return { scorecard: [], reflection: 'Sign in to see your executive summary.', spendBreakdown: [], recommendations: [] }
+  }
+
+  const monthStart = `${todayIST().slice(0, 7)}-01`
+
+  const [{ paragraph, stats }, expensesRes] = await Promise.all([
+    getWeeklyReflection(),
+    supabase.from('expenses').select('amount, category').eq('user_id', user.id).gte('date', monthStart),
+  ])
+
+  const scorecard = stats
+    ? Object.entries(stats.moduleAvgs).map(([name, value]) => ({ name: MODULE_DISPLAY_NAME[name] ?? name, value }))
+    : []
+
+  const spendBreakdown = computeCategoryTotals(expensesRes.data ?? [])
+    .slice(0, 5)
+    .map(([name, amount]) => ({ name, amount }))
+
+  const scoreContext = stats
+    ? `7-day module averages: ${Object.entries(stats.moduleAvgs).map(([k, v]) => `${MODULE_DISPLAY_NAME[k] ?? k} ${v}`).join(', ')}.`
+    : ''
+  const spendContext = spendBreakdown.length > 0
+    ? `This month's spend by category: ${spendBreakdown.map(s => `${s.name} ₹${Math.round(s.amount)}`).join(', ')}.`
+    : 'No expenses logged this month yet.'
+  const context = `${scoreContext} ${spendContext}`.trim()
+
+  const recommendations = await getModuleRecommendations("Vinay's whole life (all modules combined)", context)
+
+  return { scorecard, reflection: paragraph, spendBreakdown, recommendations }
 }

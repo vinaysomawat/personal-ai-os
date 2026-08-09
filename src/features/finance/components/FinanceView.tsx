@@ -4,6 +4,7 @@ import { useState, useEffect, useTransition } from 'react'
 import { Plus, Trash2, X, Sparkles, Pencil, Check, TrendingUp, TrendingDown, Eye, EyeOff, Repeat, Landmark, Target, Receipt } from 'lucide-react'
 import Card from '@/components/Card'
 import EmptyState from '@/components/EmptyState'
+import Modal, { modalLabelClass, modalInputClass, modalSelectClass, modalCancelButtonClass, modalSaveButtonClass } from '@/components/Modal'
 import { useAIAdvisor } from '@/components/AIAdvisorProvider'
 import { todayIST } from '@/lib/date'
 import {
@@ -680,17 +681,12 @@ export default function FinanceView({ expenses, budgets, profile, loans, investm
 
       {/* Modals */}
       {modal && (
-        <div className="fixed inset-0 bg-overlay flex items-center justify-center z-50 p-4">
-          <div className="bg-surface-1 border border-surface-3 rounded-xl p-6 w-full max-w-sm max-h-[85vh] overflow-y-auto animate-in fade-in zoom-in-95 duration-200">
-            <div className="flex items-center justify-between mb-5">
-              <h2 className="text-base font-semibold text-fg-primary">
-                {modal === 'loan' ? 'Add Loan' : modal === 'investment' ? 'Add Investment' : modal === 'goal' ? 'Add Goal' : modal === 'recurring' ? 'Add Recurring Expense' : 'Add Expense'}
-              </h2>
-              <button onClick={() => setModal(null)} aria-label="Close" className="p-1.5 -m-1.5 text-fg-tertiary hover:text-fg-secondary"><X size={16} /></button>
-            </div>
-
+        <Modal
+          title={modal === 'loan' ? 'Add Loan' : modal === 'investment' ? 'Add Investment' : modal === 'goal' ? 'Add Financial Goal' : modal === 'recurring' ? 'Add Recurring Expense' : 'Add Expense'}
+          onClose={() => setModal(null)}
+        >
             {modal === 'loan' && (
-              <form className="space-y-3" noValidate onInput={onFieldInput} onSubmit={async e => {
+              <form className="flex flex-col gap-3.5" noValidate onInput={onFieldInput} onSubmit={async e => {
                 e.preventDefault()
                 if (!validate(e.currentTarget)) return
                 const fd = new FormData(e.currentTarget)
@@ -705,22 +701,42 @@ export default function FinanceView({ expenses, budgets, profile, loans, investm
                 setModal(null)
                 await addLoan(name, principal, emi, rate, months)
               }}>
-                {[['name', 'Loan name', 'text', 'Home Loan', true], ['principal', 'Principal amount (₹)', 'number', '2000000', true], ['emi', 'Monthly EMI (₹)', 'number', '15000', true], ['rate', 'Interest rate (% p.a.)', 'number', '8.5', false], ['months', 'Remaining months', 'number', '180', false]].map(([name, label, type, placeholder, required], i) => (
-                  <div key={name as string} className="space-y-1">
-                    <label className="text-xs text-fg-tertiary uppercase tracking-wider">{label as string}{!required && ' (optional)'}</label>
-                    <input name={name as string} type={type as string} placeholder={placeholder as string} required={required as boolean} autoFocus={i === 0} className={`w-full bg-surface-2 border rounded-lg px-3 py-2 text-sm text-fg-primary placeholder-fg-quaternary outline-none focus:border-accent transition-colors ${invalidFields.has(name as string) ? 'border-red-500' : 'border-surface-3'}`} />
-                    <FieldError show={invalidFields.has(name as string)} />
+                <div>
+                  <label className={modalLabelClass}>Name</label>
+                  <input name="name" placeholder="e.g. Car Loan" required autoFocus className={modalInputClass(invalidFields.has('name'))} />
+                  <FieldError show={invalidFields.has('name')} />
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className={modalLabelClass}>Principal (₹)</label>
+                    <input name="principal" type="number" placeholder="2000000" required className={modalInputClass(invalidFields.has('principal'))} />
+                    <FieldError show={invalidFields.has('principal')} />
                   </div>
-                ))}
-                <div className="flex gap-2 pt-1">
-                  <button type="button" onClick={() => setModal(null)} className="flex-1 py-2 rounded-lg bg-surface-2 border border-surface-3 text-fg-secondary text-sm hover:bg-surface-3 transition-colors">Cancel</button>
-                  <button type="submit" className="flex-1 py-2 rounded-lg bg-accent text-white text-sm font-medium hover:bg-accent/80 active:scale-95 transition">Add Loan</button>
+                  <div>
+                    <label className={modalLabelClass}>EMI (₹)</label>
+                    <input name="emi" type="number" placeholder="15000" required className={modalInputClass(invalidFields.has('emi'))} />
+                    <FieldError show={invalidFields.has('emi')} />
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className={modalLabelClass}>Interest Rate (%)</label>
+                    <input name="rate" type="number" placeholder="8.5" className={modalInputClass()} />
+                  </div>
+                  <div>
+                    <label className={modalLabelClass}>Remaining Months</label>
+                    <input name="months" type="number" placeholder="180" className={modalInputClass()} />
+                  </div>
+                </div>
+                <div className="flex justify-end gap-2.5 mt-1.5">
+                  <button type="button" onClick={() => setModal(null)} className={modalCancelButtonClass}>Cancel</button>
+                  <button type="submit" className={modalSaveButtonClass}>Save</button>
                 </div>
               </form>
             )}
 
             {modal === 'investment' && (
-              <form className="space-y-3" noValidate onInput={onFieldInput} onSubmit={async e => {
+              <form className="flex flex-col gap-3.5" noValidate onInput={onFieldInput} onSubmit={async e => {
                 e.preventDefault()
                 if (!validate(e.currentTarget)) return
                 const fd = new FormData(e.currentTarget)
@@ -744,26 +760,26 @@ export default function FinanceView({ expenses, budgets, profile, loans, investm
                 setAddingSip(false)
                 await addInvestment(name, type, invested, current || invested, notes, sip)
               }}>
-                <div className="space-y-1">
-                  <label className="text-xs text-fg-tertiary uppercase tracking-wider">Name</label>
-                  <input name="name" placeholder="Axis Bluechip Fund" required autoFocus className={`w-full bg-surface-2 border rounded-lg px-3 py-2 text-sm text-fg-primary placeholder-fg-quaternary outline-none focus:border-accent transition-colors ${invalidFields.has('name') ? 'border-red-500' : 'border-surface-3'}`} />
+                <div>
+                  <label className={modalLabelClass}>Name</label>
+                  <input name="name" placeholder="e.g. Axis Bluechip" required autoFocus className={modalInputClass(invalidFields.has('name'))} />
                   <FieldError show={invalidFields.has('name')} />
                 </div>
-                <div className="space-y-1">
-                  <label className="text-xs text-fg-tertiary uppercase tracking-wider">Type</label>
-                  <select name="type" className="w-full bg-surface-2 border border-surface-3 rounded-lg px-3 py-2 text-sm text-fg-secondary outline-none focus:border-accent transition-colors">
+                <div>
+                  <label className={modalLabelClass}>Type</label>
+                  <select name="type" className={modalSelectClass}>
                     {INVESTMENT_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
                   </select>
                 </div>
                 <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-1">
-                    <label className="text-xs text-fg-tertiary uppercase tracking-wider">Invested (₹)</label>
-                    <input name="invested" type="number" placeholder="100000" required className={`w-full bg-surface-2 border rounded-lg px-3 py-2 text-sm text-fg-primary placeholder-fg-quaternary outline-none focus:border-accent transition-colors ${invalidFields.has('invested') ? 'border-red-500' : 'border-surface-3'}`} />
+                  <div>
+                    <label className={modalLabelClass}>Invested Amount (₹)</label>
+                    <input name="invested" type="number" placeholder="100000" required className={modalInputClass(invalidFields.has('invested'))} />
                     <FieldError show={invalidFields.has('invested')} />
                   </div>
-                  <div className="space-y-1">
-                    <label className="text-xs text-fg-tertiary uppercase tracking-wider">Current value (₹)</label>
-                    <input name="current" type="number" placeholder="120000" className="w-full bg-surface-2 border border-surface-3 rounded-lg px-3 py-2 text-sm text-fg-primary placeholder-fg-quaternary outline-none focus:border-accent transition-colors" />
+                  <div>
+                    <label className={modalLabelClass}>Current Value (₹)</label>
+                    <input name="current" type="number" placeholder="120000" className={modalInputClass()} />
                   </div>
                 </div>
                 <label className="flex items-center gap-2 text-xs text-fg-secondary cursor-pointer">
@@ -772,27 +788,27 @@ export default function FinanceView({ expenses, budgets, profile, loans, investm
                 </label>
                 {addingSip && (
                   <div className="grid grid-cols-2 gap-3">
-                    <div className="space-y-1">
-                      <label className="text-xs text-fg-tertiary uppercase tracking-wider">Monthly SIP (₹)</label>
-                      <input name="sipAmount" type="number" placeholder="5000" required className={`w-full bg-surface-2 border rounded-lg px-3 py-2 text-sm text-fg-primary placeholder-fg-quaternary outline-none focus:border-accent transition-colors ${invalidFields.has('sipAmount') ? 'border-red-500' : 'border-surface-3'}`} />
+                    <div>
+                      <label className={modalLabelClass}>Monthly SIP (₹)</label>
+                      <input name="sipAmount" type="number" placeholder="5000" required className={modalInputClass(invalidFields.has('sipAmount'))} />
                       <FieldError show={invalidFields.has('sipAmount')} />
                     </div>
-                    <div className="space-y-1">
-                      <label className="text-xs text-fg-tertiary uppercase tracking-wider">Contribution day</label>
-                      <input name="sipDay" type="number" min={1} max={28} placeholder="5" required className={`w-full bg-surface-2 border rounded-lg px-3 py-2 text-sm text-fg-primary placeholder-fg-quaternary outline-none focus:border-accent transition-colors ${invalidFields.has('sipDay') ? 'border-red-500' : 'border-surface-3'}`} />
+                    <div>
+                      <label className={modalLabelClass}>Contribution day</label>
+                      <input name="sipDay" type="number" min={1} max={28} placeholder="5" required className={modalInputClass(invalidFields.has('sipDay'))} />
                       <FieldError show={invalidFields.has('sipDay')} />
                     </div>
                   </div>
                 )}
-                <div className="flex gap-2 pt-1">
-                  <button type="button" onClick={() => { setModal(null); setAddingSip(false) }} className="flex-1 py-2 rounded-lg bg-surface-2 border border-surface-3 text-fg-secondary text-sm hover:bg-surface-3 transition-colors">Cancel</button>
-                  <button type="submit" className="flex-1 py-2 rounded-lg bg-accent text-white text-sm font-medium hover:bg-accent/80 active:scale-95 transition">Add</button>
+                <div className="flex justify-end gap-2.5 mt-1.5">
+                  <button type="button" onClick={() => { setModal(null); setAddingSip(false) }} className={modalCancelButtonClass}>Cancel</button>
+                  <button type="submit" className={modalSaveButtonClass}>Save</button>
                 </div>
               </form>
             )}
 
             {modal === 'goal' && (
-              <form className="space-y-3" noValidate onInput={onFieldInput} onSubmit={async e => {
+              <form className="flex flex-col gap-3.5" noValidate onInput={onFieldInput} onSubmit={async e => {
                 e.preventDefault()
                 if (!validate(e.currentTarget)) return
                 const fd = new FormData(e.currentTarget)
@@ -807,45 +823,45 @@ export default function FinanceView({ expenses, budgets, profile, loans, investm
                 setModal(null)
                 await addGoal(name, target, current, date, priority)
               }}>
-                <div className="space-y-1">
-                  <label className="text-xs text-fg-tertiary uppercase tracking-wider">Goal name</label>
-                  <input name="name" placeholder="Emergency Fund" required autoFocus className={`w-full bg-surface-2 border rounded-lg px-3 py-2 text-sm text-fg-primary placeholder-fg-quaternary outline-none focus:border-accent transition-colors ${invalidFields.has('name') ? 'border-red-500' : 'border-surface-3'}`} />
+                <div>
+                  <label className={modalLabelClass}>Name</label>
+                  <input name="name" placeholder="e.g. New Setup" required autoFocus className={modalInputClass(invalidFields.has('name'))} />
                   <FieldError show={invalidFields.has('name')} />
                 </div>
                 <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-1">
-                    <label className="text-xs text-fg-tertiary uppercase tracking-wider">Target (₹)</label>
-                    <input name="target" type="number" placeholder="300000" required className={`w-full bg-surface-2 border rounded-lg px-3 py-2 text-sm text-fg-primary placeholder-fg-quaternary outline-none focus:border-accent transition-colors ${invalidFields.has('target') ? 'border-red-500' : 'border-surface-3'}`} />
+                  <div>
+                    <label className={modalLabelClass}>Target Amount (₹)</label>
+                    <input name="target" type="number" placeholder="300000" required className={modalInputClass(invalidFields.has('target'))} />
                     <FieldError show={invalidFields.has('target')} />
                   </div>
-                  <div className="space-y-1">
-                    <label className="text-xs text-fg-tertiary uppercase tracking-wider">Saved so far (₹)</label>
-                    <input name="current" type="number" placeholder="50000" className="w-full bg-surface-2 border border-surface-3 rounded-lg px-3 py-2 text-sm text-fg-primary placeholder-fg-quaternary outline-none focus:border-accent transition-colors" />
+                  <div>
+                    <label className={modalLabelClass}>Current Amount (₹)</label>
+                    <input name="current" type="number" placeholder="50000" className={modalInputClass()} />
                   </div>
                 </div>
                 <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-1">
-                    <label className="text-xs text-fg-tertiary uppercase tracking-wider">Target date (optional)</label>
-                    <input name="date" type="date" className="w-full bg-surface-2 border border-surface-3 rounded-lg px-3 py-2 text-sm text-fg-secondary outline-none focus:border-accent transition-colors" />
+                  <div>
+                    <label className={modalLabelClass}>Target Date</label>
+                    <input name="date" type="date" className={modalInputClass()} />
                   </div>
-                  <div className="space-y-1">
-                    <label className="text-xs text-fg-tertiary uppercase tracking-wider">Priority</label>
-                    <select name="priority" className="w-full bg-surface-2 border border-surface-3 rounded-lg px-3 py-2 text-sm text-fg-secondary outline-none focus:border-accent transition-colors">
+                  <div>
+                    <label className={modalLabelClass}>Priority</label>
+                    <select name="priority" className={modalSelectClass}>
                       <option value="high">High</option>
                       <option value="medium" selected>Medium</option>
                       <option value="low">Low</option>
                     </select>
                   </div>
                 </div>
-                <div className="flex gap-2 pt-1">
-                  <button type="button" onClick={() => setModal(null)} className="flex-1 py-2 rounded-lg bg-surface-2 border border-surface-3 text-fg-secondary text-sm hover:bg-surface-3 transition-colors">Cancel</button>
-                  <button type="submit" className="flex-1 py-2 rounded-lg bg-accent text-white text-sm font-medium hover:bg-accent/80 active:scale-95 transition">Add Goal</button>
+                <div className="flex justify-end gap-2.5 mt-1.5">
+                  <button type="button" onClick={() => setModal(null)} className={modalCancelButtonClass}>Cancel</button>
+                  <button type="submit" className={modalSaveButtonClass}>Save</button>
                 </div>
               </form>
             )}
 
             {modal === 'expense' && (
-              <form className="space-y-3" noValidate onInput={onFieldInput} onSubmit={async e => {
+              <form className="flex flex-col gap-3.5" noValidate onInput={onFieldInput} onSubmit={async e => {
                 e.preventDefault()
                 if (!validate(e.currentTarget)) return
                 const fd = new FormData(e.currentTarget)
@@ -862,36 +878,36 @@ export default function FinanceView({ expenses, budgets, profile, loans, investm
                 await addExpense(fd)
               }}>
                 <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-1">
-                    <label className="text-xs text-fg-tertiary uppercase tracking-wider">Amount *</label>
-                    <input name="amount" type="number" required min="0" step="0.01" placeholder="500" autoFocus className={`w-full bg-surface-2 border rounded-lg px-3 py-2 text-sm text-fg-primary placeholder-fg-quaternary outline-none focus:border-accent transition-colors ${invalidFields.has('amount') ? 'border-red-500' : 'border-surface-3'}`} />
+                  <div>
+                    <label className={modalLabelClass}>Amount *</label>
+                    <input name="amount" type="number" required min="0" step="0.01" placeholder="500" autoFocus className={modalInputClass(invalidFields.has('amount'))} />
                     <FieldError show={invalidFields.has('amount')} />
                   </div>
-                  <div className="space-y-1">
-                    <label className="text-xs text-fg-tertiary uppercase tracking-wider">Date</label>
-                    <input name="date" type="date" defaultValue={todayIST()} className="w-full bg-surface-2 border border-surface-3 rounded-lg px-3 py-2 text-sm text-fg-secondary outline-none focus:border-accent transition-colors" />
+                  <div>
+                    <label className={modalLabelClass}>Date</label>
+                    <input name="date" type="date" defaultValue={todayIST()} className={modalInputClass()} />
                   </div>
                 </div>
-                <div className="space-y-1">
-                  <label className="text-xs text-fg-tertiary uppercase tracking-wider">Category *</label>
-                  <select name="category" required className={`w-full bg-surface-2 border rounded-lg px-3 py-2 text-sm text-fg-secondary outline-none focus:border-accent transition-colors ${invalidFields.has('category') ? 'border-red-500' : 'border-surface-3'}`}>
+                <div>
+                  <label className={modalLabelClass}>Category *</label>
+                  <select name="category" required className={modalSelectClass}>
                     {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
                   </select>
                   <FieldError show={invalidFields.has('category')} />
                 </div>
-                <div className="space-y-1">
-                  <label className="text-xs text-fg-tertiary uppercase tracking-wider">Description</label>
-                  <input name="description" placeholder="Lunch, Uber, etc." className="w-full bg-surface-2 border border-surface-3 rounded-lg px-3 py-2 text-sm text-fg-primary placeholder-fg-quaternary outline-none focus:border-accent transition-colors" />
+                <div>
+                  <label className={modalLabelClass}>Description</label>
+                  <input name="description" placeholder="Lunch, Uber, etc." className={modalInputClass()} />
                 </div>
-                <div className="flex gap-2 pt-1">
-                  <button type="button" onClick={() => setModal(null)} className="flex-1 py-2 rounded-lg bg-surface-2 border border-surface-3 text-fg-secondary text-sm hover:bg-surface-3 transition-colors">Cancel</button>
-                  <button type="submit" className="flex-1 py-2 rounded-lg bg-accent text-white text-sm font-medium hover:bg-accent/80 active:scale-95 transition">Add</button>
+                <div className="flex justify-end gap-2.5 mt-1.5">
+                  <button type="button" onClick={() => setModal(null)} className={modalCancelButtonClass}>Cancel</button>
+                  <button type="submit" className={modalSaveButtonClass}>Save</button>
                 </div>
               </form>
             )}
 
             {modal === 'recurring' && (
-              <form className="space-y-3" noValidate onInput={onFieldInput} onSubmit={async e => {
+              <form className="flex flex-col gap-3.5" noValidate onInput={onFieldInput} onSubmit={async e => {
                 e.preventDefault()
                 if (!validate(e.currentTarget)) return
                 const fd = new FormData(e.currentTarget)
@@ -907,38 +923,37 @@ export default function FinanceView({ expenses, budgets, profile, loans, investm
                 setModal(null)
                 await addRecurringExpense(name, amount, category, dayOfMonth)
               }}>
-                <div className="space-y-1">
-                  <label className="text-xs text-fg-tertiary uppercase tracking-wider">Name *</label>
-                  <input name="name" required autoFocus placeholder="Rent" className={`w-full bg-surface-2 border rounded-lg px-3 py-2 text-sm text-fg-primary placeholder-fg-quaternary outline-none focus:border-accent transition-colors ${invalidFields.has('name') ? 'border-red-500' : 'border-surface-3'}`} />
+                <div>
+                  <label className={modalLabelClass}>Name</label>
+                  <input name="name" required autoFocus placeholder="e.g. Rent" className={modalInputClass(invalidFields.has('name'))} />
                   <FieldError show={invalidFields.has('name')} />
                 </div>
                 <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-1">
-                    <label className="text-xs text-fg-tertiary uppercase tracking-wider">Amount *</label>
-                    <input name="amount" type="number" required min="0" step="0.01" placeholder="15000" className={`w-full bg-surface-2 border rounded-lg px-3 py-2 text-sm text-fg-primary placeholder-fg-quaternary outline-none focus:border-accent transition-colors ${invalidFields.has('amount') ? 'border-red-500' : 'border-surface-3'}`} />
+                  <div>
+                    <label className={modalLabelClass}>Amount (₹)</label>
+                    <input name="amount" type="number" required min="0" step="0.01" placeholder="15000" className={modalInputClass(invalidFields.has('amount'))} />
                     <FieldError show={invalidFields.has('amount')} />
                   </div>
-                  <div className="space-y-1">
-                    <label className="text-xs text-fg-tertiary uppercase tracking-wider">Day of month *</label>
-                    <input name="day" type="number" required min="1" max="28" placeholder="1" className={`w-full bg-surface-2 border rounded-lg px-3 py-2 text-sm text-fg-primary placeholder-fg-quaternary outline-none focus:border-accent transition-colors ${invalidFields.has('day') ? 'border-red-500' : 'border-surface-3'}`} />
+                  <div>
+                    <label className={modalLabelClass}>Day of Month</label>
+                    <input name="day" type="number" required min="1" max="28" placeholder="1-28" className={modalInputClass(invalidFields.has('day'))} />
                     <FieldError show={invalidFields.has('day')} />
                   </div>
                 </div>
-                <div className="space-y-1">
-                  <label className="text-xs text-fg-tertiary uppercase tracking-wider">Category *</label>
-                  <select name="category" required className={`w-full bg-surface-2 border rounded-lg px-3 py-2 text-sm text-fg-secondary outline-none focus:border-accent transition-colors ${invalidFields.has('category') ? 'border-red-500' : 'border-surface-3'}`}>
+                <div>
+                  <label className={modalLabelClass}>Category</label>
+                  <select name="category" required className={modalSelectClass}>
                     {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
                   </select>
                   <FieldError show={invalidFields.has('category')} />
                 </div>
-                <div className="flex gap-2 pt-1">
-                  <button type="button" onClick={() => setModal(null)} className="flex-1 py-2 rounded-lg bg-surface-2 border border-surface-3 text-fg-secondary text-sm hover:bg-surface-3 transition-colors">Cancel</button>
-                  <button type="submit" className="flex-1 py-2 rounded-lg bg-accent text-white text-sm font-medium hover:bg-accent/80 active:scale-95 transition">Add</button>
+                <div className="flex justify-end gap-2.5 mt-1.5">
+                  <button type="button" onClick={() => setModal(null)} className={modalCancelButtonClass}>Cancel</button>
+                  <button type="submit" className={modalSaveButtonClass}>Save</button>
                 </div>
               </form>
             )}
-          </div>
-        </div>
+        </Modal>
       )}
     </div>
   )

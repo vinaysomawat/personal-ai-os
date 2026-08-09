@@ -158,6 +158,25 @@
     --chart-4: #d97706;
     --chart-5: #dc2626;
   }
+
+  /* Density tokens — [data-density] on <html> (see layout.tsx) drives card/
+     modal/panel padding app-wide; "compact" halves most of it. Comfortable
+     is the only mode wired to a visible toggle today (design source exposes
+     both via its own dev-tool "Tweaks" panel, not in-app UI). */
+  [data-density] {
+    --card-pad-lg: 18px 20px;
+    --card-pad-md: 16px;
+    --card-pad-sm: 14px 16px;
+    --modal-pad: 24px;
+    --panel-pad: 18px 20px;
+  }
+  [data-density='compact'] {
+    --card-pad-lg: 12px 14px;
+    --card-pad-md: 11px;
+    --card-pad-sm: 9px 11px;
+    --modal-pad: 16px;
+    --panel-pad: 12px 14px;
+  }
 }
 
 @layer utilities {

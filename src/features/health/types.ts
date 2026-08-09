@@ -26,7 +26,7 @@ export interface Workout {
 }
 
 export type ActivityLevel = 'sedentary' | 'light' | 'moderate' | 'active' | 'very_active'
-export type Gender = 'male' | 'female'
+export type Gender = 'male' | 'female' | 'other'
 
 export const ACTIVITY_LEVELS: { value: ActivityLevel; label: string }[] = [
   { value: 'sedentary',   label: 'Sedentary (little to no exercise)' },

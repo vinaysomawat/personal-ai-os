@@ -1,6 +1,6 @@
 'use client'
 
-import { X } from 'lucide-react'
+import Modal from '@/components/Modal'
 import type { Outcome } from '../daily-core'
 
 const OPTIONS: { value: Outcome; emoji: string; label: string }[] = [
@@ -22,25 +22,19 @@ export default function OutcomeModal({ title, onPick, onSkip, onClose }: {
   onClose: () => void
 }) {
   return (
-    <div className="fixed inset-0 bg-overlay flex items-center justify-center z-50 p-4">
-      <div className="bg-surface-1 border border-surface-3 rounded-xl p-6 w-full max-w-sm animate-in fade-in zoom-in-95 duration-200">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-base font-semibold text-fg-primary">How did it go?</h2>
-          <button onClick={onClose} aria-label="Close" className="p-1.5 -m-1.5 text-fg-tertiary hover:text-fg-secondary"><X size={16} /></button>
-        </div>
-        <p className="text-sm text-fg-secondary mb-4 truncate">{title}</p>
-        <div className="space-y-2">
-          {OPTIONS.map(o => (
-            <button key={o.value} onClick={() => onPick(o.value)}
-              className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg bg-surface-2 border border-surface-3 text-sm text-fg-primary hover:border-accent/40 hover:bg-surface-3 transition-colors text-left">
-              <span className="text-base">{o.emoji}</span> {o.label}
-            </button>
-          ))}
-          <button onClick={onSkip} className="w-full py-2 text-xs text-fg-quaternary hover:text-fg-secondary transition-colors">
-            Skip
+    <Modal title="How did it go?" onClose={onClose}>
+      <p className="text-sm text-fg-secondary mb-4 truncate">{title}</p>
+      <div className="flex flex-col gap-2.5">
+        {OPTIONS.map(o => (
+          <button key={o.value} onClick={() => onPick(o.value)}
+            className="w-full flex items-center gap-2.5 px-3.5 py-3 rounded-[10px] bg-surface-2 border border-surface-3 text-[13.5px] text-fg-primary hover:border-accent/40 hover:bg-surface-3 transition-colors text-left">
+            <span className="text-base">{o.emoji}</span> {o.label}
           </button>
-        </div>
+        ))}
+        <button onClick={onSkip} className="w-full py-2 text-xs text-fg-quaternary hover:text-fg-secondary transition-colors">
+          Skip
+        </button>
       </div>
-    </div>
+    </Modal>
   )
 }

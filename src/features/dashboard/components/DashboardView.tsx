@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import {
   CalendarDays, Briefcase, DollarSign, HeartPulse,
-  BookOpen, Code2, FileText,
+  BookOpen, Code2,
 } from 'lucide-react'
 import Card from '@/components/Card'
 import MiniRing from './MiniRing'
@@ -25,7 +25,8 @@ import LifeScoreTrend from './LifeScoreTrendLazy'
 type DashboardData = Awaited<ReturnType<typeof getDashboardData>>
 
 export default function DashboardView({ data, executive }: { data: DashboardData; executive: ExecutiveData }) {
-  const { botActivity, stats, scores, scoreTips, scoreHistory, todayHealth, aiBudget, topActions, todayProgress, todayRecommendations } = data
+  const { botActivity, stats, scores, scoreTips, scoreHistory, todayHealth, aiBudget, topActions, todayProgress, todayRecommendations, crossModuleGoals } = data
+  const MODULE_BADGE_COLOR: Record<string, string> = { Career: 'var(--accent)', Coding: '#22d3ee', Learning: '#a78bfa' }
   const scoreExplanation = explainScore(scoreHistory, scores, scoreTips)
   const brainContext = buildBrainContext(data)
   const today = new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })
@@ -33,11 +34,11 @@ export default function DashboardView({ data, executive }: { data: DashboardData
   const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening'
 
   const moduleScores = [
-    { label: 'Health',   score: scores.health,            color: '#ef4444', to: '/health',   tip: scoreTips.health },
-    { label: 'Finance',  score: scores.finance,           color: '#22c55e', to: '/finance',  tip: scoreTips.finance },
-    { label: 'Career',   score: scores.career,            color: '#f59e0b', to: '/career',   tip: scoreTips.career },
-    { label: 'Learning', score: scores.learning,          color: '#a855f7', to: '/learning', tip: scoreTips.learning },
-    { label: 'Coding',   score: scores.projects ?? 0,     color: '#06b6d4', to: '/coding',   tip: scoreTips.projects },
+    { label: 'Health',   score: scores.health,            color: 'var(--good)',   to: '/health',   tip: scoreTips.health },
+    { label: 'Finance',  score: scores.finance,           color: 'var(--warn)',   to: '/finance',  tip: scoreTips.finance },
+    { label: 'Career',   score: scores.career,            color: 'var(--accent)', to: '/career',   tip: scoreTips.career },
+    { label: 'Learning', score: scores.learning,          color: 'var(--good)',   to: '/learning', tip: scoreTips.learning },
+    { label: 'Coding',   score: scores.projects ?? 0,     color: 'var(--risk)',   to: '/coding',   tip: scoreTips.projects },
   ]
 
   // Top-priority banner — same ranked list NeedsAttention renders (risks,
@@ -53,17 +54,16 @@ export default function DashboardView({ data, executive }: { data: DashboardData
   const topPriorityModule = topPriority && (topPriority.href.slice(1).charAt(0).toUpperCase() + topPriority.href.slice(2))
 
   const modules = [
-    { label: 'Planner',   to: '/planner',   icon: CalendarDays, color: 'text-blue-400',   bg: 'bg-blue-500/10',   stat: stats.pendingTaskCount ? `${stats.pendingTaskCount} pending` : 'All clear' },
-    { label: 'Career',    to: '/career',    icon: Briefcase,    color: 'text-amber-400',  bg: 'bg-warn-soft',  stat: stats.activeApplications ? `${stats.activeApplications} active` : 'No applications' },
-    { label: 'Health',    to: '/health',    icon: HeartPulse,   color: 'text-red-400',    bg: 'bg-risk-soft',    stat: todayHealth?.steps ? `${(Number(todayHealth.steps)/1000).toFixed(1)}k steps` : stats.workoutsToday ? `${stats.workoutsToday} workout${stats.workoutsToday > 1 ? 's' : ''} today` : 'No metrics today' },
-    { label: 'Finance',   to: '/finance',   icon: DollarSign,   color: 'text-green-400',  bg: 'bg-good-soft',  stat: stats.monthSpend ? `₹${Math.round(stats.monthSpend).toLocaleString('en-IN')} spent` : 'No expenses' },
-    { label: 'Learning',  to: '/learning',  icon: BookOpen,     color: 'text-purple-400', bg: 'bg-purple-500/10', stat: stats.learningInProgress ? `${stats.learningInProgress} in progress` : 'No resources' },
-    { label: 'Coding',    to: '/coding',    icon: Code2,        color: 'text-cyan-400',   bg: 'bg-cyan-500/10',   stat: stats.codingSolved30d ? `${stats.codingSolved30d} solved (30d)` : 'No questions solved yet' },
-    { label: 'Documents', to: '/documents', icon: FileText,     color: 'text-orange-400', bg: 'bg-orange-500/10', stat: stats.documentCount ? `${stats.documentCount} doc${stats.documentCount !== 1 ? 's' : ''}` : 'Empty' },
+    { label: 'Planner',   to: '/planner',   icon: CalendarDays, color: 'text-blue-400',   bg: 'bg-blue-500/18',   stat: stats.pendingTaskCount ? `${stats.pendingTaskCount} pending` : 'All clear' },
+    { label: 'Career',    to: '/career',    icon: Briefcase,    color: 'text-amber-400',  bg: 'bg-amber-500/18',  stat: stats.activeApplications ? `${stats.activeApplications} active` : 'No applications' },
+    { label: 'Health',    to: '/health',    icon: HeartPulse,   color: 'text-red-400',    bg: 'bg-red-500/18',    stat: todayHealth?.steps ? `${(Number(todayHealth.steps)/1000).toFixed(1)}k steps` : stats.workoutsToday ? `${stats.workoutsToday} workout${stats.workoutsToday > 1 ? 's' : ''} today` : 'No metrics today' },
+    { label: 'Finance',   to: '/finance',   icon: DollarSign,   color: 'text-green-400',  bg: 'bg-green-500/18',  stat: stats.monthSpend ? `₹${Math.round(stats.monthSpend).toLocaleString('en-IN')} spent` : 'No expenses' },
+    { label: 'Learning',  to: '/learning',  icon: BookOpen,     color: 'text-purple-400', bg: 'bg-purple-500/18', stat: stats.learningInProgress ? `${stats.learningInProgress} in progress` : 'No resources' },
+    { label: 'Coding',    to: '/coding',    icon: Code2,        color: 'text-cyan-400',   bg: 'bg-cyan-500/18',   stat: stats.codingSolved30d ? `${stats.codingSolved30d} solved (30d)` : 'No questions solved yet' },
   ]
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
       <RealtimeRefresh />
       <BrainAdvisorTrigger context={brainContext} />
       {/* Page title now lives inline in the page body (design refresh) instead
@@ -72,7 +72,7 @@ export default function DashboardView({ data, executive }: { data: DashboardData
       <div className="flex items-end justify-between flex-wrap gap-1">
         <div>
           <p className="text-[13px] text-fg-tertiary">{today} · {greeting}</p>
-          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-fg-primary mt-0.5">Dashboard</h1>
+          <h1 className="text-[34px] font-bold tracking-[-0.02em] text-fg-primary mt-0.5">Dashboard</h1>
         </div>
       </div>
 
@@ -81,13 +81,13 @@ export default function DashboardView({ data, executive }: { data: DashboardData
           scrolling past four other cards to find. Full top-3 detail (with
           dismiss) still lives in the Needs Attention card further down. */}
       {topPriority && (
-        <div className="flex items-center gap-3.5 px-4 py-3 rounded-xl bg-risk-soft border border-risk-border">
-          <span className="text-lg shrink-0">{topPriority.emoji}</span>
+        <div className="flex items-center gap-3.5 px-[18px] py-3.5 rounded-[10px] bg-risk-soft border border-risk-border">
+          <span className="text-xl shrink-0">{topPriority.emoji}</span>
           <div className="flex-1 min-w-0">
-            <p className="text-[11px] font-bold uppercase tracking-wide text-risk-strong">Top Priority</p>
+            <p className="text-[11px] font-bold uppercase tracking-[0.6px] text-risk-strong">Top Priority</p>
             <p className="text-sm text-fg-primary mt-0.5">{topPriority.text}</p>
           </div>
-          <Link href={topPriority.href} className="shrink-0 text-xs text-fg-secondary whitespace-nowrap border border-border-strong rounded-lg px-3 py-1.5 hover:bg-surface-2 transition-colors">
+          <Link href={topPriority.href} className="shrink-0 text-[13px] text-fg-secondary whitespace-nowrap border border-border-strong rounded-[7px] px-3 py-1.5 hover:bg-surface-2 transition-colors">
             Open {topPriorityModule} →
           </Link>
         </div>
@@ -98,9 +98,9 @@ export default function DashboardView({ data, executive }: { data: DashboardData
           (Phase 5 PRD's "Sidebar Widget") already stacks the 3 stat tiles
           above the Goal Progress bars internally, so it drops in as one
           column unchanged. */}
-      <div className="grid grid-cols-1 lg:grid-cols-[340px_1fr] gap-4 items-start">
-        <div className="bg-surface-1 border border-surface-3 rounded-2xl shadow-card p-4 flex flex-col items-center gap-2">
-          <p className="text-xs text-fg-tertiary uppercase tracking-widest self-start font-semibold">Life Score</p>
+      <div className="grid grid-cols-1 lg:grid-cols-[340px_1fr] gap-5 items-start">
+        <div className="bg-surface-1 border border-surface-3 rounded-[18px] shadow-card p-[22px] flex flex-col items-center gap-2">
+          <p className="text-xs text-fg-tertiary uppercase tracking-[0.5px] self-start font-semibold">Life Score</p>
           <ScoreExplainer score={scores.life ?? 0} result={scoreExplanation} />
           <p className="text-xs text-fg-tertiary">Click ring to explain score</p>
         </div>
@@ -118,14 +118,14 @@ export default function DashboardView({ data, executive }: { data: DashboardData
           wide viewports — Decision Queue/Goal Progress used to live in the
           brief too, but Phase 5 moved them into Needs Attention and Quick
           Stats above instead of duplicating information across cards. */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-start">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 items-start">
         <WhatsChanged items={executive.whatsChanged} />
         <ExecutiveBrief brief={executive.brief} />
       </div>
 
       {/* Needs Attention (Today's Focus signals + Decision Queue's Risks/
           Opportunities, capped at 3) + Today's Insight side by side. */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-start">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 items-start">
         <NeedsAttention topActions={topActions} risks={executive.risks} opportunities={executive.opportunities} />
         <TodaysInsight pattern={data.recentPatterns[0] ?? null} />
       </div>
@@ -135,20 +135,20 @@ export default function DashboardView({ data, executive }: { data: DashboardData
           persistent Life Score above. Deterministic, cross-module
           (Planner/Health/Coding/Learning/Finance) — same primitive the
           Phase 2 "Brain" PRD calls Daily Mission. */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-start">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 items-start">
         <LifeScoreTrend scoreHistory={scoreHistory} />
-        <Card title="Daily Mission" padding="p-3.5" action={<span className="text-xs text-fg-tertiary">{todayProgress.completed}/{todayProgress.total} done</span>}>
-          <div className="flex items-center gap-4">
+        <Card title="Daily Mission" action={<span className="text-xs text-fg-tertiary">{todayProgress.completed}/{todayProgress.total} done</span>}>
+          <div className="flex items-center gap-3.5">
             <div className="shrink-0">
-              <MiniRing score={todayProgress.score} color="#8b5cf6" size={52} />
+              <MiniRing score={todayProgress.score} color="var(--accent)" size={52} suffix="%" />
             </div>
             <div className="flex-1 min-w-0">
               {todayRecommendations.length > 0 ? (
                 <ul className="space-y-0.5">
                   {todayRecommendations.map(r => (
                     <li key={r.text}>
-                      <Link href={r.href} className="flex items-center gap-2 py-0.5 text-sm text-fg-secondary hover:text-accent transition-colors">
-                        <span className="shrink-0">{r.emoji}</span>
+                      <Link href={r.href} className="flex items-center gap-2 py-0.5 text-[12.5px] text-fg-secondary hover:text-accent transition-colors">
+                        <span className="w-1.5 h-1.5 rounded-full bg-accent shrink-0" />
                         <span className="truncate">{r.text}</span>
                       </Link>
                     </li>
@@ -166,22 +166,56 @@ export default function DashboardView({ data, executive }: { data: DashboardData
 
       {/* Module Scores — its own full-width card, matching the design
           (previously merged into the Life Score hero card above). */}
-      <div className="bg-surface-1 border border-surface-3 rounded-2xl shadow-card p-4">
-        <p className="text-xs text-fg-tertiary uppercase tracking-widest mb-3 font-semibold">Module Scores</p>
+      <div className="bg-surface-1 border border-surface-3 rounded-[18px] shadow-card p-5">
+        <p className="text-xs text-fg-tertiary uppercase tracking-[0.5px] mb-3 font-semibold">Module Scores</p>
         <div className="grid grid-cols-3 sm:grid-cols-5 gap-4">
           {moduleScores.map(({ label, score, color, to, tip }) => (
             <Link key={to} href={to} title={tip}
               className="flex flex-col items-center gap-2 text-center hover:scale-[1.03] transition-transform group">
               <MiniRing score={score} color={color} size={74} />
               <p className="text-xs font-semibold text-fg-secondary group-hover:text-fg-primary">{label}</p>
-              <p className="text-[10px] text-fg-tertiary leading-tight truncate max-w-[90px]">{tip}</p>
+              <p className="text-[9.5px] text-fg-tertiary leading-tight truncate max-w-[90px]">{tip}</p>
             </Link>
           ))}
         </div>
-        <p className="text-xs text-fg-quaternary mt-2 text-center">
-          Health 25% · Finance 20% · Career 20% · Learning 20% · Coding 15%
-        </p>
       </div>
+
+      {/* Goal Engine: cross-module goals (Career/Learning/Coding) — data was
+          already fetched (getDashboardData's crossModuleGoals, also used by
+          Ask Brain's context), just not surfaced on the page until now. */}
+      {crossModuleGoals.length > 0 && (
+        <div className="bg-surface-1 border border-surface-3 rounded-[18px] shadow-card p-[18px_20px]">
+          <p className="text-[13px] font-bold text-fg-primary mb-1">Goals</p>
+          <p className="text-[11px] text-fg-tertiary mb-3.5">Cross-module goals from Career, Learning, and Coding, resolved live.</p>
+          <div className="flex flex-col gap-2.5">
+            {crossModuleGoals.map((g, i) => {
+              const pct = g.target != null ? Math.min(100, Math.round(((g.current ?? 0) / g.target) * 100)) : null
+              return (
+                <Link key={i} href={`/${g.module.toLowerCase()}`}
+                  className="flex items-center gap-3 bg-surface-2 rounded-lg px-3.5 py-2.5">
+                  <span className="text-[10px] font-bold uppercase px-2 py-[3px] rounded-[5px] bg-surface-3 shrink-0" style={{ color: MODULE_BADGE_COLOR[g.module] }}>
+                    {g.module}
+                  </span>
+                  <span className="flex-1 text-sm text-fg-primary">{g.name}</span>
+                  {pct === null ? (
+                    <span className={`text-[11.5px] font-semibold shrink-0 ${g.achieved ? 'text-good' : 'text-fg-tertiary'}`}>
+                      {g.achieved ? '✓ Achieved' : 'In progress'}
+                    </span>
+                  ) : (
+                    <div className="w-[90px] shrink-0">
+                      <div className="h-[5px] rounded-full bg-surface-3 overflow-hidden">
+                        <div className="h-full rounded-full bg-accent" style={{ width: `${pct}%` }} />
+                      </div>
+                      <p className="text-[10.5px] text-fg-tertiary mt-0.5 text-right">{g.current}/{g.target}</p>
+                    </div>
+                  )}
+                </Link>
+              )
+            })}
+          </div>
+          <Link href="/career" className="block text-xs font-semibold text-accent pt-2.5">Manage Career goals →</Link>
+        </div>
+      )}
 
       {/* Module grid */}
       <div>
@@ -190,7 +224,7 @@ export default function DashboardView({ data, executive }: { data: DashboardData
           {modules.map(({ label, to, icon: Icon, color, bg, stat }) => (
             <Link key={to} href={to}
               className="group flex flex-col gap-2 p-3.5 bg-surface-1 border border-surface-3 rounded-xl shadow-card hover:border-accent/40 hover:bg-surface-2 hover:-translate-y-0.5 hover:shadow-lg transition-all">
-              <div className={`w-8 h-8 rounded-lg ${bg} flex items-center justify-center`}>
+              <div className={`w-[30px] h-[30px] rounded-lg ${bg} flex items-center justify-center`}>
                 <Icon size={16} className={color} />
               </div>
               <div>

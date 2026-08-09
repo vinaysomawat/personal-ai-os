@@ -61,13 +61,14 @@ export default function QuickAdd() {
 
   return (
     <>
-      {/* Floating button — bottom-right on every viewport now that nav lives in the
-          sticky top TopNav instead of a bottom tab bar (nothing to avoid colliding with). */}
+      {/* Floating button — bottom-right, matching the design source's 52px/28px
+          recipe exactly. Lifted above the fixed mobile bottom nav (58px) on
+          small viewports so it doesn't sit on top of it. */}
       <button
         onClick={() => setOpen(true)}
         aria-label="Quick add"
-        className="fixed bottom-6 right-6 z-40 w-12 h-12 bg-accent rounded-full shadow-lg shadow-accent/30 flex items-center justify-center hover:bg-accent/80 transition-colors ring-4 ring-background">
-        <Plus size={22} className="text-white" />
+        className="fixed bottom-[86px] md:bottom-7 right-7 z-40 w-[52px] h-[52px] bg-accent rounded-full shadow-[0_8px_24px_var(--shadow-lg)] flex items-center justify-center hover:bg-accent/80 transition-colors">
+        <Plus size={24} className="text-white" />
       </button>
 
       {/* Modal */}

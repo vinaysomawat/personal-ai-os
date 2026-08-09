@@ -1,0 +1,60 @@
+# Modal System Audit — design's generic modal (`modalOpen` block) vs. repo
+
+Source of truth: the shared generic-modal template (`sc-if value="{{ modalOpen }}"`, decoded design script) — one 440px shell that hosts 10 form types via `modalTitles` (`loan`, `investment`, `goal`, `recurring`, `healthProfile`, `codingSettings`, `resource`, `logSession`, `reminder`, `outcome`) plus an 11th, `resourceQuiz`, which reuses the same shell but isn't in the titles map (so its title bar renders blank in the source itself — a design quirk, not a repo bug; flagged below rather than "fixed").
+
+**Key structural finding up front:** the design has **one** generic modal component; the repo has **10 separate hand-rolled modals** (`FinanceView.tsx` alone contains 4 of them inline, `LearningView.tsx` contains 3, plus 3 standalone files) that each copy-pasted a similar-but-drifted shell. Every repo modal independently diverges from the design shell in the same handful of ways — so instead of 10× repeating identical shell findings, **Section A** covers the shared shell once, and **Section B** covers only what's specific to each modal (fields, extra/missing functionality, modal-specific widgets). Field-label copy differences that are purely cosmetic (e.g. "EMI (₹)" vs "Monthly EMI (₹)") are noted in passing rather than given their own row — flag if you want that level of granularity too.
+
+Status legend: MATCH / MISMATCH / MISSING (design element absent from repo) / EXTRA (repo has functionality design doesn't specify — not necessarily wrong) / OPEN (judgment call, not a clear style bug).
+
+---
+
+## Section A — Shared modal shell (applies to all 10-11 modals identically)
+
+**All 14 rows FIXED** via a new shared `src/components/Modal.tsx` (shell/title/close/footer chrome) plus exported style constants (`modalLabelClass`, `modalInputClass`, `modalSelectClass`, `modalCancelButtonClass`, `modalSaveButtonClass`), used by every one of the 10 call sites instead of each hand-rolling its own copy. Live-verified in both themes: Add Loan (Finance) and Health Profile both render at the correct 440px/16px-radius shell with right-aligned natural-width Cancel/Save buttons.
+
+| # | Element | Design spec | Verdict | Detail |
+|---|---|---|---|---|
+| A1 | Card radius | 16px | **FIXED** | `Modal.tsx` uses `rounded-2xl` (Tailwind's 2xl = 16px exactly). |
+| A2 | Card width | Fixed **440px** (`max-width: 90vw`) for every modal in the system | **FIXED** | `Modal.tsx`: `max-w-[440px]` — including Resource Quiz, which was previously 512px. |
+| A3 | Card padding | `var(--modal-pad)` (24px in the app's current comfortable density) | MATCH | Unchanged — `p-6` (24px) still equals the current value. |
+| A4 | Title row margin | 18px bottom | **FIXED** | `Modal.tsx`: `mb-[18px]`. |
+| A5 | Title text | 16px / **700** | **FIXED** | `Modal.tsx`: `text-base font-bold`. |
+| A6 | Close control | Plain **"✕" text glyph**, 18px, tertiary color | **FIXED** | `Modal.tsx`: `✕` glyph at `text-[18px]`, no more lucide `X` icon in any of the 10 modals. |
+| A7 | Field label | 11px, uppercase, **0.4px** tracking, **700** weight, 5px margin-bottom | **FIXED** | `modalLabelClass`: `text-[11px] font-bold uppercase tracking-[0.4px] mb-[5px]`. |
+| A8 | Field group gap | 14px (flex column `gap`) | **FIXED** | Every form now uses `flex flex-col gap-3.5` (14px) instead of `space-y-3`. |
+| A9 | 2-column grid gap | 12px | MATCH | Unchanged. |
+| A10 | Text input | surface-2 bg, `1px solid var(--border)`, **8px radius**, **9px 11px** padding, **13px** font, primary text color | **FIXED** | `modalInputClass()`: `rounded-[8px] px-[11px] py-[9px] text-[13px]`. |
+| A11 | Select | **Identical style to text input** — same padding/radius/font, primary text color | **FIXED** | `modalSelectClass` matches `modalInputClass` exactly, including `text-fg-primary` (no more dimmed secondary text). |
+| A12 | Footer layout | Right-aligned (`justify-content: flex-end`), 10px gap, 20px top margin; buttons are natural-width, not stretched | **FIXED** | Every footer is now `flex justify-end gap-2.5 mt-1.5` (footer sits right after a `gap-3.5` field, so total spacing to the last field is correct) with natural-width (non-`flex-1`) buttons. |
+| A13 | Cancel button | No fill (`background: none`), `1px solid var(--border-strong)`, 8px radius, **9px 16px** padding, 13px, secondary text | **FIXED** | `modalCancelButtonClass`: `border border-border-strong rounded-[8px] px-4 py-[9px] text-[13px] text-fg-secondary`, no fill. |
+| A14 | Save button | accent bg, white text, 8px radius, **9px 18px** padding, 13px, **700** weight | **FIXED** | `modalSaveButtonClass`: `bg-accent rounded-[8px] px-[18px] py-[9px] text-[13px] font-bold text-white`. |
+
+---
+
+## Section B — Per-modal findings (beyond the shared shell above)
+
+| Modal | File(s) | Verdict | Detail |
+|---|---|---|---|
+| **Add Loan** | `FinanceView.tsx` | **FIXED** (layout) | Rewritten with explicit grid pairing: Name full-width, then Principal+EMI in a 2-col grid, then Interest Rate+Remaining Months in a 2-col grid — matches design exactly. Labels updated to design's exact copy ("Principal (₹)", "EMI (₹)", etc). Rate/Months optionality kept (OPEN, unchanged). |
+| **Add Investment** | `FinanceView.tsx` | **FIXED** (shell) + OPEN (kept SIP fields) | Reskinned via shared `Modal`; field structure was already correct. SIP checkbox + conditional fields kept as-is — a real feature beyond the design's scope, not reverted. |
+| **Add Financial Goal** | `FinanceView.tsx` | **FIXED** (shell) | Field structure already matched; reskinned via shared `Modal`, labels updated to "Target Amount (₹)" / "Current Amount (₹)" / "Target Date" per design. |
+| **Add Recurring Expense** | `FinanceView.tsx` | **FIXED** (shell) | Field structure already matched; reskinned via shared `Modal`. |
+| **Health Profile** | `HealthProfileForm.tsx` | **FIXED** (both real gaps) | Gender select now has Male/Female/**Other** (`Gender` type extended in `types.ts`; `calculateBMR` already treated non-male as the female-formula branch, so no calculation change needed). Food Preference converted from free-text `<input>` to a select (Vegetarian/Non-Vegetarian/Vegan), grid-paired with Workout Days/Week as in the design. Live-verified in the browser. |
+| **Coding Settings** | `CodingSettingsPopover.tsx` | **FIXED** | Telegram-notify checkbox replaced with a styled toggle row (full-width button, label left / "On"·"Off" right, surface-2 bg, bordered, 8px radius) — live-verified clicking it flips "On"↔"Off". Assignment-mode copy updated to design's exact text. |
+| **Add Resource** | `LearningView.tsx` | **FIXED** (shell) + OPEN (kept Notes) | Reskinned via shared `Modal`; Notes `<textarea>` kept as an extra field beyond design's scope. |
+| **Log Study Session** | `LearningView.tsx` | **FIXED** (missing field added) | Added the missing Notes input (new `logNotes` state, wired through `handleLogSession` into the already-notes-accepting `logStudySession` action — no action signature change needed). Also added the "Resource" field label above the read-only title, matching design's field structure. Live-verified: Notes field renders and duration pills work. |
+| **New Reminder** | `SettingsView.tsx` (deferred here from the Settings audit) | **FIXED** | Slot dropdown replaced with two toggle buttons (🔔 Morning / 🔕 Evening, accent-soft highlight on the selected one). `REMINDER_MODULES` in `types.ts` dropped `'documents'` (now 6 options, matching design) — `MODULE_LABEL`'s `documents` entry kept so any pre-existing reminder with that module still displays correctly. Live-verified in the browser. |
+| **Resource Quiz** | `LearningView.tsx` | **FIXED** (shell only) + OPEN (kept interaction model) | Reskinned via shared `Modal` (now correctly 440px instead of 512px). Interaction model deliberately left as-is per your OPEN call — bidirectional reveal/hide, "Reveal all answers," and the "Quiz: {title}" heading are all kept rather than conformed to the design's simpler one-way-reveal + blank-title + "Done" button. |
+| **Outcome** | `OutcomeModal.tsx` | **FIXED** (shell) + OPEN (kept Skip) | Reskinned via shared `Modal`; the "Skip" text-link button kept as the dismiss-without-picking affordance. |
+
+---
+
+## Outcome
+
+Both decisions were made and implemented:
+
+1. **Shared component approach** — `src/components/Modal.tsx` now provides the shell/title/close/footer chrome plus shared style constants (`modalLabelClass`, `modalInputClass`, `modalSelectClass`, `modalCancelButtonClass`, `modalSaveButtonClass`), used by all 10 call sites. Each modal kept its own field JSX and all submit/validation logic untouched — presentation-only, as required.
+2. **All 4 functional gaps fixed**: Health Profile's Gender "Other" option + Food Preference select, Coding Settings' toggle-row, Log Session's Notes field, Reminder's toggle buttons + trimmed module list.
+3. **OPEN/EXTRA items kept as-is** (not reverted): Investment's SIP fields, Resource's Notes field, Outcome's Skip button, Resource Quiz's richer bidirectional reveal/reveal-all interaction model.
+
+Verified: `tsc --noEmit` and `eslint` both clean across all touched files. Live-checked in the browser (both light and dark theme): Add Loan, Health Profile, Coding Settings' toggle, Settings' New Reminder modal, Add Resource, Log Study Session (including the new Notes field), and the Resource Quiz shell.

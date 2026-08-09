@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useOptimistic, useTransition } from 'react'
+import { useState, useOptimistic, useTransition, useEffect } from 'react'
 import { Plus, CheckCircle2, Circle, Trash2, Sparkles, ExternalLink, ListTodo } from 'lucide-react'
 import Card from '@/components/Card'
 import EmptyState from '@/components/EmptyState'
@@ -8,9 +8,99 @@ import StatCard from '@/components/StatCard'
 import ModuleRecommendations from '@/components/ModuleRecommendations'
 import { useAIAdvisor, useAIAdvisorOpen } from '@/components/AIAdvisorProvider'
 import { addTask, toggleTask, deleteTask } from '../actions'
+import { getExecutiveSummaryData, type ExecutiveSummaryData } from '@/features/brain/advisor'
 import { RefreshCw } from 'lucide-react'
 import { todayIST } from '@/lib/date'
 import type { Task, Priority, Recurrence } from '../types'
+
+function ExecutiveSummaryTrigger() {
+  const [open, setOpen] = useState(false)
+  const [data, setData] = useState<ExecutiveSummaryData | null>(null)
+  const [loading, setLoading] = useState(false)
+
+  useEffect(() => {
+    if (open && !data && !loading) {
+      setLoading(true)
+      getExecutiveSummaryData().then(result => { setData(result); setLoading(false) })
+    }
+  }, [open, data, loading])
+
+  return (
+    <div className="relative">
+      <button onClick={() => setOpen(v => !v)}
+        className="flex items-center gap-1.5 px-3.5 py-[7px] rounded-full bg-accent-soft border border-accent-border text-accent-strong text-[12.5px] font-semibold hover:bg-accent/25 transition-colors">
+        <span>◆</span> Executive Summary
+      </button>
+      {open && (
+        <>
+          <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
+          <div className="absolute right-0 top-full mt-2 z-50 w-[380px] max-w-[calc(100vw-2rem)] max-h-[75vh] overflow-y-auto bg-surface-1 border border-surface-3 rounded-xl shadow-2xl animate-in slide-in-from-top-2 fade-in duration-150">
+            <div className="flex items-center justify-between px-4 py-3 border-b border-surface-3 sticky top-0 bg-surface-1 z-10">
+              <span className="text-sm font-bold text-fg-primary">◆ Executive Summary</span>
+              <button onClick={() => setOpen(false)} aria-label="Close" className="text-fg-tertiary hover:text-fg-secondary text-base leading-none">✕</button>
+            </div>
+            <div className="p-4 flex flex-col gap-4">
+              {loading || !data ? (
+                <div className="space-y-2">
+                  {[90, 75, 85, 60, 95].map((w, i) => <div key={i} className="h-3 rounded bg-surface-2 animate-pulse" style={{ width: `${w}%` }} />)}
+                </div>
+              ) : (
+                <>
+                  {data.scorecard.length > 0 && (
+                    <div>
+                      <p className="text-[11px] font-bold text-fg-tertiary uppercase tracking-[0.4px] mb-2.5">This Week · Scorecard</p>
+                      <div className="flex flex-col gap-2.5">
+                        {data.scorecard.map(m => (
+                          <div key={m.name}>
+                            <div className="flex justify-between text-[12.5px] text-fg-primary mb-1">
+                              <span>{m.name}</span><span>{m.value}</span>
+                            </div>
+                            <div className="h-[5px] rounded-[3px] bg-surface-3">
+                              <div className="h-full rounded-[3px] bg-accent" style={{ width: `${m.value}%` }} />
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  <p className="text-[13px] leading-[1.6] text-fg-secondary border-t border-surface-3 pt-3.5">{data.reflection}</p>
+
+                  {data.spendBreakdown.length > 0 && (
+                    <div>
+                      <p className="text-[11px] font-bold text-fg-tertiary uppercase tracking-[0.4px] mb-2">Spend by Category</p>
+                      <div className="flex flex-col gap-[5px]">
+                        {data.spendBreakdown.map(s => (
+                          <div key={s.name} className="flex justify-between text-[12.5px] text-fg-secondary">
+                            <span>{s.name}</span><span>₹{Math.round(s.amount).toLocaleString('en-IN')}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {data.recommendations.length > 0 && (
+                    <div>
+                      <p className="text-[11px] font-bold text-fg-tertiary uppercase tracking-[0.4px] mb-2">Recommendations — every module</p>
+                      <div className="flex flex-col gap-2">
+                        {data.recommendations.map((r, i) => (
+                          <div key={i} className="bg-surface-2 rounded-[8px] px-3 py-[9px] text-xs">
+                            <span className="font-bold text-fg-primary">{r.emoji} {r.action}</span>{' '}
+                            <span className="text-fg-secondary">— {r.impact}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+          </div>
+        </>
+      )}
+    </div>
+  )
+}
 
 const priorityDot: Record<Priority, string> = {
   high: 'bg-red-400',
@@ -147,7 +237,10 @@ export default function PlannerView({ initialTasks }: Props) {
   return (
     <div className="space-y-4">
       {advisorPortal}
-      <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-fg-primary">Planner</h1>
+      <div className="flex items-center justify-between flex-wrap gap-2.5">
+        <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-fg-primary">Planner</h1>
+        <ExecutiveSummaryTrigger />
+      </div>
 
       {/* Stats row */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">

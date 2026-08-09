@@ -23,7 +23,7 @@ export default function WhatsChanged({ items }: { items: ChangeItem[] }) {
   }
 
   return (
-    <Card title="What's Changed" padding="p-3.5">
+    <Card title="What's Changed">
       <ul className="space-y-0.5">
         {items.map((item, i) => (
           <li key={i}>

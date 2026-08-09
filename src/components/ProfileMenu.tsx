@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { signout } from '@/app/login/actions'
-import { Settings, LogOut } from 'lucide-react'
+import { Settings, LogOut, FileText } from 'lucide-react'
 
 export default function ProfileMenu() {
   const [email, setEmail] = useState<string | null>(null)
@@ -23,7 +23,7 @@ export default function ProfileMenu() {
       <button
         onClick={() => setOpen(v => !v)}
         aria-label="Account menu"
-        className="w-8 h-8 rounded-full bg-accent flex items-center justify-center text-xs font-bold text-white shrink-0"
+        className="w-[34px] h-[34px] rounded-full bg-accent flex items-center justify-center text-[12.5px] font-bold text-white shrink-0"
       >
         {initial}
       </button>
@@ -32,18 +32,25 @@ export default function ProfileMenu() {
         <>
           <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
           <div className="absolute top-9 right-0 z-50 w-52 bg-surface-1 border border-surface-3 rounded-xl shadow-popover p-1.5">
-            <p className="px-2.5 py-2 text-xs text-fg-tertiary border-b border-surface-3 mb-1 truncate">{email}</p>
+            <p className="px-2.5 py-2 text-[12.5px] text-fg-secondary border-b border-surface-3 mb-1.5 truncate">{email}</p>
+            <Link
+              href="/documents"
+              onClick={() => setOpen(false)}
+              className="flex items-center gap-2 px-2.5 py-[9px] rounded-[7px] text-[13px] text-fg-secondary hover:bg-surface-2 hover:text-fg-primary transition-colors"
+            >
+              <FileText size={14} /> Documents
+            </Link>
             <Link
               href="/settings"
               onClick={() => setOpen(false)}
-              className="flex items-center gap-2 px-2.5 py-2 rounded-lg text-sm text-fg-secondary hover:bg-surface-2 hover:text-fg-primary transition-colors"
+              className="flex items-center gap-2 px-2.5 py-[9px] rounded-[7px] text-[13px] text-fg-secondary hover:bg-surface-2 hover:text-fg-primary transition-colors"
             >
               <Settings size={14} /> Settings
             </Link>
             <form action={signout}>
               <button
                 type="submit"
-                className="w-full flex items-center gap-2 px-2.5 py-2 rounded-lg text-sm text-fg-secondary hover:bg-surface-2 hover:text-red-400 transition-colors text-left"
+                className="w-full flex items-center gap-2 px-2.5 py-[9px] rounded-[7px] text-[13px] text-fg-secondary hover:bg-surface-2 hover:text-red-400 transition-colors text-left"
               >
                 <LogOut size={14} /> Sign out
               </button>

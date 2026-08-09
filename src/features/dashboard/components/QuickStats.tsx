@@ -28,19 +28,19 @@ export default function QuickStats({ codingStreak, codingQuestionPending, budget
   ]
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-3.5">
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
         {stats.map(s => (
           <Link key={s.label} href={s.to} className="bg-surface-1 border border-surface-3 rounded-2xl shadow-card px-4 py-3.5 hover:border-accent/30 hover:-translate-y-0.5 transition-all">
-            <p className="text-[11px] text-fg-tertiary uppercase tracking-wide">{s.label}</p>
+            <p className="text-[11px] text-fg-tertiary uppercase tracking-[0.4px]">{s.label}</p>
             <p className={`text-[22px] font-bold mt-1 tabular-nums ${s.color}`}>{s.value}</p>
             <p className="text-[11px] text-fg-tertiary mt-0.5">{s.sub}</p>
           </Link>
         ))}
       </div>
       {goals.length > 0 && (
-        <div className="bg-surface-1 border border-surface-3 rounded-2xl shadow-card px-4 py-3.5 flex flex-col gap-2.5">
-          <p className="text-[11px] font-bold text-fg-tertiary uppercase tracking-wide">Goal Progress</p>
+        <div className="bg-surface-1 border border-surface-3 rounded-2xl shadow-card py-4 px-[18px] flex flex-col gap-2.5">
+          <p className="text-[11px] font-bold text-fg-tertiary uppercase tracking-[0.4px]">Goal Progress</p>
           {goals.map(g => {
             const pct = g.targetAmount > 0 ? Math.min(100, Math.round((g.currentAmount / g.targetAmount) * 100)) : 0
             return (
@@ -49,8 +49,8 @@ export default function QuickStats({ codingStreak, codingQuestionPending, budget
                   <span className="text-fg-secondary group-hover:text-fg-primary truncate">{g.name}</span>
                   <span className="text-fg-tertiary shrink-0 tabular-nums">{pct}%</span>
                 </div>
-                <div className="h-1.5 rounded-full bg-surface-3 overflow-hidden">
-                  <div className="h-full rounded-full bg-accent" style={{ width: `${pct}%` }} />
+                <div className="h-1.5 rounded-[4px] bg-surface-3 overflow-hidden">
+                  <div className="h-full bg-accent" style={{ width: `${pct}%` }} />
                 </div>
               </Link>
             )
