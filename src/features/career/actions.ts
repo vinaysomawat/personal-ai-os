@@ -6,18 +6,19 @@ import { todayIST } from '@/lib/date'
 import { computeReadiness, daysSinceLastQuiz } from './quiz-calculations'
 import { getGoals } from '@/features/goals/actions'
 import { formatGoalsContext } from '@/features/goals/format'
+import { istMidnightUtc } from '@/lib/date'
 import { QUIZ_TOPICS } from './types'
-import type { AppStatus, Difficulty, JDAnalysis, QuizQuestion, QuizAttempt } from './types'
+import type { AppStatus, Difficulty, JDAnalysis, JobAlert, QuizQuestion, QuizAttempt } from './types'
 
 export async function getCareerData() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return { applications: [], profile: null, skills: [], quizAttempts: [], recommendedTopic: null, codingStreak: 0, studyStreak: 0, goals: [] }
+  if (!user) return { applications: [], profile: null, skills: [], quizAttempts: [], recommendedTopic: null, codingStreak: 0, studyStreak: 0, goals: [], jobAlerts: [] }
 
   const { computeCodingStats } = await import('@/features/coding/daily-core')
   const { getStudyStreak } = await import('@/features/learning/calculations')
 
-  const [appsRes, profileRes, skillsRes, quizAttemptsRes, codingStats, studyLogsRes, goals] = await Promise.all([
+  const [appsRes, profileRes, skillsRes, quizAttemptsRes, codingStats, studyLogsRes, goals, jobAlertsRes] = await Promise.all([
     supabase.from('applications').select('*').order('created_at', { ascending: false }),
     supabase.from('career_profile').select('*').eq('user_id', user.id).single(),
     supabase.from('skills').select('*').eq('user_id', user.id).order('category').order('level'),
@@ -25,6 +26,11 @@ export async function getCareerData() {
     computeCodingStats(supabase, user.id),
     supabase.from('study_logs').select('date').eq('user_id', user.id),
     getGoals('career'),
+    // Same "checked daily against public job boards" data the job-alerts cron
+    // already Telegram-notifies on (src/features/career/job-alerts.ts) — this
+    // just surfaces the same job_alerts_seen log in the web app too, rather
+    // than it being Telegram-only. 30-day rolling window, capped, newest first.
+    supabase.from('job_alerts_seen').select('*').eq('user_id', user.id).gte('created_at', istMidnightUtc(30)).order('created_at', { ascending: false }).limit(20),
   ])
 
   const quizAttempts = (quizAttemptsRes.data ?? []) as QuizAttempt[]
@@ -47,6 +53,7 @@ export async function getCareerData() {
     codingStreak: codingStats.currentStreak,
     studyStreak: getStudyStreak(studyLogsRes.data ?? []),
     goals,
+    jobAlerts: (jobAlertsRes.data ?? []) as JobAlert[],
   }
 }
 

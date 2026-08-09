@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useTransition } from 'react'
-import { Plus, Trash2, ExternalLink, X, Sparkles, ChevronRight, Pencil, Check, Briefcase, Eye, EyeOff, Brain } from 'lucide-react'
+import { Plus, Trash2, ExternalLink, X, Sparkles, ChevronRight, Pencil, Check, Briefcase, Eye, EyeOff, Brain, Bell } from 'lucide-react'
 import Card from '@/components/Card'
 import EmptyState from '@/components/EmptyState'
 import { useAIAdvisor } from '@/components/AIAdvisorProvider'
@@ -13,7 +13,7 @@ import {
 import { askCareerMentor, analyzeJobDescription, getCompanyInsights } from '@/features/ai/career-mentor'
 import { generateTopicQuiz } from '@/features/ai/quiz'
 import { gradeQuiz, computeReadiness, suggestNextTopic } from '../quiz-calculations'
-import type { Application, AppStatus, CareerProfile, Skill, QuizAttempt, QuizQuestion, Difficulty, CompanyInsights } from '../types'
+import type { Application, AppStatus, CareerProfile, Skill, QuizAttempt, QuizQuestion, Difficulty, CompanyInsights, JobAlert } from '../types'
 import { DIFFICULTY_CONFIG, QUIZ_TOPICS, READINESS_CONFIG } from '../types'
 import { useEscapeKey } from '@/lib/use-escape-key'
 import { useFormValidation } from '@/lib/use-form-validation'
@@ -34,6 +34,10 @@ function matchColor(pct: number): string {
   if (pct >= 70) return 'bg-good-soft text-green-400'
   if (pct >= 40) return 'bg-warn-soft text-amber-400'
   return 'bg-risk-soft text-red-400'
+}
+
+function shortDate(iso: string): string {
+  return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
 }
 
 function ProfileField({ label, value, onSave, type = 'text', placeholder, masked = false }: {
@@ -106,9 +110,10 @@ interface Props {
   codingStreak: number
   studyStreak: number
   goals: ResolvedGoal[]
+  jobAlerts: JobAlert[]
 }
 
-export default function CareerView({ applications, profile, skills, quizAttempts, recommendedTopic, codingStreak, studyStreak, goals }: Props) {
+export default function CareerView({ applications, profile, skills, quizAttempts, recommendedTopic, codingStreak, studyStreak, goals, jobAlerts }: Props) {
   const [, startTransition] = useTransition()
 
   const [localApps, setLocalApps] = useState(applications)
@@ -119,7 +124,12 @@ export default function CareerView({ applications, profile, skills, quizAttempts
   const [modal, setModal] = useState<'app' | null>(null)
   useEscapeKey(() => setModal(null))
   const { invalidFields, validate, clear, onFieldInput } = useFormValidation()
-  useEffect(() => clear(), [modal, clear])
+
+  // Set when "Track" is clicked on a Job Alert row — pre-fills the Add
+  // Application modal's company/role/url so surfacing a lead and starting to
+  // track it takes one click instead of retyping what's already known.
+  const [prefillApp, setPrefillApp] = useState<{ company: string; role: string; url: string } | null>(null)
+  useEffect(() => { clear(); if (!modal) setPrefillApp(null) }, [modal, clear])
 
   // JD analysis
   const [expandedApp, setExpandedApp] = useState<string | null>(null)
@@ -155,6 +165,11 @@ export default function CareerView({ applications, profile, skills, quizAttempts
   const handleStatus = (id: string, status: AppStatus) => {
     setLocalApps(prev => prev.map(a => a.id === id ? { ...a, status } : a))
     startTransition(() => updateStatus(id, status))
+  }
+
+  const handleTrackJobAlert = (alert: JobAlert) => {
+    setPrefillApp({ company: alert.company, role: alert.title, url: alert.url })
+    setModal('app')
   }
 
   const handleAddApplication = async (fd: FormData) => {
@@ -426,6 +441,38 @@ export default function CareerView({ applications, profile, skills, quizAttempts
         </Card>
       </div>
 
+      {/* Job Alerts — deterministic daily poll of public Greenhouse/Lever
+          boards (src/features/career/job-alerts.ts), already Telegram-
+          notified; this surfaces the same job_alerts_seen log in-app. */}
+      <Card title="Job Alerts" padding="p-3.5" action={
+        jobAlerts.length > 0 ? <span className="text-xs text-fg-tertiary">{jobAlerts.length} in the last 30 days</span> : undefined
+      }>
+        {jobAlerts.length === 0 ? (
+          <EmptyState icon={Bell} message="No new postings yet — checked daily against 16 companies' public job boards" compact />
+        ) : (
+          <ul className="space-y-2">
+            {jobAlerts.map(alert => (
+              <li key={alert.id} className="flex items-center gap-3 p-2.5 rounded-lg bg-surface-2 hover:bg-surface-3/60 transition-colors">
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-sm font-medium text-fg-primary">{alert.company}</span>
+                    <span className="text-fg-quaternary">·</span>
+                    <span className="text-sm text-fg-secondary truncate">{alert.title}</span>
+                  </div>
+                  <span className="text-xs text-fg-quaternary">{shortDate(alert.created_at)}</span>
+                </div>
+                <a href={alert.url} target="_blank" rel="noopener noreferrer" aria-label="View posting" className="shrink-0 p-1.5 -m-1.5 text-fg-quaternary hover:text-accent transition-colors">
+                  <ExternalLink size={13} />
+                </a>
+                <button onClick={() => handleTrackJobAlert(alert)} className="shrink-0 text-xs px-2.5 py-1 rounded-lg border border-surface-3 text-fg-secondary hover:text-accent hover:border-accent/40 transition-colors whitespace-nowrap">
+                  Track
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </Card>
+
       {/* Interview Prep — Interactive Topic Quiz */}
       <Card title="Interview Prep" padding="p-3.5">
         {recommendedTopic && (
@@ -591,12 +638,12 @@ export default function CareerView({ applications, profile, skills, quizAttempts
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">
                   <label className="text-xs text-fg-tertiary uppercase tracking-wider">Company *</label>
-                  <input name="company" required autoFocus placeholder="Google" className={`w-full bg-surface-2 border rounded-lg px-3 py-2 text-sm text-fg-primary placeholder-fg-quaternary outline-none focus:border-accent transition-colors ${invalidFields.has('company') ? 'border-red-500' : 'border-surface-3'}`} />
+                  <input name="company" required autoFocus defaultValue={prefillApp?.company ?? ''} placeholder="Google" className={`w-full bg-surface-2 border rounded-lg px-3 py-2 text-sm text-fg-primary placeholder-fg-quaternary outline-none focus:border-accent transition-colors ${invalidFields.has('company') ? 'border-red-500' : 'border-surface-3'}`} />
                   <FieldError show={invalidFields.has('company')} />
                 </div>
                 <div className="space-y-1">
                   <label className="text-xs text-fg-tertiary uppercase tracking-wider">Role *</label>
-                  <input name="role" required placeholder="Senior Engineer" className={`w-full bg-surface-2 border rounded-lg px-3 py-2 text-sm text-fg-primary placeholder-fg-quaternary outline-none focus:border-accent transition-colors ${invalidFields.has('role') ? 'border-red-500' : 'border-surface-3'}`} />
+                  <input name="role" required defaultValue={prefillApp?.role ?? ''} placeholder="Senior Engineer" className={`w-full bg-surface-2 border rounded-lg px-3 py-2 text-sm text-fg-primary placeholder-fg-quaternary outline-none focus:border-accent transition-colors ${invalidFields.has('role') ? 'border-red-500' : 'border-surface-3'}`} />
                   <FieldError show={invalidFields.has('role')} />
                 </div>
               </div>
@@ -624,7 +671,7 @@ export default function CareerView({ applications, profile, skills, quizAttempts
               </div>
               <div className="space-y-1">
                 <label className="text-xs text-fg-tertiary uppercase tracking-wider">Job URL</label>
-                <input name="url" type="url" placeholder="https://..." className="w-full bg-surface-2 border border-surface-3 rounded-lg px-3 py-2 text-sm text-fg-primary placeholder-fg-quaternary outline-none focus:border-accent transition-colors" />
+                <input name="url" type="url" defaultValue={prefillApp?.url ?? ''} placeholder="https://..." className="w-full bg-surface-2 border border-surface-3 rounded-lg px-3 py-2 text-sm text-fg-primary placeholder-fg-quaternary outline-none focus:border-accent transition-colors" />
               </div>
               <div className="space-y-1">
                 <label className="text-xs text-fg-tertiary uppercase tracking-wider">Job Description *</label>

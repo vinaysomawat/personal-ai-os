@@ -14,6 +14,17 @@ export interface CompanyInsights {
   source: 'company-specific' | 'general-fallback'
 }
 
+export interface JobAlert {
+  id: string
+  user_id: string
+  source: 'greenhouse' | 'lever'
+  company: string
+  external_id: string
+  title: string
+  url: string
+  created_at: string
+}
+
 export interface Application {
   id: string
   user_id: string
