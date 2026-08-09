@@ -2,6 +2,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import type { ModuleReply } from '@/lib/telegram/types'
 import { undoButton } from '@/lib/telegram/buttons'
 import { daysAgoIST } from '@/lib/date'
+import { DAILY_READ_NOTE_PREFIX } from '@/features/learning/daily-read'
 
 export const SYSTEM_PROMPT = `You are the Learning bot for Personal OS. Parse the user message and return ONLY a JSON action.
 
@@ -11,6 +12,8 @@ Actions:
 {"action":"complete","search":"title"}
 {"action":"list_resources","filter":"all"|"in-progress"|"not-started"|"completed"|"needs-revision"}
 {"action":"plan"}
+{"action":"today_reading"}
+{"action":"complete_reading"}
 {"action":"quiz","search":"partial resource title"}
 {"action":"undo_last"}
 {"action":"help"}
@@ -21,6 +24,8 @@ Rules:
 - If user says "finished X", use complete action
 - For "what should I study today", "today's study plan" → plan
 - For "what am I forgetting", "what needs revision" → list_resources with filter "needs-revision"
+- For "today's reading", "daily read", "what should I read today" → today_reading
+- For "read the article", "finished reading", "done with today's read" → complete_reading
 - For "quiz me on X", "test me on X", "flashcards for X" → quiz
 - For "undo that", "remove the last one I added", "oops wrong resource" → undo_last`
 
@@ -86,6 +91,23 @@ export async function execute(action: Record<string, unknown>, db: SupabaseClien
       const plan = await getDailyStudyPlan(resourcesRes.data ?? [], logsRes.data ?? [])
       return `📚 *Today's Study Plan:*\n\n${plan}`
     }
+    case 'today_reading': {
+      const { ensureDailyRead } = await import('@/features/learning/daily-read')
+      const { data: resourcesData } = await db.from('resources').select('*').eq('user_id', userId)
+      await ensureDailyRead(db, userId, resourcesData ?? [])
+      const { data } = await db.from('resources').select('title, url, status').eq('user_id', userId).ilike('notes', `${DAILY_READ_NOTE_PREFIX}%`).order('created_at', { ascending: false }).limit(1)
+      const r = data?.[0]
+      if (!r) return `📖 No daily read available today.`
+      return `📖 *Today's Read:*${r.status === 'completed' ? ' (done)' : ''}\n\n${r.title}${r.url ? `\n${r.url}` : '\n_(no link for this one — search for it)_'}`
+    }
+    case 'complete_reading': {
+      const { data } = await db.from('resources').select('id, title, status').eq('user_id', userId).ilike('notes', `${DAILY_READ_NOTE_PREFIX}%`).order('created_at', { ascending: false }).limit(1)
+      const r = data?.[0]
+      if (!r) return `❌ No daily read assigned yet — try "today's reading" first.`
+      if (r.status === 'completed') return `Already marked *${r.title}* as read! 🎉`
+      await db.from('resources').update({ status: 'completed', progress: 100 }).eq('id', r.id)
+      return `🎉 Nice — marked *${r.title}* as read.`
+    }
     case 'quiz': {
       const { data } = await db.from('resources').select('id, title, category, type, notes').eq('user_id', userId).ilike('title', `%${action.search}%`).limit(1)
       const r = data?.[0]
@@ -111,6 +133,6 @@ export async function execute(action: Record<string, unknown>, db: SupabaseClien
       return `🗑️ Undone: *${last.title}*`
     }
     default:
-      return `*Learning Bot — What I can do:*\n• "add Next.js course from Udemy"\n• "started JavaScript: The Good Parts book"\n• "update Next.js to 60%"\n• "finished React docs"\n• "show in-progress resources"\n• "what should I study today"\n• "quiz me on React hooks"\n• "undo that"`
+      return `*Learning Bot — What I can do:*\n• "add Next.js course from Udemy"\n• "started JavaScript: The Good Parts book"\n• "update Next.js to 60%"\n• "finished React docs"\n• "show in-progress resources"\n• "what should I study today"\n• "today's reading"\n• "finished reading"\n• "quiz me on React hooks"\n• "undo that"`
   }
 }

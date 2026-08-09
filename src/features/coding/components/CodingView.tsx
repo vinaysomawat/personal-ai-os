@@ -11,11 +11,9 @@ import CodingCalendar from './CodingCalendar'
 import CodingSettingsPopover from './CodingSettingsPopover'
 import QuestionHistory from './QuestionHistory'
 import RecommendedQuestions from './RecommendedQuestions'
-import TrendingReadingCard from '@/features/trending/components/TrendingReadingCard'
 import GoalsCard from '@/features/goals/components/GoalsCard'
 import type { ResolvedGoal } from '@/features/goals/types'
 import { computeWeakAreas, type DailyQuestion, type CodingStats, type CalendarDay, type CodingSettings, type DifficultyProgressionPoint } from '../daily-core'
-import type { TrendingReading } from '@/features/trending/types'
 
 // recharts is a ~100KB client-only dependency used nowhere else on this
 // page — code-split it out of the initial bundle rather than block paint.
@@ -30,8 +28,6 @@ interface Props {
   calendar: CalendarDay[]
   codingSettings: CodingSettings
   history: DailyQuestion[]
-  trendingReading: TrendingReading | null
-  readingHistory: TrendingReading[]
   goals: ResolvedGoal[]
   difficultyProgression: DifficultyProgressionPoint[]
 }
@@ -41,7 +37,7 @@ const MODE_LABEL: Record<CodingSettings['mode'], (fixedCount: number) => string>
   fixed: fixedCount => `Fixed · ${fixedCount}/day`,
 }
 
-export default function CodingView({ dailyAssignment, codingStats, calendar, codingSettings, history, trendingReading, readingHistory, goals, difficultyProgression }: Props) {
+export default function CodingView({ dailyAssignment, codingStats, calendar, codingSettings, history, goals, difficultyProgression }: Props) {
   const codingContext = `Current streak: ${codingStats.currentStreak}d (longest: ${codingStats.longestStreak}d). Total solved: ${codingStats.totalSolved} (${codingStats.easySolved} easy, ${codingStats.mediumSolved} medium, ${codingStats.hardSolved} hard). Completion rate: ${codingStats.completionRate}%.${formatGoalsContext(goals)}`
 
   const advisorOpen = useAIAdvisorOpen()
@@ -109,13 +105,11 @@ export default function CodingView({ dailyAssignment, codingStats, calendar, cod
         </Card>
       )}
 
-      {/* Today's Question + Daily Tech Read stacked left, Contribution Calendar
-          right — matching design's two-column grouping. */}
+      {/* Today's Question + Contribution Calendar side by side — Daily Tech
+          Read moved to Learning (folded into its daily reading habit
+          instead of a separate card, see learning/daily-read.ts). */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-start">
-        <div className="flex flex-col gap-4">
-          <DailyCodingCard initialAssignment={dailyAssignment} stats={codingStats} />
-          <TrendingReadingCard initialReading={trendingReading} />
-        </div>
+        <DailyCodingCard initialAssignment={dailyAssignment} stats={codingStats} />
         <Card title="Contribution Calendar">
           <CodingCalendar days={calendar} />
         </Card>
@@ -125,7 +119,7 @@ export default function CodingView({ dailyAssignment, codingStats, calendar, cod
 
       <GoalsCard module="coding" initialGoals={goals} autoMetric="coding_streak" />
 
-      <QuestionHistory initialHistory={history} readingHistory={readingHistory} />
+      <QuestionHistory initialHistory={history} />
 
       <RecommendedQuestions />
     </div>

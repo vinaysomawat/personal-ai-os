@@ -27,7 +27,7 @@ export const EXPECTED_CRON_JOBS: { job: string; maxAgeHours: number }[] = [
   { job: 'job-alerts',           maxAgeHours: 26 },
   { job: 'recurring-expenses',   maxAgeHours: 26 },
   { job: 'sip-contribution',     maxAgeHours: 26 },
-  { job: 'trending-reading',     maxAgeHours: 26 },
+  { job: 'daily-read',     maxAgeHours: 26 },
   { job: 'evening-checkin',      maxAgeHours: 26 },
   { job: 'monthly-digest',       maxAgeHours: 26 },
   { job: 'daily-journal',        maxAgeHours: 26 },

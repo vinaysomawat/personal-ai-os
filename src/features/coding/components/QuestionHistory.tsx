@@ -1,15 +1,13 @@
 'use client'
 
 import { useState, useTransition } from 'react'
-import { Star, RotateCcw, ExternalLink, CheckCircle2, Circle, Newspaper, SearchX } from 'lucide-react'
+import { Star, RotateCcw, ExternalLink, CheckCircle2, Circle, SearchX } from 'lucide-react'
 import Card from '@/components/Card'
 import EmptyState from '@/components/EmptyState'
 import FilterPill from '@/components/FilterPill'
 import { toggleFavorite, toggleRevisionFlag, markQuestionComplete } from '../daily'
-import { completeReading } from '@/features/trending/actions'
 import OutcomeModal from './OutcomeModal'
 import type { DailyQuestion, Outcome } from '../daily-core'
-import type { TrendingReading } from '@/features/trending/types'
 
 const DIFFICULTY_COLOR: Record<string, string> = {
   easy: 'text-green-400',
@@ -21,32 +19,13 @@ type Filter = 'all' | 'completed' | 'pending' | 'revision' | 'favorites' | 'easy
 
 interface Props {
   initialHistory: DailyQuestion[]
-  readingHistory?: TrendingReading[]
 }
 
-export default function QuestionHistory({ initialHistory, readingHistory }: Props) {
+export default function QuestionHistory({ initialHistory }: Props) {
   const [history, setHistory] = useState(initialHistory)
-  const [readings, setReadings] = useState(readingHistory ?? [])
   const [filter, setFilter] = useState<Filter>('pending')
   const [, startTransition] = useTransition()
   const [outcomeFor, setOutcomeFor] = useState<DailyQuestion | null>(null)
-
-  // The daily "Read" isn't a coding question — it has no difficulty,
-  // favorite, or revision concept — so it only ever surfaces under the
-  // filters where "pending/completed" actually means something. Includes
-  // every unfinished day's reading, not just today's, so an unread article
-  // doesn't silently vanish from the queue once its day passes.
-  const filteredReadings = readings.filter(r => {
-    if (filter === 'all') return true
-    if (filter === 'completed') return r.completed
-    if (filter === 'pending') return !r.completed
-    return false
-  })
-
-  const handleReadingComplete = (id: string) => {
-    setReadings(prev => prev.map(r => r.id === id ? { ...r, completed: true } : r))
-    startTransition(async () => { await completeReading(id) })
-  }
 
   const filtered = history.filter(h => {
     if (filter === 'all') return true
@@ -86,26 +65,10 @@ export default function QuestionHistory({ initialHistory, readingHistory }: Prop
           <FilterPill key={f.key} label={f.label} active={filter === f.key} onClick={() => setFilter(f.key)} />
         ))}
       </div>
-      {filtered.length === 0 && filteredReadings.length === 0 ? (
+      {filtered.length === 0 ? (
         <EmptyState icon={SearchX} message="No questions match this filter." compact />
       ) : (
         <ul className="flex flex-col gap-2 max-h-96 overflow-y-auto">
-          {filteredReadings.map(reading => (
-            <li key={reading.id} className="flex items-center gap-2.5 bg-surface-2 rounded-[10px] px-3.5 py-2.5 group">
-              <span className="text-[10px] font-bold uppercase px-1.5 py-0.5 rounded-[5px] bg-border text-accent flex items-center gap-1 shrink-0">
-                <Newspaper size={9} /> Read
-              </span>
-              <span className="flex-1 min-w-0 text-[12.5px] text-fg-secondary truncate">{reading.title}</span>
-              <span className="text-xs text-fg-quaternary shrink-0">{reading.assigned_date}</span>
-              <button onClick={() => handleReadingComplete(reading.id)} disabled={reading.completed} aria-label="Mark reading complete"
-                className={`p-1.5 -m-1.5 shrink-0 transition-colors ${reading.completed ? 'text-green-500' : 'text-fg-quaternary hover:text-green-400'}`}>
-                {reading.completed ? <CheckCircle2 size={14} /> : <Circle size={14} />}
-              </button>
-              <a href={reading.url} target="_blank" rel="noopener noreferrer" className="shrink-0 text-fg-quaternary hover:text-accent transition-colors">
-                <ExternalLink size={13} />
-              </a>
-            </li>
-          ))}
           {filtered.map(h => (
             <li key={h.id} className="flex items-center gap-2.5 bg-surface-2 rounded-[10px] px-3.5 py-2.5 group">
               <span className={`text-[10px] font-bold uppercase px-1.5 py-0.5 rounded-[5px] bg-border shrink-0 ${DIFFICULTY_COLOR[h.question.difficulty]}`}>{h.question.difficulty}</span>

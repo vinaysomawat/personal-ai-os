@@ -23,7 +23,7 @@ export interface TodayProgressInput {
   metricsLoggedToday: boolean
   workoutStatus: 'completed' | 'pending' | 'none'
   codingToday: { completed: boolean }[]
-  trendingReading: { completed: boolean } | null
+  dailyRead: { completed: boolean } | null
   hasLearningResources: boolean
   studiedToday: boolean
   expenseLoggedToday: boolean
@@ -46,8 +46,8 @@ export function computeTodayProgress(input: TodayProgressInput): TodayProgress {
     items.push({ key: 'coding', label: "Solve today's coding question", done: input.codingToday.every(q => q.completed), href: '/coding' })
   }
 
-  if (input.trendingReading) {
-    items.push({ key: 'trending', label: "Read today's system design article", done: input.trendingReading.completed, href: '/coding' })
+  if (input.dailyRead) {
+    items.push({ key: 'daily-read', label: "Read today's article", done: input.dailyRead.completed, href: '/learning' })
   }
 
   if (input.hasLearningResources) {
@@ -64,7 +64,7 @@ export function computeTodayProgress(input: TodayProgressInput): TodayProgress {
 }
 
 const RECOMMENDATION_EMOJI: Record<string, string> = {
-  'health-metrics': '📊', workout: '🏋️', coding: '💻', trending: '📰', study: '📚', expense: '💸',
+  'health-metrics': '📊', workout: '🏋️', coding: '💻', 'daily-read': '📖', study: '📚', expense: '💸',
 }
 
 // Reuses the same checklist data as the score itself — the unclosed items

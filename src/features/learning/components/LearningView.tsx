@@ -13,6 +13,7 @@ import { addResource, updateResource, deleteResource, logStudySession, saveResou
 import { getDailyStudyPlan, generateResourceQuiz, recommendResources } from '@/features/ai/study-plan'
 import { getStudyStreak } from '../calculations'
 import { gradeQuiz, computeCategoryWeakAreas } from '../quiz-calculations'
+import { isMarkedToday } from '../daily-read'
 import { SUGGESTED_RESOURCES } from '../suggested-resources'
 import { todayIST, daysAgoIST } from '@/lib/date'
 import { useEscapeKey } from '@/lib/use-escape-key'
@@ -130,9 +131,12 @@ export default function LearningView({ initialResources, initialStudyLogs, initi
   const weekMinutes = totalMinutesThisWeek(studyLogs)
   const studiedTodayIds = new Set(studyLogs.filter(l => l.date === today).map(l => l.resource_id))
 
-  const filtered = filter === 'all' ? resources
+  const isTodaysRead = isMarkedToday
+
+  const filtered = (filter === 'all' ? resources
     : filter === 'completed' ? resources.filter(r => r.status === 'completed')
     : resources.filter(r => r.status !== 'completed')
+  ).slice().sort((a, b) => Number(isTodaysRead(b)) - Number(isTodaysRead(a)))
   const counts = STATUSES.reduce((acc, s) => ({ ...acc, [s]: resources.filter(r => r.status === s).length }), {} as Record<ResourceStatus, number>)
   const weakAreasByCategory = computeCategoryWeakAreas(quizAttempts)
 
@@ -338,10 +342,12 @@ export default function LearningView({ initialResources, initialStudyLogs, initi
         <ul className="flex flex-col gap-2.5">
           {filtered.map(r => {
             const studiedToday = studiedTodayIds.has(r.id)
+            const todaysRead = isTodaysRead(r)
             return (
-              <li key={r.id} className="bg-surface-2 rounded-[10px] px-3.5 py-3">
+              <li key={r.id} className={`rounded-[10px] px-3.5 py-3 ${todaysRead ? 'bg-accent-soft border border-accent-border' : 'bg-surface-2'}`}>
                 <div className="flex items-center gap-2">
                   <span className="text-base shrink-0">{TYPE_ICON[r.type]}</span>
+                  {todaysRead && <span className="text-[10px] font-bold uppercase px-1.5 py-0.5 rounded-[5px] bg-accent text-white shrink-0 whitespace-nowrap">📖 Today&apos;s Read</span>}
                   <span className="text-[13px] font-semibold text-fg-primary flex-1 min-w-0 truncate">{r.title}</span>
                   {r.url && <a href={r.url} target="_blank" rel="noopener noreferrer" className="text-fg-quaternary hover:text-accent transition-colors shrink-0"><ExternalLink size={11} /></a>}
                   {studiedToday && <span className="text-xs text-green-400/70 flex items-center gap-0.5 shrink-0"><Flame size={10} />studied today</span>}

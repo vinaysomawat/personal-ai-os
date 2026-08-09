@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/server'
 import { todayIST, daysAgoIST } from '@/lib/date'
 import { getResourcesNeedingRevision } from './calculations'
 import { SUGGESTED_RESOURCES } from './suggested-resources'
+import { ensureDailyRead } from './daily-read'
 import { recommendResources } from '@/features/ai/study-plan'
 import type { ResourceStatus, Resource, QuizQuestion } from './types'
 
@@ -47,6 +48,11 @@ export async function getLearningData() {
     })))
     resources = [...revived, ...resources]
   }
+
+  // Daily reading habit — guaranteed one fresh article/day, not left to
+  // chance the general top-up below happens to fire on a given day.
+  const dailyRead = await ensureDailyRead(supabase, user.id, resources)
+  if (dailyRead) resources = [dailyRead, ...resources]
 
   // Rule-based top-up: keep the pending queue from running dry. Curated
   // (free, deterministic) picks are used first; the AI recommender only
@@ -124,8 +130,8 @@ export async function addResource(formData: FormData) {
 
   const title = formData.get('title') as string
 
-  // Two-way sync with Planner, same pattern as Coding's daily question and
-  // Trending Reading: insert the task first, then link the resource to it.
+  // Two-way sync with Planner, same pattern as Coding's daily question:
+  // insert the task first, then link the resource to it.
   const { data: task } = await supabase
     .from('tasks')
     .insert({ text: `Read: ${title}`, priority: 'low', area: 'Learning', user_id: user.id, done: false })

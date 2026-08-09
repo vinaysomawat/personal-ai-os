@@ -6,22 +6,30 @@ import type { Priority, Recurrence } from './types'
 
 export async function getTasks() {
   const supabase = await createClient()
-  const [tasksRes, codingRes, readingRes] = await Promise.all([
+  const [tasksRes, codingRes, readingRes, resourcesRes] = await Promise.all([
     supabase.from('tasks').select('*').order('created_at', { ascending: false }),
     supabase.from('coding_daily_questions').select('task_id, question:coding_questions(url)').not('task_id', 'is', null),
+    // Legacy — trending_readings is no longer written to (the daily reading
+    // habit moved to Learning's `resources`, see resourcesRes below), kept
+    // only so old linked tasks from before the move still show their link.
     supabase.from('trending_readings').select('task_id, url').not('task_id', 'is', null),
+    supabase.from('resources').select('task_id, url').not('task_id', 'is', null),
   ])
 
   if (tasksRes.error) throw new Error(tasksRes.error.message)
 
-  // External link for tasks auto-created by Coding (daily question / trending
-  // read) — task_id lives on those tables, not on tasks itself, so build a
-  // reverse lookup instead of storing a redundant column on every task.
+  // External link for tasks auto-created by Coding (daily question) or
+  // Learning (a resource, incl. the daily read) — task_id lives on those
+  // tables, not on tasks itself, so build a reverse lookup instead of
+  // storing a redundant column on every task.
   const linkByTaskId = new Map<string, string>()
   for (const row of (codingRes.data ?? []) as unknown as { task_id: string | null; question: { url: string | null } | null }[]) {
     if (row.task_id && row.question?.url) linkByTaskId.set(row.task_id, row.question.url)
   }
   for (const row of (readingRes.data ?? []) as { task_id: string | null; url: string | null }[]) {
+    if (row.task_id && row.url) linkByTaskId.set(row.task_id, row.url)
+  }
+  for (const row of (resourcesRes.data ?? []) as { task_id: string | null; url: string | null }[]) {
     if (row.task_id && row.url) linkByTaskId.set(row.task_id, row.url)
   }
 
@@ -70,7 +78,9 @@ export async function toggleTask(id: string, done: boolean) {
     .update({ completed: done, completed_at: done ? new Date().toISOString() : null })
     .eq('task_id', id)
 
-  // Same sync for the daily trending reading
+  // Legacy sync — trending_readings is no longer written to, kept only so
+  // any old linked task from before the daily-read habit moved to Learning
+  // still toggles correctly.
   await supabase.from('trending_readings')
     .update({ completed: done, completed_at: done ? new Date().toISOString() : null })
     .eq('task_id', id)

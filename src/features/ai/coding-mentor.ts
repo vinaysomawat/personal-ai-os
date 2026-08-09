@@ -6,14 +6,12 @@ import type { CodingQuestion, WeakArea } from '@/features/coding/daily-core'
 interface CodingContext {
   recentSolved: string[]
   currentStreakDays: number
-  recentReading: string[]
 }
 
 export async function askCodingMentor(question: string, ctx: CodingContext): Promise<string> {
   const context = `Vinay's coding practice snapshot:
 - Current daily-question streak: ${ctx.currentStreakDays} day(s)
 - Recently solved: ${ctx.recentSolved.length ? ctx.recentSolved.join(', ') : 'none yet'}
-- Recently read: ${ctx.recentReading.length ? ctx.recentReading.join(', ') : 'none yet'}
 
 Question: ${question}`
 

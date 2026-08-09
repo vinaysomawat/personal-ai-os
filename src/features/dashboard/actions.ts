@@ -17,7 +17,7 @@ import { getInsightsHistory } from '@/features/coding/daily'
 import { checkWorkoutPending, checkNoMetricsToday } from '@/features/health/signals'
 import { checkRevisionNeeded } from '@/features/learning/signals'
 import { checkGoalProgress } from '@/features/goals/signals'
-import { getTodayTrendingReading } from '@/features/trending/core'
+import { isMarkedToday } from '@/features/learning/daily-read'
 import { computeTodayProgress, getTodayRecommendations } from './daily-progress'
 import { getRecentPatterns, type RecentPattern } from '@/features/brain/signals'
 import { resolveAutoMetric } from '@/features/goals/actions'
@@ -107,7 +107,7 @@ export async function getDashboardData() {
     expensesRes, budgetsRes, resourcesRes, docsRes,
     botLogsRes, healthMetricRes, careerProfileRes, skillsRes, quizCountRes,
     aiUsageMonthRes, studyLogsRes, codingTodayRows, activeWorkout, codingSolved30dRes,
-    codingCompletionsRes, quizAttemptsRes, tasksDueTodayRes, todayTrendingReading, workoutCompletedTodayRes,
+    codingCompletionsRes, quizAttemptsRes, tasksDueTodayRes, workoutCompletedTodayRes,
     recentPatterns, financialGoalsRes, crossModuleGoalsRes, codingHistoryForWeakAreas,
   ] = await Promise.all([
     supabase.from('tasks').select('id, text, done, priority, due_date').eq('user_id', user.id).eq('done', false).order('created_at', { ascending: false }).limit(5),
@@ -115,7 +115,7 @@ export async function getDashboardData() {
     supabase.from('workouts').select('id').eq('user_id', user.id).eq('date', today),
     supabase.from('expenses').select('amount, date').eq('user_id', user.id).gte('date', monthStart),
     supabase.from('budgets').select('amount').eq('user_id', user.id).eq('month', today.slice(0, 7)),
-    supabase.from('resources').select('id, status').eq('user_id', user.id),
+    supabase.from('resources').select('id, status, notes, created_at').eq('user_id', user.id),
     supabase.from('documents').select('id', { count: 'exact', head: true }).eq('user_id', user.id),
     supabase.from('telegram_logs').select('module, message, response, created_at').order('created_at', { ascending: false }).limit(50),
     supabase.from('health_metrics').select('*').eq('user_id', user.id).eq('date', today).single(),
@@ -130,7 +130,6 @@ export async function getDashboardData() {
     supabase.from('coding_daily_questions').select('question_id, completed, completed_at').eq('user_id', user.id).eq('completed', true),
     supabase.from('quiz_attempts').select('created_at, weak_areas').eq('user_id', user.id),
     supabase.from('tasks').select('id, text, done').eq('user_id', user.id).eq('due_date', today),
-    getTodayTrendingReading(supabase, user.id),
     supabase.from('daily_workouts').select('id').eq('user_id', user.id).eq('status', 'completed').gte('completed_at', istMidnightUtc()).limit(1),
     getRecentPatterns(supabase, user.id),
     supabase.from('financial_goals').select('name, target_amount, current_amount, target_date').eq('user_id', user.id).order('priority', { ascending: true }),
@@ -145,6 +144,8 @@ export async function getDashboardData() {
   const budgets = budgetsRes.data ?? []
   const resources = resourcesRes.data ?? []
   const todayMetric = healthMetricRes.data ?? null
+  const todayDailyRead = resources.find(isMarkedToday)
+  const todayDailyReadStatus = todayDailyRead ? { completed: todayDailyRead.status === 'completed' } : null
 
   const activeApps = applications.filter(a => ['applied', 'screening', 'interview'].includes(a.status)).length
   const monthSpend = expenses.reduce((s, e) => s + (e.amount ?? 0), 0)
@@ -332,7 +333,7 @@ export async function getDashboardData() {
     metricsLoggedToday,
     workoutStatus,
     codingToday: codingTodayRows,
-    trendingReading: todayTrendingReading,
+    dailyRead: todayDailyReadStatus,
     hasLearningResources: resources.length > 0,
     studiedToday,
     expenseLoggedToday,

@@ -3,6 +3,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { askAI } from '@/lib/ai-gateway'
 import { todayIST, istMidnightUtc } from '@/lib/date'
+import { isMarkedToday } from '@/features/learning/daily-read'
 
 const SYSTEM_PROMPT = `You are writing Vinay's Daily Auto Journal — a nightly "what happened today" entry from his actual logged activity across Work, Learning, Health, Finance, and Career.
 
@@ -16,17 +17,18 @@ Rules:
 // Shared by Daily Auto Journal (Phase 3 PRD) and Evening Reflection (Phase 5
 // PRD) — both narrate "today's itemized activity," just at different times
 // of day and with a different closing line. Deliberately scoped to what's
-// reliably timestamped: tasks.done has no completed_at (only coding/trending's
-// synced rows do), so plain Planner task completions aren't included — see README.
+// reliably timestamped: tasks.done has no completed_at (only coding's/the
+// daily-read resource's synced rows do), so plain Planner task completions
+// aren't included — see README.
 export async function gatherTodayActivityLines(db: SupabaseClient, userId: string): Promise<string[]> {
   const today = todayIST()
 
   const [
-    codingRes, trendingRes, studyRes, metricRes,
+    codingRes, resourcesRes, studyRes, metricRes,
     workoutsRes, expensesRes, quizRes, appsRes,
   ] = await Promise.all([
     db.from('coding_daily_questions').select('completed').eq('user_id', userId).eq('assigned_date', today),
-    db.from('trending_readings').select('completed, title').eq('user_id', userId).eq('assigned_date', today),
+    db.from('resources').select('status, title, notes, created_at').eq('user_id', userId),
     db.from('study_logs').select('duration_minutes').eq('user_id', userId).eq('date', today),
     db.from('health_metrics').select('weight_kg, calories, protein_g, steps').eq('user_id', userId).eq('date', today).maybeSingle(),
     db.from('workouts').select('type, duration_minutes').eq('user_id', userId).eq('date', today),
@@ -40,8 +42,8 @@ export async function gatherTodayActivityLines(db: SupabaseClient, userId: strin
   const codingSolved = (codingRes.data ?? []).some(q => q.completed)
   if (codingSolved) lines.push('Solved today\'s coding question')
 
-  const trendingRead = (trendingRes.data ?? []).find(r => r.completed)
-  if (trendingRead) lines.push(`Read today's trending article: "${trendingRead.title}"`)
+  const dailyRead = (resourcesRes.data ?? []).find(r => isMarkedToday(r) && r.status === 'completed')
+  if (dailyRead) lines.push(`Read today's article: "${dailyRead.title}"`)
 
   const studyMinutes = (studyRes.data ?? []).reduce((s, r) => s + (r.duration_minutes ?? 0), 0)
   if (studyMinutes > 0) lines.push(`Studied for ${studyMinutes} minutes`)

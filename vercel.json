@@ -25,7 +25,7 @@
       "schedule": "15 3 * * *"
     },
     {
-      "path": "/api/cron/trending-reading",
+      "path": "/api/cron/daily-read",
       "schedule": "20 3 * * *"
     },
     {

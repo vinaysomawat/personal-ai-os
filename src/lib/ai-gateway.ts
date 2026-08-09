@@ -22,6 +22,7 @@ export type AITask =
   | 'study_plan'
   | 'resource_quiz'
   | 'recommend_resources'
+  | 'recommend_daily_read'
   | 'coding_mentor'
   | 'recommend_coding_questions'
   | 'module_recommendations'
@@ -65,6 +66,7 @@ const TASK_CONFIG: Record<AITask, TaskConfig> = {
   study_plan:             { model: SONNET_MODEL, cacheTTLSeconds: SIX_HOURS,  fallback: '' },
   resource_quiz:          { model: SONNET_MODEL, cacheTTLSeconds: null,       fallback: '[]' },
   recommend_resources:    { model: SONNET_MODEL, cacheTTLSeconds: null,       fallback: '[]' },
+  recommend_daily_read:   { model: SONNET_MODEL, cacheTTLSeconds: SIX_HOURS,  fallback: 'null' },
   coding_mentor:          { model: SONNET_MODEL, cacheTTLSeconds: null,       fallback: BUDGET_FALLBACK },
   recommend_coding_questions: { model: SONNET_MODEL, cacheTTLSeconds: null,  fallback: '[]' },
   module_recommendations: { model: SONNET_MODEL, cacheTTLSeconds: SIX_HOURS,  fallback: '[]' },

@@ -86,6 +86,38 @@ Do NOT include a "url" field — specific links aren't reliable from you. title 
   }
 }
 
+// Fallback for the daily-read pick once the curated pool (reading-articles.ts)
+// is exhausted for what's already in the resource list. Deliberately has no
+// `url` — same anti-hallucination stance as recommendResources above; the
+// linked Planner task text alone ("Read: {title}") is enough to go find it.
+export async function recommendDailyRead(resources: Resource[]): Promise<{ title: string; category: string; reason: string; estimatedMinutes: number } | null> {
+  const completedTitles = resources.filter(r => r.status === 'completed').map(r => r.title)
+  const existingTitles = resources.map(r => r.title)
+
+  const prompt = `Vinay is a frontend engineer targeting senior/staff-level roles, building a daily reading habit — one short technical article per day.
+
+Already read or in his list — do NOT suggest any of these again: ${existingTitles.join(', ') || 'none'}
+Recently completed: ${completedTitles.slice(0, 10).join(', ') || 'none'}
+
+Suggest ONE real, well-known frontend/web-engineering article, guide, or blog post he should read today. Requirements:
+1. Must be a real, specific, well-known piece by its actual title (a specific blog post, official docs page, or well-cited article) — never invent a plausible-sounding title for something that doesn't exist.
+2. Should take roughly 30-60 minutes to read. If the best fit is genuinely longer, say so honestly in the reason and note it can be split across a couple of sessions — don't undersell its length to fit the window.
+3. Prefer something that fills a real gap versus what he's already read above, or is currently relevant to frontend interview trends/ecosystem shifts.
+
+Return ONLY a JSON object in this exact format:
+{"title": "...", "category": "...", "reason": "...", "estimatedMinutes": 45}
+
+Do NOT include a "url" field.`
+
+  const raw = await askAI('recommend_daily_read', prompt, 'You are a sharp technical mentor who stays current on frontend engineering writing. Return only valid JSON, no explanation, no markdown fences. Never invent a fake article title.')
+  try {
+    const parsed = JSON.parse(raw)
+    return parsed.title ? parsed : null
+  } catch {
+    return null
+  }
+}
+
 // Graded multiple-choice quiz (was ungraded question/answer flashcards) —
 // scoring is what lets weak areas be identified per category (Learning
 // Stage: mandatory quiz gate on marking a resource "Completed").
