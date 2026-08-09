@@ -3,10 +3,20 @@
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { todayIST, daysAgoIST } from '@/lib/date'
+import { CATEGORIES } from './types'
 import type { InvestmentType, GoalPriority } from './types'
 
 function currentMonth() {
   return todayIST().slice(0, 7)
+}
+
+// "YYYY-MM" for n calendar months before the current month (n=0 is this
+// month) — calendar-month arithmetic, not day-based, so it's exact
+// regardless of how many days are in a given month.
+function monthsAgoStr(n: number): string {
+  const [y, m] = currentMonth().split('-').map(Number)
+  const d = new Date(Date.UTC(y, m - 1 - n, 1))
+  return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`
 }
 
 export async function getFinanceData() {
@@ -15,10 +25,11 @@ export async function getFinanceData() {
   const month = currentMonth()
   const startOfMonth = `${month}-01`
   const threeMonthsAgo = daysAgoIST(90)
+  const historyStart = `${monthsAgoStr(11)}-01`
 
-  if (!user) return { expenses: [], budgets: [], profile: null, loans: [], investments: [], goals: [], recurringExpenses: [], salaryHistory: [], avgMonthlyExpense: 0, month }
+  if (!user) return { expenses: [], budgets: [], profile: null, loans: [], investments: [], goals: [], recurringExpenses: [], salaryHistory: [], avgMonthlyExpense: 0, expenseHistory: [], month }
 
-  const [expensesRes, budgetsRes, profileRes, loansRes, investmentsRes, goalsRes, recentExpensesRes, salaryHistoryRes, recurringRes] = await Promise.all([
+  const [expensesRes, budgetsRes, profileRes, loansRes, investmentsRes, goalsRes, recentExpensesRes, salaryHistoryRes, recurringRes, historyRes] = await Promise.all([
     supabase.from('expenses').select('*').eq('user_id', user.id).gte('date', startOfMonth).order('date', { ascending: false }),
     supabase.from('budgets').select('*').eq('user_id', user.id).eq('month', month),
     supabase.from('finance_profile').select('*').eq('user_id', user.id).single(),
@@ -28,14 +39,48 @@ export async function getFinanceData() {
     supabase.from('expenses').select('amount').eq('user_id', user.id).gte('date', threeMonthsAgo),
     supabase.from('salary_history').select('amount, effective_date, note').eq('user_id', user.id).order('effective_date', { ascending: true }),
     supabase.from('recurring_expenses').select('*').eq('user_id', user.id).order('day_of_month', { ascending: true }),
+    supabase.from('expenses').select('amount, category, date').eq('user_id', user.id).gte('date', historyStart).order('date', { ascending: true }),
   ])
 
   const recentTotal = (recentExpensesRes.data ?? []).reduce((s, e) => s + Number(e.amount), 0)
   const avgMonthlyExpense = Math.round(recentTotal / 3)
 
+  // Carry forward last month's budget for any category that has none set
+  // yet this month, so a new month never starts blank — the user only has
+  // to touch a category again if the amount actually needs to change.
+  // "Removing" a budget (see deleteBudget) sets it to 0 rather than
+  // deleting the row, specifically so it stays carried-forward-as-0 instead
+  // of resurrecting an older nonzero amount next month.
+  let budgets = budgetsRes.data ?? []
+  const budgetedCategories = new Set(budgets.map(b => b.category))
+  const missingCategories = CATEGORIES.filter(c => !budgetedCategories.has(c))
+
+  if (missingCategories.length > 0) {
+    const { data: priorBudgets } = await supabase
+      .from('budgets')
+      .select('category, amount, month')
+      .eq('user_id', user.id)
+      .in('category', missingCategories)
+      .lt('month', month)
+      .order('month', { ascending: false })
+
+    const seen = new Set<string>()
+    const carryForwardRows = []
+    for (const row of priorBudgets ?? []) {
+      if (seen.has(row.category)) continue
+      seen.add(row.category)
+      carryForwardRows.push({ user_id: user.id, category: row.category, amount: row.amount, month })
+    }
+
+    if (carryForwardRows.length > 0) {
+      const { data: inserted } = await supabase.from('budgets').upsert(carryForwardRows, { onConflict: 'user_id,category,month' }).select()
+      budgets = [...budgets, ...(inserted ?? [])]
+    }
+  }
+
   return {
     expenses: expensesRes.data ?? [],
-    budgets: budgetsRes.data ?? [],
+    budgets,
     profile: profileRes.data ?? null,
     loans: loansRes.data ?? [],
     investments: investmentsRes.data ?? [],
@@ -43,6 +88,7 @@ export async function getFinanceData() {
     recurringExpenses: recurringRes.data ?? [],
     salaryHistory: (salaryHistoryRes.data ?? []) as { amount: number; effective_date: string; note: string | null }[],
     avgMonthlyExpense,
+    expenseHistory: (historyRes.data ?? []) as { amount: number; category: string; date: string }[],
     month,
   }
 }

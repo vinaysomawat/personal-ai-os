@@ -91,7 +91,8 @@ A single compact scrolling page (no tabs) — Applications → Interview Prep �
 The richest module — full personal finance tracking, scoped to the **current calendar month** for expenses/budgets:
 
 - **Expenses** — `amount`, `category` (Food/Transport/Housing/Health/Shopping/Entertainment/Learning/Utilities/EMIs/Bills/Other), `description`, `date`, optional `recurring_expense_id` (set when auto-posted by the recurring-expense cron). Add / delete.
-- **Budgets** — one amount per category per month (`upsert` on `user_id,category,month`).
+- **Budgets** — one amount per category per month (`upsert` on `user_id,category,month`). **Carried forward automatically**: when `getFinanceData()` loads a month where a category has no budget row yet, it looks up that category's most recent prior-month amount and upserts it into the current month — a new month never starts blank. "Removing" a budget (the By Category editor's Remove button) sets the amount to 0 rather than deleting the row, specifically so it stays carried-forward-as-0 instead of a later month resurrecting an older nonzero amount.
+- **Spending History** — a card below Recurring Expenses, fed by one extra query in `getFinanceData()` (last 12 months of `expenses`, grouped client-side, deterministic/no AI): a bar chart of total spend per month (click a bar, or the prev/next arrows, to change the selected month) and a pie chart of that month's spend-by-category, using the same category color mapping as "By Category"/"Expenses". Charts are `recharts` (already a dependency, zero new package), lazy-loaded via `next/dynamic({ ssr: false })` the same way Dashboard's Life Score Trend is. Note: `<Pie isAnimationActive={false}>` is required — recharts 3's default Pie entry animation never resolves under this lazy-mount setup (sectors exist in the DOM but never paint), a gotcha specific to Pie (Bar/Line charts elsewhere in the app aren't affected).
 - **Finance profile** — `monthly_salary`, `emergency_fund_months`. Changing salary auto-appends a row to `salary_history` (`amount`, `effective_date`, `note`) so raises are tracked over time.
 - **Loans** — `name`, `principal`, `emi`, `interest_rate`, `remaining_months`, all **inline-editable** (EMI/rate/remaining-months can be updated in place without delete+recreate). Total remaining debt = `Σ emi × remaining_months`.
 - **Investments** — `name`, `type` (mutual_fund/stocks/fd/crypto/other), `invested_amount`, `current_value` (both inline-editable), `notes`. P&L = current − invested. Split into two sub-sections in the UI: **SIPs** and **Lump Sum**.
@@ -494,8 +495,9 @@ Single column, all full-width cards stacked (`space-y-5`), no side-by-side secti
 4. **Financial Goals** — full-width card, goal tiles in a `lg:grid-cols-2` grid, each with an inline-editable progress amount and a progress bar
 5. **By Category** + **Expenses** side by side (`lg:grid-cols-2`) — By Category rows expand into that category's individual expenses; both use a shared category color map (11 categories)
 6. **Recurring Expenses** — full-width, pause/resume toggle per row
-7. **Money Advisor** panel (Header-triggered): Ask tab (quick-prompt chips + Q&A) and Simulate tab (a structured purchase-scenario form → deterministic cash-flow math → AI narrative verdict)
-8. 5 shared-shell modals for adding a Loan/Investment/Goal/Expense/Recurring Expense
+7. **Spending History** — full-width: a 12-month bar chart (click a bar, or prev/next arrows, to pick a month) above a donut pie chart of that month's spend-by-category with a color-keyed list and total
+8. **Money Advisor** panel (header-triggered): Ask tab (quick-prompt chips + Q&A) and Simulate tab (a structured purchase-scenario form → deterministic cash-flow math → AI narrative verdict)
+9. 5 shared-shell modals for adding a Loan/Investment/Goal/Expense/Recurring Expense
 
 ### Health (`/health`)
 1. **Today's Workout** card — always first; status pill, exercise meta, Start/Complete/Skip actions, an expandable full-workout detail (warmup/exercise table/cardio/cooldown/coach tips)

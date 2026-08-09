@@ -16,6 +16,7 @@ import {
 } from '../actions'
 import { askFinanceAdvisor } from '@/features/ai/finance-advisor'
 import ScenarioSimulator from './ScenarioSimulator'
+import SpendingHistory from './SpendingHistoryLazy'
 import { CATEGORIES, INVESTMENT_TYPES, INVESTMENT_COLOR } from '../types'
 import type { Expense, Budget, FinanceProfile, Loan, Investment, FinancialGoal, RecurringExpense, InvestmentType, GoalPriority } from '../types'
 import { useEscapeKey } from '@/lib/use-escape-key'
@@ -69,10 +70,11 @@ interface Props {
   recurringExpenses: RecurringExpense[]
   salaryHistory: { amount: number; effective_date: string; note: string | null }[]
   avgMonthlyExpense: number
+  expenseHistory: { amount: number; category: string; date: string }[]
   month: string
 }
 
-export default function FinanceView({ expenses, budgets, profile, loans, investments, goals, recurringExpenses, salaryHistory, avgMonthlyExpense, month }: Props) {
+export default function FinanceView({ expenses, budgets, profile, loans, investments, goals, recurringExpenses, salaryHistory, avgMonthlyExpense, expenseHistory, month }: Props) {
   const [, startTransition] = useTransition()
   const [salaryVisible, setSalaryVisible] = useState(false)
 
@@ -279,6 +281,16 @@ export default function FinanceView({ expenses, budgets, profile, loans, investm
       return [...prev, { id: `temp-${Date.now()}`, user_id: '', category, amount, month }]
     })
     startTransition(() => upsertBudget(category, amount))
+    setEditingBudget(null); setBudgetInput('')
+  }
+
+  // Sets the amount to 0 rather than deleting the row — a real 0-amount row
+  // for this month is what stops next month's carry-forward from
+  // resurrecting an older nonzero budget for this category (see
+  // getFinanceData's carry-forward logic).
+  const handleBudgetRemove = (category: string) => {
+    setLocalBudgets(prev => prev.map(b => b.category === category ? { ...b, amount: 0 } : b))
+    startTransition(() => upsertBudget(category, 0))
     setEditingBudget(null); setBudgetInput('')
   }
 
@@ -595,6 +607,7 @@ export default function FinanceView({ expenses, budgets, profile, loans, investm
                       <div className="flex gap-2 mt-2">
                         <input value={budgetInput} onChange={e => setBudgetInput(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') handleBudgetSave(cat); if (e.key === 'Escape') setEditingBudget(null) }} placeholder="Budget amount" type="number" autoFocus className="flex-1 bg-surface-2 border border-accent rounded-lg px-3 py-1.5 text-sm text-fg-primary outline-none" />
                         <button onClick={() => handleBudgetSave(cat)} className="px-3 py-1.5 rounded-lg bg-accent text-white text-xs">Save</button>
+                        {budget > 0 && <button onClick={() => handleBudgetRemove(cat)} className="px-3 py-1.5 rounded-lg bg-surface-2 text-red-400 text-xs">Remove</button>}
                         <button onClick={() => setEditingBudget(null)} className="px-3 py-1.5 rounded-lg bg-surface-2 text-fg-secondary text-xs">Cancel</button>
                       </div>
                     )}
@@ -678,6 +691,8 @@ export default function FinanceView({ expenses, budgets, profile, loans, investm
           </ul>
         )}
       </Card>
+
+      <SpendingHistory expenseHistory={expenseHistory} currentMonth={month} />
 
       {/* Modals */}
       {modal && (
