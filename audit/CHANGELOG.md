@@ -1,3 +1,18 @@
+# Today's Quiz — built, then redesigned same day (Round 3, 2026-08-10)
+
+Round 2 (below) flagged Coding's new "Today's Quiz" section as a real feature needing a spec/go-ahead rather than a silent design-fidelity build, and captured the design's then-current spec (an all-questions-at-once list). Given the go-ahead (static curated pool + persisted attempts, both recommended defaults), it was built accordingly — then, mid-build, a fresh design fetch showed the design itself had changed again: from "show all N questions in one list" to a one-question-at-a-time stepper with a progress bar and a summary screen, and the mock's progress-segment count confirmed 10 questions/day (matching an explicit ask to raise it from an initial 3).
+
+**What shipped:**
+- `src/features/coding/todays-quiz.ts` — a 50-question hand-authored DSA/algorithms/JS pool (time/space complexity, data structures, graph/tree traversal, sorting/searching, JS mechanics — closures, hoisting, event loop, `this`, prototypes, async/await — and a few React fundamentals). No AI (Product Principle 2) — this is fixed CS/JS knowledge, not personalized, so a curated pool beats generation cost/risk. `getTodaysQuizQuestions()` picks 10/day, deterministic by days-since-epoch, rotating through the pool with no repeats until it cycles (~5 days).
+- `src/features/coding/todays-quiz-actions.ts` — new `coding_quiz_attempts` table (migration `20260810b_coding_quiz_attempts.sql`, applied), one row per user per IST calendar day, upserted on Retake. `question_ids` are stored (not re-derived from the date), so a Retake always redoes the exact same 10 questions even if the pool is later edited/expanded.
+- `src/features/coding/components/TodaysQuizCard.tsx` — the stepper UI: progress bar (10 segments, colored by answered-correct/incorrect/current/unreached), one question at a time with A/B/C/D-marked option buttons (instant reveal on pick, locked after), an explanation box, a full-width "Next question"/"See results" button, and a summary screen (big tiered-color percentage, "↻ Retake quiz"). Score tiers reuse Career's Quiz modal's exact bands (≥80 good, ≥60 accent, ≥40 warn, else risk) for consistent scoring language app-wide.
+
+Wired into `CodingView.tsx`/`page.tsx` right after the [Question | Calendar] grid, matching the design's order. `audit/Coding-AUDIT.md` G2 updated from "not implemented" to FIXED.
+
+Verified: `tsc`/`eslint` clean, `npm run build` clean, live-tested in the browser (instant per-question feedback, progress bar states, DB persistence across reload).
+
+---
+
 # Design Re-sync Changelog — Round 2 (2026-08-10, same day as Round 1)
 
 Re-sync against the same live Claude Design project, re-fetched fresh. The design changed again since Round 1 (below) — a real byte-level diff against Round 1's raw extraction (still on disk from earlier this session) confirmed the design grew from 261399 to 261414 chars, with structural changes isolated to exactly 3 places: the shell header/nav, Career's `isCareer` block, and Coding's `isCoding` block. Everything else (Planner, Finance, Health, Learning, Documents, Settings, Quiz modal, Add Expense/Application modals, generic modals, all 5 generic advisor panels, Ask Brain, Executive Summary) is byte-identical to Round 1's already-synced state — confirmed via diff, not assumed, so those modules were not re-touched.

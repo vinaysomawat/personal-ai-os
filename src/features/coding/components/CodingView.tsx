@@ -10,7 +10,10 @@ import CodingCalendar from './CodingCalendar'
 import CodingSettingsPopover from './CodingSettingsPopover'
 import QuestionHistory from './QuestionHistory'
 import RecommendedQuestions from './RecommendedQuestions'
+import TodaysQuizCard from './TodaysQuizCard'
 import type { ResolvedGoal } from '@/features/goals/types'
+import type { QuizQuestion } from '../todays-quiz'
+import type { TodaysQuizAttempt } from '../todays-quiz-actions'
 import { computeWeakAreas, type DailyQuestion, type CodingStats, type CalendarDay, type CodingSettings } from '../daily-core'
 
 interface Props {
@@ -20,6 +23,8 @@ interface Props {
   codingSettings: CodingSettings
   history: DailyQuestion[]
   goals: ResolvedGoal[]
+  quizQuestions: QuizQuestion[]
+  quizAttempt: TodaysQuizAttempt | null
 }
 
 const MODE_LABEL: Record<CodingSettings['mode'], (fixedCount: number) => string> = {
@@ -27,7 +32,7 @@ const MODE_LABEL: Record<CodingSettings['mode'], (fixedCount: number) => string>
   fixed: fixedCount => `Fixed · ${fixedCount}/day`,
 }
 
-export default function CodingView({ dailyAssignment, codingStats, calendar, codingSettings, history, goals }: Props) {
+export default function CodingView({ dailyAssignment, codingStats, calendar, codingSettings, history, goals, quizQuestions, quizAttempt }: Props) {
   const codingContext = `Current streak: ${codingStats.currentStreak}d (longest: ${codingStats.longestStreak}d). Total solved: ${codingStats.totalSolved} (${codingStats.easySolved} easy, ${codingStats.mediumSolved} medium, ${codingStats.hardSolved} hard). Completion rate: ${codingStats.completionRate}%.${formatGoalsContext(goals)}`
 
   const advisorOpen = useAIAdvisorOpen()
@@ -104,6 +109,8 @@ export default function CodingView({ dailyAssignment, codingStats, calendar, cod
           <CodingCalendar days={calendar} currentStreak={codingStats.currentStreak} longestStreak={codingStats.longestStreak} />
         </Card>
       </div>
+
+      <TodaysQuizCard questions={quizQuestions} initialAttempt={quizAttempt} />
 
       <QuestionHistory initialHistory={history} />
 

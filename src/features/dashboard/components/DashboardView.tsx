@@ -26,7 +26,7 @@ import { todayISTLabel, istHour } from '@/lib/date'
 type DashboardData = Awaited<ReturnType<typeof getDashboardData>>
 
 export default function DashboardView({ data, executive }: { data: DashboardData; executive: ExecutiveData }) {
-  const { botActivity, stats, scores, scoreTips, scoreHistory, todayHealth, aiBudget, topActions, todayProgress, todayRecommendations, crossModuleGoals } = data
+  const { botActivity, stats, scores, scoreTips, scoreHistory, todayHealth, aiBudget, topActions, todayProgress, crossModuleGoals } = data
   const MODULE_BADGE_COLOR: Record<string, string> = { Career: 'var(--accent)', Coding: '#22d3ee', Learning: '#a78bfa' }
   const scoreExplanation = explainScore(scoreHistory, scores, scoreTips)
   const brainContext = buildBrainContext(data)
@@ -144,13 +144,18 @@ export default function DashboardView({ data, executive }: { data: DashboardData
               <MiniRing score={todayProgress.score} color="var(--accent)" size={52} suffix="%" />
             </div>
             <div className="flex-1 min-w-0">
-              {todayRecommendations.length > 0 ? (
+              {todayProgress.items.length > 0 ? (
                 <ul className="space-y-0.5">
-                  {todayRecommendations.map(r => (
-                    <li key={r.text}>
-                      <Link href={r.href} className="flex items-center gap-2 py-0.5 text-[12.5px] text-fg-secondary hover:text-accent transition-colors">
-                        <span className="w-1.5 h-1.5 rounded-full bg-accent shrink-0" />
-                        <span className="truncate">{r.text}</span>
+                  {todayProgress.items.map(item => (
+                    <li key={item.key}>
+                      <Link
+                        href={item.href}
+                        className={`flex items-center gap-2 py-0.5 text-[12.5px] transition-colors ${
+                          item.done ? 'text-fg-tertiary' : 'text-fg-secondary hover:text-accent'
+                        }`}
+                      >
+                        <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${item.done ? 'bg-good' : 'bg-accent'}`} />
+                        <span className={`truncate ${item.done ? 'line-through' : ''}`}>{item.label}</span>
                       </Link>
                     </li>
                   ))}

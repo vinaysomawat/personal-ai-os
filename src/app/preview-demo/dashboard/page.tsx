@@ -43,12 +43,16 @@ const dummyData = {
     { emoji: '🎯', text: '1 application in interview stage', href: '/career' },
     { emoji: '💻', text: "Today's coding question still open", href: '/coding' },
   ],
-  todayProgress: { items: [], completed: 4, total: 7, score: 57 },
-  todayRecommendations: [
-    { emoji: '📊', text: "Log today's health metrics", href: '/health' },
-    { emoji: '💻', text: "Solve today's coding question", href: '/coding' },
-    { emoji: '💸', text: "Log today's expenses", href: '/finance' },
-  ],
+  todayProgress: {
+    items: [
+      { key: 'health-metrics', label: "Log today's health metrics", done: true, href: '/health' },
+      { key: 'coding', label: "Solve today's coding question", done: false, href: '/coding' },
+      { key: 'coding-quiz', label: "Complete Today's Quiz", done: true, href: '/coding' },
+      { key: 'daily-read', label: "Read today's article", done: true, href: '/learning' },
+      { key: 'expense', label: "Log today's expenses", done: false, href: '/finance' },
+    ],
+    completed: 3, total: 5, score: 60,
+  },
   careerMemory: { currentRole: null, currentCompany: null, targetRole: null, currentSalary: null, bio: null },
   financialGoals: [],
   crossModuleGoals: [],

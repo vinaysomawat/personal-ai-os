@@ -27,6 +27,7 @@ export interface TodayProgressInput {
   hasLearningResources: boolean
   studiedToday: boolean
   expenseLoggedToday: boolean
+  codingQuizDone: boolean
 }
 
 export function computeTodayProgress(input: TodayProgressInput): TodayProgress {
@@ -46,6 +47,8 @@ export function computeTodayProgress(input: TodayProgressInput): TodayProgress {
     items.push({ key: 'coding', label: "Solve today's coding question", done: input.codingToday.every(q => q.completed), href: '/coding' })
   }
 
+  items.push({ key: 'coding-quiz', label: "Complete Today's Quiz", done: input.codingQuizDone, href: '/coding' })
+
   if (input.dailyRead) {
     items.push({ key: 'daily-read', label: "Read today's article", done: input.dailyRead.completed, href: '/learning' })
   }
@@ -61,17 +64,4 @@ export function computeTodayProgress(input: TodayProgressInput): TodayProgress {
   const score = total === 0 ? 100 : Math.round((completed / total) * 100)
 
   return { items, completed, total, score }
-}
-
-const RECOMMENDATION_EMOJI: Record<string, string> = {
-  'health-metrics': '📊', workout: '🏋️', coding: '💻', 'daily-read': '📖', study: '📚', expense: '💸',
-}
-
-// Reuses the same checklist data as the score itself — the unclosed items
-// *are* the recommendations, per Product Principle 2 (rule engine before AI).
-export function getTodayRecommendations(progress: TodayProgress, limit = 5): { emoji: string; text: string; href: string }[] {
-  return progress.items
-    .filter(i => !i.done)
-    .slice(0, limit)
-    .map(i => ({ emoji: i.key.startsWith('task-') ? '✅' : (RECOMMENDATION_EMOJI[i.key] ?? '•'), text: i.label, href: i.href }))
 }
