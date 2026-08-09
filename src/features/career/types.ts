@@ -98,10 +98,13 @@ export interface QuizAttempt {
 
 export type ReadinessTier = 'not_started' | 'needs_work' | 'developing' | 'ready' | 'strong'
 
+// Raw CSS-var color values (not Tailwind classes) — design's Interview Prep
+// tiles use the same color for both a plain colored-text readiness label and
+// a small corner dot, neither of which is a Tailwind bg+text pill.
 export const READINESS_CONFIG: Record<ReadinessTier, { label: string; color: string }> = {
-  not_started: { label: 'Not Started', color: 'bg-surface-3 text-fg-tertiary' },
-  needs_work:  { label: 'Needs Work',  color: 'bg-risk-soft text-red-400' },
-  developing:  { label: 'Developing',  color: 'bg-warn-soft text-amber-400' },
-  ready:       { label: 'Ready',       color: 'bg-blue-500/15 text-blue-400' },
-  strong:      { label: 'Strong',      color: 'bg-good-soft text-green-400' },
+  not_started: { label: 'Not Started', color: 'var(--border-strong)' },
+  needs_work:  { label: 'Needs Work',  color: 'var(--risk)' },
+  developing:  { label: 'Developing',  color: 'var(--warn)' },
+  ready:       { label: 'Ready',       color: 'var(--accent)' },
+  strong:      { label: 'Strong',      color: 'var(--good)' },
 }

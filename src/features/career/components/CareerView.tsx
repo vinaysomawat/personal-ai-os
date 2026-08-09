@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useTransition } from 'react'
-import { Plus, Trash2, ExternalLink, X, Sparkles, ChevronRight, Pencil, Check, Briefcase, Eye, EyeOff, Brain, Bell } from 'lucide-react'
+import { Plus, Trash2, ExternalLink, X, Sparkles, ChevronRight, Pencil, Check, Brain, Bell } from 'lucide-react'
 import Card from '@/components/Card'
 import EmptyState from '@/components/EmptyState'
 import { useAIAdvisor } from '@/components/AIAdvisorProvider'
@@ -29,11 +29,16 @@ const STATUS_CONFIG: Record<AppStatus, { label: string; color: string; bg: strin
   rejected:  { label: 'Rejected',  color: 'text-red-400',    bg: 'bg-red-400/10' },
 }
 const STATUSES = Object.keys(STATUS_CONFIG) as AppStatus[]
+// Design's quick-filter pills — 5 items, deliberately excluding Rejected
+// (still reachable via the per-application status select and "All").
+const FILTER_STATUSES: (AppStatus | 'all')[] = ['all', 'applied', 'screening', 'interview', 'offer']
 
-function matchColor(pct: number): string {
-  if (pct >= 70) return 'bg-good-soft text-green-400'
-  if (pct >= 40) return 'bg-warn-soft text-amber-400'
-  return 'bg-risk-soft text-red-400'
+// Design keeps the match badge's background neutral (surface-2) and only
+// recolors the text — not a filled bg+text pill like elsewhere in the app.
+function matchTextColor(pct: number): string {
+  if (pct >= 70) return 'text-green-400'
+  if (pct >= 40) return 'text-amber-400'
+  return 'text-red-400'
 }
 
 function shortDate(iso: string): string {
@@ -49,28 +54,28 @@ function ProfileField({ label, value, onSave, type = 'text', placeholder, masked
 
   if (masked && !editing && !revealed) return (
     <div>
-      <div className="flex items-center justify-between mb-1">
-        <p className="text-xs text-fg-tertiary uppercase tracking-wider">{label}</p>
-        <button onClick={() => setRevealed(true)} aria-label="Reveal value" className="p-1.5 -m-1.5 text-fg-quaternary hover:text-fg-secondary transition-colors">
-          <Eye size={11} />
+      <div className="flex items-center justify-between mb-[5px]">
+        <p className="text-[11px] font-bold text-fg-tertiary uppercase tracking-[0.4px]">{label}</p>
+        <button onClick={() => setRevealed(true)} aria-label="Reveal value" className="p-1.5 -m-1.5 text-[12px] leading-none">
+          🙈
         </button>
       </div>
-      <p className="text-sm font-medium text-fg-primary tracking-widest">••••••</p>
+      <p className="text-[13.5px] font-medium text-fg-primary tracking-widest">••••••</p>
     </div>
   )
 
   if (!editing) return (
     <div className="text-left w-full group">
-      <div className="flex items-center justify-between mb-1">
-        <p className="text-xs text-fg-tertiary uppercase tracking-wider">{label}</p>
+      <div className="flex items-center justify-between mb-[5px]">
+        <p className="text-[11px] font-bold text-fg-tertiary uppercase tracking-[0.4px]">{label}</p>
         {masked && (
-          <button onClick={() => setRevealed(false)} aria-label="Hide value" className="p-1.5 -m-1.5 text-fg-quaternary hover:text-fg-secondary transition-colors">
-            <EyeOff size={11} />
+          <button onClick={() => setRevealed(false)} aria-label="Hide value" className="p-1.5 -m-1.5 text-[12px] leading-none">
+            👁
           </button>
         )}
       </div>
       <button onClick={() => { setInput(value); setEditing(true) }} className="text-left w-full">
-        <p className={`text-sm font-medium flex items-center gap-1 ${value ? 'text-fg-primary' : 'text-fg-quaternary'}`}>
+        <p className={`text-[13.5px] font-medium flex items-center gap-1 ${value ? 'text-fg-primary' : 'text-fg-quaternary'}`}>
           {value || `Set ${label.toLowerCase()}`}
           <Pencil size={9} className="opacity-0 group-hover:opacity-40 transition-opacity shrink-0" />
         </p>
@@ -79,11 +84,11 @@ function ProfileField({ label, value, onSave, type = 'text', placeholder, masked
   )
   return (
     <div>
-      <p className="text-xs text-fg-tertiary uppercase tracking-wider mb-1">{label}</p>
+      <p className="text-[11px] font-bold text-fg-tertiary uppercase tracking-[0.4px] mb-[5px]">{label}</p>
       <div className="flex items-center gap-1">
         <input value={input} onChange={e => setInput(e.target.value)} type={type} placeholder={placeholder}
           onKeyDown={e => { if (e.key === 'Enter') { onSave(input); setEditing(false) } if (e.key === 'Escape') setEditing(false) }}
-          autoFocus className="flex-1 bg-surface-2 border border-accent rounded px-2 py-1 text-sm text-fg-primary outline-none" />
+          autoFocus className="flex-1 bg-surface-2 border border-accent rounded px-2 py-1 text-[13.5px] text-fg-primary outline-none" />
         <button onClick={() => { onSave(input); setEditing(false) }} aria-label="Save" className="p-1.5 -m-1.5 text-green-400 shrink-0"><Check size={12} /></button>
         <button onClick={() => setEditing(false)} aria-label="Cancel edit" className="p-1.5 -m-1.5 text-fg-quaternary shrink-0"><X size={12} /></button>
       </div>
@@ -121,6 +126,7 @@ export default function CareerView({ applications, profile, skills, quizAttempts
   const [localQuizAttempts, setLocalQuizAttempts] = useState(quizAttempts)
 
   const [filterStatus, setFilterStatus] = useState<AppStatus | 'all'>('all')
+  const [appsSort, setAppsSort] = useState<'recent' | 'match' | 'company'>('recent')
   const [modal, setModal] = useState<'app' | null>(null)
   useEscapeKey(() => setModal(null))
   const { invalidFields, validate, clear, onFieldInput } = useFormValidation()
@@ -150,7 +156,12 @@ export default function CareerView({ applications, profile, skills, quizAttempts
   const [mentorLoading, setMentorLoading] = useState(false)
 
   const counts = STATUSES.reduce((acc, s) => ({ ...acc, [s]: localApps.filter(a => a.status === s).length }), {} as Record<AppStatus, number>)
-  const filtered = filterStatus === 'all' ? localApps : localApps.filter(a => a.status === filterStatus)
+  const filteredByStatus = filterStatus === 'all' ? localApps : localApps.filter(a => a.status === filterStatus)
+  const filtered = appsSort === 'match'
+    ? [...filteredByStatus].sort((a, b) => (b.jd_analysis?.matchPercentage ?? -1) - (a.jd_analysis?.matchPercentage ?? -1))
+    : appsSort === 'company'
+    ? [...filteredByStatus].sort((a, b) => a.company.localeCompare(b.company))
+    : filteredByStatus
 
   const saveProfile = (field: keyof CareerProfile, raw: string) => {
     const value = ['current_salary', 'years_experience'].includes(field) ? (parseFloat(raw) || null) : raw
@@ -296,100 +307,123 @@ export default function CareerView({ applications, profile, skills, quizAttempts
   return (
     <div className="space-y-5">
       {advisorPortal}
-      <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-fg-primary">Career</h1>
+      <div className="flex items-center gap-2.5 flex-wrap">
+        <h1 className="text-[34px] font-bold tracking-[-0.02em] text-fg-primary">Career</h1>
+        <span className="text-[11px] font-semibold bg-surface-2 rounded-full px-2.5 py-1 text-fg-secondary">💼 {localApps.length} active applications</span>
+        {counts.interview > 0 && (
+          <span className="text-[11px] font-semibold bg-accent-soft rounded-full px-2.5 py-1 text-accent-strong">🎯 {counts.interview} at interview</span>
+        )}
+      </div>
 
       {/* Applications Pipeline */}
-      <div>
-        <div className="grid grid-cols-3 sm:grid-cols-5 gap-2 mb-4">
-          {STATUSES.map(s => {
-            const cfg = STATUS_CONFIG[s]
+      <Card title="Applications" padding="p-3.5" action={
+        <div className="flex items-center gap-2">
+          <select value={appsSort} onChange={e => setAppsSort(e.target.value as typeof appsSort)}
+            className="bg-surface-2 border border-surface-3 rounded-[7px] px-2 py-[6px] text-[11.5px] text-fg-secondary outline-none cursor-pointer">
+            <option value="recent">Sort: Recent</option>
+            <option value="match">Sort: Match %</option>
+            <option value="company">Sort: Company A–Z</option>
+          </select>
+          <button onClick={() => setModal('app')} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-accent text-white text-xs font-medium hover:bg-accent/80 transition-colors whitespace-nowrap">
+            <Plus size={12} /> Add Application
+          </button>
+        </div>
+      }>
+        <div className="flex flex-wrap gap-2 mb-3.5">
+          {FILTER_STATUSES.map(s => {
+            const label = s === 'all' ? 'All' : STATUS_CONFIG[s].label
+            const count = s === 'all' ? localApps.length : counts[s]
+            const active = filterStatus === s
             return (
-              <button key={s} onClick={() => setFilterStatus(filterStatus === s ? 'all' : s)}
-                className={`flex flex-col items-center p-3 rounded-xl border transition-colors ${filterStatus === s ? `${cfg.bg} border-current ${cfg.color}` : 'bg-surface-1 border-surface-3 text-fg-secondary hover:bg-surface-2'}`}>
-                <span className="text-xl font-bold">{counts[s]}</span>
-                <span className="text-xs mt-0.5">{cfg.label}</span>
+              <button key={s} onClick={() => setFilterStatus(s)}
+                className={`rounded-full px-3.5 py-[6px] text-xs border transition-colors ${active ? 'bg-accent border-accent text-white' : 'bg-surface-2 border-surface-3 text-fg-secondary hover:bg-surface-3'}`}>
+                {label} ({count})
               </button>
             )
           })}
         </div>
-        <Card title={filterStatus === 'all' ? 'All Applications' : STATUS_CONFIG[filterStatus].label} padding="p-3.5" action={
-          <button onClick={() => setModal('app')} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-accent text-white text-xs font-medium hover:bg-accent/80 transition-colors">
-            <Plus size={12} /> Add
-          </button>
-        }>
-          {filtered.length === 0 && (
-            <EmptyState icon={Briefcase} message={filterStatus === 'all' ? 'No applications yet' : `No ${STATUS_CONFIG[filterStatus].label.toLowerCase()} applications`} compact cta={filterStatus === 'all' ? { label: 'Add', onClick: () => setModal('app') } : undefined} />
-          )}
-          <ul className="space-y-2">
+        {filtered.length === 0 ? (
+          <div className="text-center py-7">
+            <div className="text-[22px] mb-1.5">📭</div>
+            <p className="text-[13px] text-fg-tertiary">No applications in this status.</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5 items-start">
             {filtered.map(app => {
               const cfg = STATUS_CONFIG[app.status]
               const isExpanded = expandedApp === app.id
               const isAnalyzing = analyzingAppId === app.id
               return (
-                <li key={app.id} className="border border-surface-3 rounded-lg overflow-hidden group">
-                  <div className="flex items-start gap-3 p-3 bg-surface-2 hover:bg-surface-3/40 transition-colors">
-                    <button onClick={() => setExpandedApp(isExpanded ? null : app.id)} aria-label={isExpanded ? 'Collapse' : 'Expand'} className="mt-0.5 text-fg-quaternary hover:text-fg-secondary shrink-0">
-                      <ChevronRight size={14} className={`transition-transform ${isExpanded ? 'rotate-90' : ''}`} />
-                    </button>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="text-sm font-medium text-fg-primary">{app.company}</span>
-                        <span className="text-fg-quaternary">·</span>
-                        <span className="text-sm text-fg-secondary">{app.role}</span>
-                        {app.url && <a href={app.url} target="_blank" rel="noopener noreferrer" className="text-fg-quaternary hover:text-accent transition-colors"><ExternalLink size={11} /></a>}
-                        {isAnalyzing && <span className="text-xs text-fg-quaternary italic">Analyzing JD...</span>}
-                        {!isAnalyzing && app.jd_analysis && (
-                          <span className={`text-xs px-1.5 py-0.5 rounded-full font-medium ${matchColor(app.jd_analysis.matchPercentage)}`}>{app.jd_analysis.matchPercentage}% match</span>
-                        )}
+                <div key={app.id} onClick={() => setExpandedApp(isExpanded ? null : app.id)}
+                  className="bg-surface-1 border border-surface-3 rounded-2xl shadow-card p-4 cursor-pointer">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <div className="font-bold text-sm flex items-center gap-1.5 text-fg-primary">
+                        <ChevronRight size={10} className={`shrink-0 transition-transform ${isExpanded ? 'rotate-90' : ''}`} />
+                        <span className="truncate">{app.company}</span>
+                        {app.url && <a href={app.url} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()} className="shrink-0 text-fg-quaternary hover:text-accent transition-colors"><ExternalLink size={11} /></a>}
                       </div>
-                      <div className="flex items-center gap-3 mt-1.5 flex-wrap">
-                        <select value={app.status} onChange={e => handleStatus(app.id, e.target.value as AppStatus)}
-                          className={`text-xs px-2 py-0.5 rounded-full border-0 outline-none cursor-pointer font-medium ${cfg.color} ${cfg.bg}`}>
-                          {STATUSES.map(s => <option key={s} value={s}>{STATUS_CONFIG[s].label}</option>)}
-                        </select>
-                        {app.location && <span className="text-xs text-fg-quaternary">{app.location}</span>}
-                        {app.salary_range && <span className="text-xs text-fg-quaternary">{app.salary_range}</span>}
-                        <span className="text-xs text-fg-quaternary">{app.applied_at}</span>
-                      </div>
-                      {app.notes && <p className="text-xs text-fg-tertiary mt-1.5 line-clamp-1">{app.notes}</p>}
+                      <div className="text-xs text-fg-tertiary ml-[14px] truncate">{app.role} · {app.applied_at}</div>
                     </div>
-                    <button onClick={() => handleDeleteApp(app.id)} aria-label="Delete application" className="shrink-0 opacity-0 group-hover:opacity-100 text-fg-quaternary hover:text-red-400 transition-all mt-0.5"><Trash2 size={13} /></button>
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      {isAnalyzing ? (
+                        <span className="text-[10px] text-fg-quaternary italic whitespace-nowrap">Analyzing...</span>
+                      ) : app.jd_analysis ? (
+                        <span className={`text-[11px] font-bold px-2 py-[3px] rounded-[6px] bg-surface-2 ${matchTextColor(app.jd_analysis.matchPercentage)}`}>{app.jd_analysis.matchPercentage}%</span>
+                      ) : null}
+                      <button onClick={e => { e.stopPropagation(); handleDeleteApp(app.id) }} aria-label="Delete application" className="text-fg-quaternary hover:text-red-400 transition-colors p-0.5">
+                        <X size={12} />
+                      </button>
+                    </div>
                   </div>
+                  <div className="ml-[14px] mt-2" onClick={e => e.stopPropagation()}>
+                    <select value={app.status} onChange={e => handleStatus(app.id, e.target.value as AppStatus)}
+                      className={`text-[11.5px] font-semibold bg-transparent border border-border-strong rounded-[6px] px-1.5 py-[3px] outline-none cursor-pointer ${cfg.color}`}>
+                      {STATUSES.map(s => <option key={s} value={s}>{STATUS_CONFIG[s].label}</option>)}
+                    </select>
+                  </div>
+                  {(app.location || app.salary_range) && (
+                    <div className="ml-[14px] mt-1.5 flex items-center gap-2 flex-wrap text-[11px] text-fg-quaternary">
+                      {app.location && <span>{app.location}</span>}
+                      {app.salary_range && <span>{app.salary_range}</span>}
+                    </div>
+                  )}
+                  {app.notes && <p className="ml-[14px] mt-1 text-[11px] text-fg-tertiary line-clamp-1">{app.notes}</p>}
                   {isExpanded && (
-                    <div className="px-4 pb-3 border-t border-surface-3 bg-surface-2/50 pt-3">
+                    <div className="ml-[14px] mt-3 pt-3 border-t border-surface-3 flex flex-col gap-2.5" onClick={e => e.stopPropagation()}>
                       {isAnalyzing ? (
                         <div className="space-y-2">{[80, 60, 90].map((w, i) => <div key={i} className="h-3 rounded bg-surface-3 animate-pulse" style={{ width: `${w}%` }} />)}</div>
                       ) : app.jd_analysis ? (
-                        <div className="space-y-3">
+                        <>
                           <div className="grid grid-cols-2 gap-3">
                             <div>
-                              <p className="text-xs text-fg-quaternary uppercase tracking-wider mb-1">Required Skills</p>
+                              <p className="text-[11px] font-bold text-fg-tertiary uppercase tracking-[0.4px] mb-1">Required Skills</p>
                               <div className="flex flex-wrap gap-1">
-                                {app.jd_analysis.requiredSkills.map(s => <span key={s} className="text-xs px-1.5 py-0.5 rounded-full bg-surface-3 text-fg-secondary">{s}</span>)}
+                                {app.jd_analysis.requiredSkills.map(s => <span key={s} className="text-[10.5px] px-2 py-[3px] rounded-[5px] bg-surface-2 text-fg-secondary">{s}</span>)}
                               </div>
                             </div>
                             <div>
-                              <p className="text-xs text-fg-quaternary uppercase tracking-wider mb-1">Missing Skills</p>
+                              <p className="text-[11px] font-bold text-fg-tertiary uppercase tracking-[0.4px] mb-1">Missing Skills</p>
                               {app.jd_analysis.missingSkills.length === 0 ? (
                                 <p className="text-xs text-fg-quaternary italic">None identified</p>
                               ) : (
                                 <div className="flex flex-wrap gap-1">
-                                  {app.jd_analysis.missingSkills.map(s => <span key={s} className="text-xs px-1.5 py-0.5 rounded-full bg-risk-soft text-red-400">{s}</span>)}
+                                  {app.jd_analysis.missingSkills.map(s => <span key={s} className="text-[10.5px] px-2 py-[3px] rounded-[5px] bg-risk-soft text-risk">{s}</span>)}
                                 </div>
                               )}
                             </div>
                           </div>
                           <div>
-                            <p className="text-xs text-fg-quaternary uppercase tracking-wider mb-1">Priority Prep Topics</p>
+                            <p className="text-[11px] font-bold text-fg-tertiary uppercase tracking-[0.4px] mb-1">Priority Prep Topics</p>
                             <div className="flex flex-wrap gap-1">
                               {app.jd_analysis.priorityTopics.map(t => <span key={t} className="text-xs px-1.5 py-0.5 rounded-full bg-accent/15 text-accent">{t}</span>)}
                             </div>
                           </div>
                           <div>
-                            <p className="text-xs text-fg-quaternary uppercase tracking-wider mb-1">Company Focus</p>
+                            <p className="text-[11px] font-bold text-fg-tertiary uppercase tracking-[0.4px] mb-1">Company Focus</p>
                             <p className="text-sm text-fg-secondary leading-relaxed">{app.jd_analysis.companyFocus}</p>
                           </div>
-                        </div>
+                        </>
                       ) : app.job_description ? (
                         <div className="flex items-center gap-3">
                           <p className="text-sm text-fg-quaternary italic flex-1">Analysis unavailable — AI budget may have been reached.</p>
@@ -409,14 +443,14 @@ export default function CareerView({ applications, profile, skills, quizAttempts
                         </div>
                       )}
 
-                      <div className="mt-3 pt-3 border-t border-surface-3">
-                        <p className="text-xs text-fg-quaternary uppercase tracking-wider mb-1.5">Company Insights</p>
+                      <div className="pt-2.5 border-t border-surface-3">
+                        <p className="text-[11px] font-bold text-fg-tertiary uppercase tracking-[0.4px] mb-1.5">Company Insights</p>
                         {loadingInsightsFor === app.company ? (
                           <div className="space-y-2">{[85, 65].map((w, i) => <div key={i} className="h-3 rounded bg-surface-3 animate-pulse" style={{ width: `${w}%` }} />)}</div>
                         ) : app.company in companyInsights ? (
                           companyInsights[app.company] ? (
                             <div className="space-y-2">
-                              <span className={`inline-block text-xs px-1.5 py-0.5 rounded-full font-medium ${companyInsights[app.company]!.source === 'company-specific' ? 'bg-blue-500/15 text-blue-400' : 'bg-surface-2 text-fg-secondary'}`}>
+                              <span className="inline-block text-[9.5px] font-bold uppercase text-fg-tertiary bg-surface-3 rounded px-1.5 py-0.5">
                                 {companyInsights[app.company]!.source === 'company-specific' ? 'Company-specific' : 'General guidance'}
                               </span>
                               <p className="text-sm text-fg-secondary leading-relaxed">{companyInsights[app.company]!.interviewTrends}</p>
@@ -434,12 +468,12 @@ export default function CareerView({ applications, profile, skills, quizAttempts
                       </div>
                     </div>
                   )}
-                </li>
+                </div>
               )
             })}
-          </ul>
-        </Card>
-      </div>
+          </div>
+        )}
+      </Card>
 
       {/* Job Alerts — deterministic daily poll of public Greenhouse/Lever
           boards (src/features/career/job-alerts.ts), already Telegram-
@@ -474,13 +508,12 @@ export default function CareerView({ applications, profile, skills, quizAttempts
       </Card>
 
       {/* Interview Prep — Interactive Topic Quiz */}
-      <Card title="Interview Prep" padding="p-3.5">
+      <Card title="Interview Prep — Topic Quiz" padding="p-3.5">
         {recommendedTopic && (
-          <div className="flex items-center gap-3 p-3 mb-4 rounded-lg bg-accent/10 border border-accent/30">
-            <Sparkles size={14} className="text-accent shrink-0" />
+          <div className="flex items-center gap-3 p-3 mb-4 rounded-[10px] bg-accent-soft border border-accent-border">
+            <span className="shrink-0">🎯</span>
             <div className="flex-1 min-w-0">
-              <p className="text-sm text-fg-primary">Recommended: <span className="font-medium text-accent">{recommendedTopic.topic}</span></p>
-              <p className="text-xs text-fg-tertiary mt-0.5">{recommendedTopic.reason}</p>
+              <p className="text-[12.5px] text-fg-secondary">Recommended: <span className="font-bold text-fg-primary">{recommendedTopic.topic}</span> — {recommendedTopic.reason}</p>
             </div>
             <button onClick={() => handleOpenQuiz(recommendedTopic.topic)} className="shrink-0 text-xs px-3 py-1.5 rounded-lg bg-accent text-white font-medium hover:bg-accent/80 transition-colors">
               Start Quiz
@@ -494,10 +527,11 @@ export default function CareerView({ applications, profile, skills, quizAttempts
             const rcfg = READINESS_CONFIG[tier]
             return (
               <button key={topic} onClick={() => handleOpenQuiz(topic)}
-                className="flex flex-col items-start p-3 rounded-lg border border-surface-3 bg-surface-2 hover:bg-surface-3 transition-colors text-left">
-                <span className="text-sm font-medium text-fg-primary">{topic}</span>
-                <span className={`text-xs px-1.5 py-0.5 rounded-full font-medium mt-1.5 ${rcfg.color}`}>{rcfg.label}{avgPercent !== null ? ` · ${avgPercent}%` : ''}</span>
-                {lastAttempt && <span className="text-xs text-fg-quaternary mt-1">Last: {lastAttempt.score}/{lastAttempt.total}</span>}
+                className="relative flex flex-col items-start p-3 rounded-[10px] border border-surface-3 bg-surface-2 hover:bg-surface-3 transition-colors text-left">
+                <span className="absolute top-2.5 right-2.5 w-[7px] h-[7px] rounded-full" style={{ background: rcfg.color }} />
+                <span className="text-[12.5px] font-semibold text-fg-primary pr-3">{topic}</span>
+                <span className="text-[11px] font-semibold mt-0.5" style={{ color: rcfg.color }}>{rcfg.label}{avgPercent !== null ? ` · ${avgPercent}%` : ''}</span>
+                <span className="text-[10.5px] text-fg-tertiary mt-[3px]">{lastAttempt ? `Last score: ${Math.round((lastAttempt.score / lastAttempt.total) * 100)}%` : 'No attempts yet'}</span>
               </button>
             )
           })}
@@ -508,12 +542,12 @@ export default function CareerView({ applications, profile, skills, quizAttempts
       <Card title="Career Profile" padding="p-3.5" action={
         (codingStreak > 0 || studyStreak > 0)
           ? <div className="flex items-center gap-2 flex-wrap">
-              {codingStreak > 0 && <span className="text-xs font-semibold bg-surface-2 rounded-full px-2.5 py-1 text-fg-secondary">🔥 {codingStreak}-day coding streak</span>}
-              {studyStreak > 0 && <span className="text-xs font-semibold bg-surface-2 rounded-full px-2.5 py-1 text-fg-secondary">📚 {studyStreak}-day study streak</span>}
+              {codingStreak > 0 && <span className="text-[11px] font-semibold bg-surface-2 rounded-full px-2.5 py-1 text-fg-secondary">🔥 {codingStreak}-day coding streak</span>}
+              {studyStreak > 0 && <span className="text-[11px] font-semibold bg-surface-2 rounded-full px-2.5 py-1 text-fg-secondary">📚 {studyStreak}-day study streak</span>}
             </div>
           : undefined
       }>
-        <div className="grid grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-4">
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-6 gap-y-4">
           <ProfileField label="Current Role" value={localProfile?.current_role ?? ''} onSave={v => saveProfile('current_role', v)} placeholder="Senior Frontend Engineer" />
           <ProfileField label="Company" value={localProfile?.current_company ?? ''} onSave={v => saveProfile('current_company', v)} placeholder="Accenture" />
           <ProfileField label="Current Salary (₹/yr)" value={localProfile?.current_salary?.toString() ?? ''} onSave={v => saveProfile('current_salary', v)} type="number" placeholder="1200000" masked />
