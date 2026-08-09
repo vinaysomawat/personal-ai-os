@@ -75,7 +75,7 @@ export default function TopNav() {
         <div className="flex items-center gap-3">
           <Link href="/dashboard" className="flex flex-col justify-center shrink-0 leading-tight">
             <span className="text-base font-bold text-fg-primary tracking-[0.2px]">Personal OS</span>
-            <span className="text-[9px] font-medium text-fg-tertiary">v{pkg.version}</span>
+            <span className="text-[10px] text-fg-tertiary tracking-[0.2px]">v{pkg.version}</span>
           </Link>
           <nav className="hidden md:flex items-center gap-0.5 flex-1 min-w-0 overflow-x-auto no-scrollbar">
             {MODULES.map(m => (

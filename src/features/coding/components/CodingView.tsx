@@ -101,7 +101,7 @@ export default function CodingView({ dailyAssignment, codingStats, calendar, cod
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-start">
         <DailyCodingCard initialAssignment={dailyAssignment} stats={codingStats} />
         <Card title="Contribution Calendar">
-          <CodingCalendar days={calendar} />
+          <CodingCalendar days={calendar} currentStreak={codingStats.currentStreak} longestStreak={codingStats.longestStreak} />
         </Card>
       </div>
 

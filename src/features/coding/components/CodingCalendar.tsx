@@ -20,11 +20,18 @@ const WEEKDAYS = ['S', 'M', 'T', 'W', 'T', 'F', 'S']
 // rather than a rolling heatmap strip — navigation is bounded to whatever
 // date range `days` (up to 182 days, computeCodingCalendar) actually covers,
 // since there's no data before or after that fetched window.
-export default function CodingCalendar({ days }: { days: CalendarDay[] }) {
+export default function CodingCalendar({ days, currentStreak, longestStreak }: { days: CalendarDay[]; currentStreak: number; longestStreak: number }) {
   const statusByDate = useMemo(() => new Map(days.map(d => [d.date, d.status])), [days])
   const minDate = useMemo(() => days.reduce((min, d) => (d.date < min ? d.date : min), days[0]?.date ?? ''), [days])
   const maxDate = useMemo(() => days.reduce((max, d) => (d.date > max ? d.date : max), days[0]?.date ?? ''), [days])
   const today = todayIST()
+
+  // Share of past days (across the whole fetched window, not just the
+  // visible month) with any activity logged — same "count/total, rounded"
+  // recipe as computeCodingStats' completionRate, just over calendar days
+  // instead of assigned questions.
+  const pastDays = days.filter(d => d.date <= today)
+  const activeRate = pastDays.length ? Math.round((pastDays.filter(d => d.status === 'solved' || d.status === 'partial').length / pastDays.length) * 100) : 0
 
   const now = new Date()
   const [viewYear, setViewYear] = useState(now.getFullYear())
@@ -67,7 +74,7 @@ export default function CodingCalendar({ days }: { days: CalendarDay[] }) {
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-3 gap-2.5">
+      <div className="flex items-center justify-between mb-3.5 gap-2.5 flex-wrap">
         <button onClick={goPrev} disabled={!canGoPrev} aria-label="Previous month"
           className="w-[26px] h-[26px] rounded-[6px] border border-border-strong text-fg-secondary disabled:opacity-30 disabled:pointer-events-none hover:bg-surface-2 transition-colors">
           ‹
@@ -77,6 +84,21 @@ export default function CodingCalendar({ days }: { days: CalendarDay[] }) {
           className="w-[26px] h-[26px] rounded-[6px] border border-border-strong text-fg-secondary disabled:opacity-30 disabled:pointer-events-none hover:bg-surface-2 transition-colors">
           ›
         </button>
+      </div>
+
+      <div className="grid grid-cols-3 gap-2 mb-3.5">
+        <div className="bg-surface-2 rounded-[10px] px-3 py-[9px]">
+          <div className="text-[16px] font-bold text-fg-primary">{currentStreak}</div>
+          <div className="text-[10.5px] text-fg-tertiary mt-px">Current streak</div>
+        </div>
+        <div className="bg-surface-2 rounded-[10px] px-3 py-[9px]">
+          <div className="text-[16px] font-bold text-fg-primary">{longestStreak}</div>
+          <div className="text-[10.5px] text-fg-tertiary mt-px">Best streak</div>
+        </div>
+        <div className="bg-surface-2 rounded-[10px] px-3 py-[9px]">
+          <div className="text-[16px] font-bold text-fg-primary">{activeRate}%</div>
+          <div className="text-[10.5px] text-fg-tertiary mt-px">Active days</div>
+        </div>
       </div>
 
       <div className="grid grid-cols-7 gap-[5px] mb-[5px]">
@@ -116,11 +138,11 @@ export default function CodingCalendar({ days }: { days: CalendarDay[] }) {
         {monthCounts.solved ?? 0} solved · {monthCounts.partial ?? 0} partial · {monthCounts.missed ?? 0} missed this month
       </p>
 
-      <div className="flex items-center gap-3.5 mt-3 text-[11px] text-fg-tertiary flex-wrap">
-        <span>🟢 Solved</span>
-        <span>🟡 Partial</span>
-        <span>🔴 Missed</span>
-        <span>⚪ No assignment</span>
+      <div className="flex items-center gap-4 mt-3 text-[11px] text-fg-tertiary flex-wrap">
+        <span className="flex items-center gap-1.5"><span className="w-[9px] h-[9px] rounded-[2px] bg-good inline-block" />Solved</span>
+        <span className="flex items-center gap-1.5"><span className="w-[9px] h-[9px] rounded-[2px] bg-warn inline-block" />Partial</span>
+        <span className="flex items-center gap-1.5"><span className="w-[9px] h-[9px] rounded-[2px] bg-risk inline-block" />Missed</span>
+        <span className="flex items-center gap-1.5"><span className="w-[9px] h-[9px] rounded-[2px] bg-border inline-block" />No assignment</span>
       </div>
     </div>
   )

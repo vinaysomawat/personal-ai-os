@@ -1,4 +1,49 @@
-# Design Re-sync Changelog — 2026-08-10
+# Design Re-sync Changelog — Round 2 (2026-08-10, same day as Round 1)
+
+Re-sync against the same live Claude Design project, re-fetched fresh. The design changed again since Round 1 (below) — a real byte-level diff against Round 1's raw extraction (still on disk from earlier this session) confirmed the design grew from 261399 to 261414 chars, with structural changes isolated to exactly 3 places: the shell header/nav, Career's `isCareer` block, and Coding's `isCoding` block. Everything else (Planner, Finance, Health, Learning, Documents, Settings, Quiz modal, Add Expense/Application modals, generic modals, all 5 generic advisor panels, Ask Brain, Executive Summary) is byte-identical to Round 1's already-synced state — confirmed via diff, not assumed, so those modules were not re-touched.
+
+## Round 2 summary
+
+| Area | Changed | Added | Removed | Unresolved (flagged, not built) |
+|---|---|---|---|---|
+| Shell logo/version | 1 | 0 | 0 | 0 |
+| Career | 0 | 0 | 1 (no code impact) | 0 |
+| Coding | 2 | 1 | 0 | 1 (new "Today's Quiz" feature) |
+| Tokens | 0 | 0 | 0 | — |
+
+### Shell logo/version
+
+| # | Element | old → new | Verdict |
+|---|---|---|---|
+| 2b | Nav logo version line | `text-[9px] font-medium` (this project's own same-session addition, coincidentally overlapping with what the design independently added) → design's exact `text-[10px]`, no weight override | CHANGED | `TopNav.tsx`. Kept the value dynamic (`v{pkg.version}`) rather than the mock's static `"v1.0.0"` — real data beats a hardcoded mock string. |
+
+### Career
+
+| # | Element | old → new | Verdict |
+|---|---|---|---|
+| — | Hand-rolled "Goals" mock inside `isCareer` (`careerGoals` list, add-goal input, 19 lines) | present → **removed from the design entirely** | REMOVED — no code impact. The repo never mirrored this exact markup (`CAREER-AUDIT.md` already had it explicitly out of scope, always rendering the real shared `GoalsCard` instead). The design just cleaned up its own now-redundant mock. |
+
+### Coding
+
+| # | Element | old → new | Verdict |
+|---|---|---|---|
+| F9 | Calendar legend | emoji dots (`🟢🟡🔴⚪`) → colored squares (9×9px, 2px radius, plain `--good`/`--warn`/`--risk`/`--border`), `gap:16px` | CHANGED | `CodingCalendar.tsx`. "No assignment" copy kept over design's literal "None" (pre-existing OPEN call, unaffected). |
+| F10 | Calendar header row | `mb-3`, no wrap → `mb-3.5`, `flex-wrap` | CHANGED | `CodingCalendar.tsx`. |
+| F11 | Calendar stats row (new) | missing → 3-tile grid: Current streak / Best streak / Active days | ADDED | `CodingCalendar.tsx` + `CodingView.tsx` (passes `codingStats.currentStreak`/`.longestStreak` through; "Active days" is a new deterministic `%` computed in `CodingCalendar.tsx` from the existing `days` prop — no AI, Product Principle 2). |
+| G1 | Goals section | single-goal progress bar → **removed from the design**, replaced by "Today's Quiz" (G2) | REMOVED — no code impact | Matches the product's own independent removal of Coding's Goals card earlier this session. |
+| G2 | "Today's Quiz" (new) | missing → a full 10-question warm-up-quiz feature (question bank, answer state, scoring, retake) | **ADDED — flagged, NOT implemented** | Genuinely new feature (data model + state + scoring), not a style diff — needs its own spec/go-ahead per this project's workflow rules, not silently built during a design-fidelity pass. See `audit/Coding-AUDIT.md` G2 for the full design spec captured for whenever this gets picked up. |
+
+### Tokens
+
+Re-checked the `<style>` block (dark/light color vars, density padding) — byte-identical to Round 1 and to `globals.css`. 0 changes.
+
+### Verification
+
+`npx tsc --noEmit` and `npx eslint src/` both clean. `npm run build` succeeded. Manually verified the byte-diff coverage was exhaustive — all 11 diff hunks between Round 1's raw extraction and this fetch were accounted for above (including 3 hunks that were purely internal to the design's own JS mock/state script, e.g. `TODAYS_QUIZ_BANK`'s data and an unrelated old calendar-computation cleanup at the file's tail, neither of which has any template-visible effect beyond what's already listed).
+
+---
+
+# Design Re-sync Changelog — Round 1 (2026-08-10)
 
 Full re-sync against the live Claude Design project (`040b5aee-a63a-4215-afee-fa1e00b56f95`, "Personal OS Dashboard prototype"), a single `Dashboard.dc.html` covering every module, modal, and advisor panel. Design file is the source of truth; the per-module `audit/*.md` files were the diff baseline (now updated to match this pass). Only CHANGED/ADDED/REMOVED rows are listed below — see each module's `audit/<Module>-AUDIT.md` for full row-by-row detail including UNCHANGED/OPEN rows.
 
