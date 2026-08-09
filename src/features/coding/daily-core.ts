@@ -220,32 +220,6 @@ export function computeWeakAreas(history: DailyQuestion[], minSample = 2): WeakA
     .sort((a, b) => b.struggleRate - a.struggleRate)
 }
 
-export interface DifficultyProgressionPoint {
-  weekStart: string
-  easy: number
-  medium: number
-  hard: number
-}
-
-// Deterministic weekly bucketing of solved counts by difficulty, oldest
-// first — feeds a trend chart the same way Dashboard/Health's already do.
-export function computeDifficultyProgression(history: DailyQuestion[], weeks = 12): DifficultyProgressionPoint[] {
-  const since = new Date(Date.now() - weeks * 7 * 86400000)
-  const buckets = new Map<string, { easy: number; medium: number; hard: number }>()
-  for (const row of history) {
-    if (!row.completed || !row.completed_at) continue
-    const d = new Date(row.completed_at)
-    if (d < since) continue
-    const weekStart = new Date(d)
-    weekStart.setUTCDate(weekStart.getUTCDate() - weekStart.getUTCDay())
-    const key = weekStart.toISOString().split('T')[0]
-    const entry = buckets.get(key) ?? { easy: 0, medium: 0, hard: 0 }
-    entry[row.question.difficulty]++
-    buckets.set(key, entry)
-  }
-  return [...buckets.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([weekStart, v]) => ({ weekStart, ...v }))
-}
-
 // Auto-detected complement to the manual `needs_revision` toggle — same 14-day
 // idle rule as Learning's getResourcesNeedingRevision, adapted for the fact
 // that a question can be re-assigned and re-solved after the rotation pool
