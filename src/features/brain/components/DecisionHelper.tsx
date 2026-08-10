@@ -8,7 +8,7 @@ import type { BrainContext, Decision } from '../types'
 const QUICK_DECISIONS = [
   'Should I switch jobs?',
   'Can I afford a car?',
-  'Should I stop my SIP?',
+  'Should I prepay my loan?',
 ]
 
 export default function DecisionHelper({ context }: { context: BrainContext }) {

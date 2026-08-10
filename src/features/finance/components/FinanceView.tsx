@@ -10,7 +10,7 @@ import { todayIST } from '@/lib/date'
 import {
   addExpense, deleteExpense, upsertBudget,
   upsertProfile, addLoan, deleteLoan, updateLoanTerms,
-  addInvestment, updateInvestmentValue, updateInvestmentAmount, updateSipSettings, deleteInvestment,
+  addInvestment, updateInvestmentValue, updateInvestmentAmount, deleteInvestment,
   addGoal, updateGoalProgress, deleteGoal,
   addRecurringExpense, toggleRecurringExpense, deleteRecurringExpense,
 } from '../actions'
@@ -104,7 +104,6 @@ export default function FinanceView({ expenses, budgets, profile, loans, investm
   const [editingGoalId, setEditingGoalId] = useState<string | null>(null)
   const [editInput, setEditInput] = useState('')
   const [expandedCategory, setExpandedCategory] = useState<string | null>(null)
-  const [addingSip, setAddingSip] = useState(false)
 
   // AI Advisor
   const [advisorTab, setAdvisorTab] = useState<'ask' | 'simulate'>('ask')
@@ -141,18 +140,13 @@ export default function FinanceView({ expenses, budgets, profile, loans, investm
   // category that's over — not an aggregate "over budget overall" figure.
   const overBudgetCategory = byCategory.find(c => c.budget > 0 && c.spent > c.budget) ?? null
 
-  const sips = localInvestments.filter(i => i.is_sip)
-  const lumpSum = localInvestments.filter(i => !i.is_sip)
   const renderInvestmentItem = (inv: Investment) => {
     const gain = Number(inv.current_value) - Number(inv.invested_amount)
     const gainPct = Number(inv.invested_amount) > 0 ? (gain / Number(inv.invested_amount)) * 100 : 0
     return (
       <li key={inv.id} className="flex items-center gap-x-1.5 gap-y-1 flex-wrap text-[12.5px] text-fg-secondary group">
-        {inv.is_sip && (
-          <button type="button" onClick={() => handleCancelSip(inv.id)} title="Cancel SIP (keeps the investment)" className="text-fg-quaternary hover:text-red-400 transition-colors text-xs p-0.5 -m-0.5">✕</button>
-        )}
-        <span className={`text-[10px] font-bold uppercase px-1.5 py-0.5 rounded-full shrink-0 ${inv.is_sip ? (inv.sip_amount !== null ? 'bg-accent-soft text-accent' : 'bg-surface-3 text-fg-tertiary') : 'bg-surface-3 text-fg-tertiary'}`}>
-          {inv.is_sip ? 'SIP' : (INVESTMENT_TYPES.find(t => t.value === inv.type)?.label ?? inv.type)}
+        <span className="text-[10px] font-bold uppercase px-1.5 py-0.5 rounded-full shrink-0 bg-surface-3 text-fg-tertiary">
+          {INVESTMENT_TYPES.find(t => t.value === inv.type)?.label ?? inv.type}
         </span>
         <span>{inv.name} —</span>
         <span className="flex items-center gap-1">
@@ -162,14 +156,6 @@ export default function FinanceView({ expenses, budgets, profile, loans, investm
           <InlineEdit value={String(inv.invested_amount)} prefix="₹" textSize="text-[12.5px]" inputWidth="w-24" onSave={v => handleInvAmountSave(inv.id, v)} /> invested
         </span>
         <span className={gain >= 0 ? 'text-green-400' : 'text-red-400'}>({gain >= 0 ? '+' : ''}{fmt(gain)} · {gainPct.toFixed(1)}%)</span>
-        {inv.is_sip && inv.sip_amount !== null && (
-          <span className="text-accent flex items-center gap-1">
-            <Repeat size={10} /> {fmt(Number(inv.sip_amount))}/mo · day {inv.sip_day_of_month}
-          </span>
-        )}
-        {inv.is_sip && inv.sip_amount === null && (
-          <span className="text-[11px] text-fg-quaternary">Contributions stopped — investment kept.</span>
-        )}
         <button onClick={() => handleDeleteInvestment(inv.id)} aria-label="Delete investment" className={deleteGlyphBtn}>✕</button>
       </li>
     )
@@ -192,11 +178,6 @@ export default function FinanceView({ expenses, budgets, profile, loans, investm
     startTransition(() => deleteInvestment(id))
   }
 
-  const handleCancelSip = (id: string) => {
-    setLocalInvestments(prev => prev.map(i => i.id === id ? { ...i, sip_amount: null, sip_day_of_month: null } : i))
-    startTransition(() => updateSipSettings(id, null))
-  }
-
   const handleInvValueSave = (id: string, v: string) => {
     const n = parseFloat(v)
     if (isNaN(n)) return
@@ -204,8 +185,6 @@ export default function FinanceView({ expenses, budgets, profile, loans, investm
     startTransition(() => updateInvestmentValue(id, n))
   }
 
-  // SIP top-ups grow invested_amount each installment — edit in place instead
-  // of deleting and re-adding the investment.
   const handleInvAmountSave = (id: string, v: string) => {
     const n = parseFloat(v)
     if (isNaN(n)) return
@@ -518,22 +497,7 @@ export default function FinanceView({ expenses, budgets, profile, loans, investm
             {localInvestments.length === 0 ? (
               <EmptyState icon={Target} message="No investments added" compact cta={{ label: 'Add', onClick: () => setModal('investment') }} />
             ) : (
-              <div className="space-y-3">
-                {sips.length > 0 && (
-                  <div>
-                    <p className="text-[10.5px] text-fg-tertiary uppercase tracking-[0.4px] font-bold mb-1.5">SIPs</p>
-                    <ul className="flex flex-col gap-2">{sips.map(inv => renderInvestmentItem(inv))}</ul>
-                  </div>
-                )}
-                <div>
-                  <p className="text-[10.5px] text-fg-tertiary uppercase tracking-[0.4px] font-bold mb-1.5">Lump Sum</p>
-                  {lumpSum.length === 0 ? (
-                    <p className="text-xs text-fg-quaternary">No lump-sum investments yet.</p>
-                  ) : (
-                    <ul className="flex flex-col gap-2">{lumpSum.map(inv => renderInvestmentItem(inv))}</ul>
-                  )}
-                </div>
-              </div>
+              <ul className="flex flex-col gap-2">{localInvestments.map(inv => renderInvestmentItem(inv))}</ul>
             )}
           </Card>
 
@@ -704,20 +668,14 @@ export default function FinanceView({ expenses, budgets, profile, loans, investm
                 const invested = parseFloat(fd.get('invested') as string)
                 const current = parseFloat(fd.get('current') as string)
                 const notes = fd.get('notes') as string || null
-                const sipAmount = addingSip ? parseFloat(fd.get('sipAmount') as string) : NaN
-                const sipDay = addingSip ? parseInt(fd.get('sipDay') as string, 10) : NaN
                 if (!name || !type || isNaN(invested)) return
-                if (addingSip && (isNaN(sipAmount) || isNaN(sipDay))) return
-                const sip = addingSip ? { amount: sipAmount, dayOfMonth: sipDay } : undefined
                 const newInv = {
                   id: `temp-${Date.now()}`, user_id: '', name, type, invested_amount: invested, current_value: current || invested, notes,
-                  is_sip: !!sip, sip_amount: sip?.amount ?? null, sip_day_of_month: sip?.dayOfMonth ?? null, sip_last_contribution_month: null,
                   updated_at: new Date().toISOString(), created_at: new Date().toISOString(),
                 }
                 setLocalInvestments(prev => [...prev, newInv])
                 setModal(null)
-                setAddingSip(false)
-                await addInvestment(name, type, invested, current || invested, notes, sip)
+                await addInvestment(name, type, invested, current || invested, notes)
               }}>
                 <div>
                   <label className={modalLabelClass}>Name</label>
@@ -741,26 +699,8 @@ export default function FinanceView({ expenses, budgets, profile, loans, investm
                     <input name="current" type="number" placeholder="120000" className={modalInputClass()} />
                   </div>
                 </div>
-                <label className="flex items-center gap-2 text-xs text-fg-secondary cursor-pointer">
-                  <input type="checkbox" checked={addingSip} onChange={e => setAddingSip(e.target.checked)} className="accent-accent" />
-                  This is a SIP — auto-update invested amount monthly
-                </label>
-                {addingSip && (
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className={modalLabelClass}>Monthly SIP (₹)</label>
-                      <input name="sipAmount" type="number" placeholder="5000" required className={modalInputClass(invalidFields.has('sipAmount'))} />
-                      <FieldError show={invalidFields.has('sipAmount')} />
-                    </div>
-                    <div>
-                      <label className={modalLabelClass}>Contribution day</label>
-                      <input name="sipDay" type="number" min={1} max={28} placeholder="5" required className={modalInputClass(invalidFields.has('sipDay'))} />
-                      <FieldError show={invalidFields.has('sipDay')} />
-                    </div>
-                  </div>
-                )}
                 <div className="flex justify-end gap-2.5 mt-1.5">
-                  <button type="button" onClick={() => { setModal(null); setAddingSip(false) }} className={modalCancelButtonClass}>Cancel</button>
+                  <button type="button" onClick={() => setModal(null)} className={modalCancelButtonClass}>Cancel</button>
                   <button type="submit" className={modalSaveButtonClass}>Save</button>
                 </div>
               </form>

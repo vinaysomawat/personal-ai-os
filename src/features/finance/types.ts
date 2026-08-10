@@ -45,10 +45,6 @@ export interface Investment {
   invested_amount: number
   current_value: number
   notes: string | null
-  is_sip: boolean
-  sip_amount: number | null
-  sip_day_of_month: number | null
-  sip_last_contribution_month: string | null
   updated_at: string
   created_at: string
 }

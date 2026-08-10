@@ -147,15 +147,13 @@ export async function updateLoanTerms(id: string, updates: { emi?: number; inter
 }
 
 export async function addInvestment(
-  name: string, type: InvestmentType, investedAmount: number, currentValue: number, notes: string | null,
-  sip?: { amount: number; dayOfMonth: number }
+  name: string, type: InvestmentType, investedAmount: number, currentValue: number, notes: string | null
 ) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return
   const { error } = await supabase.from('investments').insert({
     user_id: user.id, name, type, invested_amount: investedAmount, current_value: currentValue, notes,
-    is_sip: !!sip, sip_amount: sip?.amount ?? null, sip_day_of_month: sip?.dayOfMonth ?? null,
   })
   if (error) throw new Error(error.message)
   revalidatePath('/finance')
@@ -168,24 +166,9 @@ export async function updateInvestmentValue(id: string, currentValue: number) {
   revalidatePath('/finance')
 }
 
-// Lets a SIP's invested_amount be topped up each installment without
-// deleting and re-adding the investment.
 export async function updateInvestmentAmount(id: string, investedAmount: number) {
   const supabase = await createClient()
   const { error } = await supabase.from('investments').update({ invested_amount: investedAmount, updated_at: new Date().toISOString() }).eq('id', id)
-  if (error) throw new Error(error.message)
-  revalidatePath('/finance')
-}
-
-// Edits or cancels an existing SIP without needing to delete and re-add the
-// investment. Passing null cancels contributions but keeps is_sip true —
-// the investment stays grouped under SIPs (cancelled) rather than jumping to
-// Lump Sum, since it's a stopped SIP, not something that was never one.
-export async function updateSipSettings(id: string, sip: { amount: number; dayOfMonth: number } | null) {
-  const supabase = await createClient()
-  const { error } = await supabase.from('investments').update({
-    is_sip: true, sip_amount: sip?.amount ?? null, sip_day_of_month: sip?.dayOfMonth ?? null,
-  }).eq('id', id)
   if (error) throw new Error(error.message)
   revalidatePath('/finance')
 }

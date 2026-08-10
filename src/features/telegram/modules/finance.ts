@@ -195,6 +195,6 @@ export async function execute(action: Record<string, unknown>, db: SupabaseClien
     }
 
     default:
-      return `*Finance Bot — What I can do:*\n\n💸 *Expenses:*\n• "spent 500 on Swiggy food"\n• "show today's expenses"\n• "monthly summary"\n• "set food budget 8000"\n• "actually make that 400" (amend)\n• "undo that"\n\n🔁 *Recurring:*\n• "rent is 15000 every month"\n• "show my recurring expenses"\n\n📊 *Portfolio:*\n• "net worth"\n• "my salary is 120000"\n• "add home loan 20L EMI 15000 180 months"\n• "add SIP Axis Bluechip invested 50000 current 65000"\n\n🤖 *AI Advisor:*\n• "can I afford a car?"\n• "should I prepay my loan?"`
+      return `*Finance Bot — What I can do:*\n\n💸 *Expenses:*\n• "spent 500 on Swiggy food"\n• "show today's expenses"\n• "monthly summary"\n• "set food budget 8000"\n• "actually make that 400" (amend)\n• "undo that"\n\n🔁 *Recurring:*\n• "rent is 15000 every month"\n• "show my recurring expenses"\n\n📊 *Portfolio:*\n• "net worth"\n• "my salary is 120000"\n• "add home loan 20L EMI 15000 180 months"\n• "add investment Axis Bluechip invested 50000 current 65000"\n\n🤖 *AI Advisor:*\n• "can I afford a car?"\n• "should I prepay my loan?"`
   }
 }

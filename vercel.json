@@ -21,10 +21,6 @@
       "schedule": "10 3 * * *"
     },
     {
-      "path": "/api/cron/sip-contribution",
-      "schedule": "15 3 * * *"
-    },
-    {
       "path": "/api/cron/daily-read",
       "schedule": "20 3 * * *"
     },
