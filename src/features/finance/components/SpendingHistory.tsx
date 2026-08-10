@@ -1,20 +1,12 @@
 'use client'
 
 import { useMemo, useState } from 'react'
-import { ResponsiveContainer, BarChart, Bar, XAxis, CartesianGrid, Tooltip, PieChart, Pie, Cell } from 'recharts'
+import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, PieChart, Pie, Cell } from 'recharts'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import Card from '@/components/Card'
+import { CHART_AXIS_TICK, CHART_TOOLTIP_CLASS, FINANCE_CATEGORY_CHART_COLOR, FINANCE_CATEGORY_CHART_FALLBACK } from '@/lib/chart-theme'
 
 interface ExpenseRow { amount: number; category: string; date: string }
-
-// Mirrors FinanceView's CATEGORY_COLOR pairing (Health/EMIs both risk-toned,
-// etc.) but as real fill values — SVG fill can't consume Tailwind classes.
-const CATEGORY_CHART_COLOR: Record<string, string> = {
-  Food: '#f97316', Transport: '#3b82f6', Housing: '#a855f7', Health: 'var(--risk)',
-  Shopping: '#ec4899', Entertainment: '#06b6d4', Learning: 'var(--good)', Utilities: 'var(--warn)',
-  EMIs: 'var(--risk)', Bills: '#6366f1', Other: '#94a3b8',
-}
-const FALLBACK_COLOR = '#94a3b8'
 
 function fmt(n: number) {
   return new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(n)
@@ -43,7 +35,7 @@ function BarTooltip({ active, payload }: { active?: boolean; payload?: { payload
   if (!active || !payload?.length) return null
   const p = payload[0].payload
   return (
-    <div className="bg-surface-2 border border-surface-3 rounded-lg px-2.5 py-1.5 text-xs">
+    <div className={CHART_TOOLTIP_CLASS}>
       <p className="text-fg-tertiary">{monthLabel(p.month)}</p>
       <p className="text-fg-primary font-semibold tabular-nums">{fmt(p.total)}</p>
     </div>
@@ -54,7 +46,7 @@ function PieTooltip({ active, payload }: { active?: boolean; payload?: { payload
   if (!active || !payload?.length) return null
   const p = payload[0].payload
   return (
-    <div className="bg-surface-2 border border-surface-3 rounded-lg px-2.5 py-1.5 text-xs">
+    <div className={CHART_TOOLTIP_CLASS}>
       <p className="text-fg-primary font-semibold">{p.name}</p>
       <p className="text-fg-tertiary tabular-nums">{fmt(p.value)}</p>
     </div>
@@ -99,24 +91,24 @@ export default function SpendingHistory({ expenseHistory, currentMonth }: { expe
 
   return (
     <Card title="Spending History">
-      <div className="h-36 mb-4">
+      <div style={{ height: 100 }} className="mb-4">
         <ResponsiveContainer width="100%" height="100%">
-          <BarChart data={monthlyTotals} margin={{ top: 8, right: 0, bottom: 0, left: 0 }}>
-            <CartesianGrid vertical={false} stroke="var(--border)" strokeWidth={1} />
+          <BarChart data={monthlyTotals} margin={{ top: 0, right: 0, bottom: 0, left: 0 }} barCategoryGap="12%">
+            <YAxis hide domain={[0, 'dataMax']} />
             <XAxis
               dataKey="month"
               tickFormatter={monthLabel}
-              tick={{ fill: 'var(--text-tertiary)', fontSize: 10 }}
-              axisLine={{ stroke: 'var(--border)' }}
+              tick={{ ...CHART_AXIS_TICK, fontSize: 9.5 }}
+              axisLine={false}
               tickLine={false}
-              interval={1}
+              interval={0}
             />
             <Tooltip content={<BarTooltip />} cursor={{ fill: 'var(--surface-2)' }} />
-            <Bar dataKey="total" radius={[3, 3, 0, 0]}>
+            <Bar dataKey="total" radius={[3, 3, 0, 0]} isAnimationActive={false}>
               {monthlyTotals.map(m => (
                 <Cell
                   key={m.month}
-                  fill={m.month === selectedMonth ? 'var(--accent)' : 'var(--border)'}
+                  fill={m.month === selectedMonth ? 'var(--accent)' : 'var(--border-strong)'}
                   cursor="pointer"
                   onClick={() => setSelectedMonth(m.month)}
                 />
@@ -157,8 +149,8 @@ export default function SpendingHistory({ expenseHistory, currentMonth }: { expe
                     in the DOM (recharts-pie-sector groups) but their <path> never
                     paints, leaving an empty donut. Disabling animation renders the
                     final state immediately instead of an animated transition into it. */}
-                <Pie data={categoryBreakdown} dataKey="value" nameKey="name" innerRadius={30} outerRadius={54} paddingAngle={2} strokeWidth={0} isAnimationActive={false}>
-                  {categoryBreakdown.map(c => <Cell key={c.name} fill={CATEGORY_CHART_COLOR[c.name] ?? FALLBACK_COLOR} />)}
+                <Pie data={categoryBreakdown} dataKey="value" nameKey="name" innerRadius={0} outerRadius={64} paddingAngle={0} strokeWidth={0} isAnimationActive={false}>
+                  {categoryBreakdown.map(c => <Cell key={c.name} fill={FINANCE_CATEGORY_CHART_COLOR[c.name] ?? FINANCE_CATEGORY_CHART_FALLBACK} />)}
                 </Pie>
                 <Tooltip content={<PieTooltip />} />
               </PieChart>
@@ -169,7 +161,7 @@ export default function SpendingHistory({ expenseHistory, currentMonth }: { expe
               const pct = selectedTotal > 0 ? (c.value / selectedTotal) * 100 : 0
               return (
                 <li key={c.name} className="flex items-center gap-2 text-[12.5px]">
-                  <span className="w-2 h-2 rounded-full shrink-0" style={{ background: CATEGORY_CHART_COLOR[c.name] ?? FALLBACK_COLOR }} />
+                  <span className="w-[9px] h-[9px] rounded-[3px] shrink-0" style={{ background: FINANCE_CATEGORY_CHART_COLOR[c.name] ?? FINANCE_CATEGORY_CHART_FALLBACK }} />
                   <span className="flex-1 text-fg-secondary truncate">{c.name}</span>
                   <span className="text-fg-secondary tabular-nums shrink-0">{fmt(c.value)}</span>
                   <span className="text-fg-tertiary tabular-nums shrink-0 w-8 text-right">{pct.toFixed(0)}%</span>

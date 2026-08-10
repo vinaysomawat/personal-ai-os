@@ -4,17 +4,14 @@ import { useState } from 'react'
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip } from 'recharts'
 import Card from '@/components/Card'
 import FilterPill from '@/components/FilterPill'
+import { CHART_GRID_STROKE, CHART_AXIS_TICK, CHART_TOOLTIP_CLASS, HEALTH_METRIC_CHART_COLOR } from '@/lib/chart-theme'
 import type { HealthMetric, MetricField } from '../types'
 
-const GRID = '#26263a'
-const AXIS_TEXT = '#64748b'
-const SURFACE = '#16161d'
-
 const METRIC_CONFIG: { field: MetricField; label: string; color: string; decimals: number }[] = [
-  { field: 'weight_kg', label: 'Weight',   color: '#7c6af7', decimals: 1 },
-  { field: 'calories',  label: 'Calories', color: '#f97316', decimals: 0 },
-  { field: 'protein_g', label: 'Protein',  color: '#22c55e', decimals: 0 },
-  { field: 'steps',     label: 'Steps',    color: '#06b6d4', decimals: 0 },
+  { field: 'weight_kg', label: 'Weight',   color: HEALTH_METRIC_CHART_COLOR.weight_kg, decimals: 1 },
+  { field: 'calories',  label: 'Calories', color: HEALTH_METRIC_CHART_COLOR.calories, decimals: 0 },
+  { field: 'protein_g', label: 'Protein',  color: HEALTH_METRIC_CHART_COLOR.protein_g, decimals: 0 },
+  { field: 'steps',     label: 'Steps',    color: HEALTH_METRIC_CHART_COLOR.steps, decimals: 0 },
 ]
 
 function formatDate(dateStr: string): string {
@@ -26,7 +23,7 @@ function CustomTooltip({ active, payload, decimals }: { active?: boolean; payloa
   if (!active || !payload?.length || payload[0].payload.value === null) return null
   const point = payload[0].payload
   return (
-    <div className="bg-surface-2 border border-surface-3 rounded-lg px-2.5 py-1.5 text-xs">
+    <div className={CHART_TOOLTIP_CLASS}>
       <p className="text-fg-tertiary">{formatDate(point.date)}</p>
       <p className="text-fg-primary font-semibold tabular-nums">{point.value!.toFixed(decimals)}</p>
     </div>
@@ -65,24 +62,24 @@ export default function HealthTrend({ metrics }: { metrics: HealthMetric[] }) {
         <div className="h-40">
           <ResponsiveContainer width="100%" height="100%">
             <LineChart data={points} margin={{ top: 8, right: 8, bottom: 0, left: 0 }}>
-              <CartesianGrid vertical={false} stroke={GRID} strokeWidth={1} />
+              <CartesianGrid vertical={false} stroke={CHART_GRID_STROKE} strokeWidth={1} />
               <XAxis
                 dataKey="date"
                 tickFormatter={formatDate}
-                tick={{ fill: AXIS_TEXT, fontSize: 11 }}
-                axisLine={{ stroke: GRID }}
+                tick={CHART_AXIS_TICK}
+                axisLine={{ stroke: CHART_GRID_STROKE }}
                 tickLine={false}
                 interval={range === 'weekly' ? 0 : 4}
               />
               <YAxis
-                tick={{ fill: AXIS_TEXT, fontSize: 11 }}
+                tick={CHART_AXIS_TICK}
                 tickFormatter={v => Number(v).toFixed(config.decimals)}
                 axisLine={false}
                 tickLine={false}
                 width={44}
                 domain={['auto', 'auto']}
               />
-              <Tooltip content={<CustomTooltip decimals={config.decimals} />} cursor={{ stroke: GRID, strokeWidth: 1 }} />
+              <Tooltip content={<CustomTooltip decimals={config.decimals} />} cursor={{ stroke: CHART_GRID_STROKE, strokeWidth: 1 }} />
               <Line
                 type="monotone"
                 dataKey="value"
@@ -91,7 +88,7 @@ export default function HealthTrend({ metrics }: { metrics: HealthMetric[] }) {
                 strokeLinecap="round"
                 dot={false}
                 connectNulls
-                activeDot={{ r: 5, fill: config.color, stroke: SURFACE, strokeWidth: 2 }}
+                activeDot={{ r: 5, fill: config.color, stroke: 'var(--card)', strokeWidth: 2 }}
               />
             </LineChart>
           </ResponsiveContainer>
