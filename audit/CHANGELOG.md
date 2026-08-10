@@ -1,3 +1,41 @@
+# Design Re-sync — Round 4 (2026-08-10)
+
+Re-fetched the design fresh and diffed byte-for-byte against Round 3's raw extraction (still on disk). Confirmed the change was isolated to exactly 3 areas — Dashboard, Career, Coding — everything else (Planner, Finance, Health, Learning, Documents, Settings, all modals, all advisor panels, Today's Quiz's own template) is byte-identical to Round 3's already-synced state and was not re-touched.
+
+## Summary
+
+| Module | Changed | Added | Removed | Notes |
+|---|---|---|---|---|
+| Dashboard | 0 | 0 | 2 (Goal Progress bars, Goals cross-module card) | Underlying data (`financialGoals`, `crossModuleGoals`) untouched — still feeds Ask Brain's context |
+| Career | 0 | 0 | 0 | Card order reorder — design caught up to match code, no action needed |
+| Coding | 4 | 0 | 0 (round 2's stats-tile ADDED is now itself CHANGED to a summary line) | Contribution Calendar spacing + streak/active summary format |
+
+### Dashboard
+
+| # | Element | old → new | Verdict |
+|---|---|---|---|
+| 36-38 | Goal Progress bars (Quick Stats) | present → **removed from the design** | REMOVED. Deleted from `QuickStats.tsx`/`DashboardView.tsx`. `data.financialGoals` fetch untouched (still used by Ask Brain's context). |
+| 65 | Goals cross-module card | present → **removed from the design** | REMOVED. Deleted the whole card + `MODULE_BADGE_COLOR` from `DashboardView.tsx`. `crossModuleGoals` computation in `actions.ts` untouched (still used by Ask Brain's context). |
+
+### Career
+
+Card order changed in the design from Career Profile→Applications→Job Alerts→Interview Prep to Applications→Job Alerts→Interview Prep→Career Profile (content byte-identical — a pure reorder). `CareerView.tsx` already renders cards in the new order (confirmed by line number) — the design caught up to the code, not the other way around. No change needed.
+
+### Coding — Contribution Calendar
+
+| # | Element | old → new | Verdict |
+|---|---|---|---|
+| F9 | Legend swatches | 9px, row gap 16px, swatch gap 6px, text 11px → 8px, 12px, 5px, 10.5px | CHANGED |
+| F10 | Header row margin-bottom | 14px → 10px | CHANGED |
+| F11 | Streak/active stats | 3-tile grid (Current streak/Best streak/Active days, added round 2) → single line `"🔥 {current} current · {best} best streak · {active}/{tracked} active this month"` | CHANGED. Streak numbers now computed **locally per visible month** from the calendar's own cell data (design's actual algorithm), not passed through from `codingStats` as round 2 assumed. "Active" is a fraction (`18/25`), not a percentage. |
+| F12 | Grid gaps + selected-detail box | grid gap 5px→4px, weekday label 10.5px→10px, detail box 12px/8px·12px/10px → 11.5px/6px·10px/8px | CHANGED |
+
+### Verification
+
+`tsc`/`eslint` clean, `npm run build` clean. Audit files updated: `DASHBOARD-AUDIT.md`, `CAREER-AUDIT.md`, `Coding-AUDIT.md`.
+
+---
+
 # Today's Quiz — built, then redesigned same day (Round 3, 2026-08-10)
 
 Round 2 (below) flagged Coding's new "Today's Quiz" section as a real feature needing a spec/go-ahead rather than a silent design-fidelity build, and captured the design's then-current spec (an all-questions-at-once list). Given the go-ahead (static curated pool + persisted attempts, both recommended defaults), it was built accordingly — then, mid-build, a fresh design fetch showed the design itself had changed again: from "show all N questions in one list" to a one-question-at-a-time stepper with a progress bar and a summary screen, and the mock's progress-segment count confirmed 10 questions/day (matching an explicit ask to raise it from an initial 3).

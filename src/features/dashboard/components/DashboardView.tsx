@@ -26,8 +26,7 @@ import { todayISTLabel, istHour } from '@/lib/date'
 type DashboardData = Awaited<ReturnType<typeof getDashboardData>>
 
 export default function DashboardView({ data, executive }: { data: DashboardData; executive: ExecutiveData }) {
-  const { botActivity, stats, scores, scoreTips, scoreHistory, todayHealth, aiBudget, topActions, todayProgress, crossModuleGoals } = data
-  const MODULE_BADGE_COLOR: Record<string, string> = { Career: 'var(--accent)', Coding: '#22d3ee', Learning: '#a78bfa' }
+  const { botActivity, stats, scores, scoreTips, scoreHistory, todayHealth, aiBudget, topActions, todayProgress } = data
   const scoreExplanation = explainScore(scoreHistory, scores, scoreTips)
   const brainContext = buildBrainContext(data)
   const today = todayISTLabel()
@@ -111,7 +110,6 @@ export default function DashboardView({ data, executive }: { data: DashboardData
           budgetRemaining={stats.monthBudget - stats.monthSpend}
           budgetTotal={stats.monthBudget}
           workoutDoneToday={stats.workoutsToday > 0}
-          goals={data.financialGoals}
         />
       </div>
 
@@ -185,43 +183,6 @@ export default function DashboardView({ data, executive }: { data: DashboardData
           ))}
         </div>
       </div>
-
-      {/* Goal Engine: cross-module goals (Career/Learning/Coding) — data was
-          already fetched (getDashboardData's crossModuleGoals, also used by
-          Ask Brain's context), just not surfaced on the page until now. */}
-      {crossModuleGoals.length > 0 && (
-        <div className="bg-surface-1 border border-surface-3 rounded-[18px] shadow-card p-[18px_20px]">
-          <p className="text-[13px] font-bold text-fg-primary mb-1">Goals</p>
-          <p className="text-[11px] text-fg-tertiary mb-3.5">Cross-module goals from Career, Learning, and Coding, resolved live.</p>
-          <div className="flex flex-col gap-2.5">
-            {crossModuleGoals.map((g, i) => {
-              const pct = g.target != null ? Math.min(100, Math.round(((g.current ?? 0) / g.target) * 100)) : null
-              return (
-                <Link key={i} href={`/${g.module.toLowerCase()}`}
-                  className="flex items-center gap-3 bg-surface-2 rounded-lg px-3.5 py-2.5">
-                  <span className="text-[10px] font-bold uppercase px-2 py-[3px] rounded-[5px] bg-surface-3 shrink-0" style={{ color: MODULE_BADGE_COLOR[g.module] }}>
-                    {g.module}
-                  </span>
-                  <span className="flex-1 text-sm text-fg-primary">{g.name}</span>
-                  {pct === null ? (
-                    <span className={`text-[11.5px] font-semibold shrink-0 ${g.achieved ? 'text-good' : 'text-fg-tertiary'}`}>
-                      {g.achieved ? '✓ Achieved' : 'In progress'}
-                    </span>
-                  ) : (
-                    <div className="w-[90px] shrink-0">
-                      <div className="h-[5px] rounded-full bg-surface-3 overflow-hidden">
-                        <div className="h-full rounded-full bg-accent" style={{ width: `${pct}%` }} />
-                      </div>
-                      <p className="text-[10.5px] text-fg-tertiary mt-0.5 text-right">{g.current}/{g.target}</p>
-                    </div>
-                  )}
-                </Link>
-              )
-            })}
-          </div>
-          <Link href="/career" className="block text-xs font-semibold text-accent pt-2.5">Manage Career goals →</Link>
-        </div>
-      )}
 
       {/* Module grid */}
       <div>
