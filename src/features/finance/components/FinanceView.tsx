@@ -450,18 +450,16 @@ export default function FinanceView({ expenses, budgets, profile, loans, investm
                             <span className={`text-[9.5px] font-bold uppercase px-1.5 py-0.5 rounded ${tier === 'over' ? 'bg-risk-soft text-red-400' : 'bg-warn-soft text-amber-400'}`}>{badgeText}</span>
                           )}
                         </span>
-                        <span className="text-fg-tertiary whitespace-nowrap">
+                        <button
+                          onClick={e => { e.stopPropagation(); setEditingBudget(cat); setBudgetInput(String(budget || '')) }}
+                          className="flex items-center gap-1 text-fg-tertiary whitespace-nowrap group"
+                        >
                           {budget > 0 ? <>{fmt(spent)} / {fmt(budget)} <span className={`font-semibold ${textColor}`}>({pctRaw}%)</span></> : fmt(spent)}
-                        </span>
+                          <Pencil size={10} className="opacity-0 group-hover:opacity-50 transition-opacity" />
+                        </button>
                       </div>
                       {budget > 0 && <div className="h-[6px] rounded-[4px] bg-border"><div className={`h-full rounded-[4px] ${barColor}`} style={{ width: `${pct}%` }} /></div>}
                     </div>
-                    <button
-                      onClick={e => { e.stopPropagation(); setEditingBudget(cat); setBudgetInput(String(budget || '')) }}
-                      className="text-[10px] text-fg-quaternary hover:text-fg-secondary transition-colors mt-1"
-                    >
-                      {budget > 0 ? 'Edit budget' : '+ Set budget'}
-                    </button>
                     {editingBudget === cat && (
                       <div className="flex gap-2 mt-2">
                         <input value={budgetInput} onChange={e => setBudgetInput(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') handleBudgetSave(cat); if (e.key === 'Escape') setEditingBudget(null) }} placeholder="Budget amount" type="number" autoFocus className="flex-1 bg-surface-2 border border-accent rounded-lg px-3 py-1.5 text-sm text-fg-primary outline-none" />
