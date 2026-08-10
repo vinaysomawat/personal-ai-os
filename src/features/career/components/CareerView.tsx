@@ -19,8 +19,6 @@ import { DIFFICULTY_CONFIG, QUIZ_TOPICS, READINESS_CONFIG } from '../types'
 import { useEscapeKey } from '@/lib/use-escape-key'
 import { useFormValidation } from '@/lib/use-form-validation'
 import FieldError from '@/components/FieldError'
-import GoalsCard from '@/features/goals/components/GoalsCard'
-import type { ResolvedGoal } from '@/features/goals/types'
 
 const STATUS_CONFIG: Record<AppStatus, { label: string; color: string; bg: string }> = {
   applied:   { label: 'Applied',   color: 'text-blue-400',   bg: 'bg-blue-400/10' },
@@ -115,11 +113,10 @@ interface Props {
   recommendedTopic: { topic: string; reason: string } | null
   codingStreak: number
   studyStreak: number
-  goals: ResolvedGoal[]
   jobAlerts: JobAlert[]
 }
 
-export default function CareerView({ applications, profile, skills, quizAttempts, recommendedTopic, codingStreak, studyStreak, goals, jobAlerts }: Props) {
+export default function CareerView({ applications, profile, skills, quizAttempts, recommendedTopic, codingStreak, studyStreak, jobAlerts }: Props) {
   const [, startTransition] = useTransition()
 
   const [localApps, setLocalApps] = useState(applications)
@@ -560,8 +557,6 @@ export default function CareerView({ applications, profile, skills, quizAttempts
           <ProfileField label="Bio / Focus" value={localProfile?.bio ?? ''} onSave={v => saveProfile('bio', v)} placeholder="Frontend + Testing specialist" />
         </div>
       </Card>
-
-      <GoalsCard module="career" initialGoals={goals} />
 
       {/* Quiz modal */}
       {quiz && (
