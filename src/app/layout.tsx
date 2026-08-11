@@ -38,7 +38,7 @@ const THEME_INIT_SCRIPT = `(function(){try{
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" data-density="comfortable" suppressHydrationWarning>
+    <html lang="en" data-density="compact" suppressHydrationWarning>
       <head>
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />

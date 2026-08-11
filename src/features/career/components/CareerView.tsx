@@ -315,7 +315,7 @@ export default function CareerView({ applications, profile, skills, quizAttempts
   ))
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-3">
       {advisorPortal}
       <div className="flex items-center gap-2.5 flex-wrap">
         <h1 className="text-[34px] font-bold tracking-[-0.02em] text-fg-primary">Career</h1>

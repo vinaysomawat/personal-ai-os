@@ -26,7 +26,7 @@ export default function Modal({ title, onClose, children, footer, maxWidthClass 
   return (
     <div className="fixed inset-0 bg-overlay flex items-center justify-center z-[60] p-4" onClick={onClose}>
       <div
-        className={`bg-surface-1 border border-surface-3 rounded-2xl p-6 w-full ${maxWidthClass} max-h-[85vh] overflow-y-auto shadow-popover animate-in fade-in zoom-in-95 duration-200`}
+        className={`bg-surface-1 border border-surface-3 rounded-2xl p-[var(--modal-pad)] w-full ${maxWidthClass} max-h-[85vh] overflow-y-auto shadow-popover animate-in fade-in zoom-in-95 duration-200`}
         onClick={e => e.stopPropagation()}
       >
         <div className="flex items-center justify-between mb-[18px]">
