@@ -248,8 +248,14 @@ export default function CareerView({ applications, profile, skills, quizAttempts
     if (!quiz) return
     const targetDifficulty = difficulty ?? quiz.difficulty
     setQuiz(q => q ? { ...q, difficulty: targetDifficulty, stage: 'generating' } : q)
-    const priorWeakAreas = [...new Set(localQuizAttempts.filter(a => a.topic === quiz.topic).flatMap(a => a.weak_areas))]
-    const questions = await generateTopicQuiz(quiz.topic, targetDifficulty, priorWeakAreas)
+    const priorWeakAreas = localQuizAttempts.filter(a => a.topic === quiz.topic).flatMap(a => a.weak_areas)
+    // Real pipeline signal, not just past quiz misses: a JD's own missingSkills
+    // for any active application that flagged this topic as a priority.
+    const jdMissingSkills = localApps
+      .filter(a => a.status !== 'rejected' && a.jd_analysis?.priorityTopics.includes(quiz.topic))
+      .flatMap(a => a.jd_analysis!.missingSkills)
+    const weakAreas = [...new Set([...priorWeakAreas, ...jdMissingSkills])]
+    const questions = await generateTopicQuiz(quiz.topic, targetDifficulty, weakAreas)
     if (questions.length === 0) { setQuiz(null); return }
     setQuiz(q => q ? { ...q, stage: 'taking', questions, answers: new Array(questions.length).fill(-1) } : q)
   }

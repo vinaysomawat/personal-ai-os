@@ -84,7 +84,7 @@ Analyze the fit and return ONLY a JSON object in this exact format:
 requiredSkills: the concrete skills/technologies this JD asks for.
 missingSkills: the subset of requiredSkills the candidate likely lacks or is weak on, based on their profile above.
 matchPercentage: your honest 0-100 estimate of how well the candidate profile matches this JD.
-priorityTopics: 3-5 topics worth prepping first for this specific role, ordered by priority.
+priorityTopics: 1-5 topics worth prepping first for this specific role, ordered by priority. Each MUST be exactly one of this fixed list (no other values): ${QUIZ_TOPICS.join(', ')}.
 companyFocus: one or two sentences on what this company likely emphasizes in interviews for this kind of role.`
 
   const raw = await askAI('jd_analysis', prompt, 'You are a sharp technical recruiter and hiring manager. Return only valid JSON, no explanation, no markdown fences.')
