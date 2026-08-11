@@ -1,11 +1,8 @@
 'use server'
 
-import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { computeCodingStats } from '@/features/coding/daily-core'
 import type { Goal, GoalModule, AutoMetric, ResolvedGoal } from './types'
-
-const MODULE_PATH: Record<GoalModule, string> = { career: '/career', learning: '/learning', coding: '/coding' }
 
 // Resolves live progress for auto-computed goals (Product Principle 2: no
 // AI, pure reuse of each module's existing data) rather than trusting the
@@ -33,40 +30,4 @@ export async function getGoals(module: GoalModule): Promise<ResolvedGoal[]> {
     ...g,
     resolvedCurrentValue: g.auto_metric ? await resolveAutoMetric(supabase, user.id, g.auto_metric) : g.current_value,
   })))
-}
-
-export async function addGoal(module: GoalModule, name: string, targetValue: number | null, autoMetric: AutoMetric | null, targetDate: string | null): Promise<void> {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return
-  const { error } = await supabase.from('goals').insert({
-    user_id: user.id, module, name, target_value: targetValue, auto_metric: autoMetric, target_date: targetDate,
-    current_value: autoMetric ? null : 0,
-  })
-  if (error) throw new Error(error.message)
-  revalidatePath(MODULE_PATH[module])
-}
-
-export async function updateGoalProgress(id: string, module: GoalModule, currentValue: number): Promise<void> {
-  const supabase = await createClient()
-  const { error } = await supabase.from('goals').update({ current_value: currentValue }).eq('id', id)
-  if (error) throw new Error(error.message)
-  revalidatePath(MODULE_PATH[module])
-}
-
-// Qualitative goals (no target/current value) toggle achieved_at instead —
-// there's no metric to show a percentage of, so this is the only "progress"
-// they have.
-export async function toggleGoalAchieved(id: string, module: GoalModule, achieved: boolean): Promise<void> {
-  const supabase = await createClient()
-  const { error } = await supabase.from('goals').update({ achieved_at: achieved ? new Date().toISOString() : null }).eq('id', id)
-  if (error) throw new Error(error.message)
-  revalidatePath(MODULE_PATH[module])
-}
-
-export async function deleteGoal(id: string, module: GoalModule): Promise<void> {
-  const supabase = await createClient()
-  const { error } = await supabase.from('goals').delete().eq('id', id)
-  if (error) throw new Error(error.message)
-  revalidatePath(MODULE_PATH[module])
 }

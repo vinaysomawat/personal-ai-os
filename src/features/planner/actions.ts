@@ -127,14 +127,3 @@ export async function deleteTask(id: string) {
   if (error) throw new Error(error.message)
   revalidatePath('/planner')
 }
-
-export async function updatePriority(id: string, priority: Priority) {
-  const supabase = await createClient()
-  const { error } = await supabase
-    .from('tasks')
-    .update({ priority })
-    .eq('id', id)
-
-  if (error) throw new Error(error.message)
-  revalidatePath('/planner')
-}

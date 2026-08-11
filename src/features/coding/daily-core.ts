@@ -8,17 +8,6 @@ export type Difficulty = 'easy' | 'medium' | 'hard'
 // auto-graded judge), so "accuracy" can only ever be what the user reports.
 export type Outcome = 'solved' | 'solved_with_help' | 'struggled'
 
-// Fixed taxonomy (mirrors Career's QUIZ_TOPICS pattern) rather than free-text
-// tags, so weak-area/company-topic matching has a finite, consistent set to
-// compare against. Assigned to the existing question pool via a one-time AI
-// backfill from title (see scratchpad backfill script, not part of the app).
-export const CODING_TOPICS = [
-  'JavaScript Fundamentals', 'Array & Object Methods', 'Async & Promises',
-  'DOM & Browser APIs', 'UI Components', 'React & State Management',
-  'Data Structures', 'Algorithms', 'System Design', 'Performance',
-  'TypeScript', 'CSS & Layout', 'Testing', 'Networking & APIs',
-] as const
-
 export interface CodingQuestion {
   id: string
   title: string
