@@ -454,7 +454,7 @@ export default function CareerView({ applications, profile, skills, quizAttempts
                       )}
 
                       <div className="pt-2.5 border-t border-surface-3">
-                        <p className="text-[11px] font-bold text-fg-tertiary uppercase tracking-[0.4px] mb-1.5">Company Insights</p>
+                        <p className="text-[11px] font-bold text-fg-tertiary uppercase tracking-[0.4px] mb-1.5">Interview Guidance</p>
                         {loadingInsightsFor === app.company ? (
                           <div className="space-y-2">{[85, 65].map((w, i) => <div key={i} className="h-3 rounded bg-surface-3 animate-pulse" style={{ width: `${w}%` }} />)}</div>
                         ) : app.company in companyInsights ? (
@@ -472,7 +472,7 @@ export default function CareerView({ applications, profile, skills, quizAttempts
                         ) : (
                           <button onClick={() => handleLoadCompanyInsights(app.company, app.role)}
                             className="text-xs px-3 py-1.5 rounded-lg border border-surface-3 text-fg-secondary hover:text-accent hover:border-accent/40 transition-colors">
-                            Load Company Insights
+                            Load Interview Guidance
                           </button>
                         )}
                       </div>
