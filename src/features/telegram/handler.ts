@@ -114,6 +114,22 @@ async function handleCallbackQuery(moduleName: ModuleName, update: TelegramUpdat
       const db = createServiceClient()
       const { data: row } = await db.from(table).select('*').eq('id', id).maybeSingle()
       await db.from(table).delete().eq('id', id)
+      // food_log rows are also rolled up into that day's health_metrics
+      // calories/protein_g total — undoing an entry has to subtract it back
+      // out, or the day's aggregate (Health Score, daily targets, Risk
+      // Engine's protein check) stays wrong even after the item is deleted.
+      if (table === 'food_log' && row) {
+        const { data: metrics } = await db.from('health_metrics').select('calories, protein_g').eq('user_id', row.user_id).eq('date', row.date).maybeSingle()
+        if (metrics) {
+          // health_metrics.calories/protein_g are integer columns — round the
+          // result even though food_log values are already whole numbers, so
+          // this stays safe if that ever changes.
+          await db.from('health_metrics').update({
+            calories: Math.max(0, Math.round((metrics.calories ?? 0) - Number(row.calories ?? 0))),
+            protein_g: Math.max(0, Math.round((metrics.protein_g ?? 0) - Number(row.protein_g ?? 0))),
+          }).eq('user_id', row.user_id).eq('date', row.date)
+        }
+      }
       const label = row ? UNDO_LABEL[table](row) : null
       await answerCallbackQuery(token, cq.id, label ? `🗑️ Undone: ${label}` : '🗑️ Undone')
       if (cq.message) await editMessageReplyMarkup(token, chatId, cq.message.message_id)

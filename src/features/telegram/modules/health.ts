@@ -7,6 +7,7 @@ export const SYSTEM_PROMPT = `You are the Health bot for Personal OS. Parse the 
 
 Actions:
 {"action":"log_metric","metric":"weight_kg|calories|protein_g|sleep_hours|steps|water_ml|recovery_score","value":number}
+{"action":"log_food","item":"food/drink name","quantity":number|null,"unit":"g"|"ml"|"piece"|null}
 {"action":"today_metrics"}
 {"action":"log_workout","workoutType":"Strength"|"Cardio"|"Run"|"Yoga"|"Sports"|"Other","minutes":number}
 {"action":"today_workout"}
@@ -27,6 +28,12 @@ Rules for log_metric:
 - "2 liters water" or "drank 1.5L" → convert to ml: {"action":"log_metric","metric":"water_ml","value":2000}
 - "feeling recovered, 4/5" or "recovery 3" → {"action":"log_metric","metric":"recovery_score","value":3} (scale 1-5)
 
+Rules for log_food — a NAMED food/drink the user ate/drank, where calories/protein need to be estimated (not a nutrient number they already computed themselves — that's log_metric above):
+- "200g chicken breast", "ate 200 grams of paneer" → {"action":"log_food","item":"chicken breast","quantity":200,"unit":"g"}
+- "drank 250ml milk", "300 ml orange juice" → {"action":"log_food","item":"orange juice","quantity":300,"unit":"ml"}
+- "2 rotis", "ate 2 rotis with dal and sabzi" → put the whole description in "item" and leave quantity/unit null when the quantity is a piece-count or the dish is compound/unclear: {"action":"log_food","item":"2 rotis with dal and sabzi","quantity":null,"unit":null}
+- Never route a log_food message to log_metric, and never route a bare calorie/protein number (e.g. "120g protein", "2000 calories") to log_food.
+
 Rules for workouts:
 - "did 45 min strength training", "went for a 30 min run", "I ran", "meditated for 20 min" → log_workout (a quick ad-hoc log, separate from the structured daily workout plan below)
 - "today's workout", "what's my workout", "workout plan" → today_workout
@@ -42,6 +49,8 @@ Always return valid JSON only. No explanation.`
 export const VISION_PROMPT = `You are the Health bot for Personal OS, looking at a photo of a meal. Estimate calories and protein as best you can — give a reasonable estimate, don't refuse just because it's approximate. Return ONLY a JSON array:
 [{"action":"log_metric","metric":"calories","value":<number>},{"action":"log_metric","metric":"protein_g","value":<number>}]
 If the photo isn't food, return {"action":"help"}.`
+
+const FOOD_NUTRITION_SYSTEM = `You are a nutrition estimation engine. Given a food or drink description (with or without a quantity), estimate total calories and protein for exactly that amount. Give a reasonable estimate even for compound/home-cooked dishes — never refuse. Return ONLY JSON: {"calories":<number>,"protein_g":<number>}. No explanation.`
 
 const METRIC_LABELS: Record<string, { label: string; unit: string; emoji: string }> = {
   weight_kg:      { label: 'Weight',   unit: 'kg',   emoji: '⚖️' },
@@ -68,6 +77,51 @@ export async function execute(action: Record<string, unknown>, db: SupabaseClien
       if (error) return `❌ ${error.message}`
       const m = METRIC_LABELS[metric]
       return `${m.emoji} Logged *${m.label}*: ${value}${m.unit ? ' ' + m.unit : ''} today!`
+    }
+
+    case 'log_food': {
+      const item = String(action.item ?? '').trim()
+      if (!item) return `❌ Couldn't tell what food that was — try "200g chicken breast".`
+      const quantity = action.quantity != null ? Number(action.quantity) : null
+      const unit = action.unit ? String(action.unit) : null
+      const description = quantity && unit ? `${quantity} ${unit} of ${item}` : item
+
+      const { askAI } = await import('@/lib/ai-gateway')
+      const raw = await askAI('estimate_food_nutrition', description, FOOD_NUTRITION_SYSTEM, { userId })
+      let nutrition: { calories: number; protein_g: number } | null = null
+      try {
+        const parsed = JSON.parse(raw)
+        if (typeof parsed?.calories === 'number' && typeof parsed?.protein_g === 'number') {
+          // health_metrics.calories/protein_g are integer columns — round here
+          // once so every downstream read/write (insert, aggregate add, undo
+          // decrement) works with whole numbers instead of failing an upsert
+          // on a fractional value like an AI-estimated "8.2g protein".
+          nutrition = { calories: Math.round(parsed.calories), protein_g: Math.round(parsed.protein_g) }
+        }
+      } catch {
+        // falls through to the null-check below
+      }
+      if (!nutrition) return `❌ Couldn't estimate nutrition for "${description}" — try again shortly, or log it directly (e.g. "350 calories, 40g protein").`
+
+      const { data: logged, error: insertError } = await db.from('food_log').insert({
+        user_id: userId, date: today, item, quantity, unit,
+        calories: nutrition.calories, protein_g: nutrition.protein_g,
+      }).select('id').single()
+      if (insertError) return `❌ ${insertError.message}`
+
+      const { data: existing } = await db.from('health_metrics').select('calories, protein_g').eq('user_id', userId).eq('date', today).maybeSingle()
+      const totalCalories = (existing?.calories ?? 0) + nutrition.calories
+      const totalProtein = (existing?.protein_g ?? 0) + nutrition.protein_g
+      const { error: updateError } = await db.from('health_metrics').upsert(
+        { user_id: userId, date: today, calories: totalCalories, protein_g: totalProtein },
+        { onConflict: 'user_id,date' }
+      )
+      if (updateError) return `❌ Logged the item but couldn't update today's total: ${updateError.message}`
+
+      return {
+        text: `🍽️ Logged *${description}* — ~${nutrition.calories} kcal, ${nutrition.protein_g}g protein.\n\n📊 Today so far: *${totalCalories} kcal*, *${totalProtein}g protein*`,
+        buttons: [[undoButton('food_log', logged.id)]],
+      }
     }
 
     case 'today_metrics': {
@@ -170,6 +224,7 @@ export async function execute(action: Record<string, unknown>, db: SupabaseClien
     default:
       return `*Health Bot — What I can do:*\n\n` +
         `📊 *Metrics:*\n• "weight 88kg"\n• "slept 7.5 hours"\n• "8000 steps"\n• "2000 calories"\n• "120g protein"\n• "2L water"\n• "recovery 4/5"\n• "today's metrics"\n\n` +
+        `🍽️ *Food (auto nutrition):*\n• "200g chicken breast"\n• "drank 250ml milk"\n• "2 rotis with dal"\n\n` +
         `🏋️ *Workouts:*\n• "did 45 min strength training"\n• "30 min run"\n• "today's workout"\n• "finished my workout"\n• "skip today's workout"\n• "undo that workout"\n\n` +
         `🎓 *Coaching:*\n• "what should I do today"\n• "how was my week"\n• "why isn't my weight moving"`
   }

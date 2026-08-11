@@ -36,6 +36,7 @@ export type AITask =
   | 'daily_journal'
   | 'finance_scenario'
   | 'evening_reflection'
+  | 'estimate_food_nutrition'
 
 interface TaskConfig {
   model: string
@@ -80,6 +81,7 @@ const TASK_CONFIG: Record<AITask, TaskConfig> = {
   daily_journal:          { model: SONNET_MODEL, cacheTTLSeconds: SIX_HOURS,  fallback: '' },
   finance_scenario:       { model: SONNET_MODEL, cacheTTLSeconds: null,       fallback: BUDGET_FALLBACK },
   evening_reflection:     { model: SONNET_MODEL, cacheTTLSeconds: SIX_HOURS,  fallback: '' },
+  estimate_food_nutrition:{ model: SONNET_MODEL, cacheTTLSeconds: SEVEN_DAYS, fallback: 'null' },
 }
 
 // Static per-model pricing, USD per 1M tokens (Sonnet 4.6 / Haiku 4.5).
