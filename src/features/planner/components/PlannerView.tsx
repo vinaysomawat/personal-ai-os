@@ -275,7 +275,7 @@ export default function PlannerView({ initialTasks }: Props) {
   ))
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       {advisorPortal}
       <div className="flex items-center justify-between flex-wrap gap-2.5">
         <div className="flex items-center gap-3 flex-wrap">

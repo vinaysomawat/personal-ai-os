@@ -220,7 +220,7 @@ export default function HealthView({ initialMetrics, initialProfile, initialWork
   const workoutStatusLabel = { pending: '🏋️ Workout pending', in_progress: '🏋️ Workout in progress', completed: '🏋️ Workout done', skipped: '🏋️ Workout skipped' }[initialDailyWorkout?.status ?? 'pending']
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       {advisorPortal}
       <div className="flex items-center gap-3 flex-wrap">
         <h1 className="text-[34px] font-bold tracking-[-0.02em] text-fg-primary">Health</h1>
