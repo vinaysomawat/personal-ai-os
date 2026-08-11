@@ -29,7 +29,7 @@ export default function TodaysInsight({ pattern }: { pattern: RecentPattern | nu
         <>
           <p className="text-[13.5px] leading-[1.55] text-fg-secondary">{pattern.pattern}</p>
           <div className="flex items-center gap-2 mt-3">
-            <span className="text-[10px] font-bold uppercase tracking-[0.3px] text-warn bg-surface-2 rounded-[5px] px-2 py-[3px]">Confirmed pattern</span>
+            <span className="text-[10px] font-bold uppercase tracking-[0.3px] text-warn bg-warn-soft rounded-[5px] px-2 py-[3px]">Confirmed pattern</span>
             <span className="text-xs text-fg-tertiary">{moduleForPattern(pattern.pattern)} · seen {pattern.timesConfirmed}× in last 30 days</span>
           </div>
         </>

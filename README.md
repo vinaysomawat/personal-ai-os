@@ -380,7 +380,7 @@ This app is a single-user system — there's no way around some manual setup and
 
 Everything below is extracted directly from `tailwind.config.js`, `globals.css`, and the shared component source — this is what's actually rendered today, not an aspirational spec. Written as a standalone reference so it can be handed to a design tool without needing the rest of this document.
 
-**Theme**: dark-only. `src/app/layout.tsx` sets `<html className="dark">` unconditionally — there is no light mode toggle anywhere in the app, even though `globals.css` still defines an unused `:root` light-theme token set alongside the active `.dark` one.
+**Theme**: both dark and light are live, `[data-theme="dark"|"light"]` on `<html>` (`src/app/layout.tsx`), not a hardcoded `.dark` class. Defaults by time of day (6am-6pm → light, else dark) via a blocking inline script (`THEME_INIT_SCRIPT`) that runs before paint to avoid a flash of the wrong theme, then a manual override persists in `localStorage` once the user toggles it — a sun/moon button in `TopNav.tsx`, next to the AI-advisor trigger. `ThemeProvider.tsx` owns the toggle state; `globals.css`'s `[data-theme='light']` token block is fully active, not dead weight.
 
 **Color tokens** (`tailwind.config.js` + `globals.css` `.dark` block):
 
