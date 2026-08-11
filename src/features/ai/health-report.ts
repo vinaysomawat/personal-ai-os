@@ -77,7 +77,6 @@ export async function askHealthCoach(question: string, profile: HealthProfile | 
 
   const context = `Vinay's health snapshot (last ${recentMetrics.length} days logged):
 - Age/gender/height: ${profile?.age ?? '?'} / ${profile?.gender ?? '?'} / ${profile?.height_cm ?? '?'}cm
-- Target weight: ${profile?.target_weight_kg ?? 'not set'}kg
 - Activity level: ${profile?.activity_level ?? 'not set'}
 - Current weight: ${withWeight.at(-1)?.weight_kg ?? 'not logged'}kg${weightTrend ? ` (${Number(weightTrend) > 0 ? '+' : ''}${weightTrend}kg over this window)` : ''}
 - Avg calories: ${avg(recentMetrics.filter(m => m.calories !== null).map(m => m.calories!)) ?? 'not logged'} kcal/day
