@@ -46,7 +46,14 @@ export default function HealthScoreHero({ score, onEditProfile }: { score: Healt
         )}
       </div>
       <div className="flex items-center gap-[18px]">
-        <div className="relative shrink-0 rounded-full" style={{ width: 82, height: 82, background: `conic-gradient(var(--good) ${deg}deg, var(--border) ${deg}deg 360deg)` }}>
+        <div
+          className="relative shrink-0 rounded-full"
+          style={{
+            width: 82, height: 82,
+            background: `conic-gradient(from -90deg, var(--good), var(--cyan) ${deg}deg, var(--border) ${deg}deg 360deg)`,
+            filter: 'drop-shadow(0 0 7px color-mix(in srgb, var(--cyan) calc(var(--ring-glow-strength) * 100%), transparent))',
+          }}
+        >
           <div className="absolute inset-2 rounded-full bg-surface-1 flex items-center justify-center">
             <span className="text-xl font-bold text-fg-primary tabular-nums">{score.overall}</span>
           </div>

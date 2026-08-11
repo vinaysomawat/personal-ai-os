@@ -79,6 +79,9 @@
     --risk-border: rgba(248, 113, 113, 0.35);
     --risk-strong: #fca5a5;
 
+    --cyan: #22d3ee;
+    --ring-glow-strength: 0.45;
+
     /* shadcn aliases */
     --background: var(--bg);
     --foreground: var(--text-primary);
@@ -135,6 +138,9 @@
     --risk-soft: rgba(220, 38, 38, 0.08);
     --risk-border: rgba(220, 38, 38, 0.25);
     --risk-strong: #b91c1c;
+
+    --cyan: #0891b2;
+    --ring-glow-strength: 0.16;
 
     /* shadcn aliases */
     --background: var(--bg);

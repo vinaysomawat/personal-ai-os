@@ -535,7 +535,7 @@ export default function CareerView({ applications, profile, skills, quizAttempts
                 className="relative flex flex-col items-start p-3 rounded-[10px] border border-surface-3 bg-surface-2 hover:bg-surface-3 transition-colors text-left">
                 <span className="absolute top-2.5 right-2.5 w-[7px] h-[7px] rounded-full" style={{ background: rcfg.color }} />
                 <span className="text-[12.5px] font-semibold text-fg-primary pr-3">{topic}</span>
-                <span className="text-[11px] font-semibold mt-0.5" style={{ color: rcfg.color }}>{rcfg.label}{avgPercent !== null ? ` · ${avgPercent}%` : ''}</span>
+                <span className="text-[10.5px] font-bold mt-1.5 px-2.5 py-[3px] rounded-full inline-block" style={{ color: rcfg.color, background: rcfg.bg }}>{rcfg.label}{avgPercent !== null ? ` · ${avgPercent}%` : ''}</span>
                 <span className="text-[10.5px] text-fg-tertiary mt-[3px]">{lastAttempt ? `Last score: ${Math.round((lastAttempt.score / lastAttempt.total) * 100)}%` : 'No attempts yet'}</span>
               </button>
             )

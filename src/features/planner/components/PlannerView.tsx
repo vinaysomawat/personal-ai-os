@@ -110,12 +110,12 @@ function ExecutiveSummaryTrigger() {
   )
 }
 
-// Raw CSS-var color values (not Tailwind classes) — design's task-row priority
-// indicator is a plain colored uppercase text label, not a pill.
-const priorityColorVar: Record<Priority, string> = {
-  high: 'var(--risk)',
-  medium: 'var(--warn)',
-  low: 'var(--text-tertiary)',
+// Design's task-row priority indicator is a soft-bg chip (matches the same
+// bg-*-soft + colored-text pattern already used for Finance/Learning pills).
+const PRIORITY_CHIP: Record<Priority, string> = {
+  high: 'bg-risk-soft text-red-400',
+  medium: 'bg-warn-soft text-amber-400',
+  low: 'bg-surface-2 text-fg-tertiary',
 }
 
 // A task's "relevant month" is its due_date's month if set, else the month
@@ -150,7 +150,7 @@ function PendingTaskRow({ task, onToggle, onDelete }: { task: Task; onToggle: (i
           <ExternalLink size={13} />
         </a>
       )}
-      <div className="shrink-0 text-[11px] font-bold uppercase tracking-[0.3px]" style={{ color: priorityColorVar[task.priority] }}>
+      <div className={`shrink-0 text-[10.5px] font-bold uppercase tracking-[0.3px] px-2.5 py-[3px] rounded-full ${PRIORITY_CHIP[task.priority]}`}>
         {task.priority}
       </div>
       <button onClick={() => onDelete(task.id)} aria-label="Delete task" className="shrink-0 opacity-0 group-hover:opacity-100 text-fg-quaternary hover:text-red-400 transition-all">

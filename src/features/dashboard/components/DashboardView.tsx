@@ -176,7 +176,7 @@ export default function DashboardView({ data, executive }: { data: DashboardData
           {moduleScores.map(({ label, score, color, to, tip }) => (
             <Link key={to} href={to} title={tip}
               className="flex flex-col items-center gap-2 text-center hover:scale-[1.03] transition-transform group">
-              <MiniRing score={score} color={color} size={74} />
+              <MiniRing score={score} color={color} size={74} glow />
               <p className="text-xs font-semibold text-fg-secondary group-hover:text-fg-primary">{label}</p>
               <p className="text-[9.5px] text-fg-tertiary leading-tight truncate max-w-[90px]">{tip}</p>
             </Link>

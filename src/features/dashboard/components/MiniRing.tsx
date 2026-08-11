@@ -16,17 +16,21 @@ const KNOWN_SIZES: Record<number, { inset: number; fontSize: number }> = {
   52: { inset: 6, fontSize: 12 },
 }
 
-export default function MiniRing({ score, color, size = 40, suffix = '' }: { score: number; color: string; size?: number; suffix?: string }) {
+export default function MiniRing({ score, color, size = 40, suffix = '', glow = false }: { score: number; color: string; size?: number; suffix?: string; glow?: boolean }) {
   const animated = useCountUp(score)
   const deg = (animated / 100) * 360
   const known = KNOWN_SIZES[size]
   const inset = known ? known.inset : Math.max(2, Math.round(size * 0.08))
   const fontSize = known ? known.fontSize : Math.max(9, Math.round(size * 0.26))
+  // design's ringStyle() glow option: a soft drop-shadow in the ring's own
+  // color, strength tuned per-theme via --ring-glow-strength (dark needs a
+  // stronger glow to read against a dark background than light does).
+  const filter = glow ? `drop-shadow(0 0 ${Math.round(size * 0.09)}px color-mix(in srgb, ${color} calc(var(--ring-glow-strength) * 100%), transparent))` : undefined
 
   return (
     <div
       className="relative rounded-full"
-      style={{ width: size, height: size, background: `conic-gradient(${color} ${deg}deg, var(--border) ${deg}deg 360deg)` }}
+      style={{ width: size, height: size, background: `conic-gradient(${color} ${deg}deg, var(--border) ${deg}deg 360deg)`, filter }}
     >
       <div className="absolute rounded-full bg-surface-1 flex items-center justify-center" style={{ inset }}>
         <span className="font-bold tabular-nums" style={{ color, fontSize }}>{animated}{suffix}</span>

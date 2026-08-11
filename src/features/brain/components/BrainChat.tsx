@@ -49,9 +49,14 @@ export default function BrainChat({ context }: { context: BrainContext }) {
         <div className="space-y-3 max-h-72 overflow-y-auto pr-1">
           {messages.map((m, i) => (
             <div key={i} className={m.role === 'user' ? 'text-right' : ''}>
-              <p className={`inline-block text-sm rounded-lg px-3 py-2 max-w-[90%] text-left whitespace-pre-wrap ${m.role === 'user' ? 'bg-accent/15 text-fg-primary' : 'bg-surface-2 text-fg-secondary'}`}>
+              <div className={`inline-block text-sm rounded-lg px-3 py-2 max-w-[90%] text-left whitespace-pre-wrap ${m.role === 'user' ? 'bg-accent/15 text-fg-primary' : 'bg-surface-2 text-fg-secondary'}`}>
+                {m.role !== 'user' && (
+                  <div className="flex items-center gap-1 text-[9.5px] font-bold text-accent-strong uppercase tracking-[0.4px] mb-[5px]">
+                    <span>◆</span>Brain
+                  </div>
+                )}
                 {m.content}
-              </p>
+              </div>
             </div>
           ))}
           {loading && (

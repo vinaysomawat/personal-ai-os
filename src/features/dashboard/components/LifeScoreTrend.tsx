@@ -108,9 +108,9 @@ export default function LifeScoreTrend({ scoreHistory }: { scoreHistory: ScorePo
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={points} margin={{ top: 0, right: 0, bottom: 0, left: 0 }}>
                 <YAxis hide domain={[domainMin, domainMax]} />
-                <ReferenceLine y={domainMin} stroke={CHART_GRID_STROKE} strokeWidth={1} />
-                <ReferenceLine y={domainMid} stroke={CHART_GRID_STROKE} strokeWidth={1} />
-                <ReferenceLine y={domainMax} stroke={CHART_GRID_STROKE} strokeWidth={1} />
+                <ReferenceLine y={domainMin} stroke={CHART_GRID_STROKE} strokeWidth={1} strokeDasharray="2 3" label={{ value: Math.round(domainMin), position: 'insideTopRight', fill: 'var(--text-quaternary)', fontSize: 9 }} />
+                <ReferenceLine y={domainMid} stroke={CHART_GRID_STROKE} strokeWidth={1} strokeDasharray="2 3" label={{ value: Math.round(domainMid), position: 'insideTopRight', fill: 'var(--text-quaternary)', fontSize: 9 }} />
+                <ReferenceLine y={domainMax} stroke={CHART_GRID_STROKE} strokeWidth={1} strokeDasharray="2 3" label={{ value: Math.round(domainMax), position: 'insideTopRight', fill: 'var(--text-quaternary)', fontSize: 9 }} />
                 <Tooltip content={<CustomTooltip />} cursor={{ stroke: 'var(--border)', strokeWidth: 1 }} />
                 <Area
                   type="linear"
