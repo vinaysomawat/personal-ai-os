@@ -9,6 +9,7 @@ import ModuleRecommendations from '@/components/ModuleRecommendations'
 import { useAIAdvisor, useAIAdvisorOpen } from '@/components/AIAdvisorProvider'
 import { addTask, toggleTask, deleteTask } from '../actions'
 import { getExecutiveSummaryData, type ExecutiveSummaryData } from '@/features/brain/advisor'
+import { logAdvisorUsage } from '@/lib/advisor-usage'
 import type { Task, Priority, Recurrence } from '../types'
 
 function ExecutiveSummaryTrigger() {
@@ -25,7 +26,12 @@ function ExecutiveSummaryTrigger() {
 
   return (
     <div className="relative">
-      <button onClick={() => setOpen(v => !v)}
+      <button onClick={() => {
+        // Logged here, not inside setOpen's updater -- see AIAdvisorProvider's
+        // toggle for why a side-effecting call belongs outside the updater.
+        if (!open) logAdvisorUsage('Executive Summary')
+        setOpen(v => !v)
+      }}
         className="flex items-center gap-1.5 px-3.5 py-[7px] rounded-full bg-accent-soft border border-accent-border text-accent-strong text-[12.5px] font-semibold hover:bg-accent/25 transition-colors">
         <span>◆</span> Executive Summary
       </button>

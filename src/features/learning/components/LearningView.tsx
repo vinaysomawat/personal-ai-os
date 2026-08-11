@@ -7,6 +7,7 @@ import EmptyState from '@/components/EmptyState'
 import StatCard from '@/components/StatCard'
 import FilterPill from '@/components/FilterPill'
 import ModuleRecommendations from '@/components/ModuleRecommendations'
+import { logAdvisorUsage } from '@/lib/advisor-usage'
 import Modal, { modalLabelClass, modalInputClass, modalSelectClass, modalCancelButtonClass, modalSaveButtonClass } from '@/components/Modal'
 import { useAIAdvisor, useAIAdvisorOpen } from '@/components/AIAdvisorProvider'
 import { addResource, updateResource, deleteResource, logStudySession, saveResourceQuizAttempt } from '../actions'
@@ -55,8 +56,8 @@ function StudyCoachContent({ isOpen, context, resources, studyLogs }: { isOpen: 
   return (
     <div>
       <div className="flex gap-1 mb-3 bg-surface-2 rounded-lg p-0.5">
-        <button onClick={() => setTab('recommendations')} className={`flex-1 text-xs py-1.5 rounded-md transition-colors ${tab === 'recommendations' ? 'bg-accent text-white' : 'text-fg-secondary hover:text-fg-secondary'}`}>Recommendations</button>
-        <button onClick={() => setTab('plan')} className={`flex-1 text-xs py-1.5 rounded-md transition-colors ${tab === 'plan' ? 'bg-accent text-white' : 'text-fg-secondary hover:text-fg-secondary'}`}>Daily Plan</button>
+        <button onClick={() => { setTab('recommendations'); logAdvisorUsage('Study Coach', 'recommendations') }} className={`flex-1 text-xs py-1.5 rounded-md transition-colors ${tab === 'recommendations' ? 'bg-accent text-white' : 'text-fg-secondary hover:text-fg-secondary'}`}>Recommendations</button>
+        <button onClick={() => { setTab('plan'); logAdvisorUsage('Study Coach', 'plan') }} className={`flex-1 text-xs py-1.5 rounded-md transition-colors ${tab === 'plan' ? 'bg-accent text-white' : 'text-fg-secondary hover:text-fg-secondary'}`}>Daily Plan</button>
       </div>
       {tab === 'recommendations' ? (
         <ModuleRecommendations moduleLabel="Learning" context={context} isOpen={isOpen && tab === 'recommendations'} />

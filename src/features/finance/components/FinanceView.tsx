@@ -22,6 +22,7 @@ import type { Expense, Budget, FinanceProfile, Loan, Investment, FinancialGoal, 
 import { useEscapeKey } from '@/lib/use-escape-key'
 import { useFormValidation } from '@/lib/use-form-validation'
 import FieldError from '@/components/FieldError'
+import { logAdvisorUsage } from '@/lib/advisor-usage'
 
 const CATEGORY_COLOR: Record<string, string> = {
   Food: 'bg-orange-500/15 text-orange-400', Transport: 'bg-blue-500/15 text-blue-400',
@@ -282,8 +283,8 @@ export default function FinanceView({ expenses, budgets, profile, loans, investm
   const advisorPortal = useAIAdvisor('Money Advisor', Sparkles, (
     <div className="space-y-3">
       <div className="flex gap-1 bg-surface-2 rounded-lg p-0.5">
-        <button onClick={() => setAdvisorTab('ask')} className={`flex-1 text-xs py-1.5 rounded-md transition-colors ${advisorTab === 'ask' ? 'bg-accent text-white' : 'text-fg-secondary hover:text-fg-secondary'}`}>Ask</button>
-        <button onClick={() => setAdvisorTab('simulate')} className={`flex-1 text-xs py-1.5 rounded-md transition-colors ${advisorTab === 'simulate' ? 'bg-accent text-white' : 'text-fg-secondary hover:text-fg-secondary'}`}>Simulate</button>
+        <button onClick={() => { setAdvisorTab('ask'); logAdvisorUsage('Money Advisor', 'ask') }} className={`flex-1 text-xs py-1.5 rounded-md transition-colors ${advisorTab === 'ask' ? 'bg-accent text-white' : 'text-fg-secondary hover:text-fg-secondary'}`}>Ask</button>
+        <button onClick={() => { setAdvisorTab('simulate'); logAdvisorUsage('Money Advisor', 'simulate') }} className={`flex-1 text-xs py-1.5 rounded-md transition-colors ${advisorTab === 'simulate' ? 'bg-accent text-white' : 'text-fg-secondary hover:text-fg-secondary'}`}>Simulate</button>
       </div>
 
       {advisorTab === 'ask' ? (

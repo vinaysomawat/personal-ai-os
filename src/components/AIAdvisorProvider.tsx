@@ -4,6 +4,7 @@ import { createContext, useContext, useEffect, useRef, useState, type ReactNode 
 import { createPortal } from 'react-dom'
 import { usePathname } from 'next/navigation'
 import { type LucideIcon } from 'lucide-react'
+import { logAdvisorUsage } from '@/lib/advisor-usage'
 
 interface AIAdvisorContextValue {
   label: string | null
@@ -46,7 +47,14 @@ export function AIAdvisorProvider({ children }: { children: ReactNode }) {
   const Icon = icon
 
   return (
-    <AIAdvisorContext.Provider value={{ label, icon, isOpen, toggle: () => setIsOpen(v => !v), registerTrigger, unregisterTrigger, panelBody, widthPx }}>
+    <AIAdvisorContext.Provider value={{ label, icon, isOpen, toggle: () => {
+      // Logged here, not inside the setIsOpen updater below -- an updater
+      // function must be pure; a side-effecting call inside one triggers
+      // React's "Cannot update a component while rendering a different
+      // component" warning and can double-fire under concurrent rendering.
+      if (!isOpen && label) logAdvisorUsage(label)
+      setIsOpen(v => !v)
+    }, registerTrigger, unregisterTrigger, panelBody, widthPx }}>
       {children}
       {/* Always mounted (never conditionally rendered on `label`) so bodyRef
           attaches on Provider's first render — otherwise the ref never

@@ -14,6 +14,7 @@ import { daysAgoIST } from '@/lib/date'
 import HealthProfileForm from './HealthProfileForm'
 import HealthScoreHero from './HealthScoreHero'
 import DailyWorkoutCard from './DailyWorkoutCard'
+import { logAdvisorUsage } from '@/lib/advisor-usage'
 import type { HealthMetric, MetricField, HealthProfile, Workout } from '../types'
 import type { DailyWorkout, WorkoutStats } from '../workout-core'
 
@@ -111,8 +112,8 @@ function HealthCoachContent({ isOpen, context, metrics }: { isOpen: boolean; con
   return (
     <div>
       <div className="flex gap-1 mb-3 bg-surface-2 rounded-lg p-0.5">
-        <button onClick={() => setTab('recommendations')} className={`flex-1 text-xs py-1.5 rounded-md transition-colors ${tab === 'recommendations' ? 'bg-accent text-white' : 'text-fg-secondary hover:text-fg-secondary'}`}>Recommendations</button>
-        <button onClick={() => setTab('report')} className={`flex-1 text-xs py-1.5 rounded-md transition-colors ${tab === 'report' ? 'bg-accent text-white' : 'text-fg-secondary hover:text-fg-secondary'}`}>Weekly Report</button>
+        <button onClick={() => { setTab('recommendations'); logAdvisorUsage('Health Coach', 'recommendations') }} className={`flex-1 text-xs py-1.5 rounded-md transition-colors ${tab === 'recommendations' ? 'bg-accent text-white' : 'text-fg-secondary hover:text-fg-secondary'}`}>Recommendations</button>
+        <button onClick={() => { setTab('report'); logAdvisorUsage('Health Coach', 'report') }} className={`flex-1 text-xs py-1.5 rounded-md transition-colors ${tab === 'report' ? 'bg-accent text-white' : 'text-fg-secondary hover:text-fg-secondary'}`}>Weekly Report</button>
       </div>
       {tab === 'recommendations' ? (
         <ModuleRecommendations moduleLabel="Health" context={context} isOpen={isOpen && tab === 'recommendations'} />
