@@ -313,7 +313,7 @@ Standard pattern: `user_id uuid references auth.users` + 4 RLS policies (select/
 | `workouts` | date, type, duration_minutes, notes — ad-hoc log; auto-fed by the Daily Workout Planner on completion |
 | `food_log` | date, item, quantity, unit, calories, protein_g — ad-hoc AI-estimated food/drink log, Health Telegram bot only (§5); additively rolls up into that day's `health_metrics.calories`/`protein_g` |
 | `workout_library` | name, category, difficulty, duration_minutes, estimated_calories, primary_muscles, secondary_muscles, equipment, environment, warmup, exercises (jsonb), cardio (jsonb), cooldown, coach_tips, tags — global pool, 55 rows, no `user_id` |
-| `daily_workouts` | workout_id, status (pending/in_progress/completed/skipped), assigned_date, completed_at, task_id (links to `tasks`) |
+| `daily_workouts` | workout_id, status (pending/in_progress/completed/skipped), assigned_date, completed_at, task_id (links to `tasks`) — a partial unique index (`daily_workouts_one_active_per_user`, on `user_id` where `status in ('pending','in_progress')`) enforces "one active workout at a time" at the DB level, added 2026-08-11 after a real race condition (concurrent web + Telegram calls to `generateWorkoutForUser()`) created two active rows for the same user; `generateWorkoutForUser()` now catches the resulting unique-violation and defers to whichever concurrent call won |
 | `health_profile` | age, gender, height_cm, target_weight_kg, activity_level, workout_days_per_week, food_preference, goal_deadline (one row/user; target_weight_kg/goal_deadline unused — see §5) |
 | `resources` | title, type, url, category, status, progress, notes, task_id (links to `tasks`), estimated_minutes |
 | `study_logs` | date, resource_id, duration_minutes, notes |

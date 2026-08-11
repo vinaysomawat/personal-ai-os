@@ -141,11 +141,21 @@ export async function generateWorkoutForUser(supabase: SupabaseClient, userId: s
     .select('id')
     .single()
 
-  const { data: row } = await supabase
+  const { data: row, error } = await supabase
     .from('daily_workouts')
     .insert({ user_id: userId, workout_id: picked.id, assigned_date: todayStr(), status: 'pending', task_id: task?.id ?? null })
     .select('*, workout:workout_library(*)')
     .single()
+
+  // Lost a race against a concurrent call (e.g. web + Telegram both hitting
+  // this at once) — the DB's one-active-workout-per-user constraint
+  // (daily_workouts_one_active_per_user) rejected this insert because the
+  // other call's already won. Clean up the now-orphaned task and defer to
+  // whatever the winner created, instead of leaving a duplicate task behind.
+  if (error) {
+    if (task?.id) await supabase.from('tasks').delete().eq('id', task.id)
+    return getActiveWorkout(supabase, userId)
+  }
 
   return (row as unknown as DailyWorkout | null) ?? null
 }
