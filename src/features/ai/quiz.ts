@@ -46,17 +46,17 @@ interface TopicReadiness {
   daysSinceLastAttempt: number | null
 }
 
-export async function recommendQuizTopic(readinessByTopic: TopicReadiness[], targetRole: string | null, goalsContext = ''): Promise<{ topic: string; reason: string } | null> {
+export async function recommendQuizTopic(readinessByTopic: TopicReadiness[], targetRole: string | null): Promise<{ topic: string; reason: string } | null> {
   const summary = readinessByTopic.map(r =>
     `${r.topic}: ${r.tier}${r.avgPercent !== null ? ` (${r.avgPercent}%)` : ''}, ${r.daysSinceLastAttempt === null ? 'never attempted' : `last attempted ${r.daysSinceLastAttempt}d ago`}`
   ).join('\n')
 
-  const prompt = `Candidate's target role: ${targetRole ?? 'Senior/Staff Frontend Engineer'}${goalsContext}
+  const prompt = `Candidate's target role: ${targetRole ?? 'Senior/Staff Frontend Engineer'}
 
 Quiz readiness by topic:
 ${summary}
 
-Based on the candidate's actual readiness above, any active goals listed, AND your knowledge of current frontend interview trends (what's most frequently asked at top product companies right now), pick the ONE topic they should study next.
+Based on the candidate's actual readiness above AND your knowledge of current frontend interview trends (what's most frequently asked at top product companies right now), pick the ONE topic they should study next.
 
 Return ONLY a JSON object in this exact format:
 {"topic": "<one of the topics listed above, exact match>", "reason": "<one sentence, specific, referencing both their readiness and why this topic matters right now>"}`

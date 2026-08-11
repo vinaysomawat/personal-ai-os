@@ -30,8 +30,7 @@ Under 200 words. No generic platitudes.`)
 export async function recommendCodingQuestions(
   candidates: CodingQuestion[],
   weakAreas: WeakArea[],
-  company: { company: string; topics: string[] } | null,
-  goalsContext = ''
+  company: { company: string; topics: string[] } | null
 ): Promise<{ questionId: string; reason: string }[]> {
   if (candidates.length === 0) return []
 
@@ -40,12 +39,12 @@ export async function recommendCodingQuestions(
 Weak areas (topics he's struggled with across multiple questions, worst first):
 ${weakAreas.length ? weakAreas.map(w => `- ${w.topic}: struggled on ${w.strugglingCount}/${w.total} attempts`).join('\n') : 'None identified yet — not enough history.'}
 
-${company ? `He has an active application at ${company.company}. Its job description flagged these priority topics: ${company.topics.join(', ')}.` : 'No active application with analyzed priority topics right now.'}${goalsContext}
+${company ? `He has an active application at ${company.company}. Its job description flagged these priority topics: ${company.topics.join(', ')}.` : 'No active application with analyzed priority topics right now.'}
 
 Candidate questions (already filtered to ones he hasn't solved, each with its id, title, difficulty, and tagged topics):
 ${candidates.map(c => `- id="${c.id}" | ${c.title} | ${c.difficulty} | topics: ${(c.topics ?? []).join(', ') || 'none'}`).join('\n')}
 
-Pick the 3-5 BEST questions from this exact candidate list for him to practice next — prioritize his weak areas, the company's priority topics if given, his active goals if listed, and your knowledge of what's currently frequently asked in frontend interviews at top product companies. Quality over quantity: fewer, sharper picks beat a long list.
+Pick the 3-5 BEST questions from this exact candidate list for him to practice next — prioritize his weak areas, the company's priority topics if given, and your knowledge of what's currently frequently asked in frontend interviews at top product companies. Quality over quantity: fewer, sharper picks beat a long list.
 
 Return ONLY a JSON array in this exact format, ordered best-first:
 [

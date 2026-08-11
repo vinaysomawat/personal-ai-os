@@ -4,8 +4,6 @@ import { createClient } from '@/lib/supabase/server'
 import { computeWeakAreas } from './daily-core'
 import { getInsightsHistory, getActiveCompanyPriorityTopics } from './daily'
 import { recommendCodingQuestions } from '@/features/ai/coding-mentor'
-import { getGoals } from '@/features/goals/actions'
-import { formatGoalsContext } from '@/features/goals/format'
 import type { CodingQuestion, WeakArea } from './daily-core'
 
 export interface CodingRecommendation {
@@ -27,12 +25,11 @@ export async function getCodingRecommendations(): Promise<CodingRecommendationsR
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { recommendations: [], weakAreas: [], company: null }
 
-  const [history, { data: pool }, { data: completedRows }, company, goals] = await Promise.all([
+  const [history, { data: pool }, { data: completedRows }, company] = await Promise.all([
     getInsightsHistory(),
     supabase.from('coding_questions').select('*'),
     supabase.from('coding_daily_questions').select('question_id').eq('user_id', user.id).eq('completed', true),
     getActiveCompanyPriorityTopics(),
-    getGoals('coding'),
   ])
 
   const weakAreas = computeWeakAreas(history)
@@ -49,7 +46,7 @@ export async function getCodingRecommendations(): Promise<CodingRecommendationsR
     candidates = candidates.slice(0, 30)
   }
 
-  const picks = await recommendCodingQuestions(candidates, weakAreas, company, formatGoalsContext(goals))
+  const picks = await recommendCodingQuestions(candidates, weakAreas, company)
   const byId = new Map(allQuestions.map(q => [q.id, q]))
   const recommendations = picks
     .map(p => ({ question: byId.get(p.questionId), reason: p.reason }))

@@ -4,14 +4,12 @@ import { Sparkles } from 'lucide-react'
 import Card from '@/components/Card'
 import ModuleRecommendations from '@/components/ModuleRecommendations'
 import { useAIAdvisor, useAIAdvisorOpen } from '@/components/AIAdvisorProvider'
-import { formatGoalsContext } from '@/features/goals/format'
 import DailyCodingCard from './DailyCodingCard'
 import CodingCalendar from './CodingCalendar'
 import CodingSettingsPopover from './CodingSettingsPopover'
 import QuestionHistory from './QuestionHistory'
 import RecommendedQuestions from './RecommendedQuestions'
 import TodaysQuizCard from './TodaysQuizCard'
-import type { ResolvedGoal } from '@/features/goals/types'
 import type { QuizQuestion } from '../todays-quiz'
 import type { TodaysQuizAttempt } from '../todays-quiz-actions'
 import { computeWeakAreas, type DailyQuestion, type CodingStats, type CalendarDay, type CodingSettings } from '../daily-core'
@@ -22,7 +20,6 @@ interface Props {
   calendar: CalendarDay[]
   codingSettings: CodingSettings
   history: DailyQuestion[]
-  goals: ResolvedGoal[]
   quizQuestions: QuizQuestion[]
   quizAttempt: TodaysQuizAttempt | null
 }
@@ -32,8 +29,8 @@ const MODE_LABEL: Record<CodingSettings['mode'], (fixedCount: number) => string>
   fixed: fixedCount => `Fixed · ${fixedCount}/day`,
 }
 
-export default function CodingView({ dailyAssignment, codingStats, calendar, codingSettings, history, goals, quizQuestions, quizAttempt }: Props) {
-  const codingContext = `Current streak: ${codingStats.currentStreak}d (longest: ${codingStats.longestStreak}d). Total solved: ${codingStats.totalSolved} (${codingStats.easySolved} easy, ${codingStats.mediumSolved} medium, ${codingStats.hardSolved} hard). Completion rate: ${codingStats.completionRate}%.${formatGoalsContext(goals)}`
+export default function CodingView({ dailyAssignment, codingStats, calendar, codingSettings, history, quizQuestions, quizAttempt }: Props) {
+  const codingContext = `Current streak: ${codingStats.currentStreak}d (longest: ${codingStats.longestStreak}d). Total solved: ${codingStats.totalSolved} (${codingStats.easySolved} easy, ${codingStats.mediumSolved} medium, ${codingStats.hardSolved} hard). Completion rate: ${codingStats.completionRate}%.`
 
   const advisorOpen = useAIAdvisorOpen()
   const advisorPortal = useAIAdvisor('Code Mentor', Sparkles, (

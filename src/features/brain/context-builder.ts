@@ -35,7 +35,6 @@ export function buildBrainContext(data: DashboardData): BrainContext {
     signals: data.topActions,
     weeklyPatterns: data.recentPatterns.map(p => p.pattern),
     monthlyPatterns: [],
-    crossModuleGoals: data.crossModuleGoals,
   }
 }
 

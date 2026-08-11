@@ -112,8 +112,4 @@ export interface BrainContext {
   // Not populated yet — no monthly-cadence pattern job exists (only the
   // weekly one), kept here so the shape matches the PRD without a breaking change later.
   monthlyPatterns: string[]
-  // Cross-Module Goal Engine (Phase 4 PRD) — Career/Learning/Coding goals,
-  // read straight through same as financial goals above. "Every
-  // recommendation should align with active goals" per the PRD.
-  crossModuleGoals: { module: string; name: string; progress: string }[]
 }

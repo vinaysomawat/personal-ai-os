@@ -28,9 +28,6 @@ export function buildContextSummary(ctx: BrainContext): string {
   if (ctx.finance.goals.length > 0) {
     lines.push('Financial goals: ' + ctx.finance.goals.map(g => `${g.name} (₹${Math.round(g.currentAmount).toLocaleString('en-IN')} of ₹${Math.round(g.targetAmount).toLocaleString('en-IN')}${g.targetDate ? `, by ${g.targetDate}` : ''})`).join('; '))
   }
-  if (ctx.crossModuleGoals.length > 0) {
-    lines.push('Other goals: ' + ctx.crossModuleGoals.map(g => `${g.name} [${g.module}] (${g.progress})`).join('; '))
-  }
   if (ctx.signals.length > 0) {
     lines.push('Top open items: ' + ctx.signals.map(s => `${s.emoji} ${s.text}`).join('; '))
   }

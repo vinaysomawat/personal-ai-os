@@ -16,12 +16,9 @@ import { computeWeakAreas, type WeakArea } from '@/features/coding/daily-core'
 import { getInsightsHistory } from '@/features/coding/daily'
 import { checkWorkoutPending, checkNoMetricsToday } from '@/features/health/signals'
 import { checkRevisionNeeded } from '@/features/learning/signals'
-import { checkGoalProgress } from '@/features/goals/signals'
 import { isMarkedToday } from '@/features/learning/daily-read'
 import { computeTodayProgress } from './daily-progress'
 import { getRecentPatterns, type RecentPattern } from '@/features/brain/signals'
-import { resolveAutoMetric } from '@/features/goals/actions'
-import type { Goal, ResolvedGoal } from '@/features/goals/types'
 
 export interface TopAction {
   emoji: string
@@ -41,7 +38,6 @@ interface TopActionInput {
   codingStaleRevisionCount: number
   daysSinceLastQuiz: number | null
   workoutPending: boolean
-  goals: ResolvedGoal[]
   codingWeakAreas: WeakArea[]
   careerTopWeakSubtopic: { subtopic: string; count: number } | null
 }
@@ -52,7 +48,7 @@ interface TopActionInput {
 // module's signals.ts (see src/lib/signals.ts) rather than being hand-rolled
 // here, so new modules can plug into Today's Focus without touching this file.
 function computeTopActions(input: TopActionInput): TopAction[] {
-  const { today, pendingTasks, applications, monthSpend, monthBudget, todayMetric, resourcesNeedingRevision, codingQuestionPending, codingStaleRevisionCount, daysSinceLastQuiz, workoutPending, goals, codingWeakAreas, careerTopWeakSubtopic } = input
+  const { today, pendingTasks, applications, monthSpend, monthBudget, todayMetric, resourcesNeedingRevision, codingQuestionPending, codingStaleRevisionCount, daysSinceLastQuiz, workoutPending, codingWeakAreas, careerTopWeakSubtopic } = input
 
   const signals = [
     checkOverdueTasks(pendingTasks, today),
@@ -65,7 +61,6 @@ function computeTopActions(input: TopActionInput): TopAction[] {
     checkRevisionNeeded(resourcesNeedingRevision),
     checkStaleRevision(codingStaleRevisionCount),
     checkQuizNeedsRevision(daysSinceLastQuiz),
-    checkGoalProgress(goals),
     checkCodingWeakArea(codingWeakAreas),
     checkQuizWeakArea(careerTopWeakSubtopic),
   ].filter((s): s is Signal => s !== null)
@@ -95,7 +90,6 @@ export async function getDashboardData() {
     todayProgress: { items: [], completed: 0, total: 0, score: 100 } as ReturnType<typeof computeTodayProgress>,
     careerMemory: { currentRole: null, currentCompany: null, targetRole: null, currentSalary: null, bio: null } as { currentRole: string | null; currentCompany: string | null; targetRole: string | null; currentSalary: number | null; bio: string | null },
     financialGoals: [] as { name: string; targetAmount: number; currentAmount: number; targetDate: string | null }[],
-    crossModuleGoals: [] as { module: string; name: string; progress: string; achieved: boolean; current: number | null; target: number | null }[],
     recentPatterns: [] as RecentPattern[],
   }
 
@@ -107,7 +101,7 @@ export async function getDashboardData() {
     botLogsRes, healthMetricRes, careerProfileRes, skillsRes, quizCountRes,
     aiUsageMonthRes, studyLogsRes, codingTodayRows, activeWorkout, codingSolved30dRes,
     codingCompletionsRes, quizAttemptsRes, tasksDueTodayRes, workoutCompletedTodayRes,
-    recentPatterns, financialGoalsRes, crossModuleGoalsRes, codingHistoryForWeakAreas,
+    recentPatterns, financialGoalsRes, codingHistoryForWeakAreas,
     codingQuizTodayRes,
   ] = await Promise.all([
     supabase.from('tasks').select('id, text, done, priority, due_date').eq('user_id', user.id).eq('done', false).order('created_at', { ascending: false }).limit(5),
@@ -133,7 +127,6 @@ export async function getDashboardData() {
     supabase.from('daily_workouts').select('id').eq('user_id', user.id).eq('status', 'completed').gte('completed_at', istMidnightUtc()).limit(1),
     getRecentPatterns(supabase, user.id),
     supabase.from('financial_goals').select('name, target_amount, current_amount, target_date').eq('user_id', user.id).order('priority', { ascending: true }),
-    supabase.from('goals').select('id, module, name, target_value, current_value, auto_metric, achieved_at').eq('user_id', user.id),
     getInsightsHistory(),
     supabase.from('coding_quiz_attempts').select('id').eq('user_id', user.id).eq('date', today).maybeSingle(),
   ])
@@ -341,34 +334,13 @@ export async function getDashboardData() {
     codingQuizDone: !!codingQuizTodayRes.data,
   })
 
-  // Cross-Module Goal Engine (Phase 4 PRD) — Career/Learning/Coding goals,
-  // read straight through and resolved live for auto-tracked ones (same
-  // "Brain never owns data" pattern as careerMemory/financialGoals above).
-  // Resolved once here so both Today's Focus (checkGoalProgress below) and
-  // Ask Brain's context (crossModuleGoals) share the same live values.
-  const crossModuleGoalsRaw = (crossModuleGoalsRes.data ?? []) as Goal[]
-  const resolvedGoals: ResolvedGoal[] = await Promise.all(crossModuleGoalsRaw.map(async g => ({
-    ...g,
-    resolvedCurrentValue: g.auto_metric ? await resolveAutoMetric(supabase, user.id, g.auto_metric) : g.current_value,
-  })))
-  const crossModuleGoals = resolvedGoals.map(g => ({
-    module: g.module,
-    name: g.name,
-    progress: g.achieved_at ? 'achieved' : g.target_value != null ? `${g.resolvedCurrentValue ?? 0} of ${g.target_value}` : 'in progress',
-    // Raw fields for the Dashboard's Goals card (Ask Brain's prompt context
-    // only reads the formatted `progress` string above, unaffected by these).
-    achieved: !!g.achieved_at,
-    current: g.resolvedCurrentValue ?? null,
-    target: g.target_value ?? null,
-  }))
-
   const codingWeakAreas = computeWeakAreas(codingHistoryForWeakAreas)
   const careerTopWeakSubtopic = topWeakSubtopic(quizAttemptsRes.data ?? [])
 
   const topActions = computeTopActions({
     today, pendingTasks, applications, monthSpend, monthBudget, todayMetric, workoutPending,
     resourcesNeedingRevision, codingQuestionPending, codingStaleRevisionCount, daysSinceLastQuiz: daysSinceLastQuizAttempt,
-    goals: resolvedGoals, codingWeakAreas, careerTopWeakSubtopic,
+    codingWeakAreas, careerTopWeakSubtopic,
   })
 
   // Upsert XP record
@@ -414,7 +386,6 @@ export async function getDashboardData() {
       currentAmount: Number(g.current_amount),
       targetDate: g.target_date as string | null,
     })),
-    crossModuleGoals,
     recentPatterns,
   }
 }
