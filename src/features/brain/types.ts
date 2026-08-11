@@ -106,7 +106,6 @@ export interface BrainContext {
   health: { workoutsToday: number; todayMetric: Record<string, unknown> | null }
   learning: { inProgress: number }
   coding: { solved30d: number }
-  documents: { count: number }
   signals: { emoji: string; text: string; href: string }[]
   weeklyPatterns: string[]
   // Not populated yet — no monthly-cadence pattern job exists (only the

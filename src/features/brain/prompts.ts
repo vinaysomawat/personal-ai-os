@@ -22,7 +22,6 @@ export function buildContextSummary(ctx: BrainContext): string {
     `Health: ${ctx.health.workoutsToday} workout(s) today${ctx.health.todayMetric ? '' : ', no metrics logged today'}`,
     `Learning: ${ctx.learning.inProgress} resources in progress`,
     `Coding: ${ctx.coding.solved30d} questions solved in the last 30 days`,
-    `Documents: ${ctx.documents.count} saved`,
   ]
 
   if (ctx.finance.goals.length > 0) {

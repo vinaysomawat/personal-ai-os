@@ -31,7 +31,6 @@ export function buildBrainContext(data: DashboardData): BrainContext {
     health: { workoutsToday: data.stats.workoutsToday, todayMetric: data.todayHealth },
     learning: { inProgress: data.stats.learningInProgress },
     coding: { solved30d: data.stats.codingSolved30d },
-    documents: { count: data.stats.documentCount },
     signals: data.topActions,
     weeklyPatterns: data.recentPatterns.map(p => p.pattern),
     monthlyPatterns: [],

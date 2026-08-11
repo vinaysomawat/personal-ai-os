@@ -12,9 +12,8 @@ import { useAIAdvisorTrigger } from './AIAdvisorProvider'
 import ProfileMenu from './ProfileMenu'
 import pkg from '../../package.json'
 
-// Desktop top nav — 7 items; Documents and Settings live in the profile
-// dropdown instead (matching the design source, which dropped both from the
-// top-level nav list).
+// Desktop top nav — 7 items; Settings lives in the profile dropdown instead
+// (matching the design source, which dropped it from the top-level nav list).
 const MODULES = [
   { label: 'Dashboard', to: '/dashboard', icon: LayoutDashboard },
   { label: 'Planner', to: '/planner', icon: CalendarDays },
@@ -38,7 +37,6 @@ const MOBILE_MORE = [
   { label: 'Career', to: '/career', icon: '💼' },
   { label: 'Learning', to: '/learning', icon: '📚' },
   { label: 'Coding', to: '/coding', icon: '💻' },
-  { label: 'Documents', to: '/documents', icon: '🗂️' },
   { label: 'Settings', to: '/settings', icon: '⚙' },
 ]
 

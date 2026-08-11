@@ -14,11 +14,11 @@ import { useEscapeKey } from '@/lib/use-escape-key'
 
 const MODULE_LABEL: Record<string, string> = {
   planner: 'Planner', career: 'Career', finance: 'Finance', health: 'Health',
-  learning: 'Learning', coding: 'Coding', documents: 'Documents',
+  learning: 'Learning', coding: 'Coding',
 }
 
 const TASK_LABEL: Record<string, string> = {
-  telegram_intent: 'Telegram intent parsing', doc_summary: 'Document summaries', doc_qa: 'Document Q&A',
+  telegram_intent: 'Telegram intent parsing',
   career_mentor: 'Career Mentor', interview_questions: 'Interview question generation', finance_advisor: 'Money Advisor',
   health_report: 'Health report', health_daily_plan: 'Daily health plan', health_advisor: 'Health Coach',
   study_plan: 'Study plan', resource_quiz: 'Resource quiz', coding_mentor: 'Code Mentor',
@@ -158,7 +158,7 @@ export default function SettingsView({ email, initialReminders, aiBudget, system
             </form>
           </div>
         </div>
-        <p className="text-xs text-fg-quaternary mt-2.5">Signed in via Supabase. Export downloads a single JSON file — tasks, applications, expenses, loans, investments, health metrics, resources, documents, and more.</p>
+        <p className="text-xs text-fg-quaternary mt-2.5">Signed in via Supabase. Export downloads a single JSON file — tasks, applications, expenses, loans, investments, health metrics, resources, and more.</p>
       </Card>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 items-start">

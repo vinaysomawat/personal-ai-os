@@ -103,7 +103,7 @@ export async function exportAllData() {
     healthMetrics, healthProfile, workouts,
     resources, studyLogs,
     codingQuestions, codingSettings,
-    documents, reminders,
+    reminders,
     lifeScoreLogs, userXp,
   ] = await Promise.all([
     supabase.from('tasks').select('*').eq('user_id', uid),
@@ -126,7 +126,6 @@ export async function exportAllData() {
     supabase.from('study_logs').select('*').eq('user_id', uid),
     supabase.from('coding_daily_questions').select('*, question:coding_questions(*)').eq('user_id', uid),
     supabase.from('coding_settings').select('*').eq('user_id', uid).maybeSingle(),
-    supabase.from('documents').select('*').eq('user_id', uid),
     supabase.from('reminders').select('*').eq('user_id', uid),
     supabase.from('life_score_logs').select('*').eq('user_id', uid),
     supabase.from('user_xp').select('*').eq('user_id', uid).maybeSingle(),
@@ -150,7 +149,6 @@ export async function exportAllData() {
     },
     learning: { resources: resources.data ?? [], study_logs: studyLogs.data ?? [] },
     coding: { question_history: codingQuestions.data ?? [], settings: codingSettings.data ?? null },
-    documents: documents.data ?? [],
     reminders: reminders.data ?? [],
     history: { life_score_logs: lifeScoreLogs.data ?? [], xp: userXp.data ?? null },
   }

@@ -14,9 +14,8 @@ import * as finance   from './modules/finance'
 import * as health    from './modules/health'
 import * as learning  from './modules/learning'
 import * as coding    from './modules/coding'
-import * as documents from './modules/documents'
 
-const MODULES = { planner, career, finance, health, learning, coding, documents } as const
+const MODULES = { planner, career, finance, health, learning, coding } as const
 type ModuleName = keyof typeof MODULES
 
 export const MODULE_TOKENS: Record<ModuleName, string | undefined> = {
@@ -26,7 +25,6 @@ export const MODULE_TOKENS: Record<ModuleName, string | undefined> = {
   health:    process.env.TELEGRAM_BOT_TOKEN_HEALTH,
   learning:  process.env.TELEGRAM_BOT_TOKEN_LEARNING,
   coding:    process.env.TELEGRAM_BOT_TOKEN_CODING,
-  documents: process.env.TELEGRAM_BOT_TOKEN_DOCUMENTS,
 }
 
 export function isValidModule(m: string): m is ModuleName {

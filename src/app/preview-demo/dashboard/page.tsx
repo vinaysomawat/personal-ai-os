@@ -34,7 +34,7 @@ const dummyData = {
   },
   stats: {
     pendingTaskCount: 3, activeApplications: 2, workoutsToday: 1,
-    monthSpend: 32000, monthBudget: 45000, learningInProgress: 2, codingSolved30d: 19, documentCount: 14,
+    monthSpend: 32000, monthBudget: 45000, learningInProgress: 2, codingSolved30d: 19,
   },
   codingQuestionPending: true,
   aiBudget: { callsToday: 6, costTodayUsd: 0.042, callsMonth: 118, costMonthUsd: 1.86, cacheHitRateMonth: 41 },

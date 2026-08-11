@@ -12,7 +12,6 @@ const MODULE_META: Record<string, { label: string; emoji: string; color: string;
   health:    { label: 'Health',    emoji: '💪', color: 'text-red-400',    bg: 'bg-risk-soft' },
   learning:  { label: 'Learning',  emoji: '📚', color: 'text-purple-400', bg: 'bg-purple-500/10' },
   coding:    { label: 'Coding',    emoji: '💻', color: 'text-cyan-400',   bg: 'bg-cyan-500/10' },
-  documents: { label: 'Documents', emoji: '📄', color: 'text-orange-400', bg: 'bg-orange-500/10' },
 }
 
 const PAGE_SIZE = 10
