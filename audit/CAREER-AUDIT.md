@@ -16,7 +16,7 @@ Status legend: MATCH / MISMATCH / MISSING (design element absent from repo) / EX
 
 | # | Element | Design spec | Verdict | Detail |
 |---|---|---|---|---|
-| A1 | Page title | 34px/700/-0.02em | **FIXED** | `text-[34px] tracking-[-0.02em]`. |
+| A1 | Page title | 34px/700/-0.05em | **FIXED** | `text-[34px] tracking-[-0.05em]`. |
 | A2 | Pipeline badge | `"💼 {N} active applications"` pill next to the title — 11px/600, `surface-2` bg, 20px radius, 4px/10px padding | **FIXED** | Added `text-[11px] font-semibold bg-surface-2 rounded-full px-2.5 py-1`. |
 | A3 | Interview badge (conditional) | `"🎯 {N} at interview"` pill, shown only when count > 0 — accent-soft bg, accent-strong text | **FIXED** | Added, conditional on `counts.interview > 0`. |
 | A4 | Career Mentor trigger | Same pill style as every other module-advisor trigger (`moduleAdvisorTriggerStyle`) | MATCH (mechanism) / OPEN (position) | Repo's Career Mentor trigger is correctly styled (via the shared `AIAdvisorProvider`/`TopNav` pill) but lives in the top nav bar, not inline in the page header. Same "shared advisor-panel architecture" tradeoff flagged before — left unchanged. |

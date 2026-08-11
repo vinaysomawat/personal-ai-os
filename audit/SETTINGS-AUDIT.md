@@ -10,13 +10,13 @@ Status legend: MATCH (already correct, unchanged) / MISMATCH (differs, needs a d
 
 | # | Element | Design spec | Verdict | Detail |
 |---|---|---|---|---|
-| 1 | Page title | 34px/700/-0.02em | **FIXED** | `text-[34px] tracking-[-0.02em]` (was responsive `text-2xl sm:text-3xl tracking-tight`). |
+| 1 | Page title | 34px/700/-0.05em | **FIXED** | `text-[34px] tracking-[-0.05em]` (was responsive `text-2xl sm:text-3xl tracking-tight`). |
 | 2 | Card padding (all 4 cards) | `var(--card-pad-lg)` (Card.tsx default) | **FIXED** | Removed the `padding="p-3.5"` override from all 4 Settings cards. |
 | 3 | Account card title | "Account" 13px/700, 10px margin | MATCH | Card.tsx's shared title styling already covers this. |
 | 4 | Account card layout | Single row: email left, "Export as JSON" + "Sign out" buttons grouped right, 8px gap | **FIXED** | Rebuilt as one row (`justify-between`); the two buttons are grouped on the right with `gap-2`. |
 | 5 | Account row button style | Both buttons identical outline style: `background:none; border:1px solid var(--border-strong); border-radius:7px; padding:7px 14px; font-size:12.5px` (Export text primary, Sign out text secondary) | **FIXED** | Both now `border border-border-strong rounded-[7px] px-3.5 py-[7px] text-[12.5px]`, Export in `text-fg-primary`, Sign out in `text-fg-secondary`; icons removed (design has plain text buttons). |
 | 6 | Account card extra copy | None — just the email + buttons | OPEN (kept) | Left the explanatory line in place, moved below the row since the two-row layout it depended on is gone. |
-| 7 | AI Budget / System Health grid gap | 20px | **FIXED** | `gap-4` → `gap-5`. |
+| 7 | AI Budget / System Health grid gap | 20px | **FIXED**, then intentionally tightened further | `gap-4` → `gap-5` matched the spec exactly. 2026-08-11: tightened again to `gap-3` (12px) per direct "make it compact" request. |
 | 8 | AI Budget card title | "AI Budget" plain text, no icon | **FIXED** | Removed the `Sparkles` action icon. |
 | 9 | AI Budget "Today" line | Single string "Today: $X of $Y", 12.5px secondary | **FIXED** | Collapsed into one `text-[12.5px] text-fg-secondary` line. |
 | 10 | AI Budget bar track | 6px height, **4px** radius, surface-2 bg | **FIXED** | `rounded-full` → `rounded-[4px]`. |

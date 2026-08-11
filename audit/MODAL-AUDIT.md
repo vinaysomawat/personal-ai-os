@@ -16,7 +16,7 @@ Status legend: MATCH / MISMATCH / MISSING (design element absent from repo) / EX
 |---|---|---|---|---|
 | A1 | Card radius | 16px | **FIXED** | `Modal.tsx` uses `rounded-2xl` (Tailwind's 2xl = 16px exactly). |
 | A2 | Card width | **440px** default (`max-width: 90vw`) for the 10 generic-shell modals; three modals have their own dedicated design source with a different explicit width: Quiz **520px**, Add Application **460px**, Add Expense **400px** | **FIXED** | `Modal.tsx` default `max-w-[440px]` for the 10 generic modals (incl. Resource Quiz, previously 512px). The three width exceptions are passed via `maxWidthClass`: Career/Learning Quiz `max-w-[520px]`, Add Application `max-w-[460px]`, Add Expense `max-w-[400px]` (both newly corrected this pass — previously fell through to the 440px default). |
-| A3 | Card padding | `var(--modal-pad)` (24px in the app's current comfortable density) | MATCH | Unchanged — `p-6` (24px) still equals the current value. |
+| A3 | Card padding | `var(--modal-pad)` (24px comfortable / 14px compact) | MATCH, then **FIXED** to actually read the var | Was hardcoded `p-6` (24px), coincidentally equal to the comfortable-mode value but not actually wired to the token. 2026-08-11: switched to `p-[var(--modal-pad)]` as part of making `compact` the app's fixed default — modals now render at 14px padding, matching every other card that already read this density system correctly. |
 | A4 | Title row margin | 18px bottom | **FIXED** | `Modal.tsx`: `mb-[18px]`. |
 | A5 | Title text | 16px / **700** | **FIXED** | `Modal.tsx`: `text-base font-bold`. |
 | A6 | Close control | Plain **"✕" text glyph**, 18px, tertiary color | **FIXED** | `Modal.tsx`: `✕` glyph at `text-[18px]`, no more lucide `X` icon in any of the 10 modals. |

@@ -72,7 +72,7 @@ export default function DashboardView({ data, executive }: { data: DashboardData
       <div className="flex items-end justify-between flex-wrap gap-1">
         <div>
           <p className="text-[13px] text-fg-tertiary">{today} · {greeting}</p>
-          <h1 className="text-[34px] font-bold tracking-[-0.02em] text-fg-primary mt-0.5">Dashboard</h1>
+          <h1 className="text-[34px] font-bold tracking-[-0.05em] text-fg-primary">Dashboard</h1>
         </div>
       </div>
 

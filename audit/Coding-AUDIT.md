@@ -10,7 +10,7 @@ Status legend: MATCH / MISMATCH / MISSING (design element absent from repo) / OP
 
 | # | Element | Design spec | Verdict | Detail |
 |---|---|---|---|---|
-| A1 | Page title | `34px/700/-0.02em` | **FIXED** | Was `text-2xl sm:text-3xl tracking-tight` → now `text-[34px] tracking-[-0.02em]`. |
+| A1 | Page title | `34px/700/-0.05em` | **FIXED** | Was `text-2xl sm:text-3xl tracking-tight` → now `text-[34px] tracking-[-0.05em]`. |
 | A2 | Streak badge | `"🔥 {N}-day streak"` pill | **FIXED** | Was missing from the header (streak only lived in the stat tile) → added. |
 | A3 | Assignment mode badge | `{codingModeLabel}` pill | **FIXED** | Was missing → added. |
 | A4 | Code Mentor trigger | `moduleAdvisorTriggerStyle` | MATCH | Already correct (top-nav pill). |

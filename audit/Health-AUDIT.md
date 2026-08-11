@@ -10,7 +10,7 @@ Status legend: MATCH / MISMATCH / MISSING (design element absent from repo) / OP
 
 | # | Element | Design spec | Verdict | Detail |
 |---|---|---|---|---|
-| A1 | Page title | `34px/700/-0.02em` | **FIXED** | Was `text-2xl sm:text-3xl tracking-tight` → now `text-[34px] tracking-[-0.02em]`. |
+| A1 | Page title | `34px/700/-0.05em` | **FIXED** | Was `text-2xl sm:text-3xl tracking-tight` → now `text-[34px] tracking-[-0.05em]`. |
 | A2 | Health Score badge | `"{score}/100 · {tier}"` pill, color tiered (accent/good/warn/risk by score band) | **FIXED** | Was **entirely missing** from the header (score only appeared inside the Health Score card) → added, with design's exact tier/color thresholds. |
 | A3 | Workout status badge | `"🏋️ Workout {pending/in progress/done/skipped}"` pill | **FIXED** | Was missing — added, derived from the daily workout's real status. |
 | A4 | Health Coach trigger | `moduleAdvisorTriggerStyle` | MATCH | Already correct (top-nav pill) — same architecture tradeoff noted for every module. |

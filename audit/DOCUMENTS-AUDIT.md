@@ -1,6 +1,8 @@
 # Documents Audit — design's `isDocuments` block vs. repo
 
-Source of truth: the `isDocuments` template block (decoded design script) plus its companion state/logic (`filteredDocuments`, `docsWrapStyle`, `d.rowStyle`, `selectDoc`/`newDoc`/`saveDoc`/`closeDoc`, `docCharCountLabel`, `summarizeDoc`/`askDocAI`). Cross-checked against `src/features/documents/components/DocumentsView.tsx`.
+**OBSOLETE as of 2026-08-11** — the entire Documents module (this route, `src/features/documents/`, the `documents` DB table, the Telegram bot module, and the `doc_summary`/`doc_qa` AI Gateway tasks) was removed from the app entirely per direct user request. Kept below as a historical record only; nothing in this file describes anything that still exists in the repo. See README.md §8 for the removal note.
+
+Source of truth: the `isDocuments` template block (decoded design script) plus its companion state/logic (`filteredDocuments`, `docsWrapStyle`, `d.rowStyle`, `selectDoc`/`newDoc`/`saveDoc`/`closeDoc`, `docCharCountLabel`, `summarizeDoc`/`askDocAI`). Cross-checked against `src/features/documents/components/DocumentsView.tsx` (no longer exists).
 
 Status legend: MATCH / MISMATCH / MISSING (design element absent from repo) / OPEN (a real constraint or judgment call, not a straightforward style bug).
 

@@ -10,7 +10,7 @@ Status legend: MATCH / MISMATCH / MISSING (design element absent from repo) / OP
 
 | # | Element | Design spec | Verdict | Detail |
 |---|---|---|---|---|
-| A1 | Page title | `font-size: 34px; font-weight: 700; letter-spacing: -0.02em;` | **FIXED** | Was `text-2xl sm:text-3xl tracking-tight` → now `text-[34px] tracking-[-0.02em]`. |
+| A1 | Page title | `font-size: 34px; font-weight: 700; letter-spacing: -0.05em;` | **FIXED** | Was `text-2xl sm:text-3xl tracking-tight` → now `text-[34px] tracking-[-0.05em]`. |
 | A2 | Pending badge | `"📋 {N} pending"` pill — 11px/600, `surface-2` bg, 20px radius, 4px/10px padding, secondary text | **FIXED** | Added `text-[11px] font-semibold bg-surface-2 rounded-full px-2.5 py-1 text-fg-secondary`. |
 | A3 | Overdue badge (conditional) | `"🔴 {N} overdue"` pill, shown only when count > 0 — `risk-soft` bg, `risk` text | **FIXED** | Added, conditional on `overdue > 0`. |
 | A4 | Executive Summary trigger | `moduleAdvisorTriggerStyle`, `◆ Executive Summary` | MATCH | Already correctly implemented (`ExecutiveSummaryTrigger`, built earlier this session) — unchanged. |

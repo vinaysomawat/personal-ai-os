@@ -143,7 +143,7 @@ export default function SettingsView({ email, initialReminders, aiBudget, system
 
   return (
     <div className="space-y-3">
-      <h1 className="text-[34px] font-bold tracking-[-0.02em] text-fg-primary">Settings</h1>
+      <h1 className="text-[34px] font-bold tracking-[-0.05em] text-fg-primary">Settings</h1>
       <Card title="Account">
         <div className="flex items-center justify-between gap-3">
           <p className="text-[13px] text-fg-secondary">{email ?? 'Not signed in'}</p>

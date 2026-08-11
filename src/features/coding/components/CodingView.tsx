@@ -47,7 +47,7 @@ export default function CodingView({ dailyAssignment, codingStats, calendar, cod
     <div className="space-y-3">
       {advisorPortal}
       <div className="flex items-center gap-3 flex-wrap">
-        <h1 className="text-[34px] font-bold tracking-[-0.02em] text-fg-primary">Coding</h1>
+        <h1 className="text-[34px] font-bold tracking-[-0.05em] text-fg-primary">Coding</h1>
         <span className="text-[11px] font-semibold bg-surface-2 rounded-full px-2.5 py-1 text-fg-secondary">🔥 {codingStats.currentStreak}-day streak</span>
         <span className="text-[11px] font-semibold bg-surface-2 rounded-full px-2.5 py-1 text-fg-secondary">{MODE_LABEL[codingSettings.mode](codingSettings.fixed_count)}</span>
       </div>

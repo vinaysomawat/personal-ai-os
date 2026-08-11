@@ -67,7 +67,7 @@ export default function TopNav() {
   return (
     <>
       <header
-        className="sticky top-0 z-20 border-b border-surface-3 backdrop-blur-md px-5 py-3.5"
+        className="sticky top-0 z-20 border-b border-surface-3 backdrop-blur-md px-5 py-2"
         style={{ background: 'var(--bg-translucent)' }}
       >
         <div className="flex items-center gap-3">

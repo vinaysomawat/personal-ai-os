@@ -10,7 +10,7 @@ Status legend: MATCH / MISMATCH / MISSING (design element absent from repo) / OP
 
 | # | Element | Design spec | Verdict | Detail |
 |---|---|---|---|---|
-| A1 | Page title | `34px/700/-0.02em` | **FIXED** | Was `text-2xl sm:text-3xl tracking-tight` → now `text-[34px] tracking-[-0.02em]`. |
+| A1 | Page title | `34px/700/-0.05em` | **FIXED** | Was `text-2xl sm:text-3xl tracking-tight` → now `text-[34px] tracking-[-0.05em]`. |
 | A2 | Net Worth badge | `"💰 Net Worth ₹{netWorth}"` pill — `surface-2` bg, `accent` text | **FIXED** | Was **entirely missing** from the header (Net Worth only existed as a stat tile) → added. |
 | A3 | Avg spend badge | `"📊 3mo avg spend ₹{avgMonthlySpend}"` pill — `surface-2` bg, secondary text | **FIXED** | Was missing — `avgMonthlyExpense` was already a prop (used only for the AI advisor) but never surfaced in the header. Added. |
 | A4 | Money Advisor trigger | `moduleAdvisorTriggerStyle` | MATCH | Already correct (top-nav pill) — same architecture tradeoff noted for every module's advisor trigger. |

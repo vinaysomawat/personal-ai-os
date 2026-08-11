@@ -279,7 +279,7 @@ export default function PlannerView({ initialTasks }: Props) {
       {advisorPortal}
       <div className="flex items-center justify-between flex-wrap gap-2.5">
         <div className="flex items-center gap-3 flex-wrap">
-          <h1 className="text-[34px] font-bold tracking-[-0.02em] text-fg-primary">Planner</h1>
+          <h1 className="text-[34px] font-bold tracking-[-0.05em] text-fg-primary">Planner</h1>
           <span className="text-[11px] font-semibold bg-surface-2 rounded-full px-2.5 py-1 text-fg-secondary">📋 {pending.length} pending</span>
           {overdue > 0 && (
             <span className="text-[11px] font-semibold bg-risk-soft rounded-full px-2.5 py-1 text-risk">🔴 {overdue} overdue</span>

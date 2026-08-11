@@ -27,15 +27,15 @@ The design source defines exactly one centralized token layer: CSS custom proper
 
 Same result for every `[data-theme="light"]` value (`--bg:#f5f5f8`, `--accent:#6d5ce0`, `--good:#16a34a`, `--warn:#d97706`, `--risk:#dc2626`, etc.) — all identical.
 
-Density tokens also match exactly:
+Density tokens also match exactly (compact values retuned tighter 2026-08-11, and `compact` is now the app's actual fixed default — see DASHBOARD-AUDIT.md row 15):
 
 | | `[data-density]` (comfortable) | `[data-density="compact"]` |
 |---|---|---|
-| `--card-pad-lg` | `18px 20px` (both) | `12px 14px` (both) |
-| `--card-pad-md` | `16px` (both) | `11px` (both) |
-| `--card-pad-sm` | `14px 16px` (both) | `9px 11px` (both) |
-| `--modal-pad` | `24px` (both) | `16px` (both) |
-| `--panel-pad` | `18px 20px` (both) | `12px 14px` (both) |
+| `--card-pad-lg` | `18px 20px` (both) | `10px 12px` (both) |
+| `--card-pad-md` | `16px` (both) | `9px 10px` (both) |
+| `--card-pad-sm` | `14px 16px` (both) | `7px 9px` (both) |
+| `--modal-pad` | `24px` (both) | `14px` (both) |
+| `--panel-pad` | `18px 20px` (both) | `10px 12px` (both) |
 
 **Two repo-only additions, not in the design source — kept, not removed:**
 - `--warn-soft` (dark `rgba(251,191,36,.15)`, light `rgba(217,119,6,.1)`) — the design defines `--warn` but no soft/tint variant in either theme; the repo added one so `bg-warn-soft` (used throughout for warning-tinted backgrounds, e.g. Settings' AI Budget bar, Finance alerts) has a value. Removing it would break every existing call site for no design-fidelity gain — the design just doesn't need a warn-soft anywhere in its own markup.
