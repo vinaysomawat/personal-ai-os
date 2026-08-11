@@ -16,7 +16,7 @@ Before touching code for any non-trivial feature or fix, give a spec first: what
 
 Build every screen like the best UI/UX designer in the world would: dense and compact, not airy. Minimize whitespace — padding, margins, gaps, empty card space. Utilize the full screen area; prefer showing more real information (more list items, more stats, tighter rows) over generous breathing room. This is a data-dense personal ops tool, not a marketing site — err toward density, not toward "clean minimal" spacing. Still keep text legible and touch targets usable; compact means tight spacing and small type sizes, not overlapping or unreadable elements.
 
-**Mobile target: iPhone 16 Pro** (393×852 CSS px, the `BottomNav` breakpoint). Any UI change must be checked at that viewport, not just desktop — no horizontal overflow, no clipped/overlapping elements, touch targets stay usable at that width.
+**Mobile target: iPhone 16 Pro** (393×852 CSS px, below `TopNav`'s `md:` breakpoint where it switches from the desktop nav pills to the fixed mobile bottom bar). Any UI change must be checked at that viewport, not just desktop — no horizontal overflow, no clipped/overlapping elements, touch targets stay usable at that width.
 
 **Concrete patterns to apply/avoid** (distilled from `reference/UI.md`'s enterprise-density checklist — read that file for the full brief before a larger redesign pass):
 - Don't let a CSS grid stretch a shorter card to match a taller sibling (`grid`'s default `align-items: stretch`) — add `items-start` to the grid wrapper so each card sizes to its own content instead of padding out with dead space.
@@ -75,7 +75,7 @@ This project is Vinay's personal execution system — not a CRUD app, not a dash
 1. **Automation over manual work.** If something can be automated, automate it.
 2. **Rule engine before AI.** Before calling AI, ask "can deterministic code solve this?" If yes, don't call AI. Never use AI for calculations, sorting, filtering, score math, dashboards, reminders, charts, or notifications — only for mentoring, coaching, reviewing, explaining, brainstorming, summarizing, and generating plans.
 3. **AI is a premium feature, not a default.** Every AI request must go through the single gateway (`askAI()` — see AI Gateway below). No module calls Anthropic directly. An unnecessary AI call is a bug.
-4. **Modules should connect, not stay isolated** — e.g. health data should eventually inform productivity signals, learning should feed career readiness. Not yet built — needs its own spec before implementing, don't wire this ad hoc.
+4. **Modules should connect, not stay isolated** — e.g. health data should eventually inform productivity signals, learning should feed career readiness. This is already built via the shared signals layer (`src/lib/signals.ts`'s `rankSignals()`, fed by each module's own `signals.ts`) and the Personal Brain's cross-module context (`src/features/brain/`) — see README.md §1 (Needs Attention / Today's Focus) and §12 (Personal Brain) for what's already wired. Extend the existing pattern for new cross-module connections; don't build a parallel mechanism.
 5. **Reduce decisions, don't just surface data.** Prefer "these are the 3 highest-impact actions" over a wall of 25 tasks.
 6. **Every page should answer:** what happened, why, and what to do next.
 7. **Telegram exists to eliminate manual entry** — logging a workout/expense/habit/note should never require opening the app; voice input should work naturally.
@@ -103,6 +103,7 @@ This project is Vinay's personal execution system — not a CRUD app, not a dash
 **Supabase clients:**
 - `src/lib/supabase/server.ts` — server components and server actions (cookies-based)
 - `src/lib/supabase/client.ts` — client components (browser)
+- `src/lib/supabase/service.ts` — service-role client, bypasses RLS; used by cron jobs and the Telegram webhook, which run without a browser session
 - `src/lib/supabase/middleware.ts` — session refresh + redirect logic
 - `middleware.ts` (root) — runs on every request
 
@@ -112,19 +113,13 @@ This project is Vinay's personal execution system — not a CRUD app, not a dash
 - **Budget enforcement** — `ai_usage_logs` table tracks cost per call; daily/monthly ceilings via `AI_DAILY_BUDGET_USD` / `AI_MONTHLY_BUDGET_USD` env vars; on exhaustion, calls return a friendly fallback string instead of erroring — no page or cron job can break from this
 - **Minimize Anthropic API usage.** Treat every call to `askAI()` as a real cost, not a free action. Before adding a new task, check whether an existing cached/computed result already answers it. For any task whose output only needs to reflect data that changes on a daily/weekly/monthly cadence (a cron-generated narrative, digest, or briefing — the kind of thing a user might also trigger on-demand the same day via Telegram), give it a non-null `cacheTTLSeconds` (`SIX_HOURS` is the default choice already used throughout this file) rather than leaving it uncached by default. Reserve `cacheTTLSeconds: null` for genuinely interactive tasks where each call's prompt is expected to differ (free-form Q&A, decision help, scenario simulation) — caching those wouldn't help anyway since the prompt text itself changes per call, and it's not worth the code complexity of trying.
 
-**AI features** (`src/features/ai/`), all going through the gateway:
-- `career-mentor.ts` — career Q&A + interview question generation
-- `finance-advisor.ts` — financial Q&A grounded in real salary/EMI/investment data
-- `health-report.ts` — weekly report + daily action plan
-- `study-plan.ts` — daily study plan + resource quizzes
-- `doc-qa.ts` — Q&A and summarisation for Documents
-- `recommendations.ts` — per-module "AI Recommendations" widget
+**AI features** (`src/features/ai/` and `src/features/brain/`) — see README.md §12 (AI Gateway) for the current file list and what each one does; don't maintain a second copy here, it drifts (same lesson as the Database Tables note below).
 
 **Loading / error states:**
 - `src/app/[route]/loading.tsx` — skeleton shown by Next.js while server fetches data
 - `src/app/[route]/error.tsx` — error boundary with "Try again" reset button
 
-**Shared components** (`src/components/`): `Sidebar`, `Header`, `Card`, `UserInfo`, `Skeleton`.
+**Shared components** (`src/components/`) — see README.md's Architecture section for the current list; don't maintain a second copy here, it drifts (same lesson as the Database Tables note below).
 
 ## Database Tables
 
