@@ -349,7 +349,7 @@ export default function PlannerView({ initialTasks }: Props) {
             <p className="text-[13px] text-fg-tertiary">Nothing pending — add a task above.</p>
           </div>
         )}
-        <ul className="flex flex-col gap-2">
+        <ul className="flex flex-col gap-2 max-h-[480px] overflow-y-auto">
           {visiblePending.map(task => <PendingTaskRow key={task.id} task={task} onToggle={handleToggle} onDelete={handleDelete} />)}
         </ul>
 
@@ -377,7 +377,7 @@ export default function PlannerView({ initialTasks }: Props) {
             <p className="text-sm font-bold text-risk-strong">Overdue</p>
             <span className="text-xs text-red-400">{overduePending.length} from previous months</span>
           </div>
-          <ul className="flex flex-col gap-2">
+          <ul className="flex flex-col gap-2 max-h-[480px] overflow-y-auto">
             {overduePending.map(task => <PendingTaskRow key={task.id} task={task} onToggle={handleToggle} onDelete={handleDelete} />)}
           </ul>
         </div>
