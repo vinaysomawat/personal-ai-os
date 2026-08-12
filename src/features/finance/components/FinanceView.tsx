@@ -338,7 +338,7 @@ export default function FinanceView({ expenses, budgets, profile, loans, investm
       )}
 
       {/* Stat tiles */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3.5">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-[var(--grid-gap-sm)]">
         <div className="bg-surface-1 border border-surface-3 rounded-2xl p-[var(--card-pad-sm)]">
           <div className="flex items-center justify-between mb-1">
             <p className="text-[11px] text-fg-tertiary uppercase">Monthly Salary</p>
@@ -427,7 +427,7 @@ export default function FinanceView({ expenses, budgets, profile, loans, investm
                           <span className={`inline-block transition-transform text-[10px] ${isOpen ? 'rotate-90' : ''}`}>▸</span>
                           {cat}
                           {badgeText && (
-                            <span className={`text-[9.5px] font-bold uppercase px-1.5 py-0.5 rounded ${tier === 'over' ? 'bg-risk-soft text-red-400' : 'bg-warn-soft text-amber-400'}`}>{badgeText}</span>
+                            <span className={`text-[9.5px] font-bold uppercase px-1.5 py-0.5 rounded ${tier === 'over' ? 'bg-risk-soft text-risk' : 'bg-warn-soft text-warn'}`}>{badgeText}</span>
                           )}
                         </span>
                         <button

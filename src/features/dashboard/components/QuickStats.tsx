@@ -18,15 +18,15 @@ interface QuickStatsProps {
 // calculation to compute, a bigger lift than this widget's scope justifies.
 export default function QuickStats({ codingStreak, codingQuestionPending, budgetRemaining, budgetTotal, workoutDoneToday }: QuickStatsProps) {
   const stats = [
-    { label: 'Coding Streak', value: `🔥 ${codingStreak}d`, sub: codingQuestionPending ? "today still open" : "today solved", to: '/coding', color: codingStreak > 0 ? 'text-green-400' : 'text-fg-primary' },
-    { label: 'Budget Remaining', value: `₹${Math.round(budgetRemaining).toLocaleString('en-IN')}`, sub: `of ₹${Math.round(budgetTotal).toLocaleString('en-IN')} this month`, to: '/finance', color: budgetRemaining < 0 ? 'text-red-400' : 'text-fg-primary' },
-    { label: 'Workout Today', value: workoutDoneToday ? '✓ Done' : '○ Pending', sub: workoutDoneToday ? 'Logged' : 'Not yet', to: '/health', color: workoutDoneToday ? 'text-green-400' : 'text-fg-primary' },
+    { label: 'Coding Streak', value: `🔥 ${codingStreak}d`, sub: codingQuestionPending ? "today still open" : "today solved", to: '/coding', color: 'text-fg-primary' },
+    { label: 'Budget Remaining', value: `₹${Math.round(budgetRemaining).toLocaleString('en-IN')}`, sub: `of ₹${Math.round(budgetTotal).toLocaleString('en-IN')} this month`, to: '/finance', color: (budgetRemaining / budgetTotal) < 0.15 ? 'text-risk' : (budgetRemaining / budgetTotal) < 0.3 ? 'text-warn' : 'text-good' },
+    { label: 'Workout Today', value: workoutDoneToday ? '✓ Done' : '○ Pending', sub: workoutDoneToday ? 'Logged' : 'Not yet', to: '/health', color: workoutDoneToday ? 'text-good' : 'text-warn' },
   ]
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
+    <div className="grid grid-cols-1 sm:grid-cols-3 gap-[var(--grid-gap-sm)]">
       {stats.map(s => (
-        <Link key={s.label} href={s.to} className="bg-surface-1 border border-surface-3 rounded-2xl shadow-card px-4 py-3.5 hover:border-accent/30 hover:-translate-y-0.5 transition-all">
+        <Link key={s.label} href={s.to} className="bg-surface-1 border border-surface-3 rounded-2xl shadow-card p-[var(--card-pad-sm)] hover:-translate-y-0.5 transition-all">
           <p className="text-[11px] text-fg-tertiary uppercase tracking-[0.4px]">{s.label}</p>
           <p className={`text-[22px] font-bold mt-1 tabular-nums ${s.color}`}>{s.value}</p>
           <p className="text-[11px] text-fg-tertiary mt-0.5">{s.sub}</p>

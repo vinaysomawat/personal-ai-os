@@ -27,8 +27,8 @@ const TYPE_ICON: Record<ResourceType, string> = {
 }
 const STATUS_CONFIG: Record<ResourceStatus, { label: string; color: string; bg: string }> = {
   'not-started': { label: 'Not started', color: 'text-fg-secondary',  bg: 'bg-surface-2' },
-  'in-progress':  { label: 'In progress', color: 'text-amber-400',  bg: 'bg-warn-soft' },
-  'completed':    { label: 'Completed',   color: 'text-green-400',  bg: 'bg-good-soft' },
+  'in-progress':  { label: 'In progress', color: 'text-warn',  bg: 'bg-warn-soft' },
+  'completed':    { label: 'Completed',   color: 'text-good',  bg: 'bg-good-soft' },
 }
 const STATUSES = Object.keys(STATUS_CONFIG) as ResourceStatus[]
 const TYPES: ResourceType[] = ['course', 'book', 'video', 'article', 'podcast']
@@ -279,7 +279,7 @@ export default function LearningView({ initialResources, initialStudyLogs, initi
         <span className="text-[11px] font-semibold bg-surface-2 rounded-full px-2.5 py-1 text-fg-secondary">📖 {counts['in-progress']} in progress</span>
       </div>
       {/* Stats row */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-[var(--grid-gap-sm)]">
         <StatCard value={resources.length} label="Total" />
         <StatCard value={counts['in-progress']} label="In progress" valueClassName="text-amber-400" />
         <StatCard value={counts['completed']} label="Completed" valueClassName="text-green-400" />

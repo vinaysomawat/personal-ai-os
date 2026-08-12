@@ -36,7 +36,7 @@ export default function DailyCodingCard({ initialAssignment, stats }: Props) {
       <div className="flex items-center justify-between gap-2.5 mb-2.5">
         <h2 className="text-[13px] font-bold text-fg-primary whitespace-nowrap">Today&apos;s Question{assignment.length > 1 ? 's' : ''}</h2>
         {assignment.length > 0 && (
-          <span className={`text-[11px] font-bold px-2.5 py-[3px] rounded-[6px] bg-border whitespace-nowrap ${allCompleted ? 'text-green-400' : 'text-amber-400'}`}>
+          <span className={`text-[11px] font-bold px-2.5 py-[3px] rounded-[6px] whitespace-nowrap ${allCompleted ? 'bg-good-soft text-good' : 'bg-warn-soft text-warn'}`}>
             {allCompleted ? 'Solved' : 'Pending'}
           </span>
         )}

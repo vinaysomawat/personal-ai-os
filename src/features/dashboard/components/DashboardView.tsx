@@ -99,7 +99,7 @@ export default function DashboardView({ data, executive }: { data: DashboardData
           above the Goal Progress bars internally, so it drops in as one
           column unchanged. */}
       <div className="grid grid-cols-1 lg:grid-cols-[340px_1fr] gap-[var(--grid-gap)] items-start">
-        <div className="bg-surface-1 border border-surface-3 rounded-[18px] shadow-card p-[22px] flex flex-col items-center gap-2">
+        <div className="bg-surface-1 border border-surface-3 rounded-[18px] shadow-card p-[var(--card-pad-lg)] flex flex-col items-center gap-2">
           <p className="text-xs text-fg-tertiary uppercase tracking-[0.5px] self-start font-semibold">Life Score</p>
           <ScoreExplainer score={scores.life ?? 0} result={scoreExplanation} />
           <p className="text-xs text-fg-tertiary">Click ring to explain score</p>
@@ -170,7 +170,7 @@ export default function DashboardView({ data, executive }: { data: DashboardData
 
       {/* Module Scores — its own full-width card, matching the design
           (previously merged into the Life Score hero card above). */}
-      <div className="bg-surface-1 border border-surface-3 rounded-[18px] shadow-card p-5">
+      <div className="bg-surface-1 border border-surface-3 rounded-[18px] shadow-card p-[var(--card-pad-lg)]">
         <p className="text-xs text-fg-tertiary uppercase tracking-[0.5px] mb-3 font-semibold">Module Scores</p>
         <div className="grid grid-cols-3 sm:grid-cols-5 gap-4">
           {moduleScores.map(({ label, score, color, to, tip }) => (
@@ -187,7 +187,7 @@ export default function DashboardView({ data, executive }: { data: DashboardData
       {/* Module grid */}
       <div>
         <p className="text-xs text-fg-quaternary uppercase tracking-widest mb-2">Modules</p>
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-2">
+        <div className="grid grid-cols-[repeat(auto-fit,minmax(150px,1fr))] gap-[var(--grid-gap-sm)]">
           {modules.map(({ label, to, icon: Icon, color, bg, stat }) => (
             <Link key={to} href={to}
               className="group flex flex-col gap-2 p-3.5 bg-surface-1 border border-surface-3 rounded-xl shadow-card hover:border-accent/40 hover:bg-surface-2 hover:-translate-y-0.5 hover:shadow-lg transition-all">

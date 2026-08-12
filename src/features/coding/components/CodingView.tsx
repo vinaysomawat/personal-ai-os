@@ -56,7 +56,7 @@ export default function CodingView({ dailyAssignment, codingStats, calendar, cod
           matching the design; previously Streak/Solved lived only as small
           chips inside DailyCodingCard's header, and Assignment mode was
           never shown on the page at all (only inside the settings modal). */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3.5">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-[var(--grid-gap-sm)]">
         <div className="bg-surface-1 border border-surface-3 rounded-2xl p-[var(--card-pad-sm)]">
           <p className="text-[11px] text-fg-tertiary uppercase">Streak</p>
           <p className="text-xl font-bold text-fg-primary mt-1">🔥 {codingStats.currentStreak} days</p>

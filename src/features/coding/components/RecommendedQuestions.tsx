@@ -64,7 +64,7 @@ export default function RecommendedQuestions() {
               <p className="text-xs text-fg-quaternary uppercase tracking-wider mb-1.5">Weak Areas</p>
               <div className="flex flex-wrap gap-1">
                 {weakAreas.slice(0, 5).map(w => (
-                  <span key={w.topic} className="text-xs px-1.5 py-0.5 rounded-full bg-risk-soft text-red-400">{w.topic} ({w.struggleRate}%)</span>
+                  <span key={w.topic} className="text-xs px-1.5 py-0.5 rounded-full bg-risk-soft text-risk">{w.topic} ({w.struggleRate}%)</span>
                 ))}
               </div>
             </div>

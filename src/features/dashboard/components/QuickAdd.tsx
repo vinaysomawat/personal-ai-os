@@ -86,8 +86,8 @@ export default function QuickAdd() {
               <div className="p-4 grid grid-cols-3 gap-2">
                 {[
                   { key: 'task',    icon: CalendarDays, label: 'Task',    color: 'bg-blue-500/10 text-blue-400' },
-                  { key: 'expense', icon: DollarSign,   label: 'Expense', color: 'bg-good-soft text-green-400' },
-                  { key: 'metric',  icon: HeartPulse,   label: 'Metric',  color: 'bg-risk-soft text-red-400' },
+                  { key: 'expense', icon: DollarSign,   label: 'Expense', color: 'bg-good-soft text-good' },
+                  { key: 'metric',  icon: HeartPulse,   label: 'Metric',  color: 'bg-risk-soft text-risk' },
                 ].map(({ key, icon: Icon, label, color }) => (
                   <button key={key} onClick={() => setMode(key as Mode)}
                     className={`flex flex-col items-center gap-2 p-4 rounded-xl ${color} hover:opacity-80 transition-opacity`}>

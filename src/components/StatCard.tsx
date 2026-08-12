@@ -14,7 +14,7 @@ export default function StatCard({ value, label, valueClassName = 'text-fg-prima
   return (
     <Tag
       onClick={onClick}
-      className={`bg-surface-1 border rounded-xl p-3 flex flex-col items-center w-full ${onClick ? 'cursor-pointer text-left' : ''} ${active ? 'border-accent' : 'border-surface-3'}`}
+      className={`bg-surface-1 border rounded-2xl p-[var(--card-pad-sm)] flex flex-col items-center w-full ${onClick ? 'cursor-pointer text-left' : ''} ${active ? 'border-accent' : 'border-surface-3'}`}
     >
       <div className="flex items-center gap-1">
         {icon}

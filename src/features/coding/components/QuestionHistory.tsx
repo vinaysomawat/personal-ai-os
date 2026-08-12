@@ -9,10 +9,10 @@ import { toggleFavorite, toggleRevisionFlag, markQuestionComplete } from '../dai
 import OutcomeModal from './OutcomeModal'
 import type { DailyQuestion, Outcome } from '../daily-core'
 
-const DIFFICULTY_COLOR: Record<string, string> = {
-  easy: 'text-green-400',
-  medium: 'text-amber-400',
-  hard: 'text-red-400',
+const DIFFICULTY_CHIP: Record<string, string> = {
+  easy: 'bg-good-soft text-good',
+  medium: 'bg-warn-soft text-warn',
+  hard: 'bg-risk-soft text-risk',
 }
 
 type Filter = 'all' | 'completed' | 'pending' | 'revision' | 'favorites' | 'easy' | 'medium' | 'hard'
@@ -71,7 +71,7 @@ export default function QuestionHistory({ initialHistory }: Props) {
         <ul className="flex flex-col gap-2 max-h-96 overflow-y-auto">
           {filtered.map(h => (
             <li key={h.id} className="flex items-center gap-2.5 bg-surface-2 rounded-[10px] px-3.5 py-2.5 group">
-              <span className={`text-[10px] font-bold uppercase px-1.5 py-0.5 rounded-[5px] bg-border shrink-0 ${DIFFICULTY_COLOR[h.question.difficulty]}`}>{h.question.difficulty}</span>
+              <span className={`text-[10px] font-bold uppercase px-1.5 py-0.5 rounded-[5px] shrink-0 ${DIFFICULTY_CHIP[h.question.difficulty]}`}>{h.question.difficulty}</span>
               <span className="flex-1 min-w-0 text-[12.5px] text-fg-secondary truncate">{h.question.title}</span>
               <span className="text-xs text-fg-quaternary shrink-0">{h.assigned_date}</span>
               <button onClick={() => !h.completed && setOutcomeFor(h)} disabled={h.completed} aria-label="Mark question complete"

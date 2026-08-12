@@ -113,8 +113,8 @@ function ExecutiveSummaryTrigger() {
 // Design's task-row priority indicator is a soft-bg chip (matches the same
 // bg-*-soft + colored-text pattern already used for Finance/Learning pills).
 const PRIORITY_CHIP: Record<Priority, string> = {
-  high: 'bg-risk-soft text-red-400',
-  medium: 'bg-warn-soft text-amber-400',
+  high: 'bg-risk-soft text-risk',
+  medium: 'bg-warn-soft text-warn',
   low: 'bg-surface-2 text-fg-tertiary',
 }
 
@@ -289,7 +289,7 @@ export default function PlannerView({ initialTasks }: Props) {
       </div>
 
       {/* Stats row — clickable filter tiles, except Completed (display-only) */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3.5">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-[var(--grid-gap-sm)]">
         <StatCard value={pending.length} label="Pending" active={plannerFilter === 'all'} onClick={() => setPlannerFilter('all')} />
         <StatCard value={highPriorityPending} label="High priority" valueClassName="text-red-400" active={plannerFilter === 'high'} onClick={() => setPlannerFilter('high')} />
         <StatCard value={overdue} label="Overdue" valueClassName="text-amber-400" active={plannerFilter === 'overdue'} onClick={() => setPlannerFilter('overdue')} />

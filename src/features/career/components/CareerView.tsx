@@ -20,12 +20,12 @@ import { useEscapeKey } from '@/lib/use-escape-key'
 import { useFormValidation } from '@/lib/use-form-validation'
 import FieldError from '@/components/FieldError'
 
-const STATUS_CONFIG: Record<AppStatus, { label: string; color: string; bg: string }> = {
-  applied:   { label: 'Applied',   color: 'text-blue-400',   bg: 'bg-blue-400/10' },
-  screening: { label: 'Screening', color: 'text-amber-400',  bg: 'bg-amber-400/10' },
-  interview: { label: 'Interview', color: 'text-purple-400', bg: 'bg-purple-400/10' },
-  offer:     { label: 'Offer',     color: 'text-green-400',  bg: 'bg-good-soft' },
-  rejected:  { label: 'Rejected',  color: 'text-red-400',    bg: 'bg-red-400/10' },
+const STATUS_CONFIG: Record<AppStatus, { label: string; color: string }> = {
+  applied:   { label: 'Applied',   color: 'text-fg-tertiary' },
+  screening: { label: 'Screening', color: 'text-warn' },
+  interview: { label: 'Interview', color: 'text-accent' },
+  offer:     { label: 'Offer',     color: 'text-good' },
+  rejected:  { label: 'Rejected',  color: 'text-risk' },
 }
 const STATUSES = Object.keys(STATUS_CONFIG) as AppStatus[]
 // Design's quick-filter pills — 5 items, deliberately excluding Rejected
@@ -136,7 +136,10 @@ export default function CareerView({ applications, profile, skills, quizAttempts
   useEffect(() => { clear(); if (!modal) setPrefillApp(null) }, [modal, clear])
 
   // JD analysis
-  const [expandedApp, setExpandedApp] = useState<string | null>(null)
+  // Screening/interview-stage applications default to expanded (need more
+  // attention than a plain "Applied"), with per-app overrides once the user
+  // manually toggles one — so several can be open at once, not just one.
+  const [expandedOverrides, setExpandedOverrides] = useState<Record<string, boolean>>({})
   const [analyzingAppId, setAnalyzingAppId] = useState<string | null>(null)
   const [jdInput, setJdInput] = useState('')
 
@@ -153,6 +156,7 @@ export default function CareerView({ applications, profile, skills, quizAttempts
   const [mentorA, setMentorA] = useState<string | null>(null)
   const [mentorLoading, setMentorLoading] = useState(false)
 
+  const appliedCompanies = new Set(localApps.map(a => a.company.toLowerCase()))
   const counts = STATUSES.reduce((acc, s) => ({ ...acc, [s]: localApps.filter(a => a.status === s).length }), {} as Record<AppStatus, number>)
   const filteredByStatus = filterStatus === 'all' ? localApps : localApps.filter(a => a.status === filterStatus)
   const filtered = appsSort === 'match'
@@ -358,22 +362,24 @@ export default function CareerView({ applications, profile, skills, quizAttempts
             <p className="text-[13px] text-fg-tertiary">No applications in this status.</p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-[var(--grid-gap)] items-start">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-[var(--grid-gap-sm)] items-start">
             {filtered.map(app => {
               const cfg = STATUS_CONFIG[app.status]
-              const isExpanded = expandedApp === app.id
+              const defaultExpanded = app.status === 'screening' || app.status === 'interview'
+              const isExpanded = expandedOverrides[app.id] ?? defaultExpanded
               const isAnalyzing = analyzingAppId === app.id
+              const missingSkills = app.jd_analysis?.missingSkills ?? []
               return (
-                <div key={app.id} onClick={() => setExpandedApp(isExpanded ? null : app.id)}
+                <div key={app.id} onClick={() => setExpandedOverrides(prev => ({ ...prev, [app.id]: !isExpanded }))}
                   className="bg-surface-1 border border-surface-3 rounded-2xl shadow-card p-4 cursor-pointer">
-                  <div className="flex items-start justify-between gap-2">
+                  <div className="flex items-start justify-between gap-2.5">
                     <div className="min-w-0">
                       <div className="font-bold text-sm flex items-center gap-1.5 text-fg-primary">
                         <ChevronRight size={10} className={`shrink-0 transition-transform ${isExpanded ? 'rotate-90' : ''}`} />
                         <span className="truncate">{app.company}</span>
                         {app.url && <a href={app.url} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()} className="shrink-0 text-fg-quaternary hover:text-accent transition-colors"><ExternalLink size={11} /></a>}
                       </div>
-                      <div className="text-xs text-fg-tertiary ml-[14px] truncate">{app.role} · {app.applied_at}</div>
+                      <div className="text-xs text-fg-tertiary ml-[14px] truncate">{app.role} · Applied {app.applied_at}</div>
                     </div>
                     <div className="flex items-center gap-1.5 shrink-0">
                       {isAnalyzing ? (
@@ -386,11 +392,16 @@ export default function CareerView({ applications, profile, skills, quizAttempts
                       </button>
                     </div>
                   </div>
-                  <div className="ml-[14px] mt-2" onClick={e => e.stopPropagation()}>
+                  <div className="ml-[14px] mt-2 flex items-center justify-between gap-2.5 flex-wrap" onClick={e => e.stopPropagation()}>
                     <select value={app.status} onChange={e => handleStatus(app.id, e.target.value as AppStatus)}
                       className={`text-[11.5px] font-semibold bg-transparent border border-border-strong rounded-[6px] px-1.5 py-[3px] outline-none cursor-pointer ${cfg.color}`}>
                       {STATUSES.map(s => <option key={s} value={s}>{STATUS_CONFIG[s].label}</option>)}
                     </select>
+                    {missingSkills.length > 0 && (
+                      <div className="flex flex-wrap gap-1">
+                        {missingSkills.map(s => <span key={s} className="text-[10px] font-semibold bg-risk-soft text-risk rounded-[5px] px-1.5 py-0.5">{s}</span>)}
+                      </div>
+                    )}
                   </div>
                   {(app.location || app.salary_range) && (
                     <div className="ml-[14px] mt-1.5 flex items-center gap-2 flex-wrap text-[11px] text-fg-quaternary">
@@ -405,20 +416,24 @@ export default function CareerView({ applications, profile, skills, quizAttempts
                         <div className="space-y-2">{[80, 60, 90].map((w, i) => <div key={i} className="h-3 rounded bg-surface-3 animate-pulse" style={{ width: `${w}%` }} />)}</div>
                       ) : app.jd_analysis ? (
                         <>
+                          <div className="bg-surface-2 rounded-lg px-3 py-2.5">
+                            <p className="text-[11px] font-bold text-fg-tertiary uppercase tracking-[0.4px]">📄 Job Description</p>
+                            <p className="text-xs text-fg-secondary mt-1 leading-relaxed italic">{app.job_description || 'No JD saved for this application yet.'}</p>
+                          </div>
                           <div className="grid grid-cols-2 gap-3">
                             <div>
-                              <p className="text-[11px] font-bold text-fg-tertiary uppercase tracking-[0.4px] mb-1">Required Skills</p>
+                              <p className="text-[11px] font-bold text-fg-tertiary uppercase tracking-[0.4px] mb-1">✅ Required Skills</p>
                               <div className="flex flex-wrap gap-1">
-                                {app.jd_analysis.requiredSkills.map(s => <span key={s} className="text-[10.5px] px-2 py-[3px] rounded-[5px] bg-surface-2 text-fg-secondary">{s}</span>)}
+                                {app.jd_analysis.requiredSkills.map(s => <span key={s} className="text-[10.5px] font-semibold px-2 py-[3px] rounded-[5px] bg-good-soft text-good">{s}</span>)}
                               </div>
                             </div>
                             <div>
-                              <p className="text-[11px] font-bold text-fg-tertiary uppercase tracking-[0.4px] mb-1">Missing Skills</p>
+                              <p className="text-[11px] font-bold text-fg-tertiary uppercase tracking-[0.4px] mb-1">⚠️ Missing Skills</p>
                               {app.jd_analysis.missingSkills.length === 0 ? (
                                 <p className="text-xs text-fg-quaternary italic">None identified</p>
                               ) : (
                                 <div className="flex flex-wrap gap-1">
-                                  {app.jd_analysis.missingSkills.map(s => <span key={s} className="text-[10.5px] px-2 py-[3px] rounded-[5px] bg-risk-soft text-risk">{s}</span>)}
+                                  {app.jd_analysis.missingSkills.map(s => <span key={s} className="text-[10.5px] font-semibold px-2 py-[3px] rounded-[5px] bg-risk-soft text-risk">{s}</span>)}
                                 </div>
                               )}
                             </div>
@@ -430,7 +445,7 @@ export default function CareerView({ applications, profile, skills, quizAttempts
                             </div>
                           </div>
                           <div>
-                            <p className="text-[11px] font-bold text-fg-tertiary uppercase tracking-[0.4px] mb-1">Company Focus</p>
+                            <p className="text-[11px] font-bold text-fg-tertiary uppercase tracking-[0.4px] mb-1">🎯 Company Focus</p>
                             <p className="text-sm text-fg-secondary leading-relaxed">{app.jd_analysis.companyFocus}</p>
                           </div>
                         </>
@@ -454,7 +469,7 @@ export default function CareerView({ applications, profile, skills, quizAttempts
                       )}
 
                       <div className="pt-2.5 border-t border-surface-3">
-                        <p className="text-[11px] font-bold text-fg-tertiary uppercase tracking-[0.4px] mb-1.5">Interview Guidance</p>
+                        <p className="text-[11px] font-bold text-fg-tertiary uppercase tracking-[0.4px] mb-1.5">🎤 Interview Guidance</p>
                         {loadingInsightsFor === app.company ? (
                           <div className="space-y-2">{[85, 65].map((w, i) => <div key={i} className="h-3 rounded bg-surface-3 animate-pulse" style={{ width: `${w}%` }} />)}</div>
                         ) : app.company in companyInsights ? (
@@ -495,19 +510,26 @@ export default function CareerView({ applications, profile, skills, quizAttempts
           <EmptyState icon={Bell} message="No new postings yet — checked daily against 16 companies' public job boards" compact />
         ) : (
           <div className="flex flex-col gap-1">
-            {jobAlerts.map(alert => (
-              <div key={alert.id} className="flex items-center gap-2.5 py-[9px] border-b border-surface-3">
-                <div className="flex-1 min-w-0">
-                  <span className="text-[13px] font-semibold text-fg-primary">{alert.company}</span>
-                  <span className="text-[13px] text-fg-secondary"> · {alert.title}</span>
+            {jobAlerts.map(alert => {
+              const isApplied = appliedCompanies.has(alert.company.toLowerCase())
+              return (
+                <div key={alert.id} className="flex items-center gap-2.5 py-[9px] border-b border-surface-3">
+                  <div className="flex-1 min-w-0">
+                    <span className="text-[13px] font-semibold text-fg-primary">{alert.company}</span>
+                    <span className="text-[13px] text-fg-secondary"> · {alert.title}</span>
+                  </div>
+                  <span className="text-[11px] text-fg-tertiary whitespace-nowrap">{shortDate(alert.created_at)}</span>
+                  <a href={alert.url} target="_blank" rel="noopener noreferrer" aria-label="View posting" className="text-[12px] text-fg-tertiary hover:text-accent transition-colors no-underline">↗</a>
+                  {isApplied ? (
+                    <span className="shrink-0 text-[11.5px] font-bold px-2.5 py-1 rounded-[6px] bg-good-soft text-good whitespace-nowrap">✓ Applied</span>
+                  ) : (
+                    <button onClick={() => handleTrackJobAlert(alert)} className="shrink-0 text-[11.5px] px-2.5 py-1 rounded-[6px] border border-border-strong text-fg-secondary hover:text-accent hover:border-accent/40 transition-colors whitespace-nowrap">
+                      Track
+                    </button>
+                  )}
                 </div>
-                <span className="text-[11px] text-fg-tertiary whitespace-nowrap">{shortDate(alert.created_at)}</span>
-                <a href={alert.url} target="_blank" rel="noopener noreferrer" aria-label="View posting" className="text-[12px] text-fg-tertiary hover:text-accent transition-colors no-underline">↗</a>
-                <button onClick={() => handleTrackJobAlert(alert)} className="shrink-0 text-[11.5px] px-2.5 py-1 rounded-[6px] border border-border-strong text-fg-secondary hover:text-accent hover:border-accent/40 transition-colors whitespace-nowrap">
-                  Track
-                </button>
-              </div>
-            ))}
+              )
+            })}
           </div>
         )}
       </Card>

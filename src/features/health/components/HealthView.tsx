@@ -245,7 +245,7 @@ export default function HealthView({ initialMetrics, initialProfile, initialWork
 
       {/* Editable daily metrics — top-level stat tiles, matching design's
           healthMetrics row (promoted out of a "Today's Metrics" card wrapper). */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3.5">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-[var(--grid-gap-sm)]">
         {METRICS.map(m => (
           <MetricCard
             key={m.field}
@@ -288,7 +288,7 @@ export default function HealthView({ initialMetrics, initialProfile, initialWork
       {/* Computed targets — a second stat-tile row, matching design's
           separate BMI/Calorie/Protein/Workouts-per-week group. */}
       {dailyTargets && (
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3.5">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-[var(--grid-gap-sm)]">
           <StatTile value={dailyTargets.bmi} label={`BMI (normal ≤24.9, ~${dailyTargets.normalBmiWeightKg}kg)`} />
           <StatTile value={`${dailyTargets.dailyCalorieTarget} kcal`} label="Calorie Target" />
           <StatTile value={`${dailyTargets.proteinTargetG}g`} label="Protein Target" />
