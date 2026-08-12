@@ -4,7 +4,7 @@ import type { InlineButton } from './types'
 // allowlist even though the chat is already gated to a single user
 // (TELEGRAM_ALLOWED_CHAT_ID), so a malformed callback_data can't attempt an
 // arbitrary table delete.
-export const UNDOABLE_TABLES = [
+const UNDOABLE_TABLES = [
   'tasks', 'applications', 'expenses', 'loans', 'investments',
   'recurring_expenses', 'workouts', 'resources', 'food_log',
 ] as const

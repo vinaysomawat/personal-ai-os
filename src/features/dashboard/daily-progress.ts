@@ -4,7 +4,7 @@
 // specifically is done", resetting to a fresh set of items every midnight.
 // No AI: this is pure counting over data the page already fetches.
 
-export interface ProgressItem {
+interface ProgressItem {
   key: string
   label: string
   done: boolean

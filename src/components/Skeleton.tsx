@@ -1,11 +1,11 @@
 import React from 'react'
 import { cn } from '@/lib/utils'
 
-export function Skeleton({ className, style }: { className?: string; style?: React.CSSProperties }) {
+function Skeleton({ className, style }: { className?: string; style?: React.CSSProperties }) {
   return <div className={cn('animate-pulse rounded-lg bg-surface-2', className)} style={style} />
 }
 
-export function CardSkeleton() {
+function CardSkeleton() {
   return (
     <div className="bg-surface-1 border border-surface-3 rounded-xl p-5 space-y-3">
       <Skeleton className="h-4 w-32" />
@@ -16,7 +16,7 @@ export function CardSkeleton() {
   )
 }
 
-export function ListSkeleton({ rows = 4 }: { rows?: number }) {
+function ListSkeleton({ rows = 4 }: { rows?: number }) {
   return (
     <div className="bg-surface-1 border border-surface-3 rounded-xl p-5 space-y-3">
       <Skeleton className="h-4 w-28 mb-4" />
@@ -31,7 +31,7 @@ export function ListSkeleton({ rows = 4 }: { rows?: number }) {
   )
 }
 
-export function StatsSkeleton({ cols = 3 }: { cols?: number }) {
+function StatsSkeleton({ cols = 3 }: { cols?: number }) {
   return (
     <div className={`grid gap-3`} style={{ gridTemplateColumns: `repeat(${cols}, 1fr)` }}>
       {Array.from({ length: cols }).map((_, i) => (
@@ -46,7 +46,7 @@ export function StatsSkeleton({ cols = 3 }: { cols?: number }) {
 
 // Matches every page's own header shape (small date/subtitle line + big H1
 // title) so the loading state doesn't skip straight to content.
-export function HeaderSkeleton() {
+function HeaderSkeleton() {
   return (
     <div className="space-y-2">
       <Skeleton className="h-3 w-40" />

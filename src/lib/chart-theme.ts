@@ -13,7 +13,7 @@ export const CHART_TOOLTIP_CLASS = 'bg-surface-2 border border-surface-3 rounded
 // consumers before this pass — the design's Spending History pie uses
 // hex values byte-identical to this exact palette (see CHARTS-AUDIT.md §5),
 // so this is now the one chart palette every chart in the app draws from.
-export const CHART_COLORS = ['var(--chart-1)', 'var(--chart-2)', 'var(--chart-3)', 'var(--chart-4)', 'var(--chart-5)'] as const
+const CHART_COLORS =['var(--chart-1)', 'var(--chart-2)', 'var(--chart-3)', 'var(--chart-4)', 'var(--chart-5)'] as const
 
 // Finance's Spending History pie/legend — the design's exact 5-category
 // color assignment (categoryColors in Dashboard.dc.html), each hex value

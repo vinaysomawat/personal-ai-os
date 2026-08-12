@@ -54,7 +54,7 @@ export interface CareerProfile {
   updated_at: string
 }
 
-export type SkillLevel = 'beginner' | 'intermediate' | 'advanced' | 'expert'
+type SkillLevel = 'beginner' | 'intermediate' | 'advanced' | 'expert'
 
 export interface Skill {
   id: string

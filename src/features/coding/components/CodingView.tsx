@@ -89,7 +89,7 @@ export default function CodingView({ dailyAssignment, codingStats, calendar, cod
                   <span className="text-fg-tertiary">{w.strugglingCount} of {w.total} struggled · {w.struggleRate}%</span>
                 </div>
                 <div className="h-[5px] rounded-[3px] bg-border">
-                  <div className={`h-full rounded-[3px] ${w.struggleRate >= 60 ? 'bg-risk' : 'bg-warn'}`} style={{ width: `${w.struggleRate}%` }} />
+                  <div className={`h-full rounded-[3px] ${w.struggleRate >= 70 ? 'bg-risk' : 'bg-warn'}`} style={{ width: `${w.struggleRate}%` }} />
                 </div>
               </div>
             ))}

@@ -18,7 +18,7 @@ import * as coding    from './modules/coding'
 const MODULES = { planner, career, finance, health, learning, coding } as const
 type ModuleName = keyof typeof MODULES
 
-export const MODULE_TOKENS: Record<ModuleName, string | undefined> = {
+const MODULE_TOKENS: Record<ModuleName, string | undefined> = {
   planner:   process.env.TELEGRAM_BOT_TOKEN_PLANNER,
   career:    process.env.TELEGRAM_BOT_TOKEN_CAREER,
   finance:   process.env.TELEGRAM_BOT_TOKEN_FINANCE,

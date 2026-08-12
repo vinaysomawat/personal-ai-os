@@ -1,9 +1,9 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { todayIST, istMidnightUtc, toISTDateStr } from '@/lib/date'
 
-export type WorkoutStatus = 'pending' | 'in_progress' | 'completed' | 'skipped'
+type WorkoutStatus = 'pending' | 'in_progress' | 'completed' | 'skipped'
 
-export interface WorkoutExercise {
+interface WorkoutExercise {
   name: string
   sets: number
   reps: string
@@ -13,14 +13,14 @@ export interface WorkoutExercise {
   notes: string
 }
 
-export interface WorkoutCardio {
+interface WorkoutCardio {
   type: string
   duration: string
   intensity: string
   targetHeartRateZone: string
 }
 
-export interface Workout {
+interface Workout {
   id: string
   name: string
   category: string

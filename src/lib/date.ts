@@ -16,7 +16,7 @@ export function todayIST(): string {
 // 'UTC'` (or any getUTC* getter) yields IST calendar digits — same trick as
 // todayIST()'s toISOString() split, generalized for callers that need more
 // than just the date, e.g. a human-readable label or the current hour.
-export function nowIST(): Date {
+function nowIST(): Date {
   return new Date(Date.now() + IST_OFFSET_MS)
 }
 

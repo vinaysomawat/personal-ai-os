@@ -12,7 +12,7 @@ const MIN_SAFE_CALORIES = 1500
 const KCAL_PER_KG_FAT = 7700
 const NORMAL_BMI_UPPER = 24.9
 
-export function calculateBMI(weightKg: number, heightCm: number): number {
+function calculateBMI(weightKg: number, heightCm: number): number {
   const heightM = heightCm / 100
   return weightKg / (heightM * heightM)
 }
@@ -20,17 +20,17 @@ export function calculateBMI(weightKg: number, heightCm: number): number {
 // Upper bound of the "normal" BMI range (18.5–24.9) — the most achievable
 // real target for someone starting overweight/obese, used as the fitness
 // goal weight instead of requiring a manually-entered target weight.
-export function calculateNormalBmiWeight(heightCm: number): number {
+function calculateNormalBmiWeight(heightCm: number): number {
   const heightM = heightCm / 100
   return NORMAL_BMI_UPPER * heightM * heightM
 }
 
-export function calculateBMR(weightKg: number, heightCm: number, age: number, gender: Gender): number {
+function calculateBMR(weightKg: number, heightCm: number, age: number, gender: Gender): number {
   const base = 10 * weightKg + 6.25 * heightCm - 5 * age
   return gender === 'male' ? base + 5 : base - 161
 }
 
-export function calculateTDEE(bmr: number, activityLevel: ActivityLevel): number {
+function calculateTDEE(bmr: number, activityLevel: ActivityLevel): number {
   return bmr * ACTIVITY_MULTIPLIER[activityLevel]
 }
 
@@ -49,7 +49,7 @@ export interface DailyTargets {
 // toward the upper-normal-BMI weight (auto-computed from height — no manual
 // target weight or deadline needed). Once BMI is back in the normal range,
 // this naturally becomes a maintenance target.
-export function calculateDailyTargets(currentWeightKg: number, heightCm: number, tdee: number): DailyTargets {
+function calculateDailyTargets(currentWeightKg: number, heightCm: number, tdee: number): DailyTargets {
   const bmi = calculateBMI(currentWeightKg, heightCm)
   const normalBmiWeightKg = calculateNormalBmiWeight(heightCm)
   const weightToLoseKg = Math.max(0, currentWeightKg - normalBmiWeightKg)
@@ -75,7 +75,7 @@ export function calculateDailyTargets(currentWeightKg: number, heightCm: number,
   }
 }
 
-export interface SubScore {
+interface SubScore {
   score: number
   reason: string
 }
@@ -90,7 +90,7 @@ function clamp(n: number, min = 0, max = 100) {
   return Math.min(max, Math.max(min, n))
 }
 
-export function calculateHealthScore(
+function calculateHealthScore(
   todayMetric: HealthMetric | null,
   targets: { calories: number; protein: number; steps: number },
   workouts: Workout[],

@@ -96,7 +96,7 @@ export default function LearningView({ initialResources, initialStudyLogs, initi
   const [resources, setResources] = useState(initialResources)
   const [studyLogs, setStudyLogs] = useState(initialStudyLogs)
   const [quizAttempts, setQuizAttempts] = useState(initialQuizAttempts)
-  const [filter, setFilter] = useState<'active' | 'all' | 'completed'>('active')
+  const [filter, setFilter] = useState<'all' | ResourceStatus>('all')
   const [showForm, setShowForm] = useState(false)
 
   // Quiz
@@ -135,8 +135,7 @@ export default function LearningView({ initialResources, initialStudyLogs, initi
   const isTodaysRead = isMarkedToday
 
   const filtered = (filter === 'all' ? resources
-    : filter === 'completed' ? resources.filter(r => r.status === 'completed')
-    : resources.filter(r => r.status !== 'completed')
+    : resources.filter(r => r.status === filter)
   ).slice().sort((a, b) => Number(isTodaysRead(b)) - Number(isTodaysRead(a)))
   const counts = STATUSES.reduce((acc, s) => ({ ...acc, [s]: resources.filter(r => r.status === s).length }), {} as Record<ResourceStatus, number>)
   const weakAreasByCategory = computeCategoryWeakAreas(quizAttempts)
@@ -314,17 +313,11 @@ export default function LearningView({ initialResources, initialStudyLogs, initi
         </Card>
       )}
 
-      {/* Status filter — Not started + In progress collapsed into one "Not started"
-          bucket (still distinguishable per-row via each resource's own status
-          dropdown below), defaulting to that view instead of All */}
       <div className="flex gap-2 flex-wrap">
         <FilterPill label={`All (${resources.length})`} active={filter === 'all'} onClick={() => setFilter('all')} />
-        {([
-          { key: 'active' as const, ...STATUS_CONFIG['not-started'], count: counts['not-started'] + counts['in-progress'] },
-          { key: 'completed' as const, ...STATUS_CONFIG['completed'], count: counts['completed'] },
-        ]).map(cfg => (
-          <FilterPill key={cfg.key} label={`${cfg.label} (${cfg.count})`} active={filter === cfg.key}
-            onClick={() => setFilter(filter === cfg.key ? 'all' : cfg.key)} activeClassName={`${cfg.bg} ${cfg.color}`} />
+        {STATUSES.map(s => (
+          <FilterPill key={s} label={`${STATUS_CONFIG[s].label} (${counts[s]})`} active={filter === s}
+            onClick={() => setFilter(filter === s ? 'all' : s)} activeClassName={`${STATUS_CONFIG[s].bg} ${STATUS_CONFIG[s].color}`} />
         ))}
       </div>
 

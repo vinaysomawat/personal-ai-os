@@ -7,7 +7,7 @@ export interface PurchaseScenarioInput {
   emiDurationMonths: number
 }
 
-export interface GoalPace {
+interface GoalPace {
   name: string
   remaining: number
   // null when free cash after the purchase can't fund it at all (<=0)

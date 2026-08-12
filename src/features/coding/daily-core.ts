@@ -1,7 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { todayIST, daysAgoIST } from '@/lib/date'
 
-export type Difficulty = 'easy' | 'medium' | 'hard'
+type Difficulty = 'easy' | 'medium' | 'hard'
 
 // Self-reported at completion, the same way time_spent_minutes already is —
 // these are open-ended GreatFrontEnd-style problems (a link, not an
@@ -229,7 +229,7 @@ export function getStaleRevisionCount(
   return [...latestByQuestion.values()].filter(d => d < cutoff).length
 }
 
-export interface CalendarDayQuestion {
+interface CalendarDayQuestion {
   title: string
   difficulty: Difficulty
   completed: boolean

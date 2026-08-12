@@ -20,7 +20,7 @@ export async function logCronRun(db: ReturnType<typeof createServiceClient>, job
 // weekly-digest as "missing" on 6 out of 7 days by design, not by failure.
 // Shared by /api/cron/cron-health-check (Telegram alert) and Settings'
 // System Health card (passive display) — one source of truth for both.
-export const EXPECTED_CRON_JOBS: { job: string; maxAgeHours: number }[] = [
+const EXPECTED_CRON_JOBS: { job: string; maxAgeHours: number }[] = [
   { job: 'daily-briefing',       maxAgeHours: 26 },
   { job: 'daily-coding',         maxAgeHours: 26 },
   { job: 'health-tip',           maxAgeHours: 26 },

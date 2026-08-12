@@ -78,8 +78,6 @@ export const CATEGORIES = [
   'Entertainment', 'Learning', 'Utilities', 'EMIs', 'Bills', 'Other',
 ] as const
 
-export type Category = typeof CATEGORIES[number]
-
 export const INVESTMENT_TYPES: { value: InvestmentType; label: string }[] = [
   { value: 'mutual_fund', label: 'Mutual Fund' },
   { value: 'stocks',      label: 'Stocks' },
