@@ -269,7 +269,7 @@ export default function HealthView({ initialMetrics, initialProfile, initialWork
 
       {/* Daily Workout Planner + Health Score — side by side, matching design's
           two-column grouping instead of stacking full-width. */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-start">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-[var(--grid-gap)] items-start">
         <DailyWorkoutCard initialWorkout={initialDailyWorkout} stats={workoutStats} />
         {profile && dailyTargets && healthScore ? (
           <HealthScoreHero score={healthScore} onEditProfile={() => setShowProfileForm(true)} />

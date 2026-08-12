@@ -383,7 +383,7 @@ export default function FinanceView({ expenses, budgets, profile, loans, investm
       {/* By Category (left) + Loans/Investments/Goals/Expenses stack (right) —
           matches the design's two-column grouping instead of stacking every
           section full-width. */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-start">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-[var(--grid-gap)] items-start">
         <Card title="By Category" action={
           <button onClick={() => setModal('expense')} className="px-3.5 py-[7px] rounded-[7px] bg-accent text-white text-[12.5px] font-semibold hover:bg-accent/80 transition-colors whitespace-nowrap">
             + Add Expense

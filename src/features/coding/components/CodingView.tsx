@@ -100,7 +100,7 @@ export default function CodingView({ dailyAssignment, codingStats, calendar, cod
       {/* Today's Question + Contribution Calendar side by side — Daily Tech
           Read moved to Learning (folded into its daily reading habit
           instead of a separate card, see learning/daily-read.ts). */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-start">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-[var(--grid-gap)] items-start">
         <DailyCodingCard initialAssignment={dailyAssignment} stats={codingStats} />
         <Card title="Contribution Calendar">
           <CodingCalendar days={calendar} />

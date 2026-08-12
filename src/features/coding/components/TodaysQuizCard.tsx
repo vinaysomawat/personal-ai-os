@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useTransition } from 'react'
+import { ChevronLeft, ChevronRight } from 'lucide-react'
 import Card from '@/components/Card'
 import { saveTodaysQuizAttempt } from '../todays-quiz-actions'
 import type { QuizQuestion } from '../todays-quiz'
@@ -21,9 +22,11 @@ function scoreBg(pct: number): string {
 }
 
 // One-question-at-a-time stepper with a progress bar and a summary screen
-// at the end, matching the design exactly. Picking an option instantly
-// reveals correct/incorrect and locks that question; a full-width button
-// advances to the next one (or to the summary on the last question). The
+// at the end. Picking an option instantly reveals correct/incorrect and
+// locks that question; the header's ← → arrows let you freely move between
+// questions without answering (an unanswered question just stays unlocked
+// when you return to it), while the full-width button only appears once
+// the current question is answered and advances/submits from there. The
 // attempt is saved once, when the summary is reached.
 export default function TodaysQuizCard({ questions, initialAttempt }: Props) {
   const total = questions.length
@@ -55,6 +58,16 @@ export default function TodaysQuizCard({ questions, initialAttempt }: Props) {
     }
   }
 
+  const goBack = () => {
+    if (idx === 0) return
+    setIdx(idx - 1)
+  }
+
+  const goForward = () => {
+    if (idx >= total - 1) return
+    setIdx(idx + 1)
+  }
+
   const retake = () => {
     setAnswers({})
     setIdx(0)
@@ -72,7 +85,25 @@ export default function TodaysQuizCard({ questions, initialAttempt }: Props) {
             {savedAttempt.score} of {savedAttempt.total} correct
           </span>
         ) : (
-          <span className="text-[11px] font-semibold text-fg-tertiary">{idx + 1} of {total}</span>
+          <div className="flex items-center gap-1.5">
+            <span className="text-[11px] font-semibold text-fg-tertiary">{idx + 1} of {total}</span>
+            <button
+              onClick={goBack}
+              disabled={idx === 0}
+              aria-label="Previous question"
+              className="w-5 h-5 flex items-center justify-center rounded-[6px] border border-border-strong text-fg-tertiary hover:bg-surface-2 hover:text-fg-primary disabled:opacity-30 disabled:hover:bg-transparent transition-colors"
+            >
+              <ChevronLeft size={14} />
+            </button>
+            <button
+              onClick={goForward}
+              disabled={idx === total - 1}
+              aria-label="Next question"
+              className="w-5 h-5 flex items-center justify-center rounded-[6px] border border-border-strong text-fg-tertiary hover:bg-surface-2 hover:text-fg-primary disabled:opacity-30 disabled:hover:bg-transparent transition-colors"
+            >
+              <ChevronRight size={14} />
+            </button>
+          </div>
         )}
       </div>
 

@@ -21,7 +21,7 @@ export default function ScoreHero({ score }: { score: number }) {
     >
       <div className="absolute inset-4 rounded-full bg-surface-1 flex flex-col items-center justify-center">
         <span
-          className="text-[44px] font-extrabold tracking-[-0.03em] tabular-nums leading-none bg-clip-text text-transparent"
+          className="text-[48px] font-extrabold tracking-[-0.03em] tabular-nums leading-none bg-clip-text text-transparent"
           style={{ backgroundImage: 'linear-gradient(135deg, var(--accent), var(--cyan))' }}
         >
           {animated}

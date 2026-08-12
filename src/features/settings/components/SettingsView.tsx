@@ -161,7 +161,7 @@ export default function SettingsView({ email, initialReminders, aiBudget, system
         <p className="text-xs text-fg-quaternary mt-2.5">Signed in via Supabase. Export downloads a single JSON file — tasks, applications, expenses, loans, investments, health metrics, resources, and more.</p>
       </Card>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 items-start">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-[var(--grid-gap)] items-start">
         <Card title="AI Budget">
           <div className="space-y-3.5">
             <div>

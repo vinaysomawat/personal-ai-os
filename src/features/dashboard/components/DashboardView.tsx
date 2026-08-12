@@ -98,7 +98,7 @@ export default function DashboardView({ data, executive }: { data: DashboardData
           (Phase 5 PRD's "Sidebar Widget") already stacks the 3 stat tiles
           above the Goal Progress bars internally, so it drops in as one
           column unchanged. */}
-      <div className="grid grid-cols-1 lg:grid-cols-[340px_1fr] gap-3 items-start">
+      <div className="grid grid-cols-1 lg:grid-cols-[340px_1fr] gap-[var(--grid-gap)] items-start">
         <div className="bg-surface-1 border border-surface-3 rounded-[18px] shadow-card p-[22px] flex flex-col items-center gap-2">
           <p className="text-xs text-fg-tertiary uppercase tracking-[0.5px] self-start font-semibold">Life Score</p>
           <ScoreExplainer score={scores.life ?? 0} result={scoreExplanation} />
@@ -117,14 +117,14 @@ export default function DashboardView({ data, executive }: { data: DashboardData
           wide viewports — Decision Queue/Goal Progress used to live in the
           brief too, but Phase 5 moved them into Needs Attention and Quick
           Stats above instead of duplicating information across cards. */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 items-start">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-[var(--grid-gap)] items-start">
         <WhatsChanged items={executive.whatsChanged} />
         <ExecutiveBrief brief={executive.brief} />
       </div>
 
       {/* Needs Attention (Today's Focus signals + Decision Queue's Risks/
           Opportunities, capped at 3) + Today's Insight side by side. */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 items-start">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-[var(--grid-gap)] items-start">
         <NeedsAttention topActions={topActions} risks={executive.risks} opportunities={executive.opportunities} />
         <TodaysInsight pattern={data.recentPatterns[0] ?? null} />
       </div>
@@ -134,7 +134,7 @@ export default function DashboardView({ data, executive }: { data: DashboardData
           persistent Life Score above. Deterministic, cross-module
           (Planner/Health/Coding/Learning/Finance) — same primitive the
           Phase 2 "Brain" PRD calls Daily Mission. */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 items-start">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-[var(--grid-gap)] items-start">
         <LifeScoreTrend scoreHistory={scoreHistory} />
         <Card title="Daily Mission" action={<span className="text-xs text-fg-tertiary">{todayProgress.completed}/{todayProgress.total} done</span>}>
           <div className="flex items-center gap-3.5">

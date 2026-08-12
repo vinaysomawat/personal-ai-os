@@ -73,7 +73,7 @@
     --on-good: #052e1d;
 
     --warn: #fbbf24;
-    --warn-soft: rgba(251, 191, 36, 0.15);
+    --warn-soft: rgba(251, 191, 36, 0.16);
     --risk: #f87171;
     --risk-soft: rgba(248, 113, 113, 0.12);
     --risk-border: rgba(248, 113, 113, 0.35);
@@ -128,18 +128,18 @@
     --accent-border: rgba(109, 92, 224, 0.3);
     --accent-strong: #5643d1;
 
-    --good: #16a34a;
+    --good: #15803d;
     --good-soft: rgba(22, 163, 74, 0.12);
     --on-good: #ffffff;
 
-    --warn: #d97706;
-    --warn-soft: rgba(217, 119, 6, 0.1);
+    --warn: #b45309;
+    --warn-soft: rgba(217, 119, 6, 0.12);
     --risk: #dc2626;
     --risk-soft: rgba(220, 38, 38, 0.08);
     --risk-border: rgba(220, 38, 38, 0.25);
     --risk-strong: #b91c1c;
 
-    --cyan: #0891b2;
+    --cyan: #0e7490;
     --ring-glow-strength: 0.16;
 
     /* shadcn aliases */
@@ -175,6 +175,8 @@
     --card-pad-sm: 14px 16px;
     --modal-pad: 24px;
     --panel-pad: 18px 20px;
+    --grid-gap: 20px;
+    --grid-gap-sm: 14px;
   }
   [data-density='compact'] {
     --card-pad-lg: 10px 12px;
@@ -182,6 +184,8 @@
     --card-pad-sm: 7px 9px;
     --modal-pad: 14px;
     --panel-pad: 10px 12px;
+    --grid-gap: 12px;
+    --grid-gap-sm: 8px;
   }
 }
 

@@ -358,7 +358,7 @@ export default function CareerView({ applications, profile, skills, quizAttempts
             <p className="text-[13px] text-fg-tertiary">No applications in this status.</p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5 items-start">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-[var(--grid-gap)] items-start">
             {filtered.map(app => {
               const cfg = STATUS_CONFIG[app.status]
               const isExpanded = expandedApp === app.id

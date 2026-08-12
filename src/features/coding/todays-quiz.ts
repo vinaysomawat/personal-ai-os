@@ -64,6 +64,41 @@ export const TODAYS_QUIZ_BANK: QuizQuestion[] = [
   { id: 'counting-sort-constraint', question: 'Counting sort achieves O(n + k) time, but only works well under what constraint?', options: ['The input values are integers within a known, reasonably small range k', 'The input must already be partially sorted', 'The array must contain no duplicates', 'The array must be a linked list'], correctIndex: 0, explanation: "It counts occurrences of each possible value, so a huge or non-integer value range makes it impractical." },
 ]
 
+// Every question above is hand-authored with the correct option fixed at
+// index 0, which would make the quiz trivially gameable. This deterministic
+// hash+PRNG reshuffles a question's options (and remaps correctIndex to
+// match) seeded by date+question id, so the same day always reshuffles the
+// same way — preserving "same day = same quiz" for both a page reload and
+// a Retake, while the correct answer's on-screen position varies by day.
+function hashSeed(s: string): number {
+  let h = 1779033703 ^ s.length
+  for (let i = 0; i < s.length; i++) {
+    h = Math.imul(h ^ s.charCodeAt(i), 3432918353)
+    h = (h << 13) | (h >>> 19)
+  }
+  return h >>> 0
+}
+
+function mulberry32(seed: number): () => number {
+  let a = seed
+  return () => {
+    a |= 0; a = (a + 0x6d2b79f5) | 0
+    let t = Math.imul(a ^ (a >>> 15), 1 | a)
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296
+  }
+}
+
+export function shuffleQuestion(q: QuizQuestion, dateStr: string): QuizQuestion {
+  const rand = mulberry32(hashSeed(`${dateStr}:${q.id}`))
+  const order = q.options.map((_, i) => i)
+  for (let i = order.length - 1; i > 0; i--) {
+    const j = Math.floor(rand() * (i + 1))
+    ;[order[i], order[j]] = [order[j], order[i]]
+  }
+  return { ...q, options: order.map(i => q.options[i]), correctIndex: order.indexOf(q.correctIndex) }
+}
+
 // Deterministic pick of `count` questions for a given IST calendar date —
 // pure function of the date string, so it needs no DB round-trip and a
 // "Retake" naturally shows the same set within the same day. Rotates
@@ -76,13 +111,13 @@ export function getTodaysQuizQuestions(dateStr: string, count = 10, pool: QuizQu
   if (pool.length === 0) return []
   const daysSinceEpoch = Math.floor(new Date(`${dateStr}T00:00:00Z`).getTime() / 86400000)
   const start = (daysSinceEpoch * count) % pool.length
-  return Array.from({ length: Math.min(count, pool.length) }, (_, i) => pool[(start + i) % pool.length])
+  return Array.from({ length: Math.min(count, pool.length) }, (_, i) => shuffleQuestion(pool[(start + i) % pool.length], dateStr))
 }
 
-export function gradeTodaysQuiz(questionIds: string[], answers: Record<string, number>, pool: QuizQuestion[] = TODAYS_QUIZ_BANK): number {
+export function gradeTodaysQuiz(questionIds: string[], answers: Record<string, number>, dateStr: string, pool: QuizQuestion[] = TODAYS_QUIZ_BANK): number {
   const byId = new Map(pool.map(q => [q.id, q]))
   return questionIds.reduce((score, id) => {
     const q = byId.get(id)
-    return q && answers[id] === q.correctIndex ? score + 1 : score
+    return q && answers[id] === shuffleQuestion(q, dateStr).correctIndex ? score + 1 : score
   }, 0)
 }

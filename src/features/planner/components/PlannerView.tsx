@@ -296,7 +296,7 @@ export default function PlannerView({ initialTasks }: Props) {
         <StatCard value={done.length} label="Completed" valueClassName="text-green-400" />
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-5 gap-4 items-start">
+      <div className="grid grid-cols-1 lg:grid-cols-5 gap-[var(--grid-gap)] items-start">
       <div className="lg:col-span-3 flex flex-col gap-3.5">
       <Card
         title="Today's Tasks"

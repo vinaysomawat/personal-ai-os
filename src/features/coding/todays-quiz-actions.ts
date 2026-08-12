@@ -3,7 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { todayIST } from '@/lib/date'
-import { getTodaysQuizQuestions, gradeTodaysQuiz, TODAYS_QUIZ_BANK, type QuizQuestion } from './todays-quiz'
+import { getTodaysQuizQuestions, gradeTodaysQuiz, shuffleQuestion, TODAYS_QUIZ_BANK, type QuizQuestion } from './todays-quiz'
 
 export interface TodaysQuizAttempt {
   questionIds: string[]
@@ -36,7 +36,7 @@ export async function getTodaysQuizData(): Promise<TodaysQuizData> {
   if (row) {
     const byId = new Map(TODAYS_QUIZ_BANK.map(q => [q.id, q]))
     return {
-      questions: (row.question_ids as string[]).map((id: string) => byId.get(id)).filter((q): q is QuizQuestion => !!q),
+      questions: (row.question_ids as string[]).map((id: string) => byId.get(id)).filter((q): q is QuizQuestion => !!q).map(q => shuffleQuestion(q, today)),
       attempt: { questionIds: row.question_ids, answers: row.answers, score: row.score, total: row.total },
     }
   }
@@ -48,11 +48,12 @@ export async function saveTodaysQuizAttempt(questionIds: string[], answers: Reco
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) throw new Error('Not authenticated')
 
-  const score = gradeTodaysQuiz(questionIds, answers)
+  const today = todayIST()
+  const score = gradeTodaysQuiz(questionIds, answers, today)
   const total = questionIds.length
 
   await supabase.from('coding_quiz_attempts').upsert(
-    { user_id: user.id, date: todayIST(), question_ids: questionIds, answers, score, total },
+    { user_id: user.id, date: today, question_ids: questionIds, answers, score, total },
     { onConflict: 'user_id,date' }
   )
   revalidatePath('/coding')

@@ -328,7 +328,7 @@ export default function LearningView({ initialResources, initialStudyLogs, initi
         ))}
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-5 gap-4 items-start">
+      <div className="grid grid-cols-1 lg:grid-cols-5 gap-[var(--grid-gap)] items-start">
       <Card title="Resources" className="lg:col-span-3" action={
         <div className="flex items-center gap-2">
           <button onClick={() => setShowLog('general')} className="px-2.5 py-1 rounded-[6px] border border-border-strong text-[11.5px] text-fg-secondary hover:bg-surface-2 transition-colors whitespace-nowrap">

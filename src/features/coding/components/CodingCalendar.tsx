@@ -104,12 +104,12 @@ export default function CodingCalendar({ days }: { days: CalendarDay[] }) {
         🔥 {currentStreak} current · {bestStreak} best streak · {activeDaysCount}/{trackedDays.length} active this month
       </p>
 
-      <div className="grid grid-cols-7 gap-[4px] mb-[4px]">
+      <div className="grid grid-cols-7 gap-[3px] mb-[3px]">
         {WEEKDAYS.map((w, i) => (
           <div key={i} className="text-center text-[10px] font-semibold text-fg-tertiary">{w}</div>
         ))}
       </div>
-      <div className="grid grid-cols-7 gap-[4px]">
+      <div className="grid grid-cols-7 gap-[3px]">
         {Array.from({ length: leadingBlanks }).map((_, i) => <div key={`blank-${i}`} className="aspect-square" />)}
         {cells.map(({ num, date }) => {
           const isFuture = date > today
@@ -122,7 +122,7 @@ export default function CodingCalendar({ days }: { days: CalendarDay[] }) {
               title={isFuture ? '' : `${date}: ${STATUS_LABEL[status]}`}
               disabled={isFuture}
               onClick={() => setSelectedDate(isSelected ? null : date)}
-              className={`aspect-square rounded-[5px] flex items-center justify-center text-[10px] font-medium
+              className={`aspect-square rounded-[3px] flex items-center justify-center text-[10px] font-medium
                 ${isFuture ? 'border border-dashed border-surface-3 text-fg-tertiary cursor-default' : `${STATUS_COLOR[status]} text-white cursor-pointer`}
                 ${isSelected ? 'ring-2 ring-fg-primary' : isToday ? 'ring-[1.5px] ring-accent' : ''}`}
             >
