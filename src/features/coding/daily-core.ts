@@ -229,25 +229,37 @@ export function getStaleRevisionCount(
   return [...latestByQuestion.values()].filter(d => d < cutoff).length
 }
 
+export interface CalendarDayQuestion {
+  title: string
+  difficulty: Difficulty
+  completed: boolean
+}
+
 export interface CalendarDay {
   date: string
   status: 'solved' | 'partial' | 'missed' | 'none'
+  questions: CalendarDayQuestion[]
 }
 
 export async function computeCodingCalendar(supabase: SupabaseClient, userId: string, days = 182): Promise<CalendarDay[]> {
   const since = daysAgoIST(days)
   const { data } = await supabase
     .from('coding_daily_questions')
-    .select('assigned_date, completed')
+    .select('assigned_date, completed, question:coding_questions(title, difficulty)')
     .eq('user_id', userId)
     .gte('assigned_date', since)
 
-  const rows = (data ?? []) as { assigned_date: string; completed: boolean }[]
-  const byDate = new Map<string, { total: number; done: number }>()
+  // PostgREST embeds a many-to-one relation (many daily_questions -> one
+  // coding_questions row) as a single object, not an array — the Supabase
+  // client's generated types disagree and infer an array here regardless,
+  // so this cast goes through `unknown` to override that.
+  const rows = (data ?? []) as unknown as { assigned_date: string; completed: boolean; question: { title: string; difficulty: Difficulty } | null }[]
+  const byDate = new Map<string, { total: number; done: number; questions: CalendarDayQuestion[] }>()
   for (const r of rows) {
-    const entry = byDate.get(r.assigned_date) ?? { total: 0, done: 0 }
+    const entry = byDate.get(r.assigned_date) ?? { total: 0, done: 0, questions: [] }
     entry.total++
     if (r.completed) entry.done++
+    if (r.question) entry.questions.push({ title: r.question.title, difficulty: r.question.difficulty, completed: r.completed })
     byDate.set(r.assigned_date, entry)
   }
 
@@ -262,7 +274,7 @@ export async function computeCodingCalendar(supabase: SupabaseClient, userId: st
       else if (entry.done > 0) status = 'partial'
       else status = d < today ? 'missed' : 'none'
     }
-    result.push({ date: d, status })
+    result.push({ date: d, status, questions: entry?.questions ?? [] })
   }
   return result.reverse()
 }

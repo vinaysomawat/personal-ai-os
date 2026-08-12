@@ -3,7 +3,18 @@
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { todayIST, daysAgoIST } from '@/lib/date'
+import { getDailyTip } from '@/lib/daily-tip'
 import type { MetricField, ActivityLevel, Gender } from './types'
+
+// Same deterministic, idempotent-per-day pick the `health-tip` cron sends
+// to Telegram (src/lib/daily-tip.ts) — reading it here just surfaces
+// whatever tip is (or will be) assigned for today, no separate logic.
+export async function getTodaysHealthTip(): Promise<string | null> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return null
+  return getDailyTip(supabase, user.id, 'health')
+}
 
 export async function getHealthMetrics(days = 30) {
   const supabase = await createClient()

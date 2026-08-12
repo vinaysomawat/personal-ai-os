@@ -55,7 +55,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <TooltipProvider>
             <AIAdvisorProvider>
               <TopNav />
-              <main className="max-w-[1180px] mx-auto px-6 pt-3 pb-[70px] md:pb-0 animate-in fade-in duration-200">{children}</main>
+              <main className="max-w-[1180px] mx-auto px-6 pt-3 pb-[70px] md:pb-[20px] animate-in fade-in duration-200">{children}</main>
               <QuickAdd />
             </AIAdvisorProvider>
           </TooltipProvider>

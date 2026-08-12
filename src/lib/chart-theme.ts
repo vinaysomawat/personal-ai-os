@@ -27,14 +27,3 @@ export const FINANCE_CATEGORY_CHART_COLOR: Record<string, string> = {
   Entertainment: CHART_COLORS[4],
 }
 export const FINANCE_CATEGORY_CHART_FALLBACK = 'var(--border-strong)'
-
-// Health Trend has no design counterpart to specify colors (see
-// CHARTS-AUDIT.md §4) — these were previously hardcoded one-off hex values
-// that didn't adapt to light theme; remapped onto the same shared palette
-// instead of inventing a second disconnected color set.
-export const HEALTH_METRIC_CHART_COLOR = {
-  weight_kg: CHART_COLORS[0],
-  calories: CHART_COLORS[3],
-  protein_g: CHART_COLORS[1],
-  steps: CHART_COLORS[2],
-} as const

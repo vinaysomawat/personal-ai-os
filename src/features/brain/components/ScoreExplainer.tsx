@@ -29,7 +29,7 @@ export default function ScoreExplainer({ score, result }: { score: number; resul
           <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
           <div
             onClick={e => e.stopPropagation()}
-            className="absolute top-full left-0 right-0 mt-2 bg-surface-1 border border-surface-3 rounded-xl p-4 z-50 shadow-popover animate-in fade-in duration-150"
+            className="absolute top-full left-[-10px] right-[-10px] mt-2 bg-surface-1 border border-surface-3 rounded-xl p-4 z-50 shadow-popover animate-in fade-in duration-150"
           >
             <div className="flex items-center justify-between mb-2.5">
               <h2 className="text-[13px] font-bold text-fg-primary">Explain My Score — vs. yesterday</h2>
@@ -45,7 +45,7 @@ export default function ScoreExplainer({ score, result }: { score: number; resul
                   <li key={m.module} className={`flex justify-between items-center gap-3 py-2 px-1.5 text-[12.5px] ${i === 0 ? 'bg-surface-2 rounded-lg' : 'border-t border-surface-3'}`}>
                     <div className="flex flex-col min-w-0">
                       <span className="font-semibold text-fg-primary">{m.label}</span>
-                      <span className="text-fg-tertiary text-[11px] truncate">{m.tip}</span>
+                      <span className="text-fg-tertiary text-[11px]">{m.tip}</span>
                     </div>
                     <span className={`shrink-0 font-bold whitespace-nowrap tabular-nums ${color}`}>
                       {arrow} {delta === null ? m.score : `${delta > 0 ? '+' : ''}${delta}`}

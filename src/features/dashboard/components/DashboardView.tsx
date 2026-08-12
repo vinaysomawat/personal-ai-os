@@ -1,8 +1,4 @@
 import Link from 'next/link'
-import {
-  CalendarDays, Briefcase, DollarSign, HeartPulse,
-  BookOpen, Code2,
-} from 'lucide-react'
 import Card from '@/components/Card'
 import MiniRing from './MiniRing'
 import RealtimeRefresh from './RealtimeRefresh'
@@ -26,7 +22,7 @@ import { todayISTLabel, istHour } from '@/lib/date'
 type DashboardData = Awaited<ReturnType<typeof getDashboardData>>
 
 export default function DashboardView({ data, executive }: { data: DashboardData; executive: ExecutiveData }) {
-  const { botActivity, stats, scores, scoreTips, scoreHistory, todayHealth, aiBudget, topActions, todayProgress } = data
+  const { botActivity, stats, scores, scoreTips, scoreHistory, aiBudget, topActions, todayProgress } = data
   const scoreExplanation = explainScore(scoreHistory, scores, scoreTips)
   const brainContext = buildBrainContext(data)
   const today = todayISTLabel()
@@ -52,21 +48,6 @@ export default function DashboardView({ data, executive }: { data: DashboardData
       : { emoji: topPriorityRaw.type === 'risk' ? '⚠️' : '🚀', text: topPriorityRaw.text, href: KIND_HREF[topPriorityRaw.kind] }
   )
   const topPriorityModule = topPriority && (topPriority.href.slice(1).charAt(0).toUpperCase() + topPriority.href.slice(2))
-
-  const modules = [
-    { label: 'Planner',   to: '/planner',   icon: CalendarDays, color: 'text-blue-400',   bg: 'bg-blue-500/18',
-      stat: stats.pendingTaskCount ? `${stats.pendingTaskCount} pending${stats.overdueCount > 0 ? ` · ${stats.overdueCount} overdue` : ''}` : 'All clear' },
-    { label: 'Career',    to: '/career',    icon: Briefcase,    color: 'text-amber-400',  bg: 'bg-amber-500/18',
-      stat: stats.activeApplications ? `${stats.activeApplications} active application${stats.activeApplications > 1 ? 's' : ''}` : 'No applications' },
-    { label: 'Health',    to: '/health',    icon: HeartPulse,   color: 'text-red-400',    bg: 'bg-red-500/18',
-      stat: `${stats.workoutsToday > 0 ? 'Workout done' : 'No workout logged'}${todayHealth?.steps ? ` · ${(Number(todayHealth.steps) / 1000).toFixed(1)}k steps` : ''}` },
-    { label: 'Finance',   to: '/finance',   icon: DollarSign,   color: 'text-green-400',  bg: 'bg-green-500/18',
-      stat: stats.monthBudget > 0 ? `₹${Math.round(stats.monthBudget - stats.monthSpend).toLocaleString('en-IN')} left this month` : stats.monthSpend ? `₹${Math.round(stats.monthSpend).toLocaleString('en-IN')} spent` : 'No expenses' },
-    { label: 'Learning',  to: '/learning',  icon: BookOpen,     color: 'text-purple-400', bg: 'bg-purple-500/18',
-      stat: stats.learningInProgress ? `${stats.learningInProgress} in progress${stats.resourcesNeedingRevision > 0 ? ` · ${stats.resourcesNeedingRevision} need${stats.resourcesNeedingRevision > 1 ? '' : 's'} revision` : ''}` : 'No resources' },
-    { label: 'Coding',    to: '/coding',    icon: Code2,        color: 'text-cyan-400',   bg: 'bg-cyan-500/18',
-      stat: executive.codingStreak > 0 ? `${executive.codingStreak}-day streak · ${data.codingQuestionPending ? 'today open' : 'today solved'}` : stats.codingSolved30d ? `${stats.codingSolved30d} solved (30d)` : 'No questions solved yet' },
-  ]
 
   return (
     <div className="space-y-3">
@@ -113,6 +94,10 @@ export default function DashboardView({ data, executive }: { data: DashboardData
         <QuickStats
           codingStreak={executive.codingStreak}
           codingQuestionPending={data.codingQuestionPending}
+          workoutStreak={stats.workoutStreak}
+          workoutCategory={data.workoutCategory}
+          learningStreak={stats.learningStreak}
+          learningInProgress={stats.learningInProgress}
           budgetRemaining={stats.monthBudget - stats.monthSpend}
           budgetTotal={stats.monthBudget}
           workoutDoneToday={stats.workoutsToday > 0}
@@ -188,24 +173,6 @@ export default function DashboardView({ data, executive }: { data: DashboardData
               <span className="pointer-events-none absolute top-[74px] mt-1 left-1/2 -translate-x-1/2 z-10 w-max max-w-[180px] bg-surface-2 border border-surface-3 rounded-[6px] px-2.5 py-1.5 text-[11px] text-fg-primary text-center leading-snug opacity-0 group-hover:opacity-100 transition-opacity shadow-popover">
                 {tip}
               </span>
-            </Link>
-          ))}
-        </div>
-      </div>
-
-      {/* Module grid */}
-      <div>
-        <div className="grid grid-cols-[repeat(auto-fit,minmax(150px,1fr))] gap-[var(--grid-gap-sm)]">
-          {modules.map(({ label, to, icon: Icon, color, bg, stat }) => (
-            <Link key={to} href={to}
-              className="group flex flex-col gap-2 p-3.5 bg-surface-1 border border-surface-3 rounded-xl shadow-card hover:border-accent/40 hover:bg-surface-2 hover:-translate-y-0.5 hover:shadow-lg transition-all">
-              <div className={`w-[30px] h-[30px] rounded-lg ${bg} flex items-center justify-center`}>
-                <Icon size={16} className={color} />
-              </div>
-              <div>
-                <p className="text-sm font-semibold text-fg-primary group-hover:text-white transition-colors">{label}</p>
-                <p className="text-xs text-fg-tertiary mt-0.5 truncate">{stat}</p>
-              </div>
             </Link>
           ))}
         </div>

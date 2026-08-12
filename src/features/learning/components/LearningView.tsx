@@ -340,7 +340,7 @@ export default function LearningView({ initialResources, initialStudyLogs, initi
         </div>
       }>
         {filtered.length === 0 && <EmptyState icon={Inbox} message="Nothing here yet" cta={{ label: 'Add', onClick: () => setShowForm(true) }} compact />}
-        <ul className="flex flex-col gap-2.5">
+        <ul className="flex flex-col gap-2.5 max-h-[480px] overflow-y-auto">
           {filtered.map(r => {
             const studiedToday = studiedTodayIds.has(r.id)
             const todaysRead = isTodaysRead(r)

@@ -2,9 +2,9 @@
 
 import { createClient } from '@/lib/supabase/server'
 import { todayIST, daysAgoIST, istMidnightUtc, istDateStrToUtcMidnight } from '@/lib/date'
-import { getResourcesNeedingRevision } from '@/features/learning/calculations'
+import { getResourcesNeedingRevision, getStudyStreak } from '@/features/learning/calculations'
 import { getTodayAssignmentRows, getStaleRevisionCount } from '@/features/coding/daily-core'
-import { getActiveWorkout } from '@/features/health/workout-core'
+import { getActiveWorkout, computeWorkoutStats } from '@/features/health/workout-core'
 import type { Resource, StudyLog } from '@/features/learning/types'
 import { rankSignals, type Signal } from '@/lib/signals'
 import { checkOverdueTasks, checkHighPriorityPending } from '@/features/planner/signals'
@@ -83,8 +83,9 @@ export async function getDashboardData() {
     todayHealth: null,
     scoreHistory: [] as { date: string; life: number; health: number; finance: number; career: number; learning: number; projects: number }[],
     gamification: { xp: 0, level: 1, xpProgress: 0, streak: 0, badges: [] as string[] },
-    stats: { pendingTaskCount: 0, overdueCount: 0, activeApplications: 0, workoutsToday: 0, monthSpend: 0, monthBudget: 0, learningInProgress: 0, resourcesNeedingRevision: 0, codingSolved30d: 0 },
+    stats: { pendingTaskCount: 0, overdueCount: 0, activeApplications: 0, workoutsToday: 0, monthSpend: 0, monthBudget: 0, learningInProgress: 0, resourcesNeedingRevision: 0, codingSolved30d: 0, workoutStreak: 0, learningStreak: 0 },
     codingQuestionPending: false,
+    workoutCategory: null as string | null,
     aiBudget: { callsToday: 0, costTodayUsd: 0, callsMonth: 0, costMonthUsd: 0, cacheHitRateMonth: 0 },
     topActions: [] as TopAction[],
     todayProgress: { items: [], completed: 0, total: 0, score: 100 } as ReturnType<typeof computeTodayProgress>,
@@ -102,7 +103,7 @@ export async function getDashboardData() {
     aiUsageMonthRes, studyLogsRes, codingTodayRows, activeWorkout, codingSolved30dRes,
     codingCompletionsRes, quizAttemptsRes, tasksDueTodayRes, workoutCompletedTodayRes,
     recentPatterns, financialGoalsRes, codingHistoryForWeakAreas,
-    codingQuizTodayRes,
+    codingQuizTodayRes, workoutStats,
   ] = await Promise.all([
     supabase.from('tasks').select('id, text, done, priority, due_date').eq('user_id', user.id).eq('done', false).order('created_at', { ascending: false }).limit(5),
     supabase.from('applications').select('id, company, role, status, applied_at').eq('user_id', user.id).order('created_at', { ascending: false }).limit(5),
@@ -128,6 +129,7 @@ export async function getDashboardData() {
     supabase.from('financial_goals').select('name, target_amount, current_amount, target_date').eq('user_id', user.id).order('priority', { ascending: true }),
     getInsightsHistory(),
     supabase.from('coding_quiz_attempts').select('id').eq('user_id', user.id).eq('date', today).maybeSingle(),
+    computeWorkoutStats(supabase, user.id),
   ])
 
   const pendingTasks = tasksRes.data ?? []
@@ -310,6 +312,7 @@ export async function getDashboardData() {
 
   const studyLogs = (studyLogsRes.data ?? []) as StudyLog[]
   const resourcesNeedingRevision = getResourcesNeedingRevision(resources as Resource[], studyLogs).length
+  const learningStreak = getStudyStreak(studyLogs)
   const codingQuestionPending = codingTodayRows.length > 0 && codingTodayRows.some(r => !r.completed)
   const codingStaleRevisionCount = getStaleRevisionCount(codingCompletionsRes.data ?? [])
   const daysSinceLastQuizAttempt = daysSinceLastQuiz(quizAttemptsRes.data ?? [])
@@ -366,8 +369,11 @@ export async function getDashboardData() {
       learningInProgress,
       resourcesNeedingRevision,
       codingSolved30d,
+      workoutStreak: workoutStats.currentStreakDays,
+      learningStreak,
     },
     codingQuestionPending,
+    workoutCategory: activeWorkout?.workout?.category ?? null,
     aiBudget,
     topActions,
     todayProgress,

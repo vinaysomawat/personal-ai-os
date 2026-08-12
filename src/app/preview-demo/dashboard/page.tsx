@@ -35,8 +35,10 @@ const dummyData = {
   stats: {
     pendingTaskCount: 3, overdueCount: 1, activeApplications: 2, workoutsToday: 1,
     monthSpend: 32000, monthBudget: 45000, learningInProgress: 2, resourcesNeedingRevision: 1, codingSolved30d: 19,
+    workoutStreak: 4, learningStreak: 6,
   },
   codingQuestionPending: true,
+  workoutCategory: 'Push Day',
   aiBudget: { callsToday: 6, costTodayUsd: 0.042, callsMonth: 118, costMonthUsd: 1.86, cacheHitRateMonth: 41 },
   topActions: [
     { emoji: '⚡', text: '1 high-priority task pending', href: '/planner' },

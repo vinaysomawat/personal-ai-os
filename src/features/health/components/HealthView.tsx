@@ -1,7 +1,6 @@
 'use client'
 
 import { useState, useEffect, useOptimistic, useTransition } from 'react'
-import dynamic from 'next/dynamic'
 import { Sparkles, Settings2, Dumbbell } from 'lucide-react'
 import Card from '@/components/Card'
 import EmptyState from '@/components/EmptyState'
@@ -17,13 +16,6 @@ import DailyWorkoutCard from './DailyWorkoutCard'
 import { logAdvisorUsage } from '@/lib/advisor-usage'
 import type { HealthMetric, MetricField, HealthProfile, Workout } from '../types'
 import type { DailyWorkout, WorkoutStats } from '../workout-core'
-
-// recharts is a ~100KB client-only dependency used nowhere else on this
-// page — code-split it out of the initial bundle rather than block paint.
-const HealthTrend = dynamic(() => import('./HealthTrend'), {
-  ssr: false,
-  loading: () => <div className="h-[16.5rem] bg-surface-1 border border-surface-3 rounded-xl animate-pulse" />,
-})
 
 const METRICS: { field: MetricField; label: string; unit: string; decimals?: number }[] = [
   { field: 'weight_kg',      label: 'Weight',   unit: 'kg',   decimals: 1 },
@@ -134,11 +126,12 @@ interface Props {
   initialWorkouts: Workout[]
   initialDailyWorkout: DailyWorkout | null
   workoutStats: WorkoutStats
+  tip: string | null
 }
 
 const WORKOUT_TYPES = ['Strength', 'Cardio', 'Run', 'Yoga', 'Sports', 'Other']
 
-export default function HealthView({ initialMetrics, initialProfile, initialWorkouts, initialDailyWorkout, workoutStats }: Props) {
+export default function HealthView({ initialMetrics, initialProfile, initialWorkouts, initialDailyWorkout, workoutStats, tip }: Props) {
   const [workoutType, setWorkoutType] = useState('Strength')
   const [workoutDuration, setWorkoutDuration] = useState('')
 
@@ -259,6 +252,16 @@ export default function HealthView({ initialMetrics, initialProfile, initialWork
         ))}
       </div>
 
+      {tip && (
+        <div className="bg-surface-1 border border-surface-3 rounded-[18px] shadow-card p-[var(--card-pad-lg)] flex items-start gap-3">
+          <div className="text-[22px] leading-none">💡</div>
+          <div>
+            <p className="text-[13px] font-bold text-fg-primary mb-1">Health Tip of the Day</p>
+            <p className="text-[12.5px] leading-[1.5] text-fg-secondary">{tip}</p>
+          </div>
+        </div>
+      )}
+
       {showProfileForm && (
         <HealthProfileForm
           profile={profile}
@@ -268,8 +271,10 @@ export default function HealthView({ initialMetrics, initialProfile, initialWork
       )}
 
       {/* Daily Workout Planner + Health Score — side by side, matching design's
-          two-column grouping instead of stacking full-width. */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-[var(--grid-gap)] items-start">
+          two-column grouping instead of stacking full-width. No items-start
+          here (unlike other card-pair rows) since these two are meant to
+          match height, not size independently to their own content. */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-[var(--grid-gap)]">
         <DailyWorkoutCard initialWorkout={initialDailyWorkout} stats={workoutStats} />
         {profile && dailyTargets && healthScore ? (
           <HealthScoreHero score={healthScore} onEditProfile={() => setShowProfileForm(true)} />
@@ -282,8 +287,6 @@ export default function HealthView({ initialMetrics, initialProfile, initialWork
           </div>
         ) : null}
       </div>
-
-      <HealthTrend metrics={metrics} />
 
       {/* Computed targets — a second stat-tile row, matching design's
           separate BMI/Calorie/Protein/Workouts-per-week group. */}

@@ -25,7 +25,7 @@ export default function DailyWorkoutCard({ initialWorkout, stats }: Props) {
 
   if (!workout) {
     return (
-      <div className="bg-surface-1 border border-surface-3 rounded-2xl p-[var(--card-pad-lg)]">
+      <div className="h-full bg-surface-1 border border-surface-3 rounded-2xl p-[var(--card-pad-lg)]">
         <h2 className="text-[13px] font-bold text-fg-primary mb-3">Daily Workout Planner</h2>
         <EmptyState icon={Dumbbell} message="No workout library found yet — run the pending migration to get started." />
       </div>
@@ -57,7 +57,7 @@ export default function DailyWorkoutCard({ initialWorkout, stats }: Props) {
   const isDone = workout.status === 'completed' || workout.status === 'skipped'
 
   return (
-    <div className="bg-surface-1 border border-surface-3 rounded-2xl p-[var(--card-pad-lg)]">
+    <div className="h-full bg-surface-1 border border-surface-3 rounded-2xl p-[var(--card-pad-lg)]">
       <div className="flex items-center justify-between mb-2.5 gap-2.5">
         <h2 className="text-[13px] font-bold text-fg-primary whitespace-nowrap">Daily Workout Planner</h2>
         <div className="flex items-center gap-3 text-xs shrink-0">

@@ -143,12 +143,8 @@ export default function FinanceView({ expenses, budgets, profile, loans, investm
 
   const renderInvestmentItem = (inv: Investment) => {
     const gain = Number(inv.current_value) - Number(inv.invested_amount)
-    const gainPct = Number(inv.invested_amount) > 0 ? (gain / Number(inv.invested_amount)) * 100 : 0
     return (
       <li key={inv.id} className="flex items-center gap-x-1.5 gap-y-1 flex-wrap text-[12.5px] text-fg-secondary group">
-        <span className="text-[10px] font-bold uppercase px-1.5 py-0.5 rounded-full shrink-0 bg-surface-3 text-fg-tertiary">
-          {INVESTMENT_TYPES.find(t => t.value === inv.type)?.label ?? inv.type}
-        </span>
         <span>{inv.name} —</span>
         <span className="flex items-center gap-1">
           <InlineEdit value={String(inv.current_value)} prefix="₹" textSize="text-[12.5px]" inputWidth="w-24" onSave={v => handleInvValueSave(inv.id, v)} /> current,
@@ -156,7 +152,7 @@ export default function FinanceView({ expenses, budgets, profile, loans, investm
         <span className="flex items-center gap-1">
           <InlineEdit value={String(inv.invested_amount)} prefix="₹" textSize="text-[12.5px]" inputWidth="w-24" onSave={v => handleInvAmountSave(inv.id, v)} /> invested
         </span>
-        <span className={gain >= 0 ? 'text-green-400' : 'text-red-400'}>({gain >= 0 ? '+' : ''}{fmt(gain)} · {gainPct.toFixed(1)}%)</span>
+        <span className={gain >= 0 ? 'text-good' : 'text-risk'}>({gain >= 0 ? '+' : ''}₹{gain.toLocaleString('en-IN')})</span>
         <button onClick={() => handleDeleteInvestment(inv.id)} aria-label="Delete investment" className={deleteGlyphBtn}>✕</button>
       </li>
     )
@@ -366,17 +362,17 @@ export default function FinanceView({ expenses, budgets, profile, loans, investm
         <div className="bg-surface-1 border border-surface-3 rounded-2xl p-[var(--card-pad-sm)]">
           <p className="text-[11px] text-fg-tertiary uppercase mb-1">Portfolio</p>
           <p className="text-xl font-bold text-fg-primary">
-            {fmt(portfolio)} <span className={`text-xs ${portfolio >= invested ? 'text-green-400' : 'text-red-400'}`}>({portfolio >= invested ? '+' : '-'}{fmt(Math.abs(portfolio - invested))})</span>
+            {fmt(portfolio)} <span className={`text-xs ${portfolio >= invested ? 'text-good' : 'text-risk'}`}>({portfolio >= invested ? '+' : '-'}{fmt(Math.abs(portfolio - invested))})</span>
           </p>
         </div>
         <div className="bg-surface-1 border border-surface-3 rounded-2xl p-[var(--card-pad-sm)]">
           <p className="text-[11px] text-fg-tertiary uppercase mb-1">Total Debt</p>
-          <p className="text-xl font-bold text-red-400">{fmt(totalDebt)}</p>
+          <p className="text-xl font-bold text-risk">{fmt(totalDebt)}</p>
           <p className="text-[10.5px] text-fg-quaternary mt-1">{fmt(totalEMIs)}/mo EMI</p>
         </div>
         <div className="bg-surface-1 border border-surface-3 rounded-2xl p-[var(--card-pad-sm)]">
           <p className="text-[11px] text-fg-tertiary uppercase mb-1">Net Worth</p>
-          <p className={`text-xl font-bold ${netWorth >= 0 ? 'text-accent' : 'text-red-400'}`}>{fmt(netWorth)}</p>
+          <p className={`text-xl font-bold ${netWorth >= 0 ? 'text-accent' : 'text-risk'}`}>{fmt(netWorth)}</p>
         </div>
       </div>
 
@@ -391,7 +387,7 @@ export default function FinanceView({ expenses, budgets, profile, loans, investm
         }>
           <div className="flex gap-3 mb-3">
             <div className="text-center">
-              <p className="text-lg font-bold text-red-400">{fmt(totalSpent)}</p>
+              <p className="text-lg font-bold text-risk">{fmt(totalSpent)}</p>
               <p className="text-xs text-fg-quaternary">Spent</p>
             </div>
             <div className="text-center">
@@ -399,7 +395,7 @@ export default function FinanceView({ expenses, budgets, profile, loans, investm
               <p className="text-xs text-fg-quaternary">Budget</p>
             </div>
             <div className="text-center">
-              <p className={`text-lg font-bold ${remaining >= 0 ? 'text-green-400' : 'text-red-400'}`}>{fmt(Math.abs(remaining))}</p>
+              <p className={`text-lg font-bold ${remaining >= 0 ? 'text-good' : 'text-risk'}`}>{fmt(Math.abs(remaining))}</p>
               <p className="text-xs text-fg-quaternary">{remaining >= 0 ? 'Left' : 'Over'}</p>
             </div>
           </div>
@@ -414,8 +410,8 @@ export default function FinanceView({ expenses, budgets, profile, loans, investm
                 // 90-99%, red at/over 100% — not the accent/red binary this
                 // page used before.
                 const tier = pctRaw >= 100 ? 'over' : pctRaw >= 90 ? 'near' : 'ok'
-                const barColor = tier === 'over' ? 'bg-red-400' : tier === 'near' ? 'bg-amber-400' : 'bg-green-400'
-                const textColor = tier === 'over' ? 'text-red-400' : tier === 'near' ? 'text-amber-400' : 'text-green-400'
+                const barColor = tier === 'over' ? 'bg-risk' : tier === 'near' ? 'bg-warn' : 'bg-good'
+                const textColor = tier === 'over' ? 'text-risk' : tier === 'near' ? 'text-warn' : 'text-good'
                 const badgeText = pctRaw > 100 ? 'Over' : pctRaw === 100 ? 'At limit' : pctRaw >= 90 ? 'Near limit' : null
                 const catExpenses = localExpenses.filter(e => e.category === cat)
                 const isOpen = expandedCategory === cat
@@ -521,7 +517,7 @@ export default function FinanceView({ expenses, budgets, profile, loans, investm
                           </div>
                           {goal.target_date && <p className="text-xs text-fg-quaternary mt-0.5">Target: {goal.target_date}</p>}
                         </div>
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-1">
                           {editingGoalId === goal.id ? (
                             <div className="flex items-center gap-1">
                               <input value={editInput} onChange={e => setEditInput(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') handleGoalProgressSave(goal.id); if (e.key === 'Escape') setEditingGoalId(null) }} autoFocus className="w-24 bg-surface-2 border border-accent rounded px-2 py-0.5 text-xs outline-none" />
@@ -536,10 +532,6 @@ export default function FinanceView({ expenses, budgets, profile, loans, investm
                           <button onClick={() => handleDeleteGoal(goal.id)} aria-label="Delete goal" className={deleteGlyphBtn}>✕</button>
                         </div>
                       </div>
-                      <div className="flex items-center justify-between text-xs text-fg-tertiary mb-[5px]">
-                        <span>{pct.toFixed(0)}%</span>
-                        <span>{fmt(Number(goal.target_amount) - Number(goal.current_amount))} to go</span>
-                      </div>
                       <div className="h-[5px] rounded-[3px] bg-border">
                         <div className="h-full bg-accent rounded-[3px] transition-all" style={{ width: `${pct}%` }} />
                       </div>
@@ -550,7 +542,7 @@ export default function FinanceView({ expenses, budgets, profile, loans, investm
             )}
           </Card>
 
-          <Card title="Expenses" padding="p-[var(--card-pad-md)]" action={
+          <Card title="Just Added" padding="p-[var(--card-pad-md)]" action={
             <button onClick={() => setModal('expense')} className={outlineAddBtn}>+ Add</button>
           }>
             {localExpenses.length === 0 ? (
@@ -558,7 +550,7 @@ export default function FinanceView({ expenses, budgets, profile, loans, investm
             ) : (
               <ul className="space-y-0.5 max-h-80 overflow-y-auto">
                 {localExpenses.map(exp => (
-                  <li key={exp.id} className="flex items-center gap-2.5 p-2 rounded-lg hover:bg-surface-2 transition-colors group">
+                  <li key={exp.id} className="flex items-center gap-2.5 p-1 rounded-lg hover:bg-surface-2 transition-colors group">
                     <span className={`text-xs px-1.5 py-0.5 rounded-full font-medium shrink-0 ${CATEGORY_COLOR[exp.category]}`}>{exp.category}</span>
                     <span className="text-xs text-fg-quaternary shrink-0">{exp.date}</span>
                     {exp.description && <span className="text-xs text-fg-secondary truncate flex-1">{exp.description}</span>}

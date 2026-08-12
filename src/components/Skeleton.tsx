@@ -43,3 +43,29 @@ export function StatsSkeleton({ cols = 3 }: { cols?: number }) {
     </div>
   )
 }
+
+// Matches every page's own header shape (small date/subtitle line + big H1
+// title) so the loading state doesn't skip straight to content.
+export function HeaderSkeleton() {
+  return (
+    <div className="space-y-2">
+      <Skeleton className="h-3 w-40" />
+      <Skeleton className="h-9 w-48" />
+    </div>
+  )
+}
+
+// One shared loading layout every module's loading.tsx composes instead of
+// each hand-rolling its own near-identical stack of skeleton pieces —
+// header, an optional stat row, a list, then N cards. Pass statsCols={null}
+// to skip the stat row entirely (e.g. Settings, which has no stat tiles).
+export function ModuleLoading({ statsCols = 3, listRows = 5, cards = 1 }: { statsCols?: number | null; listRows?: number; cards?: number }) {
+  return (
+    <div className="space-y-3 animate-pulse">
+      <HeaderSkeleton />
+      {statsCols !== null && <StatsSkeleton cols={statsCols} />}
+      <ListSkeleton rows={listRows} />
+      {Array.from({ length: cards }).map((_, i) => <CardSkeleton key={i} />)}
+    </div>
+  )
+}

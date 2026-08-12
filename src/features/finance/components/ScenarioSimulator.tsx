@@ -84,10 +84,10 @@ export default function ScenarioSimulator({ profile, goals, avgMonthlyExpense }:
         <div className="space-y-2 bg-surface-2 rounded-lg p-3">
           <div className="flex items-baseline justify-between">
             <span className="text-xs text-fg-tertiary">Free cash / month</span>
-            <span className="text-sm text-fg-secondary tabular-nums">₹{Math.round(result.freeCashBefore).toLocaleString('en-IN')} → <span className={result.goesNegative ? 'text-red-400 font-semibold' : 'text-fg-primary font-semibold'}>₹{Math.round(result.freeCashAfter).toLocaleString('en-IN')}</span></span>
+            <span className="text-sm text-fg-secondary tabular-nums">₹{Math.round(result.freeCashBefore).toLocaleString('en-IN')} → <span className={result.goesNegative ? 'text-risk font-semibold' : 'text-fg-primary font-semibold'}>₹{Math.round(result.freeCashAfter).toLocaleString('en-IN')}</span></span>
           </div>
           {result.goesNegative && (
-            <p className="text-xs text-red-400">⚠️ This would put you in negative monthly cash flow.</p>
+            <p className="text-xs text-risk">⚠️ This would put you in negative monthly cash flow.</p>
           )}
           {result.goalPaces.length > 0 && (
             <ul className="space-y-1 pt-1 border-t border-surface-3">
