@@ -371,7 +371,7 @@ export default function CareerView({ applications, profile, skills, quizAttempts
               const missingSkills = app.jd_analysis?.missingSkills ?? []
               return (
                 <div key={app.id} onClick={() => setExpandedOverrides(prev => ({ ...prev, [app.id]: !isExpanded }))}
-                  className="w-[260px] shrink-0 bg-surface-1 border border-surface-3 rounded-2xl shadow-card p-4 cursor-pointer">
+                  className="w-[260px] shrink-0 max-h-[460px] overflow-y-auto bg-surface-1 border border-surface-3 rounded-2xl shadow-card p-4 cursor-pointer">
                   <div className="flex items-start justify-between gap-2.5">
                     <div className="min-w-0">
                       <div className="font-bold text-sm flex items-center gap-1.5 text-fg-primary">
@@ -418,7 +418,7 @@ export default function CareerView({ applications, profile, skills, quizAttempts
                         <>
                           <div className="bg-surface-2 rounded-lg px-3 py-2.5">
                             <p className="text-[11px] font-bold text-fg-tertiary uppercase tracking-[0.4px]">📄 Job Description</p>
-                            <p className="text-xs text-fg-secondary mt-1 leading-relaxed italic max-h-[110px] overflow-y-auto pr-1">{app.job_description || 'No JD saved for this application yet.'}</p>
+                            <p className="text-xs text-fg-secondary mt-1 leading-relaxed italic">{app.job_description || 'No JD saved for this application yet.'}</p>
                           </div>
                           <div className="grid grid-cols-2 gap-3">
                             <div>
@@ -446,7 +446,7 @@ export default function CareerView({ applications, profile, skills, quizAttempts
                           </div>
                           <div>
                             <p className="text-[11px] font-bold text-fg-tertiary uppercase tracking-[0.4px] mb-1">🎯 Company Focus</p>
-                            <p className="text-sm text-fg-secondary leading-relaxed max-h-[90px] overflow-y-auto pr-1">{app.jd_analysis.companyFocus}</p>
+                            <p className="text-xs text-fg-secondary leading-relaxed">{app.jd_analysis.companyFocus}</p>
                           </div>
                         </>
                       ) : app.job_description ? (
@@ -478,10 +478,8 @@ export default function CareerView({ applications, profile, skills, quizAttempts
                               <span className="inline-block text-[9.5px] font-bold uppercase text-fg-tertiary bg-surface-3 rounded px-1.5 py-0.5">
                                 {companyInsights[app.company]!.source === 'company-specific' ? 'Company-specific' : 'General guidance'}
                               </span>
-                              <div className="max-h-[130px] overflow-y-auto pr-1 space-y-2">
-                                <p className="text-sm text-fg-secondary leading-relaxed">{companyInsights[app.company]!.interviewTrends}</p>
-                                <p className="text-sm text-fg-secondary leading-relaxed">{companyInsights[app.company]!.hiringPatterns}</p>
-                              </div>
+                              <p className="text-sm text-fg-secondary leading-relaxed">{companyInsights[app.company]!.interviewTrends}</p>
+                              <p className="text-sm text-fg-secondary leading-relaxed">{companyInsights[app.company]!.hiringPatterns}</p>
                             </div>
                           ) : (
                             <p className="text-sm text-fg-quaternary italic">Unavailable — AI budget may have been reached.</p>

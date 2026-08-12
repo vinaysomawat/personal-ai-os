@@ -54,12 +54,18 @@ export default function DashboardView({ data, executive }: { data: DashboardData
   const topPriorityModule = topPriority && (topPriority.href.slice(1).charAt(0).toUpperCase() + topPriority.href.slice(2))
 
   const modules = [
-    { label: 'Planner',   to: '/planner',   icon: CalendarDays, color: 'text-blue-400',   bg: 'bg-blue-500/18',   stat: stats.pendingTaskCount ? `${stats.pendingTaskCount} pending` : 'All clear' },
-    { label: 'Career',    to: '/career',    icon: Briefcase,    color: 'text-amber-400',  bg: 'bg-amber-500/18',  stat: stats.activeApplications ? `${stats.activeApplications} active` : 'No applications' },
-    { label: 'Health',    to: '/health',    icon: HeartPulse,   color: 'text-red-400',    bg: 'bg-red-500/18',    stat: todayHealth?.steps ? `${(Number(todayHealth.steps)/1000).toFixed(1)}k steps` : stats.workoutsToday ? `${stats.workoutsToday} workout${stats.workoutsToday > 1 ? 's' : ''} today` : 'No metrics today' },
-    { label: 'Finance',   to: '/finance',   icon: DollarSign,   color: 'text-green-400',  bg: 'bg-green-500/18',  stat: stats.monthSpend ? `₹${Math.round(stats.monthSpend).toLocaleString('en-IN')} spent` : 'No expenses' },
-    { label: 'Learning',  to: '/learning',  icon: BookOpen,     color: 'text-purple-400', bg: 'bg-purple-500/18', stat: stats.learningInProgress ? `${stats.learningInProgress} in progress` : 'No resources' },
-    { label: 'Coding',    to: '/coding',    icon: Code2,        color: 'text-cyan-400',   bg: 'bg-cyan-500/18',   stat: stats.codingSolved30d ? `${stats.codingSolved30d} solved (30d)` : 'No questions solved yet' },
+    { label: 'Planner',   to: '/planner',   icon: CalendarDays, color: 'text-blue-400',   bg: 'bg-blue-500/18',
+      stat: stats.pendingTaskCount ? `${stats.pendingTaskCount} pending${stats.overdueCount > 0 ? ` · ${stats.overdueCount} overdue` : ''}` : 'All clear' },
+    { label: 'Career',    to: '/career',    icon: Briefcase,    color: 'text-amber-400',  bg: 'bg-amber-500/18',
+      stat: stats.activeApplications ? `${stats.activeApplications} active application${stats.activeApplications > 1 ? 's' : ''}` : 'No applications' },
+    { label: 'Health',    to: '/health',    icon: HeartPulse,   color: 'text-red-400',    bg: 'bg-red-500/18',
+      stat: `${stats.workoutsToday > 0 ? 'Workout done' : 'No workout logged'}${todayHealth?.steps ? ` · ${(Number(todayHealth.steps) / 1000).toFixed(1)}k steps` : ''}` },
+    { label: 'Finance',   to: '/finance',   icon: DollarSign,   color: 'text-green-400',  bg: 'bg-green-500/18',
+      stat: stats.monthBudget > 0 ? `₹${Math.round(stats.monthBudget - stats.monthSpend).toLocaleString('en-IN')} left this month` : stats.monthSpend ? `₹${Math.round(stats.monthSpend).toLocaleString('en-IN')} spent` : 'No expenses' },
+    { label: 'Learning',  to: '/learning',  icon: BookOpen,     color: 'text-purple-400', bg: 'bg-purple-500/18',
+      stat: stats.learningInProgress ? `${stats.learningInProgress} in progress${stats.resourcesNeedingRevision > 0 ? ` · ${stats.resourcesNeedingRevision} need${stats.resourcesNeedingRevision > 1 ? '' : 's'} revision` : ''}` : 'No resources' },
+    { label: 'Coding',    to: '/coding',    icon: Code2,        color: 'text-cyan-400',   bg: 'bg-cyan-500/18',
+      stat: executive.codingStreak > 0 ? `${executive.codingStreak}-day streak · ${data.codingQuestionPending ? 'today open' : 'today solved'}` : stats.codingSolved30d ? `${stats.codingSolved30d} solved (30d)` : 'No questions solved yet' },
   ]
 
   return (
@@ -174,11 +180,14 @@ export default function DashboardView({ data, executive }: { data: DashboardData
         <p className="text-xs text-fg-tertiary uppercase tracking-[0.5px] mb-3 font-semibold">Module Scores</p>
         <div className="grid grid-cols-3 sm:grid-cols-5 gap-4">
           {moduleScores.map(({ label, score, color, to, tip }) => (
-            <Link key={to} href={to} title={tip}
-              className="flex flex-col items-center gap-2 text-center hover:scale-[1.03] transition-transform group">
+            <Link key={to} href={to}
+              className="relative flex flex-col items-center gap-2 text-center hover:scale-[1.03] transition-transform group">
               <MiniRing score={score} color={color} size={74} glow />
               <p className="text-xs font-semibold text-fg-secondary group-hover:text-fg-primary">{label}</p>
-              <p className="text-[9.5px] text-fg-tertiary leading-tight truncate max-w-[90px]">{tip}</p>
+              <p className="text-[9.5px] text-fg-tertiary leading-tight max-w-[90px] truncate">{tip}</p>
+              <span className="pointer-events-none absolute top-[74px] mt-1 left-1/2 -translate-x-1/2 z-10 w-max max-w-[180px] bg-surface-2 border border-surface-3 rounded-[6px] px-2.5 py-1.5 text-[11px] text-fg-primary text-center leading-snug opacity-0 group-hover:opacity-100 transition-opacity shadow-popover">
+                {tip}
+              </span>
             </Link>
           ))}
         </div>
@@ -186,7 +195,6 @@ export default function DashboardView({ data, executive }: { data: DashboardData
 
       {/* Module grid */}
       <div>
-        <p className="text-xs text-fg-quaternary uppercase tracking-widest mb-2">Modules</p>
         <div className="grid grid-cols-[repeat(auto-fit,minmax(150px,1fr))] gap-[var(--grid-gap-sm)]">
           {modules.map(({ label, to, icon: Icon, color, bg, stat }) => (
             <Link key={to} href={to}
