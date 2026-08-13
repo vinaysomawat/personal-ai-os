@@ -58,6 +58,7 @@ const dummyData = {
   careerMemory: { currentRole: null, currentCompany: null, targetRole: null, currentSalary: null, bio: null },
   financialGoals: [],
   recentPatterns: [],
+  astrology: null,
 }
 
 const dummyExecutive = { brief: null, risks: [], opportunities: [], whatsChanged: [], codingStreak: 0 }

@@ -47,6 +47,10 @@
     {
       "path": "/api/cron/daily-journal",
       "schedule": "30 17 * * *"
+    },
+    {
+      "path": "/api/cron/astrology-daily",
+      "schedule": "50 3 * * *"
     }
   ]
 }

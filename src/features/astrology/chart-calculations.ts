@@ -1,4 +1,4 @@
-import type { CurrentDasha, DashaPeriod, Nakshatra, Planet, PlanetPosition, Rashi, Yogini, YoginiPeriod } from './types'
+import type { CurrentDasha, DashaPeriod, Nakshatra, NavamsaChart, Planet, PlanetPosition, Rashi, Yogini, YoginiPeriod } from './types'
 import type { RawPosition } from './ephemeris'
 
 const RASHIS: Rashi[] = [
@@ -166,6 +166,32 @@ export function computeYoginiDasha(moonSiderealLongitude: number, birthDateIso: 
 // missing secondary dasha line should degrade quietly, not crash the page.
 export function getCurrentYogini(timeline: YoginiPeriod[] | undefined, todayIso: string): YoginiPeriod | null {
   return (timeline ?? []).find(p => p.startDate <= todayIso && todayIso < p.endDate) ?? null
+}
+
+// Navamsa (D9) — a pure function over already-computed D1 positions, no
+// ephemeris calls. Each rashi (30°) splits into 9 navamsas of 3°20' each;
+// the D9 sign is (rashiIndex × 9 + navamsaNumber - 1) mod 12. This closed-
+// form is the standard computational shortcut for the classical rule
+// (movable signs start their navamsa count from themselves, fixed signs
+// from the 9th sign, dual signs from the 5th) — verified by hand against
+// the classical rule for a movable sign (Mesha) and a fixed sign
+// (Vrishabha) before trusting it, same as every other formula in this file.
+const NAVAMSA_SPAN = 30 / 9 // 3°20'
+
+function navamsaRashi(rashi: Rashi, rashiDegree: number): Rashi {
+  const rashiIndex = RASHIS.indexOf(rashi)
+  const navamsaNumber = Math.floor(rashiDegree / NAVAMSA_SPAN) + 1 // 1-9
+  const d9Index = (rashiIndex * 9 + navamsaNumber - 1) % 12
+  return RASHIS[d9Index]
+}
+
+export function computeNavamsa(planets: PlanetPosition[], lagna: { rashi: Rashi; degree: number }): NavamsaChart {
+  const d9Lagna = navamsaRashi(lagna.rashi, lagna.degree)
+  const d9Planets = planets.map(p => {
+    const rashi = navamsaRashi(p.rashi, p.rashiDegree)
+    return { planet: p.planet, rashi, house: getHouse(rashi, d9Lagna) }
+  })
+  return { lagna: d9Lagna, planets: d9Planets }
 }
 
 // The currently-active Mahadasha + nested Antardasha, from the already-

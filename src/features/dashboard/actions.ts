@@ -19,6 +19,8 @@ import { checkRevisionNeeded } from '@/features/learning/signals'
 import { isMarkedToday } from '@/features/learning/daily-read'
 import { computeTodayProgress } from './daily-progress'
 import { getRecentPatterns, type RecentPattern } from '@/features/brain/signals'
+import { getCurrentDasha, getCurrentYogini } from '@/features/astrology/chart-calculations'
+import type { NatalChart } from '@/features/astrology/types'
 
 export interface TopAction {
   emoji: string
@@ -92,6 +94,7 @@ export async function getDashboardData() {
     careerMemory: { currentRole: null, currentCompany: null, targetRole: null, currentSalary: null, bio: null } as { currentRole: string | null; currentCompany: string | null; targetRole: string | null; currentSalary: number | null; bio: string | null },
     financialGoals: [] as { name: string; targetAmount: number; currentAmount: number; targetDate: string | null }[],
     recentPatterns: [] as RecentPattern[],
+    astrology: null as { dashaLord: string; antardashaLord: string; dashaUntil: string; yoginiLord: string | null; yoginiUntil: string | null; tithi: string | null; nakshatra: string | null } | null,
   }
 
   const studyLogsSince = daysAgoIST(14)
@@ -103,7 +106,7 @@ export async function getDashboardData() {
     aiUsageMonthRes, studyLogsRes, codingTodayRows, activeWorkout, codingSolved30dRes,
     codingCompletionsRes, quizAttemptsRes, tasksDueTodayRes, workoutCompletedTodayRes,
     recentPatterns, financialGoalsRes, codingHistoryForWeakAreas,
-    codingQuizTodayRes, workoutStats,
+    codingQuizTodayRes, workoutStats, astrologyProfileRes, panchangTodayRes,
   ] = await Promise.all([
     supabase.from('tasks').select('id, text, done, priority, due_date').eq('user_id', user.id).eq('done', false).order('created_at', { ascending: false }).limit(5),
     supabase.from('applications').select('id, company, role, status, applied_at').eq('user_id', user.id).order('created_at', { ascending: false }).limit(5),
@@ -130,6 +133,11 @@ export async function getDashboardData() {
     getInsightsHistory(),
     supabase.from('coding_quiz_attempts').select('id').eq('user_id', user.id).eq('date', today).maybeSingle(),
     computeWorkoutStats(supabase, user.id),
+    // Astrology strip (3.4): reuses the already-computed natal_chart jsonb
+    // (dasha math is pure/deterministic, no ephemeris recompute) and today's
+    // already-cached panchang_daily row — no new AI/ephemeris cost added.
+    supabase.from('astrology_profile').select('natal_chart').eq('user_id', user.id).maybeSingle(),
+    supabase.from('panchang_daily').select('tithi, nakshatra').eq('date', today).maybeSingle(),
   ])
 
   const pendingTasks = tasksRes.data ?? []
@@ -339,6 +347,19 @@ export async function getDashboardData() {
   const codingWeakAreas = computeWeakAreas(codingHistoryForWeakAreas)
   const careerTopWeakSubtopic = topWeakSubtopic(quizAttemptsRes.data ?? [])
 
+  const natalChart = astrologyProfileRes.data?.natal_chart as NatalChart | undefined
+  const currentDasha = natalChart ? getCurrentDasha(natalChart.vimshottariDasha, today) : null
+  const currentYogini = natalChart ? getCurrentYogini(natalChart.yoginiDasha, today) : null
+  const astrology = currentDasha ? {
+    dashaLord: currentDasha.mahadasha.lord,
+    antardashaLord: currentDasha.antardasha.lord,
+    dashaUntil: currentDasha.antardasha.endDate,
+    yoginiLord: currentYogini?.lord ?? null,
+    yoginiUntil: currentYogini?.endDate ?? null,
+    tithi: panchangTodayRes.data?.tithi ?? null,
+    nakshatra: panchangTodayRes.data?.nakshatra ?? null,
+  } : null
+
   const topActions = computeTopActions({
     today, pendingTasks, applications, monthSpend, monthBudget, todayMetric, workoutPending,
     resourcesNeedingRevision, codingQuestionPending, codingStaleRevisionCount, daysSinceLastQuiz: daysSinceLastQuizAttempt,
@@ -393,5 +414,6 @@ export async function getDashboardData() {
       targetDate: g.target_date as string | null,
     })),
     recentPatterns,
+    astrology,
   }
 }

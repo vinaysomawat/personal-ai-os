@@ -5,8 +5,10 @@ import { createClient } from '@/lib/supabase/server'
 import { askAI } from '@/lib/ai-gateway'
 import { todayIST } from '@/lib/date'
 import { getPlanetPositions, getAscendant, julianDay, julianDayNow } from './ephemeris'
-import { buildPlanetPositions, getRashi, computeVimshottariDasha, computeYoginiDasha, getCurrentDasha } from './chart-calculations'
+import { buildPlanetPositions, getRashi, computeVimshottariDasha, computeYoginiDasha, computeNavamsa, getCurrentDasha, getCurrentYogini } from './chart-calculations'
+import { computeGochara } from './gochara'
 import type { AstrologyProfile, NatalChart, ReadingPeriod } from './types'
+import type { Lang } from './i18n/hi'
 
 export async function getAstrologyProfile(): Promise<AstrologyProfile | null> {
   const supabase = await createClient()
@@ -50,12 +52,14 @@ export async function upsertAstrologyProfile(input: BirthDetailsInput) {
   const moon = planets.find(p => p.planet === 'Moon')!
   const vimshottariDasha = computeVimshottariDasha(moon.siderealLongitude, input.birthDate)
   const yoginiDasha = computeYoginiDasha(moon.siderealLongitude, input.birthDate)
+  const navamsa = computeNavamsa(planets, lagna)
 
   const natalChart: NatalChart = {
     lagna,
     planets,
     vimshottariDasha,
     yoginiDasha,
+    navamsa,
     computedAt: new Date().toISOString(),
   }
 
@@ -86,17 +90,18 @@ export async function upsertAstrologyProfile(input: BirthDetailsInput) {
 // readings don't compute a forward window of movement, they interpret the
 // present sky through a wider lens, same as how a monthly financial digest
 // still runs off today's numbers. Cache is a flat SIX_HOURS TTL in the
-// gateway, but since the prompt embeds the current transit longitudes plus
-// the period, a new day's different transit data naturally produces a
-// different prompt hash and busts the cache on its own — no separate
-// "cache until end of period" mechanism needed.
+// gateway, but since the prompt embeds the current transit longitudes, the
+// period, AND the language, a new day's different transit data (or a
+// different language) naturally produces a different prompt hash and busts
+// the cache on its own — daily/monthly/yearly and en/hi all cache
+// independently with no extra code beyond what's already in the prompt.
 const PERIOD_FRAMING: Record<ReadingPeriod, string> = {
   daily: "Write today's horoscope reading — what today specifically brings.",
   monthly: "Write this month's horoscope outlook — the broader theme the current planetary environment and dasha period suggest for the weeks ahead, not a single day's events.",
   yearly: "Write this year's horoscope outlook — the broader theme the current dasha period suggests for the months ahead, not a single day's events.",
 }
 
-export async function getAstrologyReading(profile: AstrologyProfile, period: ReadingPeriod): Promise<string> {
+export async function getAstrologyReading(profile: AstrologyProfile, period: ReadingPeriod, lang: Lang = 'en'): Promise<string> {
   const jdNow = await julianDayNow()
   const [transitPositions, transitAscendant] = await Promise.all([
     getPlanetPositions(jdNow),
@@ -104,28 +109,44 @@ export async function getAstrologyReading(profile: AstrologyProfile, period: Rea
   ])
   const transitLagna = getRashi(transitAscendant)
   const transitPlanets = buildPlanetPositions(transitPositions, transitLagna.rashi)
+  const gochara = computeGochara(transitPositions, profile.natal_chart)
 
-  const currentDasha = getCurrentDasha(profile.natal_chart.vimshottariDasha, todayIST())
+  const today = todayIST()
+  const currentDasha = getCurrentDasha(profile.natal_chart.vimshottariDasha, today)
+  const currentYogini = getCurrentYogini(profile.natal_chart.yoginiDasha, today)
 
   const natalSummary = profile.natal_chart.planets
     .map(p => `${p.planet} in ${p.rashi} (house ${p.house}, ${p.nakshatra} nakshatra)`)
     .join('; ')
+  const navamsaSummary = profile.natal_chart.navamsa
+    ? `Navamsa Lagna: ${profile.natal_chart.navamsa.lagna}. Navamsa placements: ${profile.natal_chart.navamsa.planets.map(p => `${p.planet} in ${p.rashi}`).join('; ')}.`
+    : ''
   const transitSummary = transitPlanets
     .map(p => `${p.planet} transiting ${p.rashi}${p.retrograde ? ' (retrograde)' : ''}`)
+    .join('; ')
+  const gocharaSummary = gochara
+    .map(g => `${g.planet} is in the ${g.houseFromLagna}th house from Lagna and ${g.houseFromMoon}th from Moon`)
     .join('; ')
   const dashaSummary = currentDasha
     ? `${currentDasha.mahadasha.lord} Mahadasha / ${currentDasha.antardasha.lord} Antardasha, until ${currentDasha.antardasha.endDate}`
     : 'not available'
+  const yoginiSummary = currentYogini ? `${currentYogini.lord} Yogini period, until ${currentYogini.endDate}` : 'not available'
 
-  const context = `Natal chart — Lagna: ${profile.natal_chart.lagna.rashi}. Planets: ${natalSummary}.
-Current Vimshottari Dasha: ${dashaSummary}.
+  const context = `Natal chart (Rashi/D1) — Lagna: ${profile.natal_chart.lagna.rashi}. Planets: ${natalSummary}.
+${navamsaSummary}
+Current Vimshottari Dasha: ${dashaSummary}. Current Yogini period: ${yoginiSummary}.
 Current transits: ${transitSummary}.
+Gochara (transit houses from Lagna/Moon): ${gocharaSummary}.
 
 ${PERIOD_FRAMING[period]}`
+
+  const languageInstruction = lang === 'hi'
+    ? ' Respond entirely in Hindi (Devanagari script), using standard Hindi Vedic-astrology terminology (ग्रह, राशि, भाव, दशा etc.) — write natively in Hindi, not a translated English sentence.'
+    : ''
 
   return askAI(
     'astrology_reading',
     context,
-    'You are a traditional Vedic astrology reader. Given a natal chart summary, the current Vimshottari Dasha period, and current planetary transits, write a short, specific horoscope reading — 3-4 sentences, plain language, grounded in the actual positions given (name the relevant planets/houses), not generic. Frame it as traditional guidance, not certainty. Plain text only, no markdown formatting. Under 120 words.'
+    `You are a traditional Vedic astrology reader. Given a natal chart summary (including Navamsa/D9), the current Vimshottari and Yogini dasha periods, current planetary transits, and gochara house placements, write a short, specific horoscope reading — 3-4 sentences, plain language, grounded in the actual positions given (name the relevant planets/houses), not generic. Frame it as traditional guidance, not certainty. Plain text only, no markdown formatting. Under 120 words.${languageInstruction}`
   )
 }

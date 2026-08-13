@@ -1,4 +1,6 @@
-import type { PlanetPosition, Rashi } from '../types'
+import type { Planet, Rashi } from '../types'
+import { PLANET_ABBR_HI } from '../i18n/hi'
+import type { Lang } from '../i18n/hi'
 
 // North Indian style: houses are FIXED positions (house 1 always top-center,
 // numbered counter-clockwise from there) — unlike South Indian charts where
@@ -47,9 +49,19 @@ function polygonPoints(house: number): string {
   return HOUSE_POLYGONS[house].map(([x, y]) => `${x},${y}`).join(' ')
 }
 
-export default function KundliChart({ lagnaRashi, planets }: { lagnaRashi: Rashi; planets: PlanetPosition[] }) {
+// Minimal shape both D1 (PlanetPosition) and D9 (NavamsaPosition) satisfy —
+// the chart only ever draws house placement + retrograde marker, so it
+// doesn't need D1-only fields (nakshatra, pada, siderealLongitude).
+export interface ChartPlanet {
+  planet: Planet
+  house: number
+  retrograde?: boolean
+}
+
+export default function KundliChart({ lagnaRashi, planets, lang = 'en' }: { lagnaRashi: Rashi; planets: ChartPlanet[]; lang?: Lang }) {
+  const abbr = lang === 'hi' ? PLANET_ABBR_HI : PLANET_ABBR
   const lagnaIndex = RASHI_ORDER.indexOf(lagnaRashi)
-  const planetsByHouse = planets.reduce<Record<number, PlanetPosition[]>>((acc, p) => {
+  const planetsByHouse = planets.reduce<Record<number, ChartPlanet[]>>((acc, p) => {
     (acc[p.house] ??= []).push(p)
     return acc
   }, {})
@@ -69,7 +81,7 @@ export default function KundliChart({ lagnaRashi, planets }: { lagnaRashi: Rashi
             <text x={x} y={y - 14} textAnchor="middle" className="fill-fg-tertiary" style={{ fontSize: 9 }}>{rashiNumber}</text>
             {occupants.map((p, i) => (
               <text key={p.planet} x={x} y={y + i * 13} textAnchor="middle" className="fill-fg-primary font-semibold" style={{ fontSize: 11 }}>
-                {PLANET_ABBR[p.planet]}{p.retrograde ? '(R)' : ''}
+                {abbr[p.planet]}{p.retrograde ? '(R)' : ''}
               </text>
             ))}
           </g>

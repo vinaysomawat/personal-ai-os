@@ -209,13 +209,14 @@ Each module is its own Telegram bot (own `TELEGRAM_BOT_TOKEN_*`), all pointed at
 | **Health** | "weight 88kg", "8000 steps", "2000 calories", "120g protein", "200g chicken breast", "drank 250ml milk", "2 rotis with dal", "did 45 min strength training", "today's workout", "finished my workout", "skip today's workout", "undo that workout", "today's plan", "how was my week", "why isn't my weight moving?", *[meal photo]* | log metric/ad-hoc workout, log a named food/drink with AI-estimated calories/protein (`food_log`, additive to the day's total, undo button), today's metrics, fetch/complete/skip today's structured workout (fuzzy-free — always operates on the single active workout), undo last ad-hoc workout log, AI daily plan, AI weekly report, free-form AI coach Q&A, meal-photo calorie/protein estimate |
 | **Learning** | "add Next.js course from Udemy", "started JavaScript: The Good Parts book", "update Next.js to 60%", "finished React docs", "show in-progress resources", "what should I study today", "what am I forgetting", "today's reading", "finished reading", "quiz me on React hooks", "undo that" | add/undo resource, update progress, complete (direct — the quiz gate on "Completed" only applies to the web UI, see §6), list by status/needs-revision, AI daily study plan, fetch/complete today's daily read (generates one via `ensureDailyRead()` if none exists yet, §6), on-demand 10-question quiz sheet with answer key (read-only text reply, not a graded attempt — see §6) |
 | **Coding** | "today's question", "solved Two Sum", "explain closures in JS", "undo that" | fetch/complete today's coding challenge (fuzzy title match), free-form AI coding-mentor Q&A (uses recent streak/solved as context), undo the most recently completed question. (The daily-reading commands moved to the Learning bot, above, alongside the rest of the daily reading habit, §6.) |
+| **Astrology** | "today's reading", "this month's reading", "current dasha", "today's panchang" | daily/monthly/yearly AI reading (same `astrology_reading` task the web app uses), current Vimshottari + Yogini dasha (read from the stored chart, no recompute), today's panchang (tithi/nakshatra/yoga/karana/sunrise/sunset/kalam windows, same cached-by-date row the web card reads). Read-mostly — no add/undo surface, since this module has no logging/CRUD equivalent to expenses or tasks (§13). |
 Any message the model can't confidently map to an action falls back to `{"action":"help"}`, answered with that bot's own cheat-sheet.
 
 ## 11. Scheduled jobs (Vercel Cron)
 
 Defined in `vercel.json`, all protected by `Authorization: Bearer $CRON_SECRET`, all resolving the single app user via `supabase.auth.admin.listUsers()[0]` (single-user deployment). **If `CRON_SECRET` isn't actually set in the deployment's environment variables, every job below fires on schedule but is immediately rejected with 401 before any logic runs — silently, with no error surfaced anywhere in the app.** (This happened in production for an unknown period; fixed by setting the env var and redeploying. Worth spot-checking after any env var changes: `curl -H "Authorization: Bearer $CRON_SECRET" https://<deployment>/api/cron/<job>` should return `{"ok":true}`, not 401.)
 
-**Self-monitoring**: every job below calls `logCronRun(supabase, '<job-name>')` (`src/lib/cron-log.ts`) right after its auth check passes, writing a row to `cron_runs` — proof the route executed past `CRON_SECRET`, independent of whatever the rest of the job does. `getCronJobHealth()` (same file) reads that table and classifies each job `healthy`/`stale`/`never-seen` against its own cadence (26h for daily jobs, 8 days for the Sunday-only `weekly-digest`) — shared by two consumers: `cron-health-check` (below), which Telegram-alerts on any `stale` job so a repeat of the `CRON_SECRET` outage gets caught within a day instead of going undiagnosed, and Settings' System Health card (§9), which shows the same data passively. A job with **no history at all yet** (e.g. `weekly-digest` before its first Sunday since this table existed) is `never-seen`, not alarmed on — there's no prior "healthy" baseline for it to have gone stale from. **`EXPECTED_CRON_JOBS`** (same file) is the actual watch list both consumers read — kept current with `vercel.json`'s registered crons; a 2026-07-23 audit found it was missing `daily-journal`, `learning-tip`, and `cron-health-check` itself (which also didn't call `logCronRun` for its own run, making it invisible to the very monitoring system it implements) — both gaps are now fixed, so a silent failure in any of the 12 registered jobs is actually catchable (was 13 until the SIP-contribution cron was deleted alongside SIP tracking, 2026-08-10 — see the Investments entry above).
+**Self-monitoring**: every job below calls `logCronRun(supabase, '<job-name>')` (`src/lib/cron-log.ts`) right after its auth check passes, writing a row to `cron_runs` — proof the route executed past `CRON_SECRET`, independent of whatever the rest of the job does. `getCronJobHealth()` (same file) reads that table and classifies each job `healthy`/`stale`/`never-seen` against its own cadence (26h for daily jobs, 8 days for the Sunday-only `weekly-digest`) — shared by two consumers: `cron-health-check` (below), which Telegram-alerts on any `stale` job so a repeat of the `CRON_SECRET` outage gets caught within a day instead of going undiagnosed, and Settings' System Health card (§9), which shows the same data passively. A job with **no history at all yet** (e.g. `weekly-digest` before its first Sunday since this table existed) is `never-seen`, not alarmed on — there's no prior "healthy" baseline for it to have gone stale from. **`EXPECTED_CRON_JOBS`** (same file) is the actual watch list both consumers read — kept current with `vercel.json`'s registered crons; a 2026-07-23 audit found it was missing `daily-journal`, `learning-tip`, and `cron-health-check` itself (which also didn't call `logCronRun` for its own run, making it invisible to the very monitoring system it implements) — both gaps are now fixed, so a silent failure in any of the 13 registered jobs is actually catchable (was 12 after the SIP-contribution cron was deleted alongside SIP tracking, 2026-08-10 — see the Investments entry above — then back to 13 with `astrology-daily`, §13).
 
 | Job | Schedule (UTC / IST) | Sends via | What it does |
 |---|---|---|---|
@@ -231,6 +232,7 @@ Defined in `vercel.json`, all protected by `Authorization: Bearer $CRON_SECRET`,
 | `daily-journal` | `30 17 * * *` (~11:00pm IST) | Planner bot | **Daily Auto Journal** (Phase 3 PRD) — `generateDailyJournal()` (`src/features/ai/daily-journal.ts`) gathers today's itemized activity (coding question solved, today's daily-read article read, study minutes, health metrics logged, workouts, expenses, interview prep quizzes taken (topic + score), new applications submitted) and has Claude write one paragraph grounded only in that list (never inventing an event or number), `upsert`ed into `daily_journals` (`onConflict: user_id,date`, idempotent) before sending. Deliberately excludes plain Planner task completions — `tasks` has no `completed_at` (only its Coding-synced/Learning-resource-synced rows do), so "which tasks got done today" isn't reliably knowable. |
 | `learning-tip` | `45 3 * * *` (~9:15am IST) | Learning bot | Sends an "AI/Tech Tip of the Day" via the same `getDailyTip()` rotation as `health-tip`/`daily-coding`, over the curated `learning_tips` pool (~30 short AI/ML concepts and frontend facts to start, not AI-generated). Idempotent per day. |
 | `cron-health-check` | `0 4 * * *` (~9:30am IST) | Planner bot | Reads `cron_runs`; if a job that's run before has gone quiet past its expected cadence, sends a Telegram alert naming which ones. Jobs with no history yet aren't alarmed on. Silent (no message) when everything's healthy. Now also logs its own run (2026-07-23 fix — see §11's Self-monitoring note) so it's covered by the same watch list it maintains for everything else. |
+| `astrology-daily` | `50 3 * * *` (~9:20am IST) | Astrology bot | Pushes a combined Panchang summary (tithi/paksha/nakshatra/sunrise/sunset/Rahu Kalam) + the daily `astrology_reading` (§13). Idempotent by construction — reads/upserts the day's already-keyed `panchang_daily` row and relies on the AI Gateway's own per-day cache, not a bespoke dedup. Silent no-op if no birth chart has been saved yet. |
 
 ## 12. AI Gateway
 
@@ -248,18 +250,21 @@ Every AI call in the app funnels through one function: `askAI(task, prompt, syst
 - **Memory** — rather than a new store (Core Principle 1: the Brain never owns data), `career_profile`'s existing `current_role`/`current_company`/`target_role`/`current_salary` columns are read straight through into the context (the `career_profile` query in `getDashboardData()` was widened to select these, no new query). **Memory Evolution** (Phase 3 PRD) widened this further with Goals: `getDashboardData()` now also queries `financial_goals` (name, target/current amount, target date), threaded through as `BrainContext.finance.goals` and surfaced in Ask Brain's Ask/Decide context and Monthly Executive Review's — e.g. asking "what are my financial goals" correctly cites the real ₹ amounts and % progress, never invented ones. **Executive Memory** (Phase 4 PRD) added one more field the same way rather than inventing new speculative ones (investment philosophy, personality traits, etc. — none of the PRD's other example fields have a natural home or any feature that would actually consume them, so they were deliberately skipped): `career_profile`'s existing "Bio / Focus" free-text field (already editable on the Career page, previously never read by the Brain) is now included in `BrainContext.career.bio` and surfaced in `buildContextSummary` — e.g. asking "what's my career focus" now correctly reflects whatever the user actually wrote there.
 - **Goal Engine — removed entirely (2026-08-11).** Originally a Phase 4 PRD feature: cross-module goals for Career/Learning/Coding (`src/features/goals/`, a *separate* `goals` table from `financial_goals`, which kept its own UI throughout). Its UI (`GoalsCard.tsx` and the write actions `addGoal`/`updateGoalProgress`/`toggleGoalAchieved`/`deleteGoal`) was deleted 2026-08-10, leaving only read paths (`getGoals()`, `resolveAutoMetric()`, `checkGoalProgress()`, `crossModuleGoals` threading into Ask Brain) with no way to ever create a new goal — a personal-backlog audit flagged this as "silently half-alive" (no usable feature, just dead weight in every page load that touched it), and the decision was to rip out the remaining code rather than resurrect a minimal add-goal UI. Removed: the whole `src/features/goals/` directory, `checkGoalProgress`'s Today's Focus signal, `crossModuleGoals` from `BrainContext`/`getDashboardData()`/`buildContextSummary`, and the `goalsContext` parameter (and its prompt text) from `recommendQuizTopic`/`recommendCodingQuestions`. The `goals` table itself was left in place, unused, rather than migrated away — same as this app's other deliberately-orphaned schema (SIP columns, `health_profile`'s `target_weight_kg`/`goal_deadline`) — see Database below.
 
-## 13. Astrology (`/astrology`) — added 2026-08-13
+## 13. Astrology (`/astrology`) — added 2026-08-13, expanded 2026-08-14
 
 A Vedic (sidereal) horoscope module — the one module whose core output is real astronomical
 calculation, never AI. Per Product Principle 2, Claude only narrates already-computed
 positions; it never generates a chart itself (an AI asked to "produce a horoscope" from
 scratch would hallucinate planetary positions, unacceptable for something presented as a real
 chart). Origin doc: `astrology.md` at the repo root — this section is the current source of
-truth for what's actually built. Built in two passes the same day: an initial MVP (natal
-chart, Vimshottari Dasha, daily reading), then expanded to match a fuller Claude Design mock
-the user built afterward, which added Yogini Dasha, monthly/yearly readings, and Remediation —
-only the Telegram bot (`astrology-daily` cron) remains deliberately unbuilt, per `astrology.md`'s
-Phase 8.
+truth for what's actually built. Built in three passes: an initial MVP (natal chart,
+Vimshottari Dasha, daily reading); expanded to match a fuller Claude Design mock (Yogini Dasha,
+monthly/yearly readings, Remediation); then a full scope increase the same week — Panchang,
+Gochara transit analysis, the Navamsa (D9) divisional chart, a Dashboard strip, a dedicated
+Telegram bot + daily cron, and a Hindi (EN/हिं) language toggle. The one item `astrology.md`
+scoped and then explicitly dropped mid-build (an Outcome Journal — logging how a reading's
+predictions actually played out) was removed cleanly before any migration for it was applied;
+compatibility/matching charts and Muhurta lookups remain explicitly out of scope.
 
 - **Ephemeris** (`src/features/astrology/ephemeris.ts`) — `swisseph-wasm`, a WebAssembly build
   of the real Swiss Ephemeris C library. Chosen over native `swisseph` bindings specifically to
@@ -319,13 +324,91 @@ Phase 8.
   per-field independent saves, every field here saves together in one submit — the natal chart
   is a function of all of them at once, so editing just one in isolation would leave the stored
   chart inconsistent with the rest.
-- **Data**: `astrology_profile` table (§ Database below), one row per user, same
-  single-row-upsert pattern as `health_profile`/`career_profile`.
+- **Panchang** (`src/features/astrology/panchang.ts` + `panchang-actions.ts`) — the daily Hindu
+  calendar: tithi (+ paksha), nakshatra-of-the-day (distinct from natal nakshatra), yoga,
+  karana, sunrise/sunset, and the three inauspicious windows (Rahu Kalam, Yamaganda, Gulika
+  Kalam — fixed per-weekday segment lookup tables over the sunrise–sunset span). Global, not
+  birth-dependent, computed from Sun/Moon sidereal longitudes at sunrise (not local midnight —
+  matches how printed panchangs work) via `getTodaysPanchang(lat, lng, utcOffsetHours)`, which
+  checks `panchang_daily` for today's row first and only computes+upserts if missing — reused
+  everywhere "today's panchang" is needed rather than recomputed per request. Location-dependent
+  (sunrise/sunset/kalam windows shift by place); defaults to the profile's birth-place
+  coordinates, the only location this app currently tracks. All the underlying sunrise/sunset
+  and "HH:MM local" ephemeris helpers are timezone-aware by construction (`julianDayLocalMidnightUt`,
+  `jdToLocalHHMM`) — an earlier draft computed these in raw UT, which would have shown the wrong
+  local day/hour for a sunrise near UTC midnight; caught and fixed before shipping.
+- **Gochara** (transit analysis, `src/features/astrology/gochara.ts`) — for each planet's
+  current sidereal position, computes house-from-Lagna and house-from-Moon relative to the
+  natal chart (both are standard reference points; a first pass surfaces all current transits
+  rather than scoring their significance, which `astrology.md` explicitly defers).
+  Deterministic, no new ephemeris calls beyond the existing transit snapshot. Feeds directly
+  into the `astrology_reading` prompt context (dasha + gochara together, the standard
+  "which life theme is active + how today's sky affects it" combination) — no separate UI card
+  and no new AI task.
+- **Navamsa (D9)** — a second chart derived mathematically from the D1 (Rashi) positions via a
+  fixed divisional formula (`(rashiIndex × 9 + navamsaNumber − 1) mod 12`, `computeNavamsa()` in
+  `chart-calculations.ts`), not a new ephemeris call. Computed once at profile save alongside
+  the two dasha timelines and stored in the same `natal_chart` jsonb (`NavamsaChart { lagna,
+  planets }`). The Natal Chart card has a Rashi (D1) / Navamsa (D9) tab toggle over the same
+  `KundliChart` SVG renderer (widened to accept either chart's minimal `{ planet, house,
+  retrograde? }` shape, so it doesn't care which divisional chart it's drawing). Feeds into the
+  `astrology_reading` prompt context the same way Gochara does.
+- **Today's Panchang card** — tithi/nakshatra/yoga/karana + sunrise/sunset in a 2×4 stat grid,
+  plus the three inauspicious windows as small pill tags, on the Astrology page between the
+  Current Dasha strip and the Horoscope card.
+- **Dashboard integration** — a compact "🔮 [Mahadasha]/[Antardasha] · until [date] · Yogini:
+  [lord] · [tithi] · [nakshatra]" strip near the bottom of `/dashboard` (`getDashboardData()`
+  adds two cheap reads — `astrology_profile.natal_chart` and today's `panchang_daily` row — and
+  reuses the same `getCurrentDasha`/`getCurrentYogini` pure functions the Astrology page itself
+  calls; no ephemeris recompute, no new AI call). Only rendered once a birth chart exists.
+  Astrology stays ungrouped in nav (same tier as Finance), so this is its only Dashboard
+  presence — no module score ring, since its "score" concept doesn't map to the
+  Health/Finance/Career/Learning/Coding scoring model. A Gochara-derived Needs Attention signal
+  was scoped as an optional lower-priority extra but deliberately skipped — every candidate rule
+  (e.g. "malefic transiting the natal Moon") would mean inventing a specific traditional
+  significance heuristic `astrology.md` never specified, the same anti-invention discipline the
+  Remediation card's curated-table requirement exists for elsewhere in this module.
+- **Hindi (EN/हिं) toggle** — a small pill button next to the page title, `localStorage`-persisted
+  (`astrology-lang` key) the same way `ThemeProvider` persists light/dark, scoped to this module
+  only (not a global app-wide setting; `next-intl`/`i18next` would be overkill for one module's
+  static strings). Static UI chrome translates via a flat dictionary
+  (`src/features/astrology/i18n/hi.ts` — `UI_HI` for labels, plus per-domain maps for planet/
+  rashi/nakshatra/yogini/tithi/yoga/karana/paksha names, using standard Devanagari
+  transliterations like मंगल for Mars rather than literal dictionary translations). Dynamic
+  content generates natively in Hindi rather than being machine-translated after the fact: the
+  reading (`getAstrologyReading(profile, period, lang)`) appends a Hindi-response instruction to
+  the AI prompt when `lang === 'hi'`, and Remediation (`getRemediation(chart, limit, lang)`)
+  has a full parallel Hindi template table, not a runtime translation of the English one — same
+  curated-content discipline in both languages. Since the language becomes part of the AI
+  prompt, `ai_cache`'s existing `sha256(model::system::prompt)` key naturally caches English and
+  Hindi readings independently per period, with no extra caching code.
+- **Telegram bot** (`astrology` module, `TELEGRAM_BOT_TOKEN_ASTROLOGY`,
+  `src/features/telegram/modules/astrology.ts`) — read-mostly, matching this module's
+  read-mostly data (no logging/CRUD equivalent to expenses or tasks, so no add/undo surface):
+  "today's reading" / "this month's reading" / "this year's reading" → `reading` (calls the same
+  `getAstrologyReading()` the web app uses, English only for now — a `lang` param would thread
+  through the same way if this is ever extended to Hindi), "current dasha" → `current_dasha`
+  (Mahadasha/Antardasha + Yogini, read straight from the stored chart, no recompute), "today's
+  panchang" → `panchang` (via `getTodaysPanchang()`, same cached-by-date row the web card
+  reads). Replies with a friendly "add your birth details first" message if no chart exists yet
+  rather than erroring. The **`astrology-daily` cron** (`50 3 * * *`, ~9:20am IST, alongside the
+  existing 8:30–9:15am IST cluster) pushes a combined Panchang summary + daily reading every
+  morning — idempotent by construction, since it only reads/upserts the day's already-keyed
+  `panchang_daily` row and the AI Gateway's own cache, the same pattern every other daily cron
+  in §11 relies on rather than a bespoke per-job dedup mechanism.
+- **Data**: `astrology_profile` (§ Database below, one row per user, same single-row-upsert
+  pattern as `health_profile`/`career_profile` — `natal_chart` jsonb now also holds the Navamsa
+  chart alongside both dasha timelines) and the global `panchang_daily` table (one row per
+  calendar date, no `user_id`, same shared-pool pattern as `coding_questions`/`workout_library`).
 - **Nav**: lives in the profile dropdown (`ProfileMenu.tsx`, above Settings) rather than a top-
   level nav pill — a deliberate design decision (different category — mystical/lifestyle — from
   the productivity modules the top row is for), not the initial placement (which was a peer nav
   pill, moved after review).
-- **Not built** (see `astrology.md`'s Phase 8): the Telegram bot / `astrology-daily` cron.
+- **Not built**: compatibility/matching charts (kundli milan) and Muhurta (auspicious-timing
+  lookups) — both explicitly out of scope per `astrology.md`, revisit only if a specific need
+  comes up. The Outcome Journal (predictions-vs-actual feedback) was scoped, partially
+  implemented, then explicitly dropped by the user before its migration was ever applied — no
+  trace of it remains in the schema or code.
 
 ---
 
@@ -417,7 +500,8 @@ Standard pattern: `user_id uuid references auth.users` + 4 RLS policies (select/
 | `ai_usage_logs` | task, model, input_tokens, output_tokens, estimated_cost_usd, cache_hit, created_at — select/insert-own only, no update/delete policies |
 | `advisor_usage_log` | advisor, tab (nullable), created_at — lightweight fire-and-forget telemetry (`logAdvisorUsage()`, `src/lib/advisor-usage.ts`) logging which AI advisor panel/tab actually gets opened; no scoring, no UI to view it (manual SQL-editor query after a couple weeks decides which advisors are worth keeping) |
 | `cron_runs` | job, ok, detail, created_at — **no `user_id`**, global/system table; proof-of-execution log written by every cron route right after its `CRON_SECRET` check, read by `cron-health-check` (§11); select policy is role-scoped (`authenticated`), writes are service-role only |
-| `astrology_profile` | birth_date, birth_time, birth_place_name, birth_lat, birth_lng, birth_timezone, natal_chart (jsonb — full computed chart, see §13) (one row/user) |
+| `astrology_profile` | birth_date, birth_time, birth_place_name, birth_lat, birth_lng, birth_timezone, natal_chart (jsonb — D1 positions/houses, Vimshottari + Yogini dasha timelines, Navamsa/D9 chart, see §13) (one row/user) |
+| `panchang_daily` | date (primary key), tithi, paksha, nakshatra, yoga, karana, sunrise, sunset, rahu_kalam_start/end, yamaganda_start/end, gulika_kalam_start/end — **no `user_id`**, global/calendar-wide pool (§13); select policy is role-scoped (`authenticated`), writes are service-role only |
 
 **Dropped tables** (existed at some point, since removed — mentioned here so their absence isn't mistaken for an oversight): `habits`, `habit_logs` (habit tracker retired), `projects` (manual project tracker retired in favor of GitHub-activity scoring), `focus_sessions` (deep-work tracking, removed days after being added).
 
@@ -537,9 +621,10 @@ Single column (`space-y-4`), all full-width except the hero:
 8. **Today's Insight** — one AI-confirmed behavioral pattern sentence (amber lightbulb icon), or an empty-state line
 9. **Evening Reflection** — only visible after 6pm, an AI paragraph
 10. **Daily Mission** ring + the full checklist (not just unclosed items — done ones show a green dot + strikethrough text rather than being hidden), each row linking out
-11. **Recent Bot Activity** — a paginated (10/page) list of Telegram interactions, module emoji + message + reply preview (reply hidden on mobile) + relative time; header shows AI spend
-12. Floating **Quick Add** "+" button (bottom-right) for fast Task/Expense/Metric entry
-13. **Ask Brain** — Header-triggered panel with 4 tabs (Ask/Decide/Reflect/Monthly), not part of the page body
+11. **Astrology strip** (conditional, only once a birth chart exists) — one row, accent-tinted, same visual treatment as the Top Priority banner: 🔮 + current Mahadasha/Antardasha + until-date + Yogini lord + today's tithi/nakshatra, links to `/astrology` (§13)
+12. **Recent Bot Activity** — a paginated (10/page) list of Telegram interactions, module emoji + message + reply preview (reply hidden on mobile) + relative time; header shows AI spend
+13. Floating **Quick Add** "+" button (bottom-right) for fast Task/Expense/Metric entry
+14. **Ask Brain** — Header-triggered panel with 4 tabs (Ask/Decide/Reflect/Monthly), not part of the page body
 
 (The 6-tile Modules grid that used to render below Recent Bot Activity was removed 2026-08-12 — redundant with Quick Stats/Module Scores already surfacing per-module signal higher up the page.)
 
@@ -609,21 +694,28 @@ Single column, all full-width cards stacked (`space-y-5`), no side-by-side secti
 
 ### Settings (`/settings`)
 1. **Account** — one row: signed-in email on the left, "Export as JSON" + "Sign out" (both bordered text buttons) grouped on the right
-2. **AI Budget** + **System Health** side by side (`lg:grid-cols-2`) — AI Budget shows Today/This Month as progress bars (3-tier color: accent → warn past 70% → risk past 90%) plus a top-5 spend-by-feature breakdown; System Health has a header status badge ("All healthy" / "N stale") and lists all 12 cron jobs, sorted stale-first, each with a colored status dot (good/healthy, risk/stale, gray/never-run) and a relative last-run time (bold + risk-colored when stale)
+2. **AI Budget** + **System Health** side by side (`lg:grid-cols-2`) — AI Budget shows Today/This Month as progress bars (3-tier color: accent → warn past 70% → risk past 90%) plus a top-5 spend-by-feature breakdown; System Health has a header status badge ("All healthy" / "N stale") and lists all 13 cron jobs, sorted stale-first, each with a colored status dot (good/healthy, risk/stale, gray/never-run) and a relative last-run time (bold + risk-colored when stale)
 3. **Reminders** — a list of label + module + morning/evening, plain 🔔/🔕 emoji toggle (reflects active/inactive, not time-of-day), always-visible "✕" delete; "New Reminder" modal (label input, module select, two Morning/Evening toggle buttons) to add one
 
 ### Astrology (`/astrology`)
-Reached via the profile dropdown (not a top-level nav pill), plus the mobile "More" sheet.
+Reached via the profile dropdown (not a top-level nav pill), plus the mobile "More" sheet. A
+small EN/हिं pill button sits next to the page title (top-right) — persists to `localStorage`,
+translates all static chrome via `i18n/hi.ts`, and re-fetches the reading + remediation in the
+selected language (§13).
 1. **Birth Details** card — compact inline-editable field grid (Career Profile's density, not a
    standalone form), a pencil icon opens all fields together for editing (interdependent — the
    chart is a function of all of them at once, unlike Career's independent per-field saves);
    defaults to edit mode when no profile exists yet
 2. **Current Dasha** strip (accent-tinted banner) — active Vimshottari Mahadasha/Antardasha +
    until-date, with the active Yogini period as a secondary line, right-aligned
-3. **Natal Chart** + **Horoscope**/**Remediation** side by side (`lg:grid-cols-[minmax(280px,380px)_1fr]`)
-   — the chart is a North Indian style SVG kundli (fixed house positions, planets by house,
-   birth-details caption above, Lagna + Moon Nakshatra/Pada caption below); Horoscope is a
-   Today/This Month/This Year tab switcher, each period fetched independently on first view and
-   cached client-side after; Remediation lists up to 3 curated, deterministically-templated
-   remedies (not AI-generated) for the chart's Saturn/Rahu/Ketu/Mars/Moon placements, with a
-   "traditional guidance, not medical or financial advice" disclaimer
+3. **Natal Chart** + **Today's Panchang**/**Horoscope**/**Remediation** side by side
+   (`lg:grid-cols-[minmax(280px,380px)_1fr]`) — the chart card has a Rashi (D1) / Navamsa (D9)
+   tab toggle over the same North Indian style SVG kundli (fixed house positions, planets by
+   house, birth-details caption above, Lagna + Moon Nakshatra/Pada caption below); Panchang is a
+   2×4 stat grid (tithi/nakshatra/yoga/karana/sunrise/sunset) plus three pill tags for Rahu
+   Kalam/Yamaganda/Gulika Kalam; Horoscope is a Today/This Month/This Year tab switcher, each
+   period fetched independently on first view and cached client-side after (cleared on a
+   language switch, so it re-fetches in the new language rather than showing a stale-language
+   mismatch against the tab pills); Remediation lists up to 3 curated, deterministically-
+   templated remedies (not AI-generated) for the chart's Saturn/Rahu/Ketu/Mars/Moon placements,
+   with a "traditional guidance, not medical or financial advice" disclaimer

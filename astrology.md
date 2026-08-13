@@ -1,188 +1,229 @@
-# Change: New Module — Astrology (Vedic Horoscope)
+# Personal OS — Astrology Module: Full Scope
 
-## Context
+Single consolidated spec — supersedes the earlier two-part `CHANGES-astrology-module.md`
+(fundamentals + scope increase). This is the complete picture: what's already built, what's
+being added, and the ground rules that apply throughout.
 
-A new module giving daily/monthly/yearly Vedic horoscope readings, predictions, and
-remediation suggestions, computed from a real natal chart (birth date, time, place).
+## Ground rules (apply to every phase below)
 
-This is architecturally different from every other module in one important way: **the core
-output (planetary positions, houses, dasha periods) must come from real astronomical
-calculation, never from AI.** Per Product Principle 2 ("rule engine before AI"), Claude's role
-here is strictly narration/interpretation of deterministically-computed data — the same
-boundary Finance's `computePurchaseScenario()` or Health's `calculateDailyTargets()` already
-enforce. An AI asked to "generate a horoscope" from scratch would hallucinate planetary
-positions; that's not acceptable for something presented as a real chart.
+This module is architecturally different from every other module in one important way: **the
+core output (planetary positions, houses, dasha periods, panchang, divisional charts) must
+come from real astronomical calculation, never from AI.** Per Product Principle 2 ("rule
+engine before AI"), Claude's role is strictly narration/interpretation of deterministically-
+computed data — the same boundary Finance's `computePurchaseScenario()` or Health's
+`calculateDailyTargets()` already enforce elsewhere in the app. An AI asked to "generate a
+horoscope" from scratch would hallucinate planetary positions; that's not acceptable for
+something presented as a real chart.
 
-## Scope
+**Privacy**: birth date/time/place is more identifying than most data elsewhere in this app.
+Standard RLS (`user_id`-scoped, 4 policies) applies same as every other table — no special
+handling needed beyond what the app already does everywhere, but worth being deliberate that
+this table holds more sensitive personal data than most.
 
-**In scope (phased — see Implementation phases below):**
-- One-time natal chart calculation from birth date/time/place (Lagna/ascendant, planetary
-  positions in Vedic rashis, nakshatra + pada per planet, North Indian chart layout)
-- **Vimshottari Dasha** as the primary/default dasha system (120-year cycle, most widely used
-  for general predictions)
-- **Yogini Dasha** as a second system, added right after Vimshottari is working — a shorter
-  36-year cycle keyed off the Moon's nakshatra, commonly used for quicker/near-term checks
-  alongside Vimshottari rather than replacing it
-- Daily / Monthly / Yearly horoscope readings, each combining deterministic transit
-  calculation (current planetary positions relative to the natal chart) with one AI-narrated
-  interpretation
-- Remediation suggestions, sourced from a curated deterministic reference table, narrated
-  by AI — not AI-invented remedies
-- A visual chart display (North Indian style kundli diagram)
+---
 
-**Out of scope for this pass:**
-- Compatibility/matching charts (kundli milan) — separate feature, not requested
-- Muhurta (auspicious timing) lookups — separate feature
-- Prescriptive gemstone/expensive-ritual recommendations without clear caveats (see Notes
-  below on responsible scope for remediation content)
+## Part 1 — Fundamentals (status: complete)
 
-## Architecture
+- Ephemeris spike validated (planetary position calculation engine confirmed correct against
+  a known reference chart)
+- Natal chart calculation working: sidereal positions via Lahiri ayanamsa correction, Lagna
+  (ascendant) from birth time/place/timezone, rashi + nakshatra + pada per planet, whole-sign
+  house placement
+- **North Indian style** chart display (fixed diamond/square layout, houses in fixed
+  positions, rashi numbers marked per house)
+- **Vimshottari Dasha** — the primary/default dasha system — full Mahadasha/Antardasha
+  timeline computed once at profile save and validated against a known reference
+- Data model: `astrology_profile` (one row/user — `birth_date`, `birth_time`,
+  `birth_place_name`, `birth_lat`, `birth_lng`, `birth_timezone`, `natal_chart` jsonb holding
+  the full computed chart)
+- AI Gateway task `astrology_reading` (Sonnet) established, taking a period
+  (`daily`/`monthly`/`yearly`) plus already-computed chart/transit context — never computing
+  positions itself
 
-### Calculation engine (deterministic, no AI)
+## Part 2 — Yogini Dasha (status: next up per original sequencing)
 
-Use a local ephemeris library rather than a third-party API, per your stated preference —
-no recurring API cost, no external data sharing, chart math happens entirely in your own
-deployment.
+Second dasha system, added alongside Vimshottari rather than replacing it — commonly used
+for quicker/near-term checks.
 
-- **Recommended library**: `swisseph` (Node bindings to the Swiss Ephemeris C library — the
-  same astronomical engine most professional astrology software uses) for raw planetary
-  positions. Alternative if `swisseph`'s native bindings are painful in your Vercel deploy
-  target: a pure-JS ephemeris package (evaluate `astronomia` or similar) — flag this as a
-  spike/research task before committing, since native bindings can be finicky on serverless.
-- **Sidereal correction**: Vedic astrology uses the sidereal zodiac, not the tropical zodiac
-  most Western astrology software defaults to. Apply the Lahiri ayanamsa correction (the
-  standard used by most Indian astrology software/panchang) to every planetary longitude
-  before deriving rashi/nakshatra — this is the single most important correctness detail in
-  the whole module; getting it wrong silently produces a Western-style chart mislabeled as
-  Vedic.
-- **Derived values** (`astrology/chart-calculations.ts`, pure functions, no AI, same pattern
-  as Health's `calculations.ts`):
-  - Rashi (sign) + degree per planet, from sidereal longitude
-  - Nakshatra + pada per planet (27 nakshatras × 4 padas, a fixed lookup over the sidereal
-    longitude range)
-  - Lagna (ascendant) from birth time + place (requires accurate lat/long and timezone —
-    get these right or the whole chart's house placements are wrong)
-  - House placement of each planet (whole-sign houses is the standard/simplest Vedic system —
-    use that rather than a more complex house system unless you have a specific reason not to)
-  - **Vimshottari Dasha timeline** (primary/default system) — a deterministic 120-year cycle
-    keyed off the Moon's nakshatra at birth; compute the full sequence of
-    Mahadasha/Antardasha periods once and store it, since it never changes after birth. Build
-    and validate this first — it's the system every reading defaults to.
-  - **Yogini Dasha timeline** (second system, add once Vimshottari is validated) — a shorter
-    36-year cycle, also keyed off the Moon's nakshatra at birth but with a different
-    period-assignment table. Store alongside the Vimshottari timeline in the same
-    `natal_chart` jsonb rather than a separate table, since both are static once computed and
-    both key off the same birth nakshatra.
+- 36-year cycle, also keyed off the Moon's natal nakshatra, different period-assignment table
+  than Vimshottari
+- Stored in the same `natal_chart` jsonb alongside the Vimshottari timeline (both static once
+  computed, both keyed off the same birth nakshatra — no separate table needed)
+- Validated against a known reference chart before trusting it, same bar as Vimshottari
+- UI: Current Dasha strip shows Vimshottari Mahadasha/Antardasha as the primary line, Yogini
+  period as a secondary line beneath it — supplementary, not a replacement for the primary
+  display
 
-### Data storage
+## Part 3 — Scope increase (this round)
 
-New table, `astrology_profile` (one row per user, same single-row-per-user pattern as
-`career_profile`/`finance_profile`/`health_profile`):
-- `birth_date`, `birth_time`, `birth_place_name`, `birth_lat`, `birth_lng`, `birth_timezone`
-- `natal_chart` (jsonb) — the fully computed chart: planet positions, houses, nakshatras,
-  full dasha timeline. Computed once on profile save, re-computed only if birth details are
-  edited.
+Six items plus a Hindi language toggle, in recommended build order. Every new calculation
+below is deterministic, never AI — same ground rule as Part 1.
 
-**Privacy note**: birth date/time/place is sensitive personal data. Standard RLS
-(`user_id`-scoped, 4 policies) applies same as every other table — no special handling needed
-beyond what the app already does everywhere else, but worth being deliberate that this table
-holds more identifying information than most others in the schema.
+### 3.1 Panchang engine (foundational — build first among these)
 
-### AI Gateway integration
+The daily Hindu calendar: tithi, nakshatra-of-the-day (distinct from natal nakshatra), yoga,
+karana, sunrise/sunset, and inauspicious windows (Rahu Kalam, Yamaganda, Gulika Kalam).
+Global/calendar-wide, no birth data required — computed from the same ephemeris engine
+already in place.
 
-New task: `astrology_reading` (Sonnet — this is interpretive/narrative work, same tier as
-Career Mentor or Health Coach). Takes a period (`daily`/`monthly`/`yearly`), the natal chart,
-and the current transit positions for that period (computed deterministically, passed in as
-context — the AI never computes positions, only interprets already-computed ones, same
-anti-hallucination stance as `recommend_coding_questions` never inventing a question outside
-its candidate list).
+- New table `panchang_daily` (no `user_id`, global pool — same pattern as `coding_questions`/
+  `workout_library`): `date`, `tithi`, `nakshatra`, `yoga`, `karana`, `sunrise`, `sunset`,
+  `rahu_kalam_start/end`, `yamaganda_start/end`, `gulika_kalam_start/end`. Computed once per
+  day, idempotent, reused everywhere "today's panchang" is needed rather than recomputed per
+  request.
+- **Today's Panchang** card on the Astrology page — foundational because Dashboard
+  integration, the Telegram push, and richer daily readings all depend on this data existing.
+- Location-dependent (sunrise/sunset/kalam windows shift by location) — defaults to the birth
+  place's coordinates unless a separate "current location" setting is added; flag this as a
+  decision point if you're not usually in your birth city.
 
-- **Caching**: `daily` readings cache until end of day; `monthly` until end of month;
-  `yearly` until end of year — same "cache until the underlying period changes" logic already
-  used elsewhere (e.g. `evening_reflection`'s 6h TTL), just period-scoped instead of
-  time-scoped. Two calls for the same natal chart + period + transit data are byte-identical,
-  so this avoids real repeat cost.
-- **Remediation**: prompt is grounded in a curated `astrology_remedies` reference (deterministic
-  lookup table — traditional remedial measures keyed by planetary affliction pattern, e.g.
-  weak/afflicted Saturn → standard remedies), not left to the model to invent. Frame output as
-  general traditional guidance, not medical/financial/legal advice — avoid the AI suggesting
-  specific costly purchases (gemstones, etc.) without clearly caveating that these are
-  traditional practices, not something the app is asserting as necessary.
+### 3.2 Gochara (transit) analysis
 
-### UI
+Current planetary positions relative to the **natal** chart — the standard companion to dasha
+for prediction (dasha says *which* life theme is active, gochara says *how* current sky
+conditions affect it).
 
-New module page `/astrology`, added to `TopNav`'s flat nav row (8th item) — or, given it
-doesn't map to the existing Learn/Build/Perform/Recover pillars from earlier PRD thinking,
-treat it as ungrouped the same way Finance is currently ungrouped in nav.
+- `astrology/gochara.ts` (deterministic): for each planet's current sidereal position,
+  compute house-from-Moon and house-from-Lagna relative to the natal chart. A simple first
+  pass surfaces all current transits with house placement; Ashtakavarga-based transit
+  significance scoring is a reasonable **later** addition, not required here.
+- Feeds directly into `astrology_reading`'s existing prompt context alongside the active
+  dasha period — no new AI task, just richer context into the one that already exists.
 
-- **Natal chart card** — a kundli diagram in **North Indian style** (fixed diamond/square
-  layout with houses in fixed positions, rashi numbers marked per house, planets placed by
-  house) rendered as SVG, each house showing its occupying planets by standard abbreviation.
-- **Today's Horoscope / This Month / This Year** — three cards or a tabbed view (reuse the
-  existing pill-tab pattern from Money Advisor/Health Coach's multi-tab advisors), each
-  showing the AI-narrated reading for that period.
-- **Current Dasha** — a small always-visible strip showing the currently-active
-  Vimshottari Mahadasha/Antardasha (e.g. "Venus Mahadasha / Mercury Antardasha, until
-  [date]") as the primary display, with the current Yogini period shown as a secondary
-  line once that system is built (Phase 5 below) — this is the single most load-bearing
-  piece of context in Vedic prediction, worth surfacing prominently rather than burying it
-  in the full chart.
-- **Remediation** — a card listing current applicable remedies from the curated reference,
-  narrated in plain language.
+### 3.3 Navamsa (D9) divisional chart
 
-### Optional: Telegram bot
+A second chart derived mathematically from the natal (Rashi/D1) chart via a fixed divisional
+formula — traditionally used for marriage/dharma strength and confirming a planet's "real"
+strength beyond its D1 placement.
 
-If you want a per-module bot (matching every other module's pattern): a daily cron
-(`astrology-daily`, same slot pattern as `health-tip`/`learning-tip`) sending that day's
-reading each morning. Lower priority than the web UI — build this only after the core chart
-+ readings are working and you've confirmed you actually want a daily push.
+- Pure function over already-computed D1 positions (`astrology/navamsa.ts`) — no new
+  ephemeris calls. Computed once at profile save (or lazily on first view), cached in
+  `natal_chart` jsonb.
+- Second chart card, same North Indian visual style as D1, a toggle/tab between "Rashi (D1)"
+  and "Navamsa (D9)" rather than two permanently-stacked diagrams.
+- Feeds into `astrology_reading`'s context too, same pattern as Gochara.
 
-## Implementation phases (recommend building in this order)
+### 3.4 Dashboard integration
 
-1. **Spike**: get `swisseph` (or chosen alternative) working in your dev environment,
-   producing correct sidereal planetary positions for a known reference chart you can verify
-   by hand against existing astrology software — do this before writing any app code, since
-   an incorrect ephemeris silently produces a wrong chart with no obvious symptom.
-2. **Natal chart**: birth-details form → `astrology_profile` table → one-time chart
-   calculation → North Indian style chart display (no AI yet, no horoscope readings yet —
-   just prove the chart itself is correct).
-3. **Vimshottari Dasha**: compute and validate the full Mahadasha/Antardasha timeline against
-   a known reference chart before moving on — this is the default system every reading will
-   lean on, so it needs to be right before anything else builds on top of it.
-4. **Daily horoscope**: transit calculation for "today" + `astrology_reading` AI task +
-   caching, using Vimshottari as the active-period context. Validate the whole pipeline end
-   to end on the smallest period before building monthly/yearly.
-5. **Monthly + yearly horoscope**: same pipeline, different transit window and cache TTL.
-6. **Yogini Dasha**: add the 36-year cycle calculation alongside Vimshottari in the same
-   `natal_chart` structure, surface it as the secondary line in the Current Dasha strip, and
-   let readings optionally reference it for near-term/quick-check context alongside the
-   primary Vimshottari period.
-7. **Remediation**: curated reference table + AI narration.
-8. **Telegram bot** (optional, if still wanted after the above are live and used for a few
-   weeks).
+This module doesn't map to the existing Learn/Build/Perform/Recover pillar grouping — treat
+it as ungrouped in nav (same as Finance) with its own small Dashboard presence.
+
+- **Today's Dasha + Panchang strip** — current Vimshottari Mahadasha/Antardasha (primary) +
+  Yogini period (secondary) + today's tithi/nakshatra. Pure data display, no AI, reuses
+  already-computed values — same "cheap to add, no new query" pattern as Quick Stats.
+- Optional, lower priority: fold a one-line Gochara flag into Needs Attention/Today's Focus
+  via the existing shared `src/lib/signals.ts` `rankSignals()` layer — the same pattern every
+  other module's `signals.ts` already uses, not a parallel mechanism.
+
+### 3.5 Telegram bot
+
+New bot (`TELEGRAM_BOT_TOKEN_ASTROLOGY`), same webhook pattern as every other module.
+
+- **Daily cron** (`astrology-daily`, alongside the existing ~8:30-9:15am IST cluster): sends
+  the day's Panchang summary + daily `astrology_reading`. Idempotent per day.
+- Read commands: "today's reading", "this month's reading", "current dasha", "today's
+  panchang". This module's data is read-mostly (no logging/CRUD equivalent to expenses or
+  tasks), so the bot is simpler than most — mostly a push + read commands, no add/undo
+  surface needed unless Outcome Journal feedback gets a Telegram path too.
+
+### 3.6 Hindi language toggle
+
+Scoped to this module for now — the same pattern could extend app-wide later, but isn't
+assumed here.
+
+- **Toggle**: small EN/हिं button, same visual treatment and `localStorage`-persisted pattern
+  as the existing theme toggle — no DB column or new settings UI needed.
+- **Static UI chrome**: a lightweight local dictionary (`src/features/astrology/i18n/hi.ts`,
+  flat `{ key: string }` map) rather than a full i18n library (`next-intl`/`i18next`) — one
+  module's worth of static strings doesn't justify that dependency weight. Revisit only if
+  Hindi support later expands beyond this module.
+- **Planet/nakshatra/house names**: standard Devanagari transliterations (मंगल for Mars, गुरु
+  for Jupiter), not literal dictionary translations — matches what a Hindi-reading user
+  actually expects from Vedic terms.
+- **Dynamic AI content** (readings, remediation narration): a `language` param (`en`/`hi`) on
+  `astrology_reading`'s prompt generates natively in Hindi — not a separate translation call
+  after the fact, which would double the AI cost per reading for no benefit.
+- **Caching**: the language instruction becomes part of the prompt, so `ai_cache`'s existing
+  `sha256(model::system::prompt)` key naturally produces distinct cache entries per language
+  with no extra code — both languages cache independently per period.
+- **Telegram**: if extended to the bot later, the same `language` param threads through the
+  same `astrology_reading` call — no separate mechanism needed.
+
+---
+
+## Full data model
+
+| Table | Key columns |
+|---|---|
+| `astrology_profile` | one row/user — `birth_date`, `birth_time`, `birth_place_name`, `birth_lat`, `birth_lng`, `birth_timezone`, `natal_chart` (jsonb: D1 positions/houses/nakshatras, Vimshottari timeline, Yogini timeline once built, Navamsa chart once built) |
+| `panchang_daily` | date, tithi, nakshatra, yoga, karana, sunrise, sunset, rahu_kalam_start/end, yamaganda_start/end, gulika_kalam_start/end — global, no `user_id` |
+
+## AI Gateway
+
+One task throughout: `astrology_reading` (Sonnet). Takes period + language + already-computed
+context (dasha state, gochara transits, navamsa placements as they come online) — never
+computes positions itself. Cached per period + language, TTL scoped to the period (daily
+until end of day, monthly until end of month, yearly until end of year).
+
+Remediation content is grounded in a curated deterministic reference table (traditional
+remedial measures keyed by planetary affliction pattern), not left to the model to invent —
+same anti-hallucination discipline as every other module's recommender (Coding's
+`recommend_coding_questions` never inventing a question outside its candidate list is the
+direct precedent). Frame remediation as general traditional guidance, not prescriptive
+medical/financial advice — avoid the AI suggesting specific costly purchases (gemstones, etc.)
+without clearly caveating that these are traditional practices.
+
+## UI summary (Astrology page, `/astrology`)
+
+1. Birth details form (one-time / editable) → triggers chart (re)calculation
+2. Rashi (D1) / Navamsa (D9) chart card, North Indian style, tab/toggle between the two
+3. Current Dasha strip — Vimshottari primary, Yogini secondary
+4. Today's Panchang card
+5. Daily / Monthly / Yearly reading tabs (reusing the existing pill-tab pattern from Money
+   Advisor/Health Coach)
+6. Remediation card
+7. EN/हिं language toggle
+
+Nav: ungrouped item (same tier as Finance), not folded into the Learn/Build/Perform/Recover
+pillars.
+
+## Build order (full sequence)
+
+1. ~~Spike, natal chart, Vimshottari~~ — done (Part 1)
+2. Yogini Dasha (Part 2)
+3. Panchang engine (3.1)
+4. Gochara analysis (3.2)
+5. Navamsa D9 chart (3.3)
+6. Dashboard integration (3.4)
+7. Telegram bot (3.5)
+8. Hindi language toggle (3.6) — can be built in parallel with any of 3–7 once the base page
+   exists, since it has no dependency on Panchang/Gochara/Navamsa
 
 ## Acceptance criteria
 
-- [ ] Natal chart's planetary positions are sidereal (Lahiri ayanamsa), not tropical —
-      spot-checked against a known reference before trusting the pipeline.
-- [ ] Lagna (ascendant) calculation correctly accounts for birth time + place + timezone.
-- [ ] Chart displays in North Indian (fixed house position) style.
-- [ ] Vimshottari Dasha timeline is computed once at profile save, validated against a known
-      reference, and doesn't silently recompute/drift on every page load.
-- [ ] Vimshottari is the default/primary system referenced by daily/monthly/yearly readings;
-      Yogini (once built) is presented as supplementary, not a replacement.
-- [ ] Yogini Dasha timeline is computed and stored the same way as Vimshottari, keyed off the
-      same birth nakshatra, and validated against a known reference before trusting it.
-- [ ] `astrology_reading` never receives raw birth data in its prompt beyond what's needed for
-      that specific reading — pass computed positions/dasha state, not the ephemeris
-      calculation itself, to keep the AI strictly in an interpretive role.
-- [ ] Remediation suggestions trace back to the curated reference table, not free AI
-      invention — same anti-hallucination discipline as every other module's recommender.
-- [ ] Daily/monthly/yearly readings are cached for their full period, not recomputed on every
-      page load.
+- [ ] Natal chart positions are sidereal (Lahiri ayanamsa), not tropical
+- [ ] Lagna calculation correctly accounts for birth time + place + timezone
+- [ ] Chart displays in North Indian (fixed house position) style
+- [ ] Vimshottari is the default/primary dasha system every reading references
+- [ ] Yogini timeline computed and stored the same way as Vimshottari, validated against a
+      known reference, presented as supplementary not a replacement
+- [ ] Panchang values validated against a known reference for a specific date; computed once
+      per day and reused, not recomputed per request
+- [ ] Gochara transit-vs-natal placements correct relative to both Moon and Lagna reference
+      points (confirm which is the default your readings actually use)
+- [ ] Navamsa mapping validated against a known reference chart's D9 positions
+- [ ] Dashboard card adds no new query — reuses already-computed dasha/panchang data
+- [ ] Telegram daily push idempotent per day, same as every other daily cron
+- [ ] Hindi toggle translates all static chrome via the local dictionary; new readings are
+      requested in Hindi directly, not machine-translated after generation
+- [ ] Hindi and English readings for the same period cache independently
+- [ ] Planet/nakshatra/house names in Hindi mode use standard Devanagari transliterations
+- [ ] `astrology_reading` never receives raw birth data beyond what's needed for that specific
+      reading — computed positions/dasha state only, keeping the AI strictly interpretive
+- [ ] Remediation suggestions trace back to the curated reference table, never free AI
+      invention
 
-## Open questions for you before implementation starts
+## Explicitly out of scope
 
-- Want the Telegram bot in the first pass, or web-only until the core module proves useful?
-- Any dasha system beyond Vimshottari + Yogini worth supporting later (Ashtottari, etc.), or
-  are these two sufficient for now?
+Compatibility/matching charts (kundli milan) and Muhurta (auspicious-timing lookups for
+specific events) — neither selected in this round. Revisit only if a specific need comes up.

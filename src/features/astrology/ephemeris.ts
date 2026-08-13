@@ -75,6 +75,51 @@ export async function julianDayNow(): Promise<number> {
   return swe.julday(now.getUTCFullYear(), now.getUTCMonth() + 1, now.getUTCDate(), utcHour)
 }
 
+// Sun's sidereal longitude only — panchang math (tithi/yoga/karana) needs
+// just Sun+Moon, not the full 9-graha sweep getPlanetPositions does.
+export async function getSunMoonLongitudes(jd: number): Promise<{ sun: number; moon: number }> {
+  const swe = await getSwe()
+  const flags = swe.SEFLG_SWIEPH | swe.SEFLG_SIDEREAL
+  const sun = swe.calc_ut(jd, swe.SE_SUN, flags)
+  const moon = swe.calc_ut(jd, swe.SE_MOON, flags)
+  return { sun: normalizeDegrees(sun[0]), moon: normalizeDegrees(moon[0]) }
+}
+
+// Sunrise/sunset as Julian Days (UT) for a given search-start instant +
+// location. `rise_trans`'s geopos is [lon, lat, alt] — note the reversed
+// order vs `getAscendant`'s (lat, lng), which is `houses_ex`'s own
+// parameter order.
+export async function getSunriseSunset(jdSearchStartUt: number, lat: number, lng: number): Promise<{ sunriseJd: number; sunsetJd: number } | null> {
+  const swe = await getSwe()
+  const flags = swe.SEFLG_SWIEPH
+  const geopos = [lng, lat, 0]
+  const rise = swe.rise_trans(jdSearchStartUt, swe.SE_SUN, '', flags, swe.SE_CALC_RISE, geopos, 0, 0)
+  const set = swe.rise_trans(jdSearchStartUt, swe.SE_SUN, '', flags, swe.SE_CALC_SET, geopos, 0, 0)
+  if (!rise || !set) return null
+  return { sunriseJd: rise[0], sunsetJd: set[0] }
+}
+
+// Julian Day (UT) -> "HH:MM" in the given local UTC offset. Panchang is a
+// local-civil-calendar concept (weekday, sunrise/sunset clock time) — every
+// panchang value must be expressed in local time, not UT, or an IST
+// sunrise near UTC midnight would show as the wrong day/hour entirely.
+export async function jdToLocalHHMM(jd: number, utcOffsetHours: number): Promise<string> {
+  const swe = await getSwe()
+  const { hour: utHourFrac } = swe.revjul(jd, swe.SE_GREG_CAL)
+  const localHourFrac = ((utHourFrac + utcOffsetHours) % 24 + 24) % 24
+  const hour = Math.floor(localHourFrac)
+  const minute = Math.round((localHourFrac - hour) * 60)
+  return `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`
+}
+
+// Julian Day (UT) for local midnight of a given local calendar date — the
+// reference instant panchang values and sunrise/sunset searches start
+// from. Mirrors `julianDay()`'s (localHour - utcOffsetHours) convention.
+export async function julianDayLocalMidnightUt(year: number, month: number, day: number, utcOffsetHours: number): Promise<number> {
+  const swe = await getSwe()
+  return swe.julday(year, month, day, 0 - utcOffsetHours)
+}
+
 function normalizeDegrees(deg: number): number {
   return ((deg % 360) + 360) % 360
 }

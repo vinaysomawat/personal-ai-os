@@ -12,6 +12,7 @@ const MODULE_META: Record<string, { label: string; emoji: string; color: string;
   health:    { label: 'Health',    emoji: '💪', color: 'text-risk',    bg: 'bg-risk-soft' },
   learning:  { label: 'Learning',  emoji: '📚', color: 'text-purple-400', bg: 'bg-purple-500/10' },
   coding:    { label: 'Coding',    emoji: '💻', color: 'text-cyan-400',   bg: 'bg-cyan-500/10' },
+  astrology: { label: 'Astrology', emoji: '🔮', color: 'text-pink-400',   bg: 'bg-pink-500/10' },
 }
 
 const PAGE_SIZE = 10

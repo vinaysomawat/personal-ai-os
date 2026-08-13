@@ -50,12 +50,41 @@ export interface RemedyItem {
   text: string
 }
 
+// Navamsa (D9) — a second chart derived mathematically from the D1
+// (Rashi) chart via a fixed divisional formula, not a new ephemeris
+// calculation. No pada/nakshatra/retrograde fields — D9 only concerns
+// itself with which rashi each planet (and the D9 lagna) falls into.
+export interface NavamsaPosition {
+  planet: Planet
+  rashi: Rashi
+  house: number // whole-sign house from the D9 lagna
+}
+
+export interface NavamsaChart {
+  lagna: Rashi
+  planets: NavamsaPosition[]
+}
+
 export interface NatalChart {
   lagna: { rashi: Rashi; degree: number }
   planets: PlanetPosition[]
   vimshottariDasha: DashaPeriod[]
   yoginiDasha: YoginiPeriod[]
+  navamsa: NavamsaChart
   computedAt: string // ISO datetime — chart is computed once at profile save, never recomputed
+}
+
+// Current transit positions relative to the natal chart — always computed
+// fresh for "now," never stored (unlike D1/D9/dashas, which are fixed at
+// birth). House-from-Lagna matches the whole-sign convention used
+// everywhere else in this module; house-from-Moon is the traditional
+// second reference point gochara analysis also uses.
+export interface GocharaPosition {
+  planet: Planet
+  rashi: Rashi
+  houseFromLagna: number
+  houseFromMoon: number
+  retrograde: boolean
 }
 
 export interface AstrologyProfile {
@@ -78,3 +107,26 @@ export interface CurrentDasha {
 }
 
 export type ReadingPeriod = 'daily' | 'monthly' | 'yearly'
+
+export type Paksha = 'Shukla' | 'Krishna'
+
+// Global, no user_id — one row per calendar date, computed once and reused
+// (same pattern as coding_questions/workout_library), not birth-dependent.
+// Sunrise/sunset/kalam windows are location-dependent; this app defaults to
+// the profile's birth-place coordinates as the reference location.
+export interface PanchangDaily {
+  date: string
+  tithi: string
+  paksha: Paksha
+  nakshatra: Nakshatra
+  yoga: string
+  karana: string
+  sunrise: string // HH:MM local
+  sunset: string
+  rahu_kalam_start: string
+  rahu_kalam_end: string
+  yamaganda_start: string
+  yamaganda_end: string
+  gulika_kalam_start: string
+  gulika_kalam_end: string
+}
