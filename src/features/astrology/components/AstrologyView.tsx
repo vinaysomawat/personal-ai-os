@@ -1,9 +1,9 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Pencil, Check, X, Languages } from 'lucide-react'
+import { Pencil, Check, X } from 'lucide-react'
 import Card from '@/components/Card'
-import { upsertAstrologyProfile, getAstrologyReading, getStructuredDailyReading, getAstrologyCharacteristics, getAstrologyProfile } from '../actions'
+import { upsertAstrologyProfile, getAstrologyReading, getStructuredDailyReading, getAstrologyCharacteristics, getCurrentGochara, getAstrologyProfile } from '../actions'
 import { getTodaysPanchang } from '../panchang-actions'
 import { getCurrentDasha, getCurrentYogini } from '../chart-calculations'
 import { getRemediation } from '../remedies'
@@ -11,7 +11,7 @@ import { todayIST } from '@/lib/date'
 import KundliChart from './KundliChart'
 import { UI_HI } from '../i18n/hi'
 import type { Lang } from '../i18n/hi'
-import type { AstrologyProfile, ChoghadiyaBlock, DailyReading, PanchangDaily, ReadingPeriod } from '../types'
+import type { AstrologyProfile, ChoghadiyaBlock, DailyReading, GocharaPosition, PanchangDaily, ReadingPeriod } from '../types'
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 function formatDate(iso: string): string {
@@ -141,25 +141,9 @@ function BirthDetailsCard({ profile, onSaved, t }: { profile: AstrologyProfile |
 }
 
 const CHOGHADIYA_COLOR: Record<ChoghadiyaBlock['type'], string> = {
-  good: 'bg-good-soft text-good border-good',
-  neutral: 'bg-surface-2 text-fg-secondary border-surface-3',
-  bad: 'bg-risk-soft text-risk border-risk-border',
-}
-
-function ChoghadiyaRow({ blocks, label }: { blocks: ChoghadiyaBlock[]; label: string }) {
-  return (
-    <div>
-      <p className="text-[10px] font-bold text-fg-tertiary uppercase tracking-[0.3px] mb-1">{label}</p>
-      <div className="flex gap-1.5 overflow-x-auto no-scrollbar pb-0.5">
-        {blocks.map((b, i) => (
-          <div key={i} className={`shrink-0 rounded-[7px] border px-2 py-1 ${CHOGHADIYA_COLOR[b.type]}`}>
-            <p className="text-[10.5px] font-semibold whitespace-nowrap">{b.name}</p>
-            <p className="text-[9.5px] opacity-80 whitespace-nowrap">{b.start}–{b.end}</p>
-          </div>
-        ))}
-      </div>
-    </div>
-  )
+  good: 'bg-good-soft text-good',
+  neutral: 'bg-surface-2 text-fg-secondary',
+  bad: 'bg-risk-soft text-risk',
 }
 
 function PanchangCard({ panchang, t }: { panchang: PanchangDaily; t: (key: keyof typeof UI_HI, en: string) => string }) {
@@ -168,8 +152,10 @@ function PanchangCard({ panchang, t }: { panchang: PanchangDaily; t: (key: keyof
     [t('yamaganda', 'Yamaganda'), panchang.yamaganda_start, panchang.yamaganda_end],
     [t('gulikaKalam', 'Gulika Kalam'), panchang.gulika_kalam_start, panchang.gulika_kalam_end],
   ]
+  // Design shows the day's 8 Choghadiya blocks only (night blocks stay
+  // computed/stored for a possible future Telegram "tonight's choghadiya"
+  // command, but aren't surfaced on this card).
   const dayBlocks = panchang.choghadiya?.filter(b => b.period === 'day') ?? []
-  const nightBlocks = panchang.choghadiya?.filter(b => b.period === 'night') ?? []
   return (
     <Card title={t('panchang', "Today's Panchang")}>
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-4 gap-y-3 mb-3">
@@ -188,11 +174,17 @@ function PanchangCard({ panchang, t }: { panchang: PanchangDaily; t: (key: keyof
           </div>
         ))}
       </div>
-      {(dayBlocks.length > 0 || nightBlocks.length > 0) && (
-        <div className="flex flex-col gap-2 pt-2.5 border-t border-surface-3">
-          <p className="text-[10.5px] font-bold text-fg-tertiary uppercase tracking-[0.4px]">{t('choghadiya', 'Choghadiya')}</p>
-          {dayBlocks.length > 0 && <ChoghadiyaRow blocks={dayBlocks} label="Day" />}
-          {nightBlocks.length > 0 && <ChoghadiyaRow blocks={nightBlocks} label="Night" />}
+      {dayBlocks.length > 0 && (
+        <div>
+          <p className="text-[10.5px] font-bold text-fg-tertiary uppercase tracking-[0.4px] mb-2">{t('choghadiya', 'Choghadiya')}</p>
+          <div className="grid grid-cols-4 gap-1.5">
+            {dayBlocks.map((b, i) => (
+              <div key={i} className={`rounded-[7px] px-1.5 py-1.5 text-center ${CHOGHADIYA_COLOR[b.type]}`}>
+                <p className="text-[10.5px] font-bold">{b.name}</p>
+                <p className="text-[9px] opacity-85 mt-px">{b.start}–{b.end}</p>
+              </div>
+            ))}
+          </div>
         </div>
       )}
     </Card>
@@ -212,6 +204,7 @@ export default function AstrologyView({ initialProfile }: { initialProfile: Astr
   const [chartMode, setChartMode] = useState<'d1' | 'd9'>('d1')
   const [panchang, setPanchang] = useState<PanchangDaily | null>(null)
   const [characteristics, setCharacteristics] = useState<string | null>(null)
+  const [gochara, setGochara] = useState<GocharaPosition[] | null>(null)
   const { lang, toggleLang, t } = useAstrologyLang()
 
   const handleSaved = async () => {
@@ -266,6 +259,16 @@ export default function AstrologyView({ initialProfile }: { initialProfile: Astr
     getAstrologyCharacteristics(profile, lang).then(setCharacteristics)
   }, [profile, lang])
 
+  // Gochara (astrology.md 3.2) — pure deterministic transit data, no AI, so
+  // it's auto-loaded the same way Panchang/Characteristics are, and shown
+  // persistently inside the Horoscope card regardless of which period tab
+  // is selected (Claude Design source: it sits below the daily structured
+  // breakdown, not gated behind it).
+  useEffect(() => {
+    if (!profile) return
+    getCurrentGochara(profile).then(setGochara)
+  }, [profile])
+
   const today = todayIST()
   const currentDasha = profile ? getCurrentDasha(profile.natal_chart.vimshottariDasha, today) : null
   const currentYogini = profile ? getCurrentYogini(profile.natal_chart.yoginiDasha, today) : null
@@ -285,10 +288,9 @@ export default function AstrologyView({ initialProfile }: { initialProfile: Astr
         <button
           onClick={toggleLang}
           aria-label={lang === 'en' ? 'Switch to Hindi' : 'Switch to English'}
-          className="flex items-center gap-1.5 px-3 h-[34px] rounded-full border border-surface-3 bg-surface-1 text-fg-secondary hover:text-fg-primary transition-colors shrink-0"
+          className="px-3.5 py-1.5 rounded-full border border-border-strong bg-surface-2 text-fg-primary text-xs font-bold hover:bg-surface-3 transition-colors shrink-0"
         >
-          <Languages size={14} />
-          <span className="text-xs font-semibold">{lang === 'en' ? 'हिं' : 'EN'}</span>
+          {lang === 'en' ? 'हिं' : 'EN'}
         </button>
       </div>
 
@@ -371,47 +373,56 @@ export default function AstrologyView({ initialProfile }: { initialProfile: Astr
                   }
                   if (tab === 'daily' && dailyReading) {
                     return (
-                      <div className="flex flex-col gap-3">
+                      <div className="flex flex-col gap-3.5 mb-3.5">
                         <p className="text-[12.5px] leading-[1.6] text-fg-secondary">{dailyReading.summary}</p>
-                        {dailyReading.favorableFor.length > 0 && (
-                          <div>
-                            <p className="text-[10.5px] font-bold text-good uppercase tracking-[0.4px] mb-1">{t('favorableFor', 'Favorable For')}</p>
-                            <div className="flex flex-wrap gap-1.5">
-                              {dailyReading.favorableFor.map((f, i) => (
-                                <span key={i} className="text-[11px] px-2 py-1 rounded-[6px] bg-good-soft text-good">{f}</span>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-                        {dailyReading.avoid.length > 0 && (
-                          <div>
-                            <p className="text-[10.5px] font-bold text-risk uppercase tracking-[0.4px] mb-1">{t('avoid', 'Avoid')}</p>
-                            <div className="flex flex-wrap gap-1.5">
-                              {dailyReading.avoid.map((a, i) => (
-                                <span key={i} className="text-[11px] px-2 py-1 rounded-[6px] bg-risk-soft text-risk">{a}</span>
-                              ))}
-                            </div>
+                        {(dailyReading.favorableFor.length > 0 || dailyReading.avoid.length > 0) && (
+                          <div className="grid grid-cols-2 gap-2.5">
+                            {dailyReading.favorableFor.length > 0 && (
+                              <div className="bg-good-soft rounded-[10px] px-3 py-2.5">
+                                <p className="text-[10.5px] font-bold text-good uppercase tracking-[0.4px] mb-1.5">{t('favorableFor', 'Favorable For')}</p>
+                                {dailyReading.favorableFor.map((f, i) => (
+                                  <p key={i} className="text-[12px] text-fg-primary mb-0.5">• {f}</p>
+                                ))}
+                              </div>
+                            )}
+                            {dailyReading.avoid.length > 0 && (
+                              <div className="bg-risk-soft rounded-[10px] px-3 py-2.5">
+                                <p className="text-[10.5px] font-bold text-risk-strong uppercase tracking-[0.4px] mb-1.5">{t('avoid', 'Avoid')}</p>
+                                {dailyReading.avoid.map((a, i) => (
+                                  <p key={i} className="text-[12px] text-fg-primary mb-0.5">• {a}</p>
+                                ))}
+                              </div>
+                            )}
                           </div>
                         )}
                         {dailyReading.moodForecast && (
-                          <div>
+                          <div className="bg-surface-2 rounded-[10px] px-3 py-2.5">
                             <p className="text-[10.5px] font-bold text-fg-tertiary uppercase tracking-[0.4px] mb-1">{t('moodForecast', 'Mood Forecast')}</p>
-                            <p className="text-[11.5px] leading-[1.5] text-fg-secondary">{dailyReading.moodForecast}</p>
-                          </div>
-                        )}
-                        {dailyReading.remediation.length > 0 && (
-                          <div>
-                            <p className="text-[10.5px] font-bold text-fg-tertiary uppercase tracking-[0.4px] mb-1">{t('remediation', 'Remediation')}</p>
-                            <ul className="text-[11.5px] leading-[1.5] text-fg-secondary list-disc list-inside space-y-0.5">
-                              {dailyReading.remediation.map((r, i) => <li key={i}>{r}</li>)}
-                            </ul>
+                            <p className="text-[12px] leading-[1.5] text-fg-secondary">{dailyReading.moodForecast}</p>
+                            {dailyReading.isChandrashtama && (
+                              <p className="text-[10.5px] text-warn mt-1.5">⚠ Moon transit: Chandrashtama today — a traditionally lower-energy day, not a diagnosis.</p>
+                            )}
                           </div>
                         )}
                       </div>
                     )
                   }
-                  return <p className="text-[12.5px] leading-[1.6] text-fg-secondary">{readings[tab as 'monthly' | 'yearly']}</p>
+                  return <p className="text-[12.5px] leading-[1.6] text-fg-secondary mb-3.5">{readings[tab as 'monthly' | 'yearly']}</p>
                 })()}
+
+                {gochara && gochara.length > 0 && (
+                  <div>
+                    <p className="text-[10.5px] font-bold text-fg-tertiary uppercase tracking-[0.4px] mb-2">{t('gochara', 'Gochara')}</p>
+                    <div className="flex flex-col gap-1.5">
+                      {gochara.map(g => (
+                        <div key={g.planet} className="bg-surface-2 rounded-[8px] px-2.5 py-1.5 text-[11.5px]">
+                          <span className="font-bold text-fg-primary">{g.planet}</span>
+                          <span className="text-fg-tertiary"> · {g.houseFromLagna} from Lagna · {g.houseFromMoon} from Moon{g.retrograde ? ' · (R)' : ''}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </Card>
 
               {remediation.length > 0 && (

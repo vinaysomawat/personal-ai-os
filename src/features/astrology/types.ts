@@ -100,6 +100,11 @@ export interface DailyReading {
   avoid: string[]
   remediation: string[]
   moodForecast: string
+  // Deterministic (gochara.ts's isChandrashtama()), not AI-generated — the
+  // Claude Design source renders its Chandrashtama warning line as its own
+  // conditional UI element off this flag, decoupled from whatever the
+  // model's moodForecast prose happens to say.
+  isChandrashtama: boolean
 }
 
 export interface AstrologyProfile {

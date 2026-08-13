@@ -232,7 +232,7 @@ Defined in `vercel.json`, all protected by `Authorization: Bearer $CRON_SECRET`,
 | `daily-journal` | `30 17 * * *` (~11:00pm IST) | Planner bot | **Daily Auto Journal** (Phase 3 PRD) — `generateDailyJournal()` (`src/features/ai/daily-journal.ts`) gathers today's itemized activity (coding question solved, today's daily-read article read, study minutes, health metrics logged, workouts, expenses, interview prep quizzes taken (topic + score), new applications submitted) and has Claude write one paragraph grounded only in that list (never inventing an event or number), `upsert`ed into `daily_journals` (`onConflict: user_id,date`, idempotent) before sending. Deliberately excludes plain Planner task completions — `tasks` has no `completed_at` (only its Coding-synced/Learning-resource-synced rows do), so "which tasks got done today" isn't reliably knowable. |
 | `learning-tip` | `45 3 * * *` (~9:15am IST) | Learning bot | Sends an "AI/Tech Tip of the Day" via the same `getDailyTip()` rotation as `health-tip`/`daily-coding`, over the curated `learning_tips` pool (~30 short AI/ML concepts and frontend facts to start, not AI-generated). Idempotent per day. |
 | `cron-health-check` | `0 4 * * *` (~9:30am IST) | Planner bot | Reads `cron_runs`; if a job that's run before has gone quiet past its expected cadence, sends a Telegram alert naming which ones. Jobs with no history yet aren't alarmed on. Silent (no message) when everything's healthy. Now also logs its own run (2026-07-23 fix — see §11's Self-monitoring note) so it's covered by the same watch list it maintains for everything else. |
-| `astrology-daily` | `50 3 * * *` (~9:20am IST) | Astrology bot | Pushes a combined Panchang summary (tithi/paksha/nakshatra/sunrise/sunset/Rahu Kalam) + the daily `astrology_reading` (§13). Idempotent by construction — reads/upserts the day's already-keyed `panchang_daily` row and relies on the AI Gateway's own per-day cache, not a bespoke dedup. Silent no-op if no birth chart has been saved yet. |
+| `astrology-daily` | `0 4 * * *` (9:30am IST) | Astrology bot | Pushes a combined Panchang summary (tithi/paksha/nakshatra/sunrise/sunset/Rahu Kalam) + the daily `astrology_reading` (§13). Idempotent by construction — reads/upserts the day's already-keyed `panchang_daily` row and relies on the AI Gateway's own per-day cache, not a bespoke dedup. Silent no-op if no birth chart has been saved yet. Shares its exact minute with `cron-health-check` — Vercel has no same-minute restriction across different job paths, and the two are unrelated jobs that just happen to land on the same slot. |
 
 ## 12. AI Gateway
 
@@ -314,22 +314,27 @@ compatibility/matching charts and Muhurta lookups remain explicitly out of scope
   current-transit snapshot (this module doesn't compute a forward window of planetary movement)
   — only the prompt's framing changes, the same way a monthly financial digest still runs off
   today's numbers rather than projecting the month. The AI prompt contains only computed
-  positions/dasha state, never raw birth data. **Daily is structured, not prose**: Summary +
-  color-coded Favorable For / Avoid chip lists + a Mood Forecast line + a Remediation sub-list,
-  from `getStructuredDailyReading(profile, lang)` — the model returns strict JSON
+  positions/dasha state, never raw birth data. **Daily is structured, not prose**: a summary
+  paragraph, then — matching the Claude Design source's exact layout (pulled and matched
+  2026-08-14) — a side-by-side 2-column grid (green Favorable-For card / red Avoid card, each a
+  bulleted list, not chip pills) and a Mood Forecast card below it with a conditional ⚠
+  Chandrashtama warning line rendered off the deterministic `isChandrashtama` flag (decoupled
+  from whatever the model's own mood prose says — the warning is UI-driven, not text-matched).
+  From `getStructuredDailyReading(profile, lang)` — the model returns strict JSON
   (`{summary, favorableFor, avoid, moodForecast}`, parsed with the same regex-extract +
-  try/catch + graceful-fallback pattern `brain_decision` already uses elsewhere), and
-  `remediation` is filled in afterward from the same curated `getRemediation()` table the
-  standalone Remediation card uses — never asked of the model, so the "never left to the model
-  to invent" rule holds even inside this structured response. **Monthly/yearly stay prose**
-  (`getAstrologyReading(profile, period, lang)`) — "avoid X today" and a Moon-transit mood
-  forecast don't translate to a month/year scale the same way. Both functions share one
-  `buildReadingContext()` helper for the ephemeris/gochara/dasha work so they can't drift out of
-  sync with each other, and both go through the same `astrology_reading` AI task (§12) — calling
-  `getAstrologyReading(profile, 'daily', lang)` (e.g. from the Telegram bot or the daily cron)
-  internally calls the same `getStructuredDailyReading` and flattens its JSON into readable
-  prose, so a web-page view and a same-day Telegram request hit the identical cache entry rather
-  than double-spending.
+  try/catch + graceful-fallback pattern `brain_decision` already uses elsewhere); `remediation`
+  is filled in afterward from the same curated `getRemediation()` table the standalone
+  Remediation card uses (kept on the `DailyReading` type for the Telegram bot's flattened prose,
+  but the design mock doesn't repeat it inside this card — the standalone Remediation card below
+  is the only place it renders on the web page, avoiding the duplication an earlier draft had).
+  **Monthly/yearly stay prose** (`getAstrologyReading(profile, period, lang)`) — "avoid X today"
+  and a Moon-transit mood forecast don't translate to a month/year scale the same way. Both
+  functions share one `buildReadingContext()` helper for the ephemeris/gochara/dasha work so
+  they can't drift out of sync with each other, and both go through the same `astrology_reading`
+  AI task (§12) — calling `getAstrologyReading(profile, 'daily', lang)` (e.g. from the Telegram
+  bot or the daily cron) internally calls the same `getStructuredDailyReading` and flattens its
+  JSON into readable prose, so a web-page view and a same-day Telegram request hit the identical
+  cache entry rather than double-spending.
 - **Remediation** — up to 3 traditional remedies for the chart's Saturn/Rahu/Ketu/Mars/Moon
   placements, sourced from a curated per-planet template table
   (`src/features/astrology/remedies.ts`) parameterized with each planet's actual house number.
@@ -360,8 +365,14 @@ compatibility/matching charts and Muhurta lookups remain explicitly out of scope
   rather than scoring their significance, which `astrology.md` explicitly defers).
   Deterministic, no new ephemeris calls beyond the existing transit snapshot. Feeds directly
   into the `astrology_reading` prompt context (dasha + gochara together, the standard
-  "which life theme is active + how today's sky affects it" combination) — no separate UI card
-  and no new AI task. `isChandrashtama()` is one dedicated flag on top of this: true when the
+  "which life theme is active + how today's sky affects it" combination), and — per the Claude
+  Design source, pulled and matched 2026-08-14 — is also rendered directly as its own persistent
+  list inside the Horoscope card (`getCurrentGochara(profile)`, a dedicated action separate from
+  the AI reading calls since this data is pure computation with no AI involved): each transiting
+  planet's house-from-Lagna/house-from-Moon, visible regardless of which period tab is selected,
+  no per-transit interpretive text attached (astrology.md explicitly defers significance
+  scoring, so the list stays factual rather than inventing a note per planet). `isChandrashtama()`
+  is one dedicated flag on top of this: true when the
   transiting Moon's own gochara entry has `houseFromMoon === 8` — a lookup against data already
   computed, not a new formula, so it doesn't carry its own separate verification caveat the way
   Yogini Dasha's starting-lord formula does. Chandrashtama is a well-defined traditional
@@ -387,21 +398,26 @@ compatibility/matching charts and Muhurta lookups remain explicitly out of scope
   nothing once cached.
 - **Today's Panchang card** — tithi/nakshatra/yoga/karana + sunrise/sunset in a 2×4 stat grid,
   plus the three inauspicious windows as small pill tags, on the Astrology page between the
-  Current Dasha strip and the Horoscope card. **Choghadiya** — 8 day blocks (sunrise-sunset) + 8
-  night blocks (sunset-*next*-sunrise, via one extra `getSunriseSunset()` search rather than
-  assuming night length equals day length) rendered as two horizontally-scrollable pill rows,
-  color-coded good/neutral/bad. Each block's name comes from a fixed 7-name cycle that wraps (8
-  blocks mod 7 names); day and night use *different* cycles and weekday-start tables — two
-  independently-published traditional sequences, not one rotation continuing from day into
-  night (`getChoghadiya()` in `panchang.ts`). Reconstructed from commonly-published panchang
-  references rather than verified against a live external tool in this environment — flagged in
-  code with the same honesty caveat as Yogini Dasha's starting-lord formula, worth
-  spot-checking against a printed panchang before relying on it for real scheduling.
-- **Dashboard integration** — a compact "🔮 [Mahadasha]/[Antardasha] · until [date] · Yogini:
-  [lord] · [tithi] · [nakshatra]" strip near the bottom of `/dashboard` (`getDashboardData()`
-  adds two cheap reads — `astrology_profile.natal_chart` and today's `panchang_daily` row — and
-  reuses the same `getCurrentDasha`/`getCurrentYogini` pure functions the Astrology page itself
-  calls; no ephemeris recompute, no new AI call). Only rendered once a birth chart exists.
+  Current Dasha strip and the Horoscope card. **Choghadiya** — `getChoghadiya()` in
+  `panchang.ts` computes the full traditional 16 blocks (8 day, sunrise-sunset, + 8 night,
+  sunset-*next*-sunrise via one extra `getSunriseSunset()` search rather than assuming night
+  length equals day length; day and night use *different* 7-name cycles and weekday-start
+  tables, two independently-published traditional sequences, not one rotation continuing from
+  day into night), stored on `panchang_daily.choghadiya` in full — but the UI only surfaces the
+  8 day blocks, in a 4-column color-coded grid, matching the Claude Design source exactly (the
+  computed night blocks stay available in the data for a possible future Telegram "tonight's
+  choghadiya" command). Reconstructed from commonly-published panchang references rather than
+  verified against a live external tool in this environment — flagged in code with the same
+  honesty caveat as Yogini Dasha's starting-lord formula, worth spot-checking against a printed
+  panchang before relying on it for real scheduling.
+- **Dashboard integration** — a compact "🔮 Astrology · [Mahadasha]/[Antardasha] dasha ·
+  [tithi] · [nakshatra]" strip, positioned right after the Top Priority banner (matching the
+  Claude Design source exactly, pulled and matched 2026-08-14 — an earlier draft placed it near
+  the bottom of the page with extra fields; moved up and trimmed to match). Deliberately minimal
+  — no until-date, no Yogini, that detail lives on the Astrology page itself.
+  `getDashboardData()` adds two cheap reads — `astrology_profile.natal_chart` and today's
+  `panchang_daily` row — and reuses the same `getCurrentDasha` pure function the Astrology page
+  itself calls; no ephemeris recompute, no new AI call. Only rendered once a birth chart exists.
   Astrology stays ungrouped in nav (same tier as Finance), so this is its only Dashboard
   presence — no module score ring, since its "score" concept doesn't map to the
   Health/Finance/Career/Learning/Coding scoring model. A Gochara-derived Needs Attention signal
@@ -413,7 +429,9 @@ compatibility/matching charts and Muhurta lookups remain explicitly out of scope
   (astrology.md 3.9), surfacing it on the Dashboard would require calling the AI-backed daily
   reading from `getDashboardData()` — a real new AI call on every dashboard load, directly
   against this card's own "adds no new query" design point and Product Principle 3.
-- **Hindi (EN/हिं) toggle** — a small pill button next to the page title, `localStorage`-persisted
+- **Hindi (EN/हिं) toggle** — a small text-only pill button next to the page title (no icon,
+  matching the Claude Design source's plain `{{ astroLangButtonLabel }}` treatment — simpler
+  than the theme toggle's icon-swap pattern it was initially modeled on), `localStorage`-persisted
   (`astrology-lang` key) the same way `ThemeProvider` persists light/dark, scoped to this module
   only (not a global app-wide setting; `next-intl`/`i18next` would be overkill for one module's
   static strings). Static UI chrome translates via a flat dictionary
@@ -444,8 +462,8 @@ compatibility/matching charts and Muhurta lookups remain explicitly out of scope
   panchang" → `panchang` (via `getTodaysPanchang()`, same cached-by-date row the web card
   reads), "my characteristics" → `characteristics` (`getAstrologyCharacteristics()`, same
   effectively-permanent cache as the web card). Replies with a friendly "add your birth details
-  first" message if no chart exists yet rather than erroring. The **`astrology-daily` cron** (`50 3 * * *`, ~9:20am IST, alongside the
-  existing 8:30–9:15am IST cluster) pushes a combined Panchang summary + daily reading every
+  first" message if no chart exists yet rather than erroring. The **`astrology-daily` cron** (`0 4 * * *`, 9:30am IST — moved here
+  from an initial 9:20am slot per explicit request) pushes a combined Panchang summary + daily reading every
   morning — idempotent by construction, since it only reads/upserts the day's already-keyed
   `panchang_daily` row and the AI Gateway's own cache, the same pattern every other daily cron
   in §11 relies on rather than a bespoke per-job dedup mechanism.
@@ -669,15 +687,15 @@ Exact current layout of every page, top to bottom, for design-tool consumption. 
 Single column (`space-y-4`), all full-width except the hero:
 1. Slim status line: "Good morning/afternoon/evening, Vinay" (left) + today's date, uppercase tracked (right)
 2. **Top Priority banner** (conditional) — one row, accent-tinted (`bg-accent/10 border-accent/30`), emoji + text + arrow, links to the relevant module
-3. **Quick Stats** — 5 equal stat tiles (Coding Streak, Workout Streak, Learning Streak, Budget Remaining, Workout Today) in a row (the goal-progress mini-bars that used to fold in below this row were removed 2026-08-10, design dropped them — see §12)
-4. **What's Changed** and **Morning Brief** side by side (`grid lg:grid-cols-2`, stacked on mobile) — What's Changed is a short bullet list of day-over-day deltas (weight, expense, Life Score Δ) with a collapsed one-line "nothing new yet" state when empty; Morning Brief is one AI-written paragraph
-5. **Life Score hero** — a full-width gradient card (`from-surface-1 via-surface-2 to-surface-1`): large circular Life Score ring (click opens the "Explain My Score" modal breaking down each module's day-over-day delta) on the left, a divider, then 5 small module-score rings (Health/Finance/Career/Learning/Coding) on the right, each with a hover tooltip naming the single biggest scoring gap
-6. **Life Score Trend** chart — Weekly/Monthly toggle line chart of the combined score
-7. **Needs Attention** — a capped 3-item ranked list (risks → signals → opportunities), each dismissible except plain signal links
-8. **Today's Insight** — one AI-confirmed behavioral pattern sentence (amber lightbulb icon), or an empty-state line
-9. **Evening Reflection** — only visible after 6pm, an AI paragraph
-10. **Daily Mission** ring + the full checklist (not just unclosed items — done ones show a green dot + strikethrough text rather than being hidden), each row linking out
-11. **Astrology strip** (conditional, only once a birth chart exists) — one row, accent-tinted, same visual treatment as the Top Priority banner: 🔮 + current Mahadasha/Antardasha + until-date + Yogini lord + today's tithi/nakshatra, links to `/astrology` (§13)
+3. **Astrology strip** (conditional, only once a birth chart exists) — one row, accent-tinted, immediately below Top Priority (Claude Design source position, pulled and matched 2026-08-14): "🔮 Astrology" label + current Mahadasha/Antardasha dasha + today's tithi/nakshatra, links to `/astrology` (§13) — deliberately minimal, no until-date or Yogini (that detail lives on the Astrology page itself)
+4. **Quick Stats** — 5 equal stat tiles (Coding Streak, Workout Streak, Learning Streak, Budget Remaining, Workout Today) in a row (the goal-progress mini-bars that used to fold in below this row were removed 2026-08-10, design dropped them — see §12)
+5. **What's Changed** and **Morning Brief** side by side (`grid lg:grid-cols-2`, stacked on mobile) — What's Changed is a short bullet list of day-over-day deltas (weight, expense, Life Score Δ) with a collapsed one-line "nothing new yet" state when empty; Morning Brief is one AI-written paragraph
+6. **Life Score hero** — a full-width gradient card (`from-surface-1 via-surface-2 to-surface-1`): large circular Life Score ring (click opens the "Explain My Score" modal breaking down each module's day-over-day delta) on the left, a divider, then 5 small module-score rings (Health/Finance/Career/Learning/Coding) on the right, each with a hover tooltip naming the single biggest scoring gap
+7. **Life Score Trend** chart — Weekly/Monthly toggle line chart of the combined score
+8. **Needs Attention** — a capped 3-item ranked list (risks → signals → opportunities), each dismissible except plain signal links
+9. **Today's Insight** — one AI-confirmed behavioral pattern sentence (amber lightbulb icon), or an empty-state line
+10. **Evening Reflection** — only visible after 6pm, an AI paragraph
+11. **Daily Mission** ring + the full checklist (not just unclosed items — done ones show a green dot + strikethrough text rather than being hidden), each row linking out
 12. **Recent Bot Activity** — a paginated (10/page) list of Telegram interactions, module emoji + message + reply preview (reply hidden on mobile) + relative time; header shows AI spend
 13. Floating **Quick Add** "+" button (bottom-right) for fast Task/Expense/Metric entry
 14. **Ask Brain** — Header-triggered panel with 4 tabs (Ask/Decide/Reflect/Monthly), not part of the page body
@@ -754,10 +772,12 @@ Single column, all full-width cards stacked (`space-y-5`), no side-by-side secti
 3. **Reminders** — a list of label + module + morning/evening, plain 🔔/🔕 emoji toggle (reflects active/inactive, not time-of-day), always-visible "✕" delete; "New Reminder" modal (label input, module select, two Morning/Evening toggle buttons) to add one
 
 ### Astrology (`/astrology`)
-Reached via the profile dropdown (not a top-level nav pill), plus the mobile "More" sheet. A
-small EN/हिं pill button sits next to the page title (top-right) — persists to `localStorage`,
-translates all static chrome via `i18n/hi.ts`, and re-fetches the reading + remediation in the
-selected language (§13).
+Reached via the profile dropdown (not a top-level nav pill), plus the mobile "More" sheet.
+Matched against the Claude Design source's `Dashboard.dc.html` (project
+`040b5aee-a63a-4215-afee-fa1e00b56f95`) as of 2026-08-14. A small text-only EN/हिं pill button
+sits next to the page title (top-right, no icon) — persists to `localStorage`, translates all
+static chrome via `i18n/hi.ts`, and re-fetches every reading/characteristics/gochara state in
+the selected language (§13).
 1. **Birth Details** card — compact inline-editable field grid (Career Profile's density, not a
    standalone form), a pencil icon opens all fields together for editing (interdependent — the
    chart is a function of all of them at once, unlike Career's independent per-field saves);
@@ -772,15 +792,18 @@ selected language (§13).
    tab toggle over the same North Indian style SVG kundli (fixed house positions, planets by
    house, birth-details caption above, Lagna + Moon Nakshatra/Pada caption below); Panchang is a
    2×4 stat grid (tithi/nakshatra/yoga/karana/sunrise/sunset), three pill tags for Rahu
-   Kalam/Yamaganda/Gulika Kalam, and a Choghadiya section below a divider — two
-   horizontally-scrollable Day/Night pill rows, color-coded good (green)/neutral (gray)/bad
-   (red); Horoscope is a Today/This Month/This Year tab switcher, each period fetched
-   independently on first view and cached client-side after (cleared on a language switch, so
-   it re-fetches in the new language rather than showing a stale-language mismatch against the
-   tab pills) — **Today** renders as a structured breakdown (summary paragraph, green
-   "Favorable For" chips, red "Avoid" chips, a Mood Forecast line, a bulleted Remediation
-   sub-list), **This Month/This Year** stay a single prose paragraph; Remediation (the
-   standalone card) lists up to 3 curated, deterministically-templated remedies (not
-   AI-generated) for the chart's Saturn/Rahu/Ketu/Mars/Moon placements, with a "traditional
-   guidance, not medical or financial advice" disclaimer — the same remedy text also appears
-   inside Today's structured breakdown, by design (astrology.md's own UI spec keeps both)
+   Kalam/Yamaganda/Gulika Kalam, and a Choghadiya section below — the day's 8 blocks in a
+   4-column grid, color-coded good (green)/neutral (gray)/bad (red); Horoscope is a Today/This
+   Month/This Year tab switcher, each period fetched independently on first view and cached
+   client-side after (cleared on a language switch, so it re-fetches in the new language rather
+   than showing a stale-language mismatch against the tab pills) — **Today** renders as a
+   structured breakdown (summary paragraph, then a side-by-side 2-column card grid — green
+   "Favorable For" / red "Avoid", each a bulleted list, not chip pills — then a Mood Forecast
+   card with a conditional ⚠ Chandrashtama warning line), **This Month/This Year** stay a single
+   prose paragraph; below the tab content, a persistent **Gochara** list (visible regardless of
+   which tab is selected, since it's pure computed data, not AI) shows each transiting planet's
+   house-from-Lagna/house-from-Moon; Remediation (the standalone card below the Horoscope card)
+   lists up to 3 curated, deterministically-templated remedies (not AI-generated) for the
+   chart's Saturn/Rahu/Ketu/Mars/Moon placements, with a "traditional guidance, not medical or
+   financial advice" disclaimer — not repeated inside Today's structured breakdown, matching the
+   design mock exactly (an earlier draft duplicated it there before the design was pulled)

@@ -21,12 +21,6 @@ import { todayISTLabel, istHour } from '@/lib/date'
 
 type DashboardData = Awaited<ReturnType<typeof getDashboardData>>
 
-const ASTRO_MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
-function formatAstroDate(iso: string): string {
-  const [y, m, d] = iso.slice(0, 10).split('-').map(Number)
-  return `${d} ${ASTRO_MONTHS[m - 1]} ${y}`
-}
-
 export default function DashboardView({ data, executive }: { data: DashboardData; executive: ExecutiveData }) {
   const { botActivity, stats, scores, scoreTips, scoreHistory, aiBudget, topActions, todayProgress } = data
   const scoreExplanation = explainScore(scoreHistory, scores, scoreTips)
@@ -84,6 +78,24 @@ export default function DashboardView({ data, executive }: { data: DashboardData
             Open {topPriorityModule} →
           </Link>
         </div>
+      )}
+
+      {/* Astrology strip (astrology.md 3.4) — pure display of already-
+          computed values (natal_chart's stored dasha timeline + today's
+          cached panchang_daily row), no new query cost beyond the two cheap
+          reads in getDashboardData. Only rendered once a birth chart
+          exists. Positioned right after Top Priority per the Claude Design
+          source, which keeps it minimal (dasha lords + tithi/nakshatra only
+          — no until-date, no Yogini; that detail lives on the Astrology
+          page itself). */}
+      {data.astrology && (
+        <Link href="/astrology" className="flex flex-wrap items-center gap-3.5 rounded-[10px] px-4 py-2.5 bg-accent-soft border border-accent-border hover:-translate-y-0.5 transition-all">
+          <p className="text-[10.5px] font-bold text-accent-strong uppercase tracking-[0.4px]">🔮 Astrology</p>
+          <p className="text-[12.5px] text-fg-primary">{data.astrology.dashaLord} / {data.astrology.antardashaLord} dasha</p>
+          {(data.astrology.tithi || data.astrology.nakshatra) && (
+            <p className="text-xs text-fg-secondary">{[data.astrology.tithi, data.astrology.nakshatra].filter(Boolean).join(' · ')}</p>
+          )}
+        </Link>
       )}
 
       {/* Hero: Life Score card + Quick Stats/Goal Progress side by side,
@@ -183,29 +195,6 @@ export default function DashboardView({ data, executive }: { data: DashboardData
           ))}
         </div>
       </div>
-
-      {/* Today's Dasha + Panchang strip (astrology.md 3.4) — pure display of
-          already-computed values (natal_chart's stored dasha timeline +
-          today's cached panchang_daily row), no new query cost beyond the
-          two cheap reads in getDashboardData. Only rendered once a birth
-          chart exists. */}
-      {data.astrology && (
-        <Link href="/astrology" className="flex flex-wrap items-center gap-3.5 px-4 py-3 rounded-[14px] bg-accent-soft border border-accent-border hover:-translate-y-0.5 transition-all">
-          <span className="text-lg shrink-0">🔮</span>
-          <p className="text-[13px] font-bold text-fg-primary">
-            {data.astrology.dashaLord} Mahadasha / {data.astrology.antardashaLord} Antardasha
-          </p>
-          <p className="text-xs text-fg-secondary">until {formatAstroDate(data.astrology.dashaUntil)}</p>
-          {data.astrology.yoginiLord && (
-            <p className="text-[11.5px] text-fg-tertiary">Yogini: {data.astrology.yoginiLord}</p>
-          )}
-          {(data.astrology.tithi || data.astrology.nakshatra) && (
-            <p className="text-[11.5px] text-fg-tertiary ml-auto">
-              {[data.astrology.tithi, data.astrology.nakshatra].filter(Boolean).join(' · ')}
-            </p>
-          )}
-        </Link>
-      )}
 
       <BotActivityCard botActivity={botActivity} aiBudget={aiBudget} />
     </div>

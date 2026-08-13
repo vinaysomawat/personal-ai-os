@@ -9,7 +9,7 @@ import { buildPlanetPositions, getRashi, computeVimshottariDasha, computeYoginiD
 import { computeGochara, isChandrashtama } from './gochara'
 import { getTodaysPanchang } from './panchang-actions'
 import { getRemediation } from './remedies'
-import type { AstrologyProfile, DailyReading, NatalChart, ReadingPeriod } from './types'
+import type { AstrologyProfile, DailyReading, GocharaPosition, NatalChart, ReadingPeriod } from './types'
 import type { Lang } from './i18n/hi'
 
 export async function getAstrologyProfile(): Promise<AstrologyProfile | null> {
@@ -200,14 +200,27 @@ export async function getAstrologyReading(profile: AstrologyProfile, period: Rea
   )
 }
 
-function emptyDailyReading(chart: NatalChart, lang: Lang): DailyReading {
+function emptyDailyReading(chart: NatalChart, lang: Lang, chandrashtama = false): DailyReading {
   return {
     summary: 'Reading unavailable right now.',
     favorableFor: [],
     avoid: [],
     remediation: getRemediation(chart, 3, lang).map(r => r.text),
     moodForecast: '',
+    isChandrashtama: chandrashtama,
   }
+}
+
+// Gochara alone, for the Astrology page's persistent Gochara section (Claude
+// Design source: shown inside the Horoscope card below the daily structured
+// breakdown, visible regardless of which period tab is selected — it's raw
+// computed data, not AI, so it isn't gated behind the daily reading fetch).
+// Duplicates buildReadingContext's transit/gochara work rather than sharing
+// its return value — cheap local ephemeris math, not worth threading a
+// second return path through for.
+export async function getCurrentGochara(profile: AstrologyProfile): Promise<GocharaPosition[]> {
+  const { gochara } = await buildReadingContext(profile)
+  return gochara
 }
 
 // Daily reading's structured output (astrology.md 3.9) — summary/
@@ -238,18 +251,19 @@ export async function getStructuredDailyReading(profile: AstrologyProfile, lang:
 
   try {
     const match = raw.match(/\{[\s\S]*\}/)
-    if (!match) return emptyDailyReading(profile.natal_chart, lang)
+    if (!match) return emptyDailyReading(profile.natal_chart, lang, chandrashtama)
     const parsed = JSON.parse(match[0]) as Partial<DailyReading>
-    if (!parsed.summary) return emptyDailyReading(profile.natal_chart, lang)
+    if (!parsed.summary) return emptyDailyReading(profile.natal_chart, lang, chandrashtama)
     return {
       summary: parsed.summary,
       favorableFor: Array.isArray(parsed.favorableFor) ? parsed.favorableFor : [],
       avoid: Array.isArray(parsed.avoid) ? parsed.avoid : [],
       remediation: getRemediation(profile.natal_chart, 3, lang).map(r => r.text),
       moodForecast: parsed.moodForecast ?? '',
+      isChandrashtama: chandrashtama,
     }
   } catch {
-    return emptyDailyReading(profile.natal_chart, lang)
+    return emptyDailyReading(profile.natal_chart, lang, chandrashtama)
   }
 }
 

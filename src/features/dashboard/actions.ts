@@ -19,7 +19,7 @@ import { checkRevisionNeeded } from '@/features/learning/signals'
 import { isMarkedToday } from '@/features/learning/daily-read'
 import { computeTodayProgress } from './daily-progress'
 import { getRecentPatterns, type RecentPattern } from '@/features/brain/signals'
-import { getCurrentDasha, getCurrentYogini } from '@/features/astrology/chart-calculations'
+import { getCurrentDasha } from '@/features/astrology/chart-calculations'
 import type { NatalChart } from '@/features/astrology/types'
 
 export interface TopAction {
@@ -94,7 +94,7 @@ export async function getDashboardData() {
     careerMemory: { currentRole: null, currentCompany: null, targetRole: null, currentSalary: null, bio: null } as { currentRole: string | null; currentCompany: string | null; targetRole: string | null; currentSalary: number | null; bio: string | null },
     financialGoals: [] as { name: string; targetAmount: number; currentAmount: number; targetDate: string | null }[],
     recentPatterns: [] as RecentPattern[],
-    astrology: null as { dashaLord: string; antardashaLord: string; dashaUntil: string; yoginiLord: string | null; yoginiUntil: string | null; tithi: string | null; nakshatra: string | null } | null,
+    astrology: null as { dashaLord: string; antardashaLord: string; tithi: string | null; nakshatra: string | null } | null,
   }
 
   const studyLogsSince = daysAgoIST(14)
@@ -347,15 +347,15 @@ export async function getDashboardData() {
   const codingWeakAreas = computeWeakAreas(codingHistoryForWeakAreas)
   const careerTopWeakSubtopic = topWeakSubtopic(quizAttemptsRes.data ?? [])
 
+  // Claude Design source's Dashboard strip only shows dasha lord names +
+  // today's tithi/nakshatra (no until-date, no Yogini) — kept minimal here
+  // to match; the full detail (until-date, Yogini) lives on the Astrology
+  // page itself.
   const natalChart = astrologyProfileRes.data?.natal_chart as NatalChart | undefined
   const currentDasha = natalChart ? getCurrentDasha(natalChart.vimshottariDasha, today) : null
-  const currentYogini = natalChart ? getCurrentYogini(natalChart.yoginiDasha, today) : null
   const astrology = currentDasha ? {
     dashaLord: currentDasha.mahadasha.lord,
     antardashaLord: currentDasha.antardasha.lord,
-    dashaUntil: currentDasha.antardasha.endDate,
-    yoginiLord: currentYogini?.lord ?? null,
-    yoginiUntil: currentYogini?.endDate ?? null,
     tithi: panchangTodayRes.data?.tithi ?? null,
     nakshatra: panchangTodayRes.data?.nakshatra ?? null,
   } : null

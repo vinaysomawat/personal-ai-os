@@ -50,7 +50,7 @@
     },
     {
       "path": "/api/cron/astrology-daily",
-      "schedule": "50 3 * * *"
+      "schedule": "0 4 * * *"
     }
   ]
 }
