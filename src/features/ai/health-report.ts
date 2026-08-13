@@ -81,7 +81,6 @@ export async function askHealthCoach(question: string, profile: HealthProfile | 
 - Current weight: ${withWeight.at(-1)?.weight_kg ?? 'not logged'}kg${weightTrend ? ` (${Number(weightTrend) > 0 ? '+' : ''}${weightTrend}kg over this window)` : ''}
 - Avg calories: ${avg(recentMetrics.filter(m => m.calories !== null).map(m => m.calories!)) ?? 'not logged'} kcal/day
 - Avg protein: ${avg(recentMetrics.filter(m => m.protein_g !== null).map(m => m.protein_g!)) ?? 'not logged'}g/day
-- Avg sleep: ${avg(recentMetrics.filter(m => m.sleep_hours !== null).map(m => m.sleep_hours!)) ?? 'not logged'}hrs/day
 - Avg steps: ${avg(recentMetrics.filter(m => m.steps !== null).map(m => m.steps!)) ?? 'not logged'}/day
 
 Question: ${question}`

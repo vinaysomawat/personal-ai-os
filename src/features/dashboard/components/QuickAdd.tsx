@@ -12,9 +12,7 @@ type Mode = null | 'task' | 'expense' | 'metric'
 
 const METRIC_OPTIONS = [
   { value: 'weight_kg',    label: 'Weight (kg)' },
-  { value: 'sleep_hours',  label: 'Sleep (hours)' },
   { value: 'steps',        label: 'Steps' },
-  { value: 'water_ml',     label: 'Water (ml)' },
   { value: 'calories',     label: 'Calories' },
   { value: 'protein_g',    label: 'Protein (g)' },
 ]

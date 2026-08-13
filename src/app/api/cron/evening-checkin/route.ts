@@ -10,11 +10,10 @@ import { todayIST, daysAgoIST } from '@/lib/date'
 const CHAT_ID = process.env.TELEGRAM_ALLOWED_CHAT_ID!
 const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN_PLANNER!
 
-type StaleMetricKey = 'weight_kg' | 'sleep_hours' | 'steps' | 'calories'
+type StaleMetricKey = 'weight_kg' | 'steps' | 'calories'
 
 const STALE_METRICS: { key: StaleMetricKey; label: string; reason: string; thresholdDays: number }[] = [
   { key: 'weight_kg',   label: 'weight',   reason: 'your trend line is going stale',           thresholdDays: 3 },
-  { key: 'sleep_hours', label: 'sleep',    reason: "there's no way to spot fatigue patterns",   thresholdDays: 3 },
   { key: 'steps',       label: 'steps',    reason: 'your activity trend is incomplete',         thresholdDays: 3 },
   { key: 'calories',    label: 'calories', reason: "there's no nutrition trend to work with",   thresholdDays: 3 },
 ]
@@ -27,7 +26,7 @@ async function computeStaleMetrics(supabase: SupabaseClient, userId: string, tod
   const since = daysAgoIST(90)
   const { data } = await supabase
     .from('health_metrics')
-    .select('date, weight_kg, sleep_hours, steps, calories')
+    .select('date, weight_kg, steps, calories')
     .eq('user_id', userId)
     .gte('date', since)
     .order('date', { ascending: false })

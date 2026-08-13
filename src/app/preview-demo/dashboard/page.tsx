@@ -17,7 +17,7 @@ const dummyData = {
     { module: 'finance', message: 'spent 450 on groceries', response: '✅ Logged ₹450 under Food', created_at: new Date().toISOString() },
     { module: 'health', message: '6000 steps', response: '✅ Steps updated: 6,000', created_at: new Date().toISOString() },
   ],
-  todayHealth: { weight_kg: 78, calories: 1850, protein_g: 120, steps: 6000, sleep_hours: 7, water_ml: 2000 },
+  todayHealth: { weight_kg: 78, calories: 1850, protein_g: 120, steps: 6000 },
   scoreHistory: Array.from({ length: 14 }, (_, i) => ({
     date: daysAgoIST(13 - i),
     life: 55 + Math.round(Math.sin(i / 2) * 15 + i),

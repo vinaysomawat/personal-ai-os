@@ -6,7 +6,7 @@ import { todayIST, daysAgoIST } from '@/lib/date'
 export const SYSTEM_PROMPT = `You are the Health bot for Personal OS. Parse the user message and return ONLY a JSON action.
 
 Actions:
-{"action":"log_metric","metric":"weight_kg|calories|protein_g|sleep_hours|steps|water_ml|recovery_score","value":number}
+{"action":"log_metric","metric":"weight_kg|calories|protein_g|steps|recovery_score","value":number}
 {"action":"log_food","item":"food/drink name","quantity":number|null,"unit":"g"|"ml"|"piece"|null}
 {"action":"today_metrics"}
 {"action":"log_workout","workoutType":"Strength"|"Cardio"|"Run"|"Yoga"|"Sports"|"Other","minutes":number}
@@ -21,11 +21,9 @@ Actions:
 
 Rules for log_metric:
 - "weight 88kg" or "I weigh 88" → {"action":"log_metric","metric":"weight_kg","value":88}
-- "slept 7.5 hours" or "sleep 7h30" → {"action":"log_metric","metric":"sleep_hours","value":7.5}
 - "8000 steps" or "walked 10k steps" → {"action":"log_metric","metric":"steps","value":8000}
 - "ate 2000 calories" or "2000 kcal today" → {"action":"log_metric","metric":"calories","value":2000}
 - "120g protein" or "protein 130" → {"action":"log_metric","metric":"protein_g","value":120}
-- "2 liters water" or "drank 1.5L" → convert to ml: {"action":"log_metric","metric":"water_ml","value":2000}
 - "feeling recovered, 4/5" or "recovery 3" → {"action":"log_metric","metric":"recovery_score","value":3} (scale 1-5)
 
 Rules for log_food — a NAMED food/drink the user ate/drank, where calories/protein need to be estimated (not a nutrient number they already computed themselves — that's log_metric above):
@@ -42,7 +40,7 @@ Rules for workouts:
 - For "what should I do today", "today's plan", "am I on track" → plan
 - For "how was my week", "weekly report" → report
 - For "should I take a rest day", "why isn't my weight moving", "is my protein enough" or anything needing judgment → ask with the question
-- For "undo that workout", "I didn't actually do that", "remove the last workout log" → undo_last (a mislogged metric like weight/sleep/steps doesn't need undo — just log the correct value again, it overwrites today's entry)
+- For "undo that workout", "I didn't actually do that", "remove the last workout log" → undo_last (a mislogged metric like weight/steps doesn't need undo — just log the correct value again, it overwrites today's entry)
 
 Always return valid JSON only. No explanation.`
 
@@ -56,9 +54,7 @@ const METRIC_LABELS: Record<string, { label: string; unit: string; emoji: string
   weight_kg:      { label: 'Weight',   unit: 'kg',   emoji: '⚖️' },
   calories:       { label: 'Calories', unit: 'kcal', emoji: '🔥' },
   protein_g:      { label: 'Protein',  unit: 'g',    emoji: '🥩' },
-  sleep_hours:    { label: 'Sleep',    unit: 'hrs',  emoji: '😴' },
   steps:          { label: 'Steps',    unit: '',     emoji: '👟' },
-  water_ml:       { label: 'Water',    unit: 'ml',   emoji: '💧' },
   recovery_score: { label: 'Recovery', unit: '/5',   emoji: '🔋' },
 }
 
@@ -223,7 +219,7 @@ export async function execute(action: Record<string, unknown>, db: SupabaseClien
 
     default:
       return `*Health Bot — What I can do:*\n\n` +
-        `📊 *Metrics:*\n• "weight 88kg"\n• "slept 7.5 hours"\n• "8000 steps"\n• "2000 calories"\n• "120g protein"\n• "2L water"\n• "recovery 4/5"\n• "today's metrics"\n\n` +
+        `📊 *Metrics:*\n• "weight 88kg"\n• "8000 steps"\n• "2000 calories"\n• "120g protein"\n• "recovery 4/5"\n• "today's metrics"\n\n` +
         `🍽️ *Food (auto nutrition):*\n• "200g chicken breast"\n• "drank 250ml milk"\n• "2 rotis with dal"\n\n` +
         `🏋️ *Workouts:*\n• "did 45 min strength training"\n• "30 min run"\n• "today's workout"\n• "finished my workout"\n• "skip today's workout"\n• "undo that workout"\n\n` +
         `🎓 *Coaching:*\n• "what should I do today"\n• "how was my week"\n• "why isn't my weight moving"`

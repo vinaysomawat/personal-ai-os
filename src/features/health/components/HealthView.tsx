@@ -165,7 +165,7 @@ export default function HealthView({ initialMetrics, initialProfile, initialWork
     setMetrics(prev => {
       const existing = prev.find(m => m.date === today)
       if (existing) return prev.map(m => m.date === today ? { ...m, [field]: value } : m)
-      return [{ id: `temp`, user_id: '', date: today, weight_kg: null, calories: null, protein_g: null, sleep_hours: null, steps: null, water_ml: null, recovery_score: null, notes: null, created_at: new Date().toISOString(), [field]: value }, ...prev]
+      return [{ id: `temp`, user_id: '', date: today, weight_kg: null, calories: null, protein_g: null, steps: null, recovery_score: null, notes: null, created_at: new Date().toISOString(), [field]: value }, ...prev]
     })
     upsertTodayMetric(field, value).finally(() => setSaving(null))
   }

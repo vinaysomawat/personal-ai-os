@@ -152,9 +152,9 @@ export async function getDashboardData() {
   // Health: workout logged today + metrics logged today
   const workoutScore = workoutsToday.length > 0 ? 60 : 0
   const metricsLogged = todayMetric ? Object.entries(todayMetric)
-    .filter(([k]) => ['weight_kg','calories','protein_g','sleep_hours','steps','water_ml'].includes(k))
+    .filter(([k]) => ['weight_kg','calories','protein_g','steps'].includes(k))
     .filter(([, v]) => v !== null).length : 0
-  const healthScore = Math.round(workoutScore + (metricsLogged / 6) * 40)
+  const healthScore = Math.round(workoutScore + (metricsLogged / 4) * 40)
 
   // Finance: under/over budget; no budget = neutral 50
   let financeScore = 50

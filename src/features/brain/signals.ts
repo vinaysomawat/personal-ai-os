@@ -48,15 +48,6 @@ async function detectProteinWeekendDrop(supabase: SupabaseClient, userId: string
   return null
 }
 
-// Adds a day to a plain "YYYY-MM-DD" calendar-date string — these columns
-// (health_metrics.date, coding_daily_questions.assigned_date) already
-// represent IST calendar days per this app's convention, so this is pure
-// calendar arithmetic, not a timezone conversion.
-function addDaysToDateStr(dateStr: string, days: number): string {
-  const [y, m, d] = dateStr.split('-').map(Number)
-  return new Date(Date.UTC(y, m - 1, d + days)).toISOString().split('T')[0]
-}
-
 // Phase 3 PRD's "Weekly Pattern Mining" — time-of-day skew in when coding
 // questions get solved (completed_at is a timestamptz, so this needs the
 // istMidnightUtc/toISTHour instant helpers rather than the plain date-string
@@ -76,36 +67,6 @@ async function detectCodingTimeOfDayPattern(supabase: SupabaseClient, userId: st
   const evening = total - morning
   if (morning / total >= 0.65) return `You solve more coding problems in the morning (${morning} of your last ${total} solves)`
   if (evening / total >= 0.65) return `You solve more coding problems in the evening (${evening} of your last ${total} solves)`
-  return null
-}
-
-// Correlates the previous night's sleep with whether that day's coding
-// question got solved — the causal direction the PRD's "sleep impacts
-// coding performance" example describes.
-async function detectSleepCodingPattern(supabase: SupabaseClient, userId: string): Promise<string | null> {
-  const since = daysAgoIST(30)
-  const [{ data: sleepRows }, { data: codingRows }] = await Promise.all([
-    supabase.from('health_metrics').select('date, sleep_hours').eq('user_id', userId).gte('date', since).not('sleep_hours', 'is', null),
-    supabase.from('coding_daily_questions').select('assigned_date, completed').eq('user_id', userId).gte('assigned_date', since),
-  ])
-  const codingByDate = new Map((codingRows ?? []).map(r => [r.assigned_date as string, r.completed as boolean]))
-
-  const solvedNightSleep: number[] = []
-  const missedNightSleep: number[] = []
-  for (const r of (sleepRows ?? []) as { date: string; sleep_hours: number }[]) {
-    const nextDay = addDaysToDateStr(r.date, 1)
-    const completed = codingByDate.get(nextDay)
-    if (completed === undefined) continue
-    (completed ? solvedNightSleep : missedNightSleep).push(Number(r.sleep_hours))
-  }
-  if (solvedNightSleep.length < 4 || missedNightSleep.length < 4) return null
-
-  const avg = (arr: number[]) => arr.reduce((s, n) => s + n, 0) / arr.length
-  const solvedAvg = avg(solvedNightSleep)
-  const missedAvg = avg(missedNightSleep)
-  if (solvedAvg - missedAvg >= 1) {
-    return `You solve more coding problems after a good night's sleep — avg ${solvedAvg.toFixed(1)}h before a solved day vs ${missedAvg.toFixed(1)}h before a missed one`
-  }
   return null
 }
 
@@ -142,7 +103,6 @@ export async function detectPatterns(supabase: SupabaseClient, userId: string): 
     detectWorkoutDayPattern(supabase, userId),
     detectProteinWeekendDrop(supabase, userId),
     detectCodingTimeOfDayPattern(supabase, userId),
-    detectSleepCodingPattern(supabase, userId),
     detectWorkoutCodingPattern(supabase, userId),
   ])
   const patterns = results.filter((p): p is string => p !== null)
