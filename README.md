@@ -236,7 +236,7 @@ Defined in `vercel.json`, all protected by `Authorization: Bearer $CRON_SECRET`,
 
 Every AI call in the app funnels through one function: `askAI(task, prompt, system?, opts?)` in `src/lib/ai-gateway.ts`. No feature module calls Anthropic directly (`src/lib/anthropic.ts`'s `callClaude()` is a low-level primitive only the gateway imports). This is Product Principle 3 made concrete.
 
-- **Model routing** — a fixed per-task table picks the model. Only `telegram_intent` and `doc_summary` route to Haiku (`claude-haiku-4-5`); every other task (`doc_qa`, `career_mentor`, `jd_analysis`, `generate_topic_quiz`, `recommend_quiz_topic`, `company_insights`, `finance_advisor`, `health_report`, `health_daily_plan`, `health_advisor`, `study_plan`, `resource_quiz`, `recommend_resources`, `coding_mentor`, `recommend_coding_questions`, `module_recommendations`, `daily_briefing`, `weekly_digest`, `monthly_digest`, `telegram_vision`, `brain_qa`, `brain_decision`, `brain_weekly_reflection`, `brain_monthly_review`, `daily_journal`, `finance_scenario`, `evening_reflection`, `estimate_food_nutrition`) routes to Sonnet (`claude-sonnet-4-6`).
+- **Model routing** — a fixed per-task table picks the model. Only `telegram_intent` and `doc_summary` route to Haiku (`claude-haiku-4-5`); every other task (`doc_qa`, `career_mentor`, `jd_analysis`, `generate_topic_quiz`, `recommend_quiz_topic`, `company_insights`, `finance_advisor`, `health_report`, `health_daily_plan`, `health_advisor`, `study_plan`, `resource_quiz`, `recommend_resources`, `coding_mentor`, `recommend_coding_questions`, `module_recommendations`, `daily_briefing`, `weekly_digest`, `monthly_digest`, `telegram_vision`, `brain_qa`, `brain_decision`, `brain_weekly_reflection`, `brain_monthly_review`, `daily_journal`, `finance_scenario`, `evening_reflection`, `estimate_food_nutrition`, `astrology_reading`) routes to Sonnet (`claude-sonnet-4-6`).
 - **Response caching** — `ai_cache` table, key = `sha256(model::system::prompt)`. A changed prompt (i.e. changed underlying data) naturally busts the cache. Per-task TTLs range from none (always fresh, e.g. Q&A/decision/scenario tasks whose prompt genuinely differs per call) up to 7 days (`doc_summary`, `company_insights`, `estimate_food_nutrition` — nutrition facts for the same item+quantity don't change, so a repeat like "200g chicken breast" is a cache hit); images are never cached. A cache hit skips the API call entirely and logs zero cost. Per CLAUDE.md's "minimize Anthropic API usage" guidance, every cron-generated narrative/digest task (`daily_briefing`, `weekly_digest`, `monthly_digest`, `daily_journal`) uses a 6h TTL rather than none — most have an on-demand Telegram duplicate (e.g. "how am I doing" re-running `daily_briefing` the same morning the cron already sent it) that would otherwise re-spend an API call for byte-identical output.
 - **Budget enforcement** — `ai_usage_logs` logs every call (task, model, tokens, `estimated_cost_usd`, cache-hit flag). Before calling the model, the gateway sums today's and this month's spend; if either meets `AI_DAILY_BUDGET_USD` (default $3) or `AI_MONTHLY_BUDGET_USD` (default $50), it skips the API call and returns that task's configured fallback string instead — most tasks fall back to an empty string or `'[]'`/`'{"action":"help"}'` for silent degradation, while a few user-facing Q&A tasks (`doc_qa`, `career_mentor`, `finance_advisor`, `health_report`) return an explicit "I'm over my AI budget for today" message. No page or cron job can break from this.
 - **Rule-engine-first**: score math, sorting, chart data, the coding rotation, the daily-read pick (curated-pool tier of it, at least — the AI-fallback tier does call `askAI`), the recurring-expense post, and the revision auto-re-add rule are all deterministic wherever possible, per Product Principle 2.
@@ -247,6 +247,85 @@ Every AI call in the app funnels through one function: `askAI(task, prompt, syst
 - **Pattern Detection** (`signals.ts`) — deterministic-only checks (Product Principle 2; AI is never used to compute a pattern, only to narrate one elsewhere) run weekly from the `weekly-digest` cron, four so far (Phase 3 PRD's "Weekly Pattern Mining"): workout day-of-week concentration (≥40% of last 90 days' workouts on one weekday, min. 3); a weekend protein drop (weekend avg <75% of weekday avg, needs ≥4 weekday + ≥2 weekend logged days); coding time-of-day skew (≥65% of the last 60 days' solves in one half of the day, min. 6, using `toISTHour` on `coding_daily_questions.completed_at`); and a workout→same-day-coding correlation (coding completion rate on workout days is ≥20 points higher than on rest days, min. 4 days each side). (A fifth pattern, sleep→next-day-coding correlation, was removed 2026-08-13 along with the rest of Sleep tracking — see §5.) Three more of the PRDs' example patterns (overspend-after-salary, interview-performance-vs-sleep, workout-drop-during-travel) are explicitly left out because they need data no integration currently provides (a real salary-*credit* event, interview outcomes, travel/calendar detection — Calendar/Gmail/GitHub integrations aren't planned, see `PRDs/phase3.md`'s git history for why). Matches persist to `brain_patterns` (see Database) via `upsert(onConflict: user_id,pattern)`, incrementing `times_confirmed`/`last_seen` on repeat detection so patterns genuinely accumulate rather than reset each run. `context-builder.ts`'s `weeklyPatterns` only surfaces patterns confirmed more than once (`times_confirmed > 1`) and seen in the last 30 days, so a one-off fluke isn't presented as an established pattern. `monthlyPatterns` stays an empty placeholder — no monthly-cadence pattern job exists yet.
 - **Memory** — rather than a new store (Core Principle 1: the Brain never owns data), `career_profile`'s existing `current_role`/`current_company`/`target_role`/`current_salary` columns are read straight through into the context (the `career_profile` query in `getDashboardData()` was widened to select these, no new query). **Memory Evolution** (Phase 3 PRD) widened this further with Goals: `getDashboardData()` now also queries `financial_goals` (name, target/current amount, target date), threaded through as `BrainContext.finance.goals` and surfaced in Ask Brain's Ask/Decide context and Monthly Executive Review's — e.g. asking "what are my financial goals" correctly cites the real ₹ amounts and % progress, never invented ones. **Executive Memory** (Phase 4 PRD) added one more field the same way rather than inventing new speculative ones (investment philosophy, personality traits, etc. — none of the PRD's other example fields have a natural home or any feature that would actually consume them, so they were deliberately skipped): `career_profile`'s existing "Bio / Focus" free-text field (already editable on the Career page, previously never read by the Brain) is now included in `BrainContext.career.bio` and surfaced in `buildContextSummary` — e.g. asking "what's my career focus" now correctly reflects whatever the user actually wrote there.
 - **Goal Engine — removed entirely (2026-08-11).** Originally a Phase 4 PRD feature: cross-module goals for Career/Learning/Coding (`src/features/goals/`, a *separate* `goals` table from `financial_goals`, which kept its own UI throughout). Its UI (`GoalsCard.tsx` and the write actions `addGoal`/`updateGoalProgress`/`toggleGoalAchieved`/`deleteGoal`) was deleted 2026-08-10, leaving only read paths (`getGoals()`, `resolveAutoMetric()`, `checkGoalProgress()`, `crossModuleGoals` threading into Ask Brain) with no way to ever create a new goal — a personal-backlog audit flagged this as "silently half-alive" (no usable feature, just dead weight in every page load that touched it), and the decision was to rip out the remaining code rather than resurrect a minimal add-goal UI. Removed: the whole `src/features/goals/` directory, `checkGoalProgress`'s Today's Focus signal, `crossModuleGoals` from `BrainContext`/`getDashboardData()`/`buildContextSummary`, and the `goalsContext` parameter (and its prompt text) from `recommendQuizTopic`/`recommendCodingQuestions`. The `goals` table itself was left in place, unused, rather than migrated away — same as this app's other deliberately-orphaned schema (SIP columns, `health_profile`'s `target_weight_kg`/`goal_deadline`) — see Database below.
+
+## 13. Astrology (`/astrology`) — added 2026-08-13
+
+A Vedic (sidereal) horoscope module — the one module whose core output is real astronomical
+calculation, never AI. Per Product Principle 2, Claude only narrates already-computed
+positions; it never generates a chart itself (an AI asked to "produce a horoscope" from
+scratch would hallucinate planetary positions, unacceptable for something presented as a real
+chart). Origin doc: `astrology.md` at the repo root — this section is the current source of
+truth for what's actually built. Built in two passes the same day: an initial MVP (natal
+chart, Vimshottari Dasha, daily reading), then expanded to match a fuller Claude Design mock
+the user built afterward, which added Yogini Dasha, monthly/yearly readings, and Remediation —
+only the Telegram bot (`astrology-daily` cron) remains deliberately unbuilt, per `astrology.md`'s
+Phase 8.
+
+- **Ephemeris** (`src/features/astrology/ephemeris.ts`) — `swisseph-wasm`, a WebAssembly build
+  of the real Swiss Ephemeris C library. Chosen over native `swisseph` bindings specifically to
+  avoid Vercel serverless native-binding deploy risk (this project has never shipped a native
+  dependency); chosen over a pure-JS Meeus/VSOP87 approach (`astronomia`) for genuine
+  professional-grade precision. Sidereal correction uses Swiss Ephemeris's built-in Lahiri
+  ayanamsa mode (`set_sid_mode(SE_SIDM_LAHIRI, 0, 0)` + `SEFLG_SIDEREAL`), not a manual
+  ayanamsa subtraction — validated at implementation time by reproducing the widely-published
+  Lahiri ayanamsa value at J2000.0 (2000-01-01 12:00 UT ≈ 23.85°; this pipeline returns
+  23.8571°). `next.config.ts` has two entries just for this dependency: `outputFileTracingIncludes`
+  explicitly bundles `node_modules/swisseph-wasm/wasm/**` into the `/astrology` serverless
+  function (the package loads its `.wasm`/`.data` files via a runtime filesystem path Vercel's
+  file-tracer can't discover through static analysis alone), and `serverExternalPackages:
+  ['swisseph-wasm']` keeps the package out of webpack's bundling entirely (webpack was breaking
+  the package's `await import('node:module')` call for `createRequire`, throwing
+  "createRequire is not a function" — reproduced locally, fixed by this config, both real bugs
+  caught during implementation, not anticipated by the original doc).
+- **Chart calculation** (`src/features/astrology/chart-calculations.ts`, pure functions, no AI,
+  same pattern as Health's `calculations.ts`) — rashi (sign) + nakshatra + pada from sidereal
+  longitude, whole-sign house placement from the Lagna, and two dasha timelines, both computed
+  once at profile save via `upsertAstrologyProfile()` and stored in `natal_chart` jsonb (never
+  recomputed on read, so they can't silently drift):
+  - **Vimshottari Dasha** — the primary/default system, a 120-year cycle across the 9 classical
+    grahas (Sun/Moon/Mars/Mercury/Jupiter/Venus/Saturn/Rahu/Ketu, not the outer planets Western
+    astrology adds), keyed off the Moon's birth nakshatra, both Mahadasha and nested Antardasha
+    periods.
+  - **Yogini Dasha** — a secondary, shorter 36-year cycle across 8 Yoginis, also keyed off the
+    Moon's birth nakshatra but with its own lord order/year-lengths and starting-point formula
+    (`(nakshatraNumber × 2 + 3) mod 8`, from Uttara Kalamrita). Single-level only, no antardasha
+    subdivision. Unlike Vimshottari's ayanamsa (independently verified against a published
+    constant), this specific formula hasn't been cross-checked against a reference chart —
+    flagged in code as worth spot-checking before relying on it.
+- **Natal chart display** — a North Indian style kundli (`KundliChart.tsx`, SVG): fixed house
+  positions (house 1 always the top-center diamond, numbered counter-clockwise), planets
+  placed by house with standard 2-letter abbreviations, rashi number shown per house. The
+  design mock's own natal-chart card used a simplified 3×12 grid with a footnote explicitly
+  saying "production renders a true North Indian diamond kundli" — this SVG is that production
+  version, so it was kept as-is rather than downgraded to match the grid literally.
+- **Current Dasha strip** — accent-tinted banner showing the active Vimshottari
+  Mahadasha/Antardasha + until-date (`getCurrentDasha()`, looked up against today's date, not
+  recomputed) with the active Yogini period as a secondary line, right-aligned
+  (`getCurrentYogini()`).
+- **Horoscope** — a Today/This Month/This Year tab switcher (`getAstrologyReading(profile,
+  period)`, the `astrology_reading` AI task, §12), each period cached independently client-side
+  once fetched. All three periods read the same current-transit snapshot (this module doesn't
+  compute a forward window of planetary movement) — only the prompt's framing changes, the same
+  way a monthly financial digest still runs off today's numbers rather than projecting the
+  month. The AI prompt contains only computed positions/dasha state, never raw birth data.
+- **Remediation** — up to 3 traditional remedies for the chart's Saturn/Rahu/Ketu/Mars/Moon
+  placements, sourced from a curated per-planet template table
+  (`src/features/astrology/remedies.ts`) parameterized with each planet's actual house number.
+  Deliberately **not** an AI Gateway call at all — narration is template text substitution, not
+  free-form generation, per `astrology.md`'s explicit anti-hallucination requirement for this
+  feature ("not left to the model to invent").
+- **Birth Details card** — compact inline-editable field grid matching Career Profile's density
+  (not a standalone form card), since birth details are effectively write-once. Unlike Career's
+  per-field independent saves, every field here saves together in one submit — the natal chart
+  is a function of all of them at once, so editing just one in isolation would leave the stored
+  chart inconsistent with the rest.
+- **Data**: `astrology_profile` table (§ Database below), one row per user, same
+  single-row-upsert pattern as `health_profile`/`career_profile`.
+- **Nav**: lives in the profile dropdown (`ProfileMenu.tsx`, above Settings) rather than a top-
+  level nav pill — a deliberate design decision (different category — mystical/lifestyle — from
+  the productivity modules the top row is for), not the initial placement (which was a peer nav
+  pill, moved after review).
+- **Not built** (see `astrology.md`'s Phase 8): the Telegram bot / `astrology-daily` cron.
 
 ---
 
@@ -285,7 +364,7 @@ Every AI call in the app funnels through one function: `askAI(task, prompt, syst
 
 **AI advisor header architecture** — every module's whole-page AI advisor (Plan Coach, Career Mentor, Money Advisor, Health Coach, Study Coach, Code Mentor) lives in the top nav bar, not inline in page content. `TopNav.tsx` is a separate component from each page's `*View.tsx` in the layout tree and can't read a page's local state directly, so `AIAdvisorProvider` (wrapping the whole app in root `layout.tsx`) provides a shared registration slot: each View calls `useAIAdvisor(label, icon, content)` once, which registers the trigger's label/icon and portals `content` (real JSX from that View's own render, with full access to its local state) directly into the panel body DOM node via `createPortal` — content never round-trips through Context state, so typing/interacting inside the panel only re-renders the View itself, not the Provider (an earlier version that lifted content into Context state caused an infinite re-render loop; portaling was the fix). `TopNav.tsx` reads the currently-registered trigger via `useAIAdvisorTrigger()` and renders nothing on routes with no registered advisor (Settings). Not every AI feature moved here — only whole-page advisors did; per-item contextual AI (Career's bulk "AI Generate" interview questions, Learning's per-resource "Quiz me") stays inline, tied to whichever item is selected. Planner's **Executive Summary** trigger is a deliberate exception to this shared-slot pattern — see §2 below. Every advisor open (`AIAdvisorProvider`'s shared `toggle`) and every tab switch within a multi-tab advisor (Money Advisor, Health Coach, Study Coach, Ask Brain — each own their own local tab state, so each logs from its own tab-click handler) fires `logAdvisorUsage()` into `advisor_usage_log` (see Database) — Executive Summary logs from its own separate trigger too, despite bypassing the shared provider otherwise.
 
-**Navigation structure** — a single `TopNav` component (not a desktop `Sidebar` + separate mobile `BottomNav` — an earlier PRD-v2 design called for pillar-grouped Learn/Build/Perform/Recover navigation in a collapsible sidebar, but the shipped nav is flat, ungrouped, and the same component handles both viewports). Desktop (`md:` and up) shows a flat row of 7 text-only nav pills (Dashboard, Planner, Career, Finance, Health, Learning, Coding — Settings lives in `ProfileMenu` instead, not top-level nav). Below `md:`, the same component instead renders a fixed bottom bar with 4 usage-frequency-based primary tabs (Home, Planner, Health, Finance) plus a "More" sheet for everything else (Career, Learning, Coding, Settings). See "Navigation — TopNav" below for full detail.
+**Navigation structure** — a single `TopNav` component (not a desktop `Sidebar` + separate mobile `BottomNav` — an earlier PRD-v2 design called for pillar-grouped Learn/Build/Perform/Recover navigation in a collapsible sidebar, but the shipped nav is flat, ungrouped, and the same component handles both viewports). Desktop (`md:` and up) shows a flat row of 7 text-only nav pills (Dashboard, Planner, Career, Finance, Health, Learning, Coding — Settings and Astrology both live in `ProfileMenu` instead, not top-level nav). Below `md:`, the same component instead renders a fixed bottom bar with 4 usage-frequency-based primary tabs (Home, Planner, Health, Finance) plus a "More" sheet for everything else (Career, Learning, Coding, Astrology, Settings — Astrology appears in both the mobile "More" sheet and the profile dropdown, same redundancy Settings already had). See "Navigation — TopNav" below for full detail.
 
 ## Database
 
@@ -338,6 +417,7 @@ Standard pattern: `user_id uuid references auth.users` + 4 RLS policies (select/
 | `ai_usage_logs` | task, model, input_tokens, output_tokens, estimated_cost_usd, cache_hit, created_at — select/insert-own only, no update/delete policies |
 | `advisor_usage_log` | advisor, tab (nullable), created_at — lightweight fire-and-forget telemetry (`logAdvisorUsage()`, `src/lib/advisor-usage.ts`) logging which AI advisor panel/tab actually gets opened; no scoring, no UI to view it (manual SQL-editor query after a couple weeks decides which advisors are worth keeping) |
 | `cron_runs` | job, ok, detail, created_at — **no `user_id`**, global/system table; proof-of-execution log written by every cron route right after its `CRON_SECRET` check, read by `cron-health-check` (§11); select policy is role-scoped (`authenticated`), writes are service-role only |
+| `astrology_profile` | birth_date, birth_time, birth_place_name, birth_lat, birth_lng, birth_timezone, natal_chart (jsonb — full computed chart, see §13) (one row/user) |
 
 **Dropped tables** (existed at some point, since removed — mentioned here so their absence isn't mistaken for an oversight): `habits`, `habit_logs` (habit tracker retired), `projects` (manual project tracker retired in favor of GitHub-activity scoring), `focus_sessions` (deep-work tracking, removed days after being added).
 
@@ -531,3 +611,19 @@ Single column, all full-width cards stacked (`space-y-5`), no side-by-side secti
 1. **Account** — one row: signed-in email on the left, "Export as JSON" + "Sign out" (both bordered text buttons) grouped on the right
 2. **AI Budget** + **System Health** side by side (`lg:grid-cols-2`) — AI Budget shows Today/This Month as progress bars (3-tier color: accent → warn past 70% → risk past 90%) plus a top-5 spend-by-feature breakdown; System Health has a header status badge ("All healthy" / "N stale") and lists all 12 cron jobs, sorted stale-first, each with a colored status dot (good/healthy, risk/stale, gray/never-run) and a relative last-run time (bold + risk-colored when stale)
 3. **Reminders** — a list of label + module + morning/evening, plain 🔔/🔕 emoji toggle (reflects active/inactive, not time-of-day), always-visible "✕" delete; "New Reminder" modal (label input, module select, two Morning/Evening toggle buttons) to add one
+
+### Astrology (`/astrology`)
+Reached via the profile dropdown (not a top-level nav pill), plus the mobile "More" sheet.
+1. **Birth Details** card — compact inline-editable field grid (Career Profile's density, not a
+   standalone form), a pencil icon opens all fields together for editing (interdependent — the
+   chart is a function of all of them at once, unlike Career's independent per-field saves);
+   defaults to edit mode when no profile exists yet
+2. **Current Dasha** strip (accent-tinted banner) — active Vimshottari Mahadasha/Antardasha +
+   until-date, with the active Yogini period as a secondary line, right-aligned
+3. **Natal Chart** + **Horoscope**/**Remediation** side by side (`lg:grid-cols-[minmax(280px,380px)_1fr]`)
+   — the chart is a North Indian style SVG kundli (fixed house positions, planets by house,
+   birth-details caption above, Lagna + Moon Nakshatra/Pada caption below); Horoscope is a
+   Today/This Month/This Year tab switcher, each period fetched independently on first view and
+   cached client-side after; Remediation lists up to 3 curated, deterministically-templated
+   remedies (not AI-generated) for the chart's Saturn/Rahu/Ketu/Mars/Moon placements, with a
+   "traditional guidance, not medical or financial advice" disclaimer

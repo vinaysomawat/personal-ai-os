@@ -14,6 +14,9 @@ import pkg from '../../package.json'
 
 // Desktop top nav — 7 items; Settings lives in the profile dropdown instead
 // (matching the design source, which dropped it from the top-level nav list).
+// Astrology also lives in the profile dropdown (2026-08-13 design decision)
+// rather than as a peer module pill — it's a different category
+// (mystical/lifestyle) from the productivity modules the top row is for.
 const MODULES = [
   { label: 'Dashboard', to: '/dashboard', icon: LayoutDashboard },
   { label: 'Planner', to: '/planner', icon: CalendarDays },
@@ -37,6 +40,7 @@ const MOBILE_MORE = [
   { label: 'Career', to: '/career', icon: '💼' },
   { label: 'Learning', to: '/learning', icon: '📚' },
   { label: 'Coding', to: '/coding', icon: '💻' },
+  { label: 'Astrology', to: '/astrology', icon: '🔮' },
   { label: 'Settings', to: '/settings', icon: '⚙' },
 ]
 

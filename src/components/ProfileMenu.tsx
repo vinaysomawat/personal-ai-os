@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { signout } from '@/app/login/actions'
-import { Settings, LogOut } from 'lucide-react'
+import { Settings, LogOut, Orbit } from 'lucide-react'
 
 export default function ProfileMenu() {
   const [email, setEmail] = useState<string | null>(null)
@@ -33,6 +33,13 @@ export default function ProfileMenu() {
           <div className="fixed inset-0 z-20" onClick={() => setOpen(false)} />
           <div className="absolute top-11 right-0 z-30 w-[200px] bg-surface-1 border border-surface-3 rounded-xl shadow-popover p-2">
             <p className="px-2.5 py-2 text-[12.5px] text-fg-secondary border-b border-surface-3 mb-1.5 truncate">{email}</p>
+            <Link
+              href="/astrology"
+              onClick={() => setOpen(false)}
+              className="flex items-center gap-2 px-2.5 py-[9px] rounded-[7px] text-[13px] text-fg-secondary hover:bg-surface-2 hover:text-fg-primary transition-colors"
+            >
+              <Orbit size={14} /> Astrology
+            </Link>
             <Link
               href="/settings"
               onClick={() => setOpen(false)}
