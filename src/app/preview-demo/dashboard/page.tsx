@@ -26,7 +26,7 @@ const dummyData = {
   gamification: { xp: 2400, level: 4, xpProgress: 62, streak: 12, badges: ['🌱 First Step', '📅 Week Warrior', '🔥 7-Day Streak'] },
   scores: { health: 72, finance: 68, career: 64, learning: 58, projects: 76, life: 68 },
   scoreTips: {
-    health: 'Log today\'s water intake for a full score',
+    health: 'Log today\'s steps for a full score',
     finance: 'Under budget — nothing to do here',
     career: 'Add a few more skills to the tracker',
     learning: 'Finish an in-progress resource for the biggest jump',

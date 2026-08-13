@@ -192,11 +192,11 @@ export async function getDashboardData() {
   // Deterministic, no AI call — each tip names the single highest-point-value
   // gap for that module, picked the same way computeTopActions ranks by score.
   const healthDeficit = workoutScore === 0 ? 60 : 0
-  const metricsDeficit = 40 - (metricsLogged / 6) * 40
+  const metricsDeficit = 40 - (metricsLogged / 4) * 40
   const healthTip = healthDeficit > 0 && healthDeficit >= metricsDeficit
     ? 'No workout logged today — worth 60% of this score'
     : metricsDeficit > 0
-      ? `Log ${6 - metricsLogged} more metric${6 - metricsLogged > 1 ? 's' : ''} today (weight, calories, protein, sleep, steps, water)`
+      ? `Log ${4 - metricsLogged} more metric${4 - metricsLogged > 1 ? 's' : ''} today (weight, calories, protein, steps)`
       : 'Fully logged today — keep it up'
 
   const financeTip = monthBudget === 0
