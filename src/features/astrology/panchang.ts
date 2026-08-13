@@ -1,4 +1,4 @@
-import type { Nakshatra } from './types'
+import type { ChoghadiyaBlock, Nakshatra } from './types'
 import { getNakshatra } from './chart-calculations'
 
 // Deterministic Hindu daily calendar — tithi/yoga/karana all derive from
@@ -101,6 +101,51 @@ export function getMuhurtaWindows(weekday: number, sunriseMinutes: number, sunse
     yamaganda: segmentWindow(sunriseMinutes, daylen, YAMAGANDA_SEGMENT[weekday]),
     gulikaKalam: segmentWindow(sunriseMinutes, daylen, GULIKA_KALAM_SEGMENT[weekday]),
   }
+}
+
+// Choghadiya (astrology.md 3.9) — day (sunrise-sunset) and night
+// (sunset-next sunrise) each split into 8 equal blocks, labeled from a
+// fixed 7-name cycle that wraps (8 mod 7 = 1, so a day's 8th block repeats
+// its 1st block's name). Day and night use DIFFERENT cycles/weekday-start
+// tables — this isn't one continuous rotation across day into night, it's
+// two independently-published traditional sequences. Caveat (same honesty
+// bar as Yogini Dasha's starting-lord formula in chart-calculations.ts):
+// this table is reconstructed from commonly-published panchang references,
+// not independently verified against a live external tool in this
+// environment — worth spot-checking against a printed panchang before
+// relying on it for real scheduling decisions.
+const CHOGHADIYA_TYPE: Record<string, 'good' | 'neutral' | 'bad'> = {
+  Amrit: 'good', Shubh: 'good', Labh: 'good',
+  Chal: 'neutral',
+  Rog: 'bad', Kaal: 'bad', Udveg: 'bad',
+}
+
+const DAY_CYCLE = ['Udveg', 'Chal', 'Labh', 'Amrit', 'Kaal', 'Shubh', 'Rog']
+const DAY_START_INDEX = [0, 3, 6, 2, 5, 1, 4] // Sun..Sat, e.g. Sunday's first day-block is Udveg
+
+const NIGHT_CYCLE = ['Shubh', 'Amrit', 'Chal', 'Rog', 'Kaal', 'Labh', 'Udveg']
+const NIGHT_START_INDEX = [0, 2, 4, 6, 1, 3, 5] // Sun..Sat, e.g. Sunday's first night-block is Shubh
+
+function buildChoghadiyaBlocks(cycle: string[], startIndex: number, spanStartMinutes: number, spanLengthMinutes: number, period: 'day' | 'night'): ChoghadiyaBlock[] {
+  const blockLen = spanLengthMinutes / 8
+  return Array.from({ length: 8 }, (_, i) => {
+    const name = cycle[(startIndex + i) % 7]
+    const start = spanStartMinutes + i * blockLen
+    return { name, type: CHOGHADIYA_TYPE[name], period, start: minutesToHHMM(start), end: minutesToHHMM(start + blockLen) }
+  })
+}
+
+// `weekday` (0=Sun..6=Sat) is the calendar day the sunrise falls on — it
+// governs both the day and night sequence, standard convention.
+// `nightLengthMinutes` is sunset-to-*next*-sunrise, not assumed equal to
+// the day's own length (they differ by more than a few minutes for much of
+// the year away from the equinoxes).
+export function getChoghadiya(weekday: number, sunriseMinutes: number, sunsetMinutes: number, nightLengthMinutes: number): ChoghadiyaBlock[] {
+  const dayLen = sunsetMinutes - sunriseMinutes
+  return [
+    ...buildChoghadiyaBlocks(DAY_CYCLE, DAY_START_INDEX[weekday], sunriseMinutes, dayLen, 'day'),
+    ...buildChoghadiyaBlocks(NIGHT_CYCLE, NIGHT_START_INDEX[weekday], sunsetMinutes, nightLengthMinutes, 'night'),
+  ]
 }
 
 function normalizeDegrees(deg: number): number {

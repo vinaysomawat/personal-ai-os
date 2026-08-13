@@ -87,6 +87,11 @@ conditions affect it).
   compute house-from-Moon and house-from-Lagna relative to the natal chart. A simple first
   pass surfaces all current transits with house placement; Ashtakavarga-based transit
   significance scoring is a reasonable **later** addition, not required here.
+- **Moon transit specifically** gets one dedicated deterministic flag: `isChandrashtama` —
+  true when the transiting Moon sits in the 8th house from the natal Moon, a well-defined
+  traditional rule-of-thumb marking an emotionally lower/more cautious day. This, plus the
+  transiting Moon's current house-from-natal-Moon generally, is the concrete astronomical
+  basis the mood forecast (§3.7) is built from — not an AI guess.
 - Feeds directly into `astrology_reading`'s existing prompt context alongside the active
   dasha period — no new AI task, just richer context into the one that already exists.
 
@@ -151,19 +156,124 @@ assumed here.
 
 ---
 
+### 3.7 Mood forecast (astrology-derived, not self-reported)
+
+Not a check-in — you don't log anything here. This answers "how will my mood tend to run
+today" purely from the day's computed astrological context, the same way the daily reading
+answers "what's favorable/what to avoid."
+
+- No new table, no new AI task. `moodForecast` becomes one more field in the existing
+  structured daily reading output (see §3.9's `{summary, favorableFor, avoid, remediation}` —
+  add `moodForecast: string` there), generated from the same call, same cache window.
+- **Deterministic basis**: the transiting Moon's house-from-natal-Moon and the
+  `isChandrashtama` flag (§3.2) are the concrete traditional inputs — the Moon governs mind/
+  mood in Vedic astrology, so its current transit relative to your natal Moon is the real
+  astronomical anchor for this, not an AI invention. The active dasha period and today's tithi
+  (from Panchang) add secondary context.
+- **Framing**: presented explicitly as traditional astrological interpretation/reflection, not
+  a clinical or diagnostic claim about your actual emotional state — keep the tone
+  constructive and even-handed (e.g. "a good day to slow down and avoid snap decisions" rather
+  than alarmist predictions). This should never read as the app asserting something about how
+  you *actually* feel — it's a traditional-practice forecast you can take or leave, same
+  spirit as the remediation content's framing.
+
+### 3.8 Characteristics / personality profile
+
+A one-time narrative describing your characteristics/tendencies as read from the natal chart —
+Lagna (ascendant) qualities, Moon sign (mind/emotional nature), strong and weak planetary
+placements, nakshatra qualities. This is a stable read (doesn't change day to day, unlike the
+daily/monthly/yearly readings), so it's built and cached differently from those.
+
+- New AI Gateway task `astrology_characteristics` (Sonnet), fed the natal chart, Navamsa (once
+  built), and planetary strength/dignity data — narrates traits/tendencies, strengths, and
+  areas of caution in plain language, grounded only in the computed chart data (same
+  anti-hallucination stance as every other narrative task in the app).
+- **Caching**: this only needs to regenerate when the natal chart itself changes (i.e. birth
+  details are edited) — there's no calendar-boundary expiry the way daily/monthly/yearly
+  readings have. Effectively long-lived by default since the prompt only changes when its
+  input (the chart) changes; no special TTL logic needed beyond the existing
+  `sha256(model::system::prompt)` cache key naturally producing a fresh entry only when the
+  chart data in the prompt actually differs.
+- Displayed as a "Your Characteristics" card, separate from the daily/monthly/yearly reading
+  tabs — this is who-you-are context, not a forecast.
+
+### 3.9 Daily productivity layer
+
+The concrete productivity-boosting piece: today's astrological context turned into an
+actionable checklist rather than only prose to read.
+
+- **Structured daily reading output** — change `astrology_reading`'s response shape for the
+  `daily` period from one prose block into strict JSON: `{summary, favorableFor: string[],
+  avoid: string[], remediation: string[], moodForecast: string}` (moodForecast per §3.7),
+  parsed with the same regex-extract + try/catch fallback pattern `brain_decision`/
+  `recommendations.ts` already use elsewhere, defaulting to a plain summary-only card on any
+  parse failure rather than erroring. `favorableFor`/`avoid` are short actionable phrases
+  (e.g. "good day for financial decisions," "avoid signing new agreements") grounded in the
+  day's dasha + gochara + panchang context — monthly/yearly periods can stay prose-only, since
+  "avoid X today" doesn't translate to a month/year scale the same way (mood forecast is also
+  daily-only for the same reason — a "mood for the month" isn't a meaningful traditional
+  reading the way a day's Moon transit is).
+- **Choghadiya** (auspicious/inauspicious time-blocks within the day, a standard practical
+  layer many Vedic-astrology-aware people already use for scheduling) — extend the Panchang
+  engine (3.1) with a `choghadiya` jsonb column on `panchang_daily`: the day split into 8
+  labeled blocks (e.g. Amrit/Shubh/Labh as favorable, Rog/Kaal as unfavorable), computed
+  deterministically from sunrise/sunset, no new AI call. Surfaced as a small time-block strip
+  on the Astrology page and optionally in the Telegram daily push — this is the single most
+  directly "productivity" piece of the whole module, since it's the part that could actually
+  inform when you schedule something today.
+- **Optional Dashboard signal**: once the structured `avoid[]` list exists, a strongly-flagged
+  item (e.g. "avoid major decisions today" type content) can feed into Needs Attention via the
+  existing shared `src/lib/signals.ts` `rankSignals()` layer (already noted as optional in
+  §3.4) — this is what actually closes the loop from "have to remember to check the Astrology
+  page" to "shows up where I already look every morning."
+
 ## Full data model
 
 | Table | Key columns |
 |---|---|
 | `astrology_profile` | one row/user — `birth_date`, `birth_time`, `birth_place_name`, `birth_lat`, `birth_lng`, `birth_timezone`, `natal_chart` (jsonb: D1 positions/houses/nakshatras, Vimshottari timeline, Yogini timeline once built, Navamsa chart once built) |
-| `panchang_daily` | date, tithi, nakshatra, yoga, karana, sunrise, sunset, rahu_kalam_start/end, yamaganda_start/end, gulika_kalam_start/end — global, no `user_id` |
+| `panchang_daily` | date, tithi, nakshatra, yoga, karana, sunrise, sunset, rahu_kalam_start/end, yamaganda_start/end, gulika_kalam_start/end, choghadiya (jsonb — 8 labeled time-blocks) — global, no `user_id` |
 
 ## AI Gateway
 
-One task throughout: `astrology_reading` (Sonnet). Takes period + language + already-computed
-context (dasha state, gochara transits, navamsa placements as they come online) — never
-computes positions itself. Cached per period + language, TTL scoped to the period (daily
-until end of day, monthly until end of month, yearly until end of year).
+Two tasks: `astrology_reading` (Sonnet, period+language-scoped, see cache strategy below) and
+`astrology_characteristics` (Sonnet, one-time/long-lived — see §3.8). Both take
+already-computed context (dasha state, gochara transits, navamsa placements, chart data) —
+neither ever computes positions itself.
+
+### Reading cache strategy (explicit per-period TTL)
+
+Each period caches until its underlying context actually goes stale, not on a flat timer —
+same principle CLAUDE.md's "minimize Anthropic API usage" guidance already applies to
+`daily_briefing`/`weekly_digest`/`monthly_digest` (a 6h TTL rather than none, because a
+same-day on-demand duplicate shouldn't re-spend an API call for byte-identical output). Here
+the natural staleness boundary is the calendar period itself, so expiry is set to the period's
+actual end rather than a fixed duration:
+
+- **Daily** (`period: 'daily'`): `expires_at` = next midnight IST. A repeat request for
+  "today's reading" — whether from the web page, a page refresh, or the Telegram bot's
+  "today's reading" command — hits the cache and costs nothing, all day, until the transit
+  context actually changes at the next day boundary.
+- **Monthly** (`period: 'monthly'`): `expires_at` = midnight IST on the 1st of next month.
+  One AI call covers the whole month's worth of repeat views/bot requests.
+- **Yearly** (`period: 'yearly'`): `expires_at` = midnight IST on next Jan 1. One AI call
+  covers the whole year.
+
+Mechanically this reuses the existing `ai_cache` table and its `sha256(model::system::prompt)`
+key exactly as-is — no schema change needed. Two things naturally keep the cache correct
+without extra logic:
+- The prompt itself changes when the underlying gochara/dasha context changes (e.g. a dasha
+  transition mid-month), so even within a still-valid TTL window, a genuinely different
+  prompt produces a different cache key and a fresh call — the calendar-boundary expiry is a
+  ceiling, not a guarantee against earlier legitimate change.
+- Language (§3.6) and period are both part of the prompt, so daily/monthly/yearly and
+  English/Hindi all cache independently of each other, with no cross-contamination.
+
+Set each `askAI()` call's `cacheTTLSeconds` dynamically per period (computed as "seconds until
+the next calendar boundary" at call time) rather than a hardcoded constant like `SIX_HOURS` —
+this is the one AI Gateway task in the app where the correct TTL genuinely varies per call
+rather than being fixed per task, so this is a distinct pattern worth calling out; don't
+copy-paste a fixed-TTL constant here as an approximation.
 
 Remediation content is grounded in a curated deterministic reference table (traditional
 remedial measures keyed by planetary affliction pattern), not left to the model to invent —
@@ -177,12 +287,14 @@ without clearly caveating that these are traditional practices.
 
 1. Birth details form (one-time / editable) → triggers chart (re)calculation
 2. Rashi (D1) / Navamsa (D9) chart card, North Indian style, tab/toggle between the two
-3. Current Dasha strip — Vimshottari primary, Yogini secondary
-4. Today's Panchang card
-5. Daily / Monthly / Yearly reading tabs (reusing the existing pill-tab pattern from Money
-   Advisor/Health Coach)
-6. Remediation card
-7. EN/हिं language toggle
+3. **Your Characteristics** card — one-time narrative from `astrology_characteristics`
+4. Current Dasha strip — Vimshottari primary, Yogini secondary
+5. Today's Panchang card, including the Choghadiya time-block strip
+6. Daily / Monthly / Yearly reading tabs (reusing the existing pill-tab pattern from Money
+   Advisor/Health Coach) — Daily shows the structured Favorable-for / Avoid / Mood Forecast /
+   Remediation breakdown; Monthly/Yearly stay prose
+7. Remediation card
+8. EN/हिं language toggle
 
 Nav: ungrouped item (same tier as Finance), not folded into the Learn/Build/Perform/Recover
 pillars.
@@ -198,6 +310,13 @@ pillars.
 7. Telegram bot (3.5)
 8. Hindi language toggle (3.6) — can be built in parallel with any of 3–7 once the base page
    exists, since it has no dependency on Panchang/Gochara/Navamsa
+9. Characteristics/personality profile (3.8) — depends only on the natal chart (Part 1),
+    could actually be built earlier in the sequence if you want it sooner; placed last here
+    only because it was the most recently scoped, not because it's blocked on anything above
+10. Daily productivity layer — structured reading output (incl. mood forecast, §3.7) +
+    Choghadiya (3.9) — Choghadiya depends on the Panchang engine (3.1) existing; the
+    structured output change (including mood forecast) is a small modification to the
+    existing `astrology_reading` task and has no other dependency
 
 ## Acceptance criteria
 
@@ -214,6 +333,13 @@ pillars.
 - [ ] Navamsa mapping validated against a known reference chart's D9 positions
 - [ ] Dashboard card adds no new query — reuses already-computed dasha/panchang data
 - [ ] Telegram daily push idempotent per day, same as every other daily cron
+- [ ] Daily readings cache until next midnight IST, monthly until the 1st of next month,
+      yearly until next Jan 1 — verified via `ai_cache.expires_at` on a real generated row for
+      each period, not just assumed from the code
+- [ ] A repeat "today's reading" request (web reload or Telegram command) within the same day
+      costs zero additional AI spend — confirm via `ai_usage_logs`' cache-hit flag
+- [ ] `cacheTTLSeconds` for `astrology_reading` is computed dynamically per call (seconds to
+      the next calendar boundary), not a hardcoded constant borrowed from another task
 - [ ] Hindi toggle translates all static chrome via the local dictionary; new readings are
       requested in Hindi directly, not machine-translated after generation
 - [ ] Hindi and English readings for the same period cache independently
@@ -222,6 +348,21 @@ pillars.
       reading — computed positions/dasha state only, keeping the AI strictly interpretive
 - [ ] Remediation suggestions trace back to the curated reference table, never free AI
       invention
+- [ ] Mood forecast is derived entirely from computed astrological data (transiting Moon's
+      house-from-natal-Moon, `isChandrashtama` flag, active dasha, today's tithi) — never
+      self-reported and never an AI invention disconnected from that computed basis
+- [ ] Mood forecast is presented as traditional astrological interpretation, not a clinical or
+      diagnostic claim about your actual emotional state — tone stays constructive, not
+      alarmist
+- [ ] `isChandrashtama` and the transiting-Moon-from-natal-Moon calculation are validated
+      against a known reference before trusting them, same bar as every other gochara output
+- [ ] `astrology_characteristics` regenerates only when the natal chart's underlying birth
+      details change — not on every page view
+- [ ] Daily reading's structured output (`favorableFor`/`avoid`/`moodForecast`/`remediation`)
+      falls back gracefully to a summary-only card on any JSON parse failure, same as
+      `brain_decision`'s existing fallback pattern
+- [ ] Choghadiya blocks are computed deterministically from sunrise/sunset, no AI call
+      involved
 
 ## Explicitly out of scope
 

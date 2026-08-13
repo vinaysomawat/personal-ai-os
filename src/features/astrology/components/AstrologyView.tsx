@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { Pencil, Check, X, Languages } from 'lucide-react'
 import Card from '@/components/Card'
-import { upsertAstrologyProfile, getAstrologyReading, getAstrologyProfile } from '../actions'
+import { upsertAstrologyProfile, getAstrologyReading, getStructuredDailyReading, getAstrologyCharacteristics, getAstrologyProfile } from '../actions'
 import { getTodaysPanchang } from '../panchang-actions'
 import { getCurrentDasha, getCurrentYogini } from '../chart-calculations'
 import { getRemediation } from '../remedies'
@@ -11,7 +11,7 @@ import { todayIST } from '@/lib/date'
 import KundliChart from './KundliChart'
 import { UI_HI } from '../i18n/hi'
 import type { Lang } from '../i18n/hi'
-import type { AstrologyProfile, PanchangDaily, ReadingPeriod } from '../types'
+import type { AstrologyProfile, ChoghadiyaBlock, DailyReading, PanchangDaily, ReadingPeriod } from '../types'
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 function formatDate(iso: string): string {
@@ -140,12 +140,36 @@ function BirthDetailsCard({ profile, onSaved, t }: { profile: AstrologyProfile |
   )
 }
 
+const CHOGHADIYA_COLOR: Record<ChoghadiyaBlock['type'], string> = {
+  good: 'bg-good-soft text-good border-good',
+  neutral: 'bg-surface-2 text-fg-secondary border-surface-3',
+  bad: 'bg-risk-soft text-risk border-risk-border',
+}
+
+function ChoghadiyaRow({ blocks, label }: { blocks: ChoghadiyaBlock[]; label: string }) {
+  return (
+    <div>
+      <p className="text-[10px] font-bold text-fg-tertiary uppercase tracking-[0.3px] mb-1">{label}</p>
+      <div className="flex gap-1.5 overflow-x-auto no-scrollbar pb-0.5">
+        {blocks.map((b, i) => (
+          <div key={i} className={`shrink-0 rounded-[7px] border px-2 py-1 ${CHOGHADIYA_COLOR[b.type]}`}>
+            <p className="text-[10.5px] font-semibold whitespace-nowrap">{b.name}</p>
+            <p className="text-[9.5px] opacity-80 whitespace-nowrap">{b.start}–{b.end}</p>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 function PanchangCard({ panchang, t }: { panchang: PanchangDaily; t: (key: keyof typeof UI_HI, en: string) => string }) {
   const windows: [string, string, string][] = [
     [t('rahuKalam', 'Rahu Kalam'), panchang.rahu_kalam_start, panchang.rahu_kalam_end],
     [t('yamaganda', 'Yamaganda'), panchang.yamaganda_start, panchang.yamaganda_end],
     [t('gulikaKalam', 'Gulika Kalam'), panchang.gulika_kalam_start, panchang.gulika_kalam_end],
   ]
+  const dayBlocks = panchang.choghadiya?.filter(b => b.period === 'day') ?? []
+  const nightBlocks = panchang.choghadiya?.filter(b => b.period === 'night') ?? []
   return (
     <Card title={t('panchang', "Today's Panchang")}>
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-4 gap-y-3 mb-3">
@@ -156,7 +180,7 @@ function PanchangCard({ panchang, t }: { panchang: PanchangDaily; t: (key: keyof
         <div><p className="text-[10.5px] font-bold text-fg-tertiary uppercase tracking-[0.4px] mb-0.5">{t('sunrise', 'Sunrise')}</p><p className="text-[13px] font-medium text-fg-primary">{panchang.sunrise}</p></div>
         <div><p className="text-[10.5px] font-bold text-fg-tertiary uppercase tracking-[0.4px] mb-0.5">{t('sunset', 'Sunset')}</p><p className="text-[13px] font-medium text-fg-primary">{panchang.sunset}</p></div>
       </div>
-      <div className="flex flex-wrap gap-2">
+      <div className="flex flex-wrap gap-2 mb-3">
         {windows.map(([label, start, end]) => (
           <div key={label} className="bg-surface-2 rounded-[8px] px-2.5 py-1.5">
             <p className="text-[10px] font-bold text-risk uppercase tracking-[0.3px]">{label}</p>
@@ -164,6 +188,13 @@ function PanchangCard({ panchang, t }: { panchang: PanchangDaily; t: (key: keyof
           </div>
         ))}
       </div>
+      {(dayBlocks.length > 0 || nightBlocks.length > 0) && (
+        <div className="flex flex-col gap-2 pt-2.5 border-t border-surface-3">
+          <p className="text-[10.5px] font-bold text-fg-tertiary uppercase tracking-[0.4px]">{t('choghadiya', 'Choghadiya')}</p>
+          {dayBlocks.length > 0 && <ChoghadiyaRow blocks={dayBlocks} label="Day" />}
+          {nightBlocks.length > 0 && <ChoghadiyaRow blocks={nightBlocks} label="Night" />}
+        </div>
+      )}
     </Card>
   )
 }
@@ -171,36 +202,51 @@ function PanchangCard({ panchang, t }: { panchang: PanchangDaily; t: (key: keyof
 export default function AstrologyView({ initialProfile }: { initialProfile: AstrologyProfile | null }) {
   const [profile, setProfile] = useState(initialProfile)
   const [tab, setTab] = useState<ReadingPeriod>('daily')
-  const [readings, setReadings] = useState<Partial<Record<ReadingPeriod, string>>>({})
+  // Monthly/yearly stay prose (readings); daily is the structured
+  // {summary, favorableFor, avoid, moodForecast, remediation} shape
+  // (astrology.md 3.9) — kept in a separate state rather than shoehorned
+  // into the same Partial<Record<...,string>> map.
+  const [readings, setReadings] = useState<Partial<Record<'monthly' | 'yearly', string>>>({})
+  const [dailyReading, setDailyReading] = useState<DailyReading | null>(null)
   const [readingLoading, setReadingLoading] = useState(false)
   const [chartMode, setChartMode] = useState<'d1' | 'd9'>('d1')
   const [panchang, setPanchang] = useState<PanchangDaily | null>(null)
+  const [characteristics, setCharacteristics] = useState<string | null>(null)
   const { lang, toggleLang, t } = useAstrologyLang()
 
   const handleSaved = async () => {
     setProfile(await getAstrologyProfile())
     setReadings({})
+    setDailyReading(null)
+    setCharacteristics(null)
   }
 
   const loadReading = async (period: ReadingPeriod) => {
     if (!profile) return
     setReadingLoading(true)
-    const text = await getAstrologyReading(profile, period, lang)
-    setReadings(prev => ({ ...prev, [period]: text }))
+    if (period === 'daily') {
+      setDailyReading(await getStructuredDailyReading(profile, lang))
+    } else {
+      const text = await getAstrologyReading(profile, period, lang)
+      setReadings(prev => ({ ...prev, [period]: text }))
+    }
     setReadingLoading(false)
   }
 
   const selectTab = (period: ReadingPeriod) => {
     setTab(period)
-    if (!readings[period]) loadReading(period)
+    const loaded = period === 'daily' ? dailyReading : readings[period]
+    if (!loaded) loadReading(period)
   }
 
-  // Language change invalidates cached reading text (each language's copy
+  // Language change invalidates every cached reading (each language's copy
   // comes from its own AI Gateway cache entry per astrology.md 3.6) — clear
   // so switching languages re-fetches in the new one instead of showing a
   // stale English/Hindi mismatch against the tab pills.
   useEffect(() => {
     setReadings({})
+    setDailyReading(null)
+    setCharacteristics(null)
   }, [lang])
 
   // Panchang is location-dependent (sunrise/sunset/kalam windows shift by
@@ -210,6 +256,15 @@ export default function AstrologyView({ initialProfile }: { initialProfile: Astr
     if (!profile) return
     getTodaysPanchang(profile.birth_lat, profile.birth_lng, profile.birth_timezone).then(setPanchang)
   }, [profile])
+
+  // Characteristics (astrology.md 3.8) is a stable, effectively-permanently-
+  // cached read off the chart alone — auto-loaded on view rather than
+  // click-to-load like the daily/monthly/yearly readings, since a repeat
+  // view costs nothing once cached.
+  useEffect(() => {
+    if (!profile) return
+    getAstrologyCharacteristics(profile, lang).then(setCharacteristics)
+  }, [profile, lang])
 
   const today = todayIST()
   const currentDasha = profile ? getCurrentDasha(profile.natal_chart.vimshottariDasha, today) : null
@@ -256,6 +311,12 @@ export default function AstrologyView({ initialProfile }: { initialProfile: Astr
             </div>
           )}
 
+          {characteristics && (
+            <Card title={t('characteristics', 'Your Characteristics')}>
+              <p className="text-[12.5px] leading-[1.6] text-fg-secondary">{characteristics}</p>
+            </Card>
+          )}
+
           <div className="grid grid-cols-1 lg:grid-cols-[minmax(280px,380px)_1fr] gap-[var(--grid-gap)] items-start">
             <Card title={t('natalChart', 'Natal Chart')}>
               <div className="flex border-b border-surface-3 mb-3">
@@ -295,16 +356,62 @@ export default function AstrologyView({ initialProfile }: { initialProfile: Astr
                     </button>
                   ))}
                 </div>
-                {readingLoading && !readings[tab] && <p className="text-sm text-fg-tertiary">{t('readingTransits', 'Reading the transits…')}</p>}
-                {!readingLoading && !readings[tab] && (
-                  <button onClick={() => loadReading(tab)}
-                    className="px-4 py-2 rounded-[8px] bg-accent text-white text-sm font-semibold hover:bg-accent/80 transition-colors">
-                    {lang === 'hi'
-                      ? UI_HI.getReading.replace('{period}', t(TABS.find(tb => tb.key === tab)!.hiKey, ''))
-                      : `Get ${TABS.find(tb => tb.key === tab)?.en} Reading`}
-                  </button>
-                )}
-                {readings[tab] && <p className="text-[12.5px] leading-[1.6] text-fg-secondary">{readings[tab]}</p>}
+                {(() => {
+                  const loaded = tab === 'daily' ? dailyReading : readings[tab]
+                  if (readingLoading && !loaded) return <p className="text-sm text-fg-tertiary">{t('readingTransits', 'Reading the transits…')}</p>
+                  if (!readingLoading && !loaded) {
+                    return (
+                      <button onClick={() => loadReading(tab)}
+                        className="px-4 py-2 rounded-[8px] bg-accent text-white text-sm font-semibold hover:bg-accent/80 transition-colors">
+                        {lang === 'hi'
+                          ? UI_HI.getReading.replace('{period}', t(TABS.find(tb => tb.key === tab)!.hiKey, ''))
+                          : `Get ${TABS.find(tb => tb.key === tab)?.en} Reading`}
+                      </button>
+                    )
+                  }
+                  if (tab === 'daily' && dailyReading) {
+                    return (
+                      <div className="flex flex-col gap-3">
+                        <p className="text-[12.5px] leading-[1.6] text-fg-secondary">{dailyReading.summary}</p>
+                        {dailyReading.favorableFor.length > 0 && (
+                          <div>
+                            <p className="text-[10.5px] font-bold text-good uppercase tracking-[0.4px] mb-1">{t('favorableFor', 'Favorable For')}</p>
+                            <div className="flex flex-wrap gap-1.5">
+                              {dailyReading.favorableFor.map((f, i) => (
+                                <span key={i} className="text-[11px] px-2 py-1 rounded-[6px] bg-good-soft text-good">{f}</span>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                        {dailyReading.avoid.length > 0 && (
+                          <div>
+                            <p className="text-[10.5px] font-bold text-risk uppercase tracking-[0.4px] mb-1">{t('avoid', 'Avoid')}</p>
+                            <div className="flex flex-wrap gap-1.5">
+                              {dailyReading.avoid.map((a, i) => (
+                                <span key={i} className="text-[11px] px-2 py-1 rounded-[6px] bg-risk-soft text-risk">{a}</span>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                        {dailyReading.moodForecast && (
+                          <div>
+                            <p className="text-[10.5px] font-bold text-fg-tertiary uppercase tracking-[0.4px] mb-1">{t('moodForecast', 'Mood Forecast')}</p>
+                            <p className="text-[11.5px] leading-[1.5] text-fg-secondary">{dailyReading.moodForecast}</p>
+                          </div>
+                        )}
+                        {dailyReading.remediation.length > 0 && (
+                          <div>
+                            <p className="text-[10.5px] font-bold text-fg-tertiary uppercase tracking-[0.4px] mb-1">{t('remediation', 'Remediation')}</p>
+                            <ul className="text-[11.5px] leading-[1.5] text-fg-secondary list-disc list-inside space-y-0.5">
+                              {dailyReading.remediation.map((r, i) => <li key={i}>{r}</li>)}
+                            </ul>
+                          </div>
+                        )}
+                      </div>
+                    )
+                  }
+                  return <p className="text-[12.5px] leading-[1.6] text-fg-secondary">{readings[tab as 'monthly' | 'yearly']}</p>
+                })()}
               </Card>
 
               {remediation.length > 0 && (

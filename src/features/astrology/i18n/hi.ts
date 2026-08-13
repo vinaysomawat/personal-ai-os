@@ -52,6 +52,12 @@ export const UI_HI: Record<string, string> = {
   editBirthDetails: 'जन्म विवरण संपादित करें',
   gochara: 'गोचर',
   transitingIn: 'गोचर',
+  characteristics: 'आपकी विशेषताएँ',
+  favorableFor: 'अनुकूल',
+  avoid: 'बचें',
+  moodForecast: 'मनोदशा पूर्वानुमान',
+  choghadiya: 'चौघड़िया',
+  readingCharacteristics: 'कुंडली पढ़ी जा रही है…',
 }
 
 export const PLANET_HI: Record<Planet, string> = {

@@ -22,3 +22,14 @@ export function computeGochara(transitRaw: RawPosition[], natalChart: NatalChart
     }
   })
 }
+
+// Chandrashtama (astrology.md 3.2/3.7) — true when the transiting Moon sits
+// in the 8th house from the natal Moon, a well-defined traditional
+// rule-of-thumb marking an emotionally lower/more cautious day. The
+// transiting Moon's own gochara entry already carries houseFromMoon (every
+// planet's position is expressed relative to the natal Moon, including the
+// Moon's own transit), so this is a lookup, not a new calculation.
+export function isChandrashtama(gochara: GocharaPosition[]): boolean {
+  const transitingMoon = gochara.find(g => g.planet === 'Moon')
+  return transitingMoon?.houseFromMoon === 8
+}

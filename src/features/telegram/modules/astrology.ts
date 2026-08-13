@@ -12,6 +12,7 @@ Actions:
 {"action":"reading","period":"daily"|"monthly"|"yearly"}
 {"action":"current_dasha"}
 {"action":"panchang"}
+{"action":"characteristics"}
 {"action":"help"}
 
 Rules:
@@ -20,6 +21,7 @@ Rules:
 - For "this year's reading", "yearly horoscope", "outlook this year" → reading, period "yearly"
 - For "current dasha", "what dasha am I in", "my dasha period" → current_dasha
 - For "today's panchang", "tithi today", "panchang", "rahu kalam" → panchang
+- For "my characteristics", "about my chart", "what am I like" → characteristics
 - Default to reading with period "daily" if the message is vague but clearly astrology-related`
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
@@ -57,7 +59,12 @@ export async function execute(action: Record<string, unknown>, db: SupabaseClien
       if (!panchang) return `🔮 Could not compute today's panchang.`
       return `🔮 *Today's Panchang*\n\nTithi: ${panchang.tithi} (${panchang.paksha} Paksha)\nNakshatra: ${panchang.nakshatra}\nYoga: ${panchang.yoga} · Karana: ${panchang.karana}\nSunrise: ${panchang.sunrise} · Sunset: ${panchang.sunset}\n\n⚠️ Rahu Kalam: ${panchang.rahu_kalam_start}–${panchang.rahu_kalam_end}\n⚠️ Yamaganda: ${panchang.yamaganda_start}–${panchang.yamaganda_end}\n⚠️ Gulika Kalam: ${panchang.gulika_kalam_start}–${panchang.gulika_kalam_end}`
     }
+    case 'characteristics': {
+      const { getAstrologyCharacteristics } = await import('@/features/astrology/actions')
+      const text = await getAstrologyCharacteristics(profile)
+      return `🔮 *Your Characteristics*\n\n${text}`
+    }
     default:
-      return `*Astrology Bot — What I can do:*\n• "today's reading"\n• "this month's reading"\n• "this year's reading"\n• "current dasha"\n• "today's panchang"`
+      return `*Astrology Bot — What I can do:*\n• "today's reading"\n• "this month's reading"\n• "this year's reading"\n• "current dasha"\n• "today's panchang"\n• "my characteristics"`
   }
 }

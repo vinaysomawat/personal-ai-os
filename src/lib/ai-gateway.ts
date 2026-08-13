@@ -36,6 +36,7 @@ export type AITask =
   | 'evening_reflection'
   | 'estimate_food_nutrition'
   | 'astrology_reading'
+  | 'astrology_characteristics'
 
 interface TaskConfig {
   model: string
@@ -47,6 +48,12 @@ interface TaskConfig {
 
 const SIX_HOURS = 6 * 60 * 60
 const SEVEN_DAYS = 7 * 24 * 60 * 60
+// "Effectively permanent" for content that should only regenerate when its
+// own input data changes (astrology.md 3.8's characteristics profile, keyed
+// off the natal chart, which only changes when birth details are re-saved)
+// — the cache key already changes when the prompt does, so this TTL is a
+// ceiling against indefinite staleness, not the thing doing the real work.
+const ONE_YEAR = 365 * 24 * 60 * 60
 const BUDGET_FALLBACK = "I'm over my AI budget for today — try again tomorrow."
 
 const TASK_CONFIG: Record<AITask, TaskConfig> = {
@@ -79,7 +86,14 @@ const TASK_CONFIG: Record<AITask, TaskConfig> = {
   finance_scenario:       { model: SONNET_MODEL, cacheTTLSeconds: null,       fallback: BUDGET_FALLBACK },
   evening_reflection:     { model: SONNET_MODEL, cacheTTLSeconds: SIX_HOURS,  fallback: '' },
   estimate_food_nutrition:{ model: SONNET_MODEL, cacheTTLSeconds: SEVEN_DAYS, fallback: 'null' },
+  // astrology_reading's real TTL is computed dynamically per call (seconds
+  // to the next calendar boundary of the period being requested — see
+  // astrology/actions.ts) and passed via AskAIOptions.cacheTTLSeconds,
+  // which overrides this default; SIX_HOURS here only matters as a fallback
+  // for the rare code path that calls askAI('astrology_reading', ...)
+  // without that override.
   astrology_reading:      { model: SONNET_MODEL, cacheTTLSeconds: SIX_HOURS, fallback: 'Reading unavailable right now — AI budget reached for today.' },
+  astrology_characteristics: { model: SONNET_MODEL, cacheTTLSeconds: ONE_YEAR, fallback: 'Characteristics unavailable right now — AI budget reached for today.' },
 }
 
 // Static per-model pricing, USD per 1M tokens (Sonnet 4.6 / Haiku 4.5).
@@ -140,6 +154,14 @@ interface AskAIOptions {
   userId?: string
   /** Image content is always unique — never cached, regardless of the task's configured TTL */
   image?: ImageInput
+  /**
+   * Per-call override of the task's configured cacheTTLSeconds — for the one
+   * case in the app (astrology_reading) where the correct TTL genuinely
+   * varies per call rather than being fixed per task (daily/monthly/yearly
+   * periods each cache until their own calendar boundary, not a flat
+   * duration). null disables caching for this call specifically.
+   */
+  cacheTTLSeconds?: number | null
 }
 
 /**
@@ -154,7 +176,8 @@ export async function askAI(task: AITask, prompt: string, system?: string, opts:
   if (!userId) return config.fallback
 
   const db = createServiceClient()
-  const cacheable = config.cacheTTLSeconds !== null && !opts.image
+  const ttlSeconds = opts.cacheTTLSeconds !== undefined ? opts.cacheTTLSeconds : config.cacheTTLSeconds
+  const cacheable = ttlSeconds !== null && !opts.image
   const key = cacheable ? cacheKeyFor(config.model, system, prompt) : null
 
   if (key && !opts.bypassCache) {
@@ -190,7 +213,7 @@ export async function askAI(task: AITask, prompt: string, system?: string, opts:
     await logUsage(db, userId, task, config.model, inputTokens, outputTokens, cost, false)
 
     if (key && text) {
-      const expiresAt = new Date(Date.now() + config.cacheTTLSeconds! * 1000).toISOString()
+      const expiresAt = new Date(Date.now() + ttlSeconds! * 1000).toISOString()
       try {
         await db.from('ai_cache').upsert(
           { cache_key: key, response: text, model: config.model, expires_at: expiresAt },

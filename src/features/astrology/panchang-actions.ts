@@ -3,7 +3,7 @@
 import { createServiceClient } from '@/lib/supabase/service'
 import { todayIST } from '@/lib/date'
 import { getSunMoonLongitudes, getSunriseSunset, jdToLocalHHMM, julianDayLocalMidnightUt } from './ephemeris'
-import { getTithi, getYoga, getKarana, getNakshatraOfDay, getMuhurtaWindows } from './panchang'
+import { getTithi, getYoga, getKarana, getNakshatraOfDay, getMuhurtaWindows, getChoghadiya } from './panchang'
 import type { PanchangDaily } from './types'
 
 // Panchang is global (no user_id) and location-dependent (sunrise/sunset/
@@ -34,6 +34,11 @@ async function computePanchang(dateIso: string, lat: number, lng: number, utcOff
   const sunriseSunset = await getSunriseSunset(jdLocalMidnight, lat, lng)
   if (!sunriseSunset) return null // polar day/night edge case — no sunrise/sunset that day
 
+  // Choghadiya's night span is sunset-to-*next*-sunrise, not assumed equal
+  // to the day's own length — needs one extra sunrise search starting from
+  // tomorrow's local midnight.
+  const nextDaySunriseSunset = await getSunriseSunset(jdLocalMidnight + 1, lat, lng)
+
   // Panchang values (tithi/yoga/karana/nakshatra-of-day) are conventionally
   // taken at sunrise, not local midnight — matches how printed panchangs work.
   const { sun, moon } = await getSunMoonLongitudes(sunriseSunset.sunriseJd)
@@ -48,6 +53,14 @@ async function computePanchang(dateIso: string, lat: number, lng: number, utcOff
   const sunsetMinutes = hhmmToMinutes(sunset)
   const weekday = new Date(`${dateIso}T00:00:00Z`).getUTCDay() // dateIso is already the local calendar date
   const { rahuKalam, yamaganda, gulikaKalam } = getMuhurtaWindows(weekday, sunriseMinutes, sunsetMinutes)
+
+  // Falls back to approximating night length as equal to day length only in
+  // the polar-edge case where tomorrow's sunrise search comes back empty —
+  // the ordinary case always has a real next-sunrise JD to diff against.
+  const nightLengthMinutes = nextDaySunriseSunset
+    ? (nextDaySunriseSunset.sunriseJd - sunriseSunset.sunsetJd) * 24 * 60
+    : sunsetMinutes - sunriseMinutes
+  const choghadiya = getChoghadiya(weekday, sunriseMinutes, sunsetMinutes, nightLengthMinutes)
 
   return {
     date: dateIso,
@@ -64,6 +77,7 @@ async function computePanchang(dateIso: string, lat: number, lng: number, utcOff
     yamaganda_end: yamaganda.end,
     gulika_kalam_start: gulikaKalam.start,
     gulika_kalam_end: gulikaKalam.end,
+    choghadiya,
   }
 }
 
