@@ -8,6 +8,13 @@ type Difficulty = 'easy' | 'medium' | 'hard'
 // auto-graded judge), so "accuracy" can only ever be what the user reports.
 export type Outcome = 'solved' | 'solved_with_help' | 'struggled'
 
+// 'quiz' and 'system-design' share this same pool/table rather than a
+// separate one (quiz.md's generalized-practice scope) — both are link-out
+// only (title/url/difficulty, same shape as an algorithm question), so the
+// existing daily-assignment/streak/Planner-sync/weak-area/Life-Score
+// machinery already works for them with zero changes beyond this field.
+export type QuestionCategory = 'algorithm' | 'quiz' | 'system-design'
+
 export interface CodingQuestion {
   id: string
   title: string
@@ -15,6 +22,7 @@ export interface CodingQuestion {
   url: string
   source: string
   topics: string[] | null
+  category: QuestionCategory
 }
 
 export interface DailyQuestion {
@@ -55,13 +63,26 @@ const ROTATION: Record<number, Difficulty[]> = {
 
 const todayStr = todayIST
 
+// Any known Saturday works as the anchor — only the parity of weeks-since
+// matters, not the specific date. System Design (quiz.md) alternates onto
+// the existing Saturday "hard" slot every other week, so there's more time
+// to actually work through each one instead of getting a new one weekly.
+const SATURDAY_ANCHOR = '2024-01-06'
+function isSystemDesignSaturday(todayIso: string): boolean {
+  const anchorMs = new Date(`${SATURDAY_ANCHOR}T00:00:00Z`).getTime()
+  const todayMs = new Date(`${todayIso}T00:00:00Z`).getTime()
+  const weeksSince = Math.floor((todayMs - anchorMs) / (7 * 86400000))
+  return weeksSince % 2 === 0
+}
+
 async function getSettings(supabase: SupabaseClient, userId: string): Promise<CodingSettings> {
   const { data } = await supabase.from('coding_settings').select('mode, fixed_count, telegram_notify').eq('user_id', userId).single()
   return data ?? { mode: 'rotation', fixed_count: 1, telegram_notify: true }
 }
 
-function pickQuestions(pool: CodingQuestion[], assignedIds: Set<string>, difficulty: Difficulty | null, count: number): CodingQuestion[] {
-  const byDifficulty = difficulty ? pool.filter(q => q.difficulty === difficulty) : pool
+function pickQuestions(pool: CodingQuestion[], assignedIds: Set<string>, difficulty: Difficulty | null, count: number, category: QuestionCategory = 'algorithm'): CodingQuestion[] {
+  const byCategory = pool.filter(q => q.category === category)
+  const byDifficulty = difficulty ? byCategory.filter(q => q.difficulty === difficulty) : byCategory
   let candidates = byDifficulty.filter(q => !assignedIds.has(q.id))
   if (candidates.length < count) {
     // Pool exhausted for this difficulty — restart the cycle
@@ -101,12 +122,25 @@ export async function generateAssignmentForUser(supabase: SupabaseClient, userId
     picks = pickQuestions(allQuestions, assignedIds, null, settings.fixed_count)
   } else {
     for (const difficulty of ROTATION[weekday]) {
-      const [pick] = pickQuestions(allQuestions, assignedIds, difficulty, 1)
+      // Saturday's hard slot alternates onto a System Design pick every
+      // other week instead of a random hard algorithm question — same
+      // "hard" slot, different pool, off-weeks unaffected.
+      const category: QuestionCategory = weekday === 6 && difficulty === 'hard' && isSystemDesignSaturday(today) ? 'system-design' : 'algorithm'
+      const [pick] = pickQuestions(allQuestions, assignedIds, category === 'system-design' ? null : difficulty, 1, category)
       if (pick) {
         picks.push(pick)
         assignedIds.add(pick.id) // avoid picking the same question twice in one day
       }
     }
+  }
+
+  // One quiz pick every day (all 7), independent of mode/rotation — replaces
+  // the old hand-authored MCQ "Today's Quiz" with a real daily question from
+  // the same link-out/self-report pattern algorithm questions already use.
+  const [quizPick] = pickQuestions(allQuestions, assignedIds, null, 1, 'quiz')
+  if (quizPick) {
+    picks.push(quizPick)
+    assignedIds.add(quizPick.id)
   }
 
   if (picks.length === 0) return []
@@ -115,7 +149,7 @@ export async function generateAssignmentForUser(supabase: SupabaseClient, userId
   for (const q of picks) {
     const { data: task } = await supabase
       .from('tasks')
-      .insert({ text: `Solve ${q.title}`, priority: q.difficulty === 'hard' ? 'high' : 'medium', area: 'Coding', user_id: userId, done: false })
+      .insert({ text: q.category === 'quiz' ? `Answer today's quiz: ${q.title}` : `Solve ${q.title}`, priority: q.difficulty === 'hard' ? 'high' : 'medium', area: 'Coding', user_id: userId, done: false })
       .select('id')
       .single()
 

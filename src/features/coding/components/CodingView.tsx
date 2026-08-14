@@ -9,9 +9,7 @@ import CodingCalendar from './CodingCalendar'
 import CodingSettingsPopover from './CodingSettingsPopover'
 import QuestionHistory from './QuestionHistory'
 import RecommendedQuestions from './RecommendedQuestions'
-import TodaysQuizCard from './TodaysQuizCard'
-import type { QuizQuestion } from '../todays-quiz'
-import type { TodaysQuizAttempt } from '../todays-quiz-actions'
+import TodaysQuizPickCard from './TodaysQuizPickCard'
 import { computeWeakAreas, type DailyQuestion, type CodingStats, type CalendarDay, type CodingSettings } from '../daily-core'
 
 interface Props {
@@ -20,8 +18,6 @@ interface Props {
   calendar: CalendarDay[]
   codingSettings: CodingSettings
   history: DailyQuestion[]
-  quizQuestions: QuizQuestion[]
-  quizAttempt: TodaysQuizAttempt | null
 }
 
 const MODE_LABEL: Record<CodingSettings['mode'], (fixedCount: number) => string> = {
@@ -29,7 +25,15 @@ const MODE_LABEL: Record<CodingSettings['mode'], (fixedCount: number) => string>
   fixed: fixedCount => `Fixed · ${fixedCount}/day`,
 }
 
-export default function CodingView({ dailyAssignment, codingStats, calendar, codingSettings, history, quizQuestions, quizAttempt }: Props) {
+export default function CodingView({ dailyAssignment, codingStats, calendar, codingSettings, history }: Props) {
+  // dailyAssignment carries all of today's picks — algorithm, quiz, and (on
+  // alternate Saturdays) system-design — sharing one category column
+  // (quiz.md) rather than separate tables, so the split happens here in the
+  // view layer: DailyCodingCard renders everything except the quiz pick
+  // (system-design rows have the same shape as algorithm rows, so they need
+  // no special handling), and the quiz pick gets its own card.
+  const algorithmAssignment = dailyAssignment.filter(a => a.question.category !== 'quiz')
+  const quizPick = dailyAssignment.find(a => a.question.category === 'quiz') ?? null
   const codingContext = `Current streak: ${codingStats.currentStreak}d (longest: ${codingStats.longestStreak}d). Total solved: ${codingStats.totalSolved} (${codingStats.easySolved} easy, ${codingStats.mediumSolved} medium, ${codingStats.hardSolved} hard). Completion rate: ${codingStats.completionRate}%.`
 
   const advisorOpen = useAIAdvisorOpen()
@@ -101,13 +105,13 @@ export default function CodingView({ dailyAssignment, codingStats, calendar, cod
           Read moved to Learning (folded into its daily reading habit
           instead of a separate card, see learning/daily-read.ts). */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-[var(--grid-gap)] items-start">
-        <DailyCodingCard initialAssignment={dailyAssignment} stats={codingStats} />
+        <DailyCodingCard initialAssignment={algorithmAssignment} stats={codingStats} />
         <Card title="Contribution Calendar">
           <CodingCalendar days={calendar} />
         </Card>
       </div>
 
-      <TodaysQuizCard questions={quizQuestions} initialAttempt={quizAttempt} />
+      <TodaysQuizPickCard pick={quizPick} />
 
       <QuestionHistory initialHistory={history} />
 

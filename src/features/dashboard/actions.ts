@@ -106,7 +106,7 @@ export async function getDashboardData() {
     aiUsageMonthRes, studyLogsRes, codingTodayRows, activeWorkout, codingSolved30dRes,
     codingCompletionsRes, quizAttemptsRes, tasksDueTodayRes, workoutCompletedTodayRes,
     recentPatterns, financialGoalsRes, codingHistoryForWeakAreas,
-    codingQuizTodayRes, workoutStats, astrologyProfileRes, panchangTodayRes,
+    workoutStats, astrologyProfileRes, panchangTodayRes,
   ] = await Promise.all([
     supabase.from('tasks').select('id, text, done, priority, due_date').eq('user_id', user.id).eq('done', false).order('created_at', { ascending: false }).limit(5),
     supabase.from('applications').select('id, company, role, status, applied_at').eq('user_id', user.id).order('created_at', { ascending: false }).limit(5),
@@ -131,7 +131,6 @@ export async function getDashboardData() {
     getRecentPatterns(supabase, user.id),
     supabase.from('financial_goals').select('name, target_amount, current_amount, target_date').eq('user_id', user.id).order('priority', { ascending: true }),
     getInsightsHistory(),
-    supabase.from('coding_quiz_attempts').select('id').eq('user_id', user.id).eq('date', today).maybeSingle(),
     computeWorkoutStats(supabase, user.id),
     // Astrology strip (3.4): reuses the already-computed natal_chart jsonb
     // (dasha math is pure/deterministic, no ephemeris recompute) and today's
@@ -341,7 +340,11 @@ export async function getDashboardData() {
     hasLearningResources: resources.length > 0,
     studiedToday,
     expenseLoggedToday,
-    codingQuizDone: !!codingQuizTodayRes.data,
+    // Today's Quiz is now a real coding_daily_questions pick (category:
+    // 'quiz'), not the old separate coding_quiz_attempts table — same
+    // pipeline codingTodayRows already reads for codingQuestionPending
+    // above, so this is a free derived check, not a new query.
+    codingQuizDone: codingTodayRows.some(r => r.question.category === 'quiz' && r.completed),
   })
 
   const codingWeakAreas = computeWeakAreas(codingHistoryForWeakAreas)
