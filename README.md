@@ -400,20 +400,20 @@ compatibility/matching charts and Muhurta lookups remain explicitly out of scope
   whenever the chart itself changes, since the chart data is what's in the prompt). Auto-loads
   on page view (unlike the click-to-load daily/monthly/yearly tabs) since a repeat view costs
   nothing once cached.
-- **Today's Panchang card** — tithi/nakshatra/yoga/karana + sunrise/sunset in a 2×4 stat grid,
-  plus the three inauspicious windows as small pill tags, on the Astrology page between the
-  Current Dasha strip and the Horoscope card. **Choghadiya** — `getChoghadiya()` in
-  `panchang.ts` computes the full traditional 16 blocks (8 day, sunrise-sunset, + 8 night,
-  sunset-*next*-sunrise via one extra `getSunriseSunset()` search rather than assuming night
-  length equals day length; day and night use *different* 7-name cycles and weekday-start
-  tables, two independently-published traditional sequences, not one rotation continuing from
-  day into night), stored on `panchang_daily.choghadiya` in full — but the UI only surfaces the
-  8 day blocks, in a 4-column color-coded grid, matching the Claude Design source exactly (the
-  computed night blocks stay available in the data for a possible future Telegram "tonight's
-  choghadiya" command). Reconstructed from commonly-published panchang references rather than
-  verified against a live external tool in this environment — flagged in code with the same
-  honesty caveat as Yogini Dasha's starting-lord formula, worth spot-checking against a printed
-  panchang before relying on it for real scheduling.
+- **Panchang engine (backend only, no page card since 2026-08-14)** — the "Today's Panchang"
+  card and its Choghadiya section were removed from the Astrology page's UI per direct request
+  (`PanchangCard`, `CHOGHADIYA_COLOR`, the `panchang` state/effect, and the now-unused Hindi
+  dictionary entries for panchang/choghadiya vocabulary were all deleted from
+  `AstrologyView.tsx`/`i18n/hi.ts` in the same cleanup). The underlying engine
+  (`panchang.ts`/`panchang-actions.ts`, `panchang_daily` table incl. `choghadiya` jsonb) is
+  **not** removed — it still powers the Dashboard strip's tithi/nakshatra (below), the Telegram
+  bot's "today's panchang" command, the `astrology-daily` cron's push, and the daily reading's
+  mood-forecast tithi context (§13's AI Gateway note) — all real consumers outside the page's
+  own UI, out of scope for this removal. `getChoghadiya()` still computes the full traditional
+  16 blocks (8 day, sunrise-sunset, + 8 night, sunset-*next*-sunrise) reconstructed from
+  commonly-published panchang references, same honesty caveat as Yogini Dasha's starting-lord
+  formula — worth spot-checking against a printed panchang before relying on it, if it's ever
+  surfaced again.
 - **Dashboard integration** — a compact "🔮 Astrology · [Mahadasha]/[Antardasha] dasha ·
   [tithi] · [nakshatra]" strip, positioned right after the Top Priority banner (matching the
   Claude Design source exactly, pulled and matched 2026-08-14 — an earlier draft placed it near
@@ -463,8 +463,9 @@ compatibility/matching charts and Muhurta lookups remain explicitly out of scope
   `getStructuredDailyReading()`; English only for now, a `lang` param would thread through the
   same way if this is ever extended to Hindi), "current dasha" → `current_dasha`
   (Mahadasha/Antardasha + Yogini, read straight from the stored chart, no recompute), "today's
-  panchang" → `panchang` (via `getTodaysPanchang()`, same cached-by-date row the web card
-  reads), "my characteristics" → `characteristics` (`getAstrologyCharacteristics()`, same
+  panchang" → `panchang` (via `getTodaysPanchang()`, the same cached-by-date row the Dashboard
+  strip and daily cron read — no web card of its own anymore, see §13), "my characteristics" →
+  `characteristics` (`getAstrologyCharacteristics()`, same
   effectively-permanent cache as the web card). Replies with a friendly "add your birth details
   first" message if no chart exists yet rather than erroring. The **`astrology-daily` cron** (`0 4 * * *`, 9:30am IST — moved here
   from an initial 9:20am slot per explicit request) pushes a combined Panchang summary + daily reading every
@@ -791,14 +792,13 @@ the selected language (§13).
 3. **Your Characteristics** card — a one-time narrative (Lagna/Moon-sign/strong-weak
    placements), auto-loaded on page view rather than click-to-load like the reading tabs, since
    it's cached effectively permanently and a repeat view costs nothing
-4. **Natal Chart** + **Today's Panchang**/**Horoscope**/**Remediation** side by side
+4. **Natal Chart** + **Horoscope**/**Remediation** side by side
    (`lg:grid-cols-[minmax(280px,380px)_1fr]`) — the chart card has a Rashi (D1) / Navamsa (D9)
    tab toggle over the same North Indian style SVG kundli (fixed house positions, planets by
-   house, birth-details caption above, Lagna + Moon Nakshatra/Pada caption below); Panchang is a
-   2×4 stat grid (tithi/nakshatra/yoga/karana/sunrise/sunset), three pill tags for Rahu
-   Kalam/Yamaganda/Gulika Kalam, and a Choghadiya section below — the day's 8 blocks in a
-   4-column grid, color-coded good (green)/neutral (gray)/bad (red); Horoscope is a Today/This
-   Month/This Year tab switcher, each period fetched independently on first view and cached
+   house, birth-details caption above, Lagna + Moon Nakshatra/Pada caption below); (the Today's
+   Panchang card, including its Choghadiya section, was removed from this page 2026-08-14 — the
+   underlying engine still runs for the Dashboard/Telegram/cron, see §13); Horoscope is a
+   Today/This Month/This Year tab switcher, each period fetched independently on first view and cached
    client-side after (cleared on a language switch, so it re-fetches in the new language rather
    than showing a stale-language mismatch against the tab pills) — **Today** renders as a
    structured breakdown (summary paragraph, then a side-by-side 2-column card grid — green

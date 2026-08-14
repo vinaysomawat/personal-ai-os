@@ -4,14 +4,13 @@ import { useEffect, useState } from 'react'
 import { Pencil, Check, X } from 'lucide-react'
 import Card from '@/components/Card'
 import { upsertAstrologyProfile, getAstrologyReading, getStructuredDailyReading, getAstrologyCharacteristics, getCurrentGochara, getAstrologyProfile } from '../actions'
-import { getTodaysPanchang } from '../panchang-actions'
 import { getCurrentDasha, getCurrentYogini } from '../chart-calculations'
 import { getRemediation } from '../remedies'
 import { todayIST } from '@/lib/date'
 import KundliChart from './KundliChart'
 import { UI_HI } from '../i18n/hi'
 import type { Lang } from '../i18n/hi'
-import type { AstrologyProfile, ChoghadiyaBlock, DailyReading, GocharaPosition, PanchangDaily, ReadingPeriod } from '../types'
+import type { AstrologyProfile, DailyReading, GocharaPosition, ReadingPeriod } from '../types'
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 function formatDate(iso: string): string {
@@ -140,57 +139,6 @@ function BirthDetailsCard({ profile, onSaved, t }: { profile: AstrologyProfile |
   )
 }
 
-const CHOGHADIYA_COLOR: Record<ChoghadiyaBlock['type'], string> = {
-  good: 'bg-good-soft text-good',
-  neutral: 'bg-surface-2 text-fg-secondary',
-  bad: 'bg-risk-soft text-risk',
-}
-
-function PanchangCard({ panchang, t }: { panchang: PanchangDaily; t: (key: keyof typeof UI_HI, en: string) => string }) {
-  const windows: [string, string, string][] = [
-    [t('rahuKalam', 'Rahu Kalam'), panchang.rahu_kalam_start, panchang.rahu_kalam_end],
-    [t('yamaganda', 'Yamaganda'), panchang.yamaganda_start, panchang.yamaganda_end],
-    [t('gulikaKalam', 'Gulika Kalam'), panchang.gulika_kalam_start, panchang.gulika_kalam_end],
-  ]
-  // Design shows the day's 8 Choghadiya blocks only (night blocks stay
-  // computed/stored for a possible future Telegram "tonight's choghadiya"
-  // command, but aren't surfaced on this card).
-  const dayBlocks = panchang.choghadiya?.filter(b => b.period === 'day') ?? []
-  return (
-    <Card title={t('panchang', "Today's Panchang")}>
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-4 gap-y-3 mb-3">
-        <div><p className="text-[10.5px] font-bold text-fg-tertiary uppercase tracking-[0.4px] mb-0.5">{t('tithi', 'Tithi')}</p><p className="text-[13px] font-medium text-fg-primary">{panchang.tithi}</p></div>
-        <div><p className="text-[10.5px] font-bold text-fg-tertiary uppercase tracking-[0.4px] mb-0.5">{t('nakshatraOfDay', 'Nakshatra')}</p><p className="text-[13px] font-medium text-fg-primary">{panchang.nakshatra}</p></div>
-        <div><p className="text-[10.5px] font-bold text-fg-tertiary uppercase tracking-[0.4px] mb-0.5">{t('yoga', 'Yoga')}</p><p className="text-[13px] font-medium text-fg-primary">{panchang.yoga}</p></div>
-        <div><p className="text-[10.5px] font-bold text-fg-tertiary uppercase tracking-[0.4px] mb-0.5">{t('karana', 'Karana')}</p><p className="text-[13px] font-medium text-fg-primary">{panchang.karana}</p></div>
-        <div><p className="text-[10.5px] font-bold text-fg-tertiary uppercase tracking-[0.4px] mb-0.5">{t('sunrise', 'Sunrise')}</p><p className="text-[13px] font-medium text-fg-primary">{panchang.sunrise}</p></div>
-        <div><p className="text-[10.5px] font-bold text-fg-tertiary uppercase tracking-[0.4px] mb-0.5">{t('sunset', 'Sunset')}</p><p className="text-[13px] font-medium text-fg-primary">{panchang.sunset}</p></div>
-      </div>
-      <div className="flex flex-wrap gap-2 mb-3">
-        {windows.map(([label, start, end]) => (
-          <div key={label} className="bg-surface-2 rounded-[8px] px-2.5 py-1.5">
-            <p className="text-[10px] font-bold text-risk uppercase tracking-[0.3px]">{label}</p>
-            <p className="text-[11.5px] text-fg-secondary">{start}–{end}</p>
-          </div>
-        ))}
-      </div>
-      {dayBlocks.length > 0 && (
-        <div>
-          <p className="text-[10.5px] font-bold text-fg-tertiary uppercase tracking-[0.4px] mb-2">{t('choghadiya', 'Choghadiya')}</p>
-          <div className="grid grid-cols-4 gap-1.5">
-            {dayBlocks.map((b, i) => (
-              <div key={i} className={`rounded-[7px] px-1.5 py-1.5 text-center ${CHOGHADIYA_COLOR[b.type]}`}>
-                <p className="text-[10.5px] font-bold">{b.name}</p>
-                <p className="text-[9px] opacity-85 mt-px">{b.start}–{b.end}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-    </Card>
-  )
-}
-
 export default function AstrologyView({ initialProfile }: { initialProfile: AstrologyProfile | null }) {
   const [profile, setProfile] = useState(initialProfile)
   const [tab, setTab] = useState<ReadingPeriod>('daily')
@@ -202,7 +150,6 @@ export default function AstrologyView({ initialProfile }: { initialProfile: Astr
   const [dailyReading, setDailyReading] = useState<DailyReading | null>(null)
   const [readingLoading, setReadingLoading] = useState(false)
   const [chartMode, setChartMode] = useState<'d1' | 'd9'>('d1')
-  const [panchang, setPanchang] = useState<PanchangDaily | null>(null)
   const [characteristics, setCharacteristics] = useState<string | null>(null)
   const [gochara, setGochara] = useState<GocharaPosition[] | null>(null)
   const { lang, toggleLang, t } = useAstrologyLang()
@@ -241,14 +188,6 @@ export default function AstrologyView({ initialProfile }: { initialProfile: Astr
     setDailyReading(null)
     setCharacteristics(null)
   }, [lang])
-
-  // Panchang is location-dependent (sunrise/sunset/kalam windows shift by
-  // place) — defaults to the profile's birth-place coordinates, the only
-  // location this app currently knows about (astrology.md 3.1).
-  useEffect(() => {
-    if (!profile) return
-    getTodaysPanchang(profile.birth_lat, profile.birth_lng, profile.birth_timezone).then(setPanchang)
-  }, [profile])
 
   // Characteristics (astrology.md 3.8) is a stable, effectively-permanently-
   // cached read off the chart alone — auto-loaded on view rather than
@@ -345,8 +284,6 @@ export default function AstrologyView({ initialProfile }: { initialProfile: Astr
             </Card>
 
             <div className="flex flex-col gap-[var(--grid-gap)]">
-              {panchang && <PanchangCard panchang={panchang} t={t} />}
-
               <Card title={t('horoscope', 'Horoscope')}>
                 <div className="flex border-b border-surface-3 mb-3">
                   {TABS.map(tb => (
