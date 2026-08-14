@@ -47,7 +47,6 @@ export default function DashboardView({ data, executive }: { data: DashboardData
       ? { emoji: topPriorityRaw.emoji, text: topPriorityRaw.text, href: topPriorityRaw.href }
       : { emoji: topPriorityRaw.type === 'risk' ? '⚠️' : '🚀', text: topPriorityRaw.text, href: KIND_HREF[topPriorityRaw.kind] }
   )
-  const topPriorityModule = topPriority && (topPriority.href.slice(1).charAt(0).toUpperCase() + topPriority.href.slice(2))
 
   return (
     <div className="space-y-3">
@@ -57,27 +56,25 @@ export default function DashboardView({ data, executive }: { data: DashboardData
           of the removed shared Header component — TopNav's title slot is a
           transitional fallback for pages that haven't made this move yet. */}
       <div className="flex items-end justify-between flex-wrap gap-1">
-        <div>
-          <p className="text-[13px] text-fg-tertiary">{today} · {greeting}</p>
-          <h1 className="text-[34px] font-bold tracking-[-0.05em] text-fg-primary">Dashboard</h1>
-        </div>
+        <h1 className="text-[34px] font-bold tracking-[-0.05em] text-fg-primary">Dashboard</h1>
+        <p className="text-[13px] text-fg-tertiary">{today} · {greeting}</p>
       </div>
 
       {/* Top priority — the single highest-ranked Needs Attention item,
           surfaced here so the most important action doesn't require
           scrolling past four other cards to find. Full top-3 detail (with
-          dismiss) still lives in the Needs Attention card further down. */}
+          dismiss) still lives in the Needs Attention card further down. The
+          whole row is the click target (no separate "Open X →" button) and
+          stays single-line via truncate, matching the Astrology strip's
+          compact treatment right below it. */}
       {topPriority && (
-        <div className="flex items-center gap-3.5 px-[18px] py-3.5 rounded-[10px] bg-risk-soft border border-risk-border">
+        <Link href={topPriority.href} className="flex items-center gap-3 px-4 py-3 rounded-[10px] bg-risk-soft border border-risk-border hover:-translate-y-0.5 transition-all">
           <span className="text-xl shrink-0">{topPriority.emoji}</span>
-          <div className="flex-1 min-w-0">
-            <p className="text-[11px] font-bold uppercase tracking-[0.6px] text-risk-strong">Top Priority</p>
-            <p className="text-sm text-fg-primary mt-0.5">{topPriority.text}</p>
-          </div>
-          <Link href={topPriority.href} className="shrink-0 text-[13px] text-fg-secondary whitespace-nowrap border border-border-strong rounded-[7px] px-3 py-1.5 hover:bg-surface-2 transition-colors">
-            Open {topPriorityModule} →
-          </Link>
-        </div>
+          <p className="text-sm text-fg-primary truncate">
+            <span className="text-[11px] font-bold uppercase tracking-[0.6px] text-risk-strong mr-2">Top Priority</span>
+            {topPriority.text}
+          </p>
+        </Link>
       )}
 
       {/* Astrology strip (astrology.md 3.4) — pure display of already-

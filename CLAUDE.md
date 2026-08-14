@@ -62,11 +62,13 @@ This is a non-exhaustive list scoped to the AI Gateway — see `.env.local` for 
 
 ## Post-task checklist: keep README.md current
 
-`README.md` is the canonical spec of this app — written so that pasting the whole file into a fresh AI chat gives that AI 100% understanding of what the app does and how it's built, with no other context needed (module-by-module behavior, exact fields, formulas, AI features, Telegram capabilities, cron jobs, full DB schema).
+`README.md` is the canonical spec of this app — written so that pasting the whole file into a fresh AI chat gives that AI 100% understanding of what the app does and how it's built, with no other context needed (module-by-module behavior, exact fields, formulas, AI features, Telegram capabilities, cron jobs, full DB schema, and the screen-by-screen UI Reference at the bottom).
 
-Before ending any task that changed architecture, database schema, a module's fields/behavior, an AI feature, a Telegram bot capability, a cron job, or navigation structure, update the corresponding section(s) of `README.md` to match. Treat this as a mandatory last step, same tier as running `npm run build` — not optional cleanup, and not something to batch up and do "later." A change that isn't reflected in README.md is not finished.
+Before ending **any** task that changes the app in a way a fresh reader would need to know — architecture, database schema, a module's fields/behavior, an AI feature (including which tasks exist, which model they route to, and their cache TTL), a Telegram bot capability, a cron job, navigation structure, **or a page's actual layout/component structure** — update the corresponding section(s) of `README.md` to match, every time, not just on the change that "feels big." Treat this as mandatory, same tier as running `npm run build`, never something to batch up and do "later" — a change that isn't reflected in README.md is not finished. This applies in both directions: adding something new AND removing/replacing something old (a removed feature's stale mentions — an old task name, an old file path, an old UI element — are just as wrong left behind as a new feature never being added).
 
-Pure UI polish (spacing, colors, copy tweaks) that doesn't change what a section *does* doesn't need a README update.
+The **"## UI Reference (screen-by-screen)"** section at the bottom is exactly as easy to leave stale as the feature-behavior sections above it, and just as wrong when it drifts — check it specifically, not just the module's prose section, whenever a page's structure changes: a card that moved to a different grid/row, a dropdown that became a drawer (or vice versa), a section that got reordered, merged, or split, a card that's no longer paired with what the doc says it's paired with. Don't assume the prose section being current means the UI Reference entry for the same page is also current — verify both.
+
+Pure copy/spacing/color tweaks that don't change a section's actual structure or behavior don't need a README update. But reordering cards, changing which cards share a grid row, swapping one UI pattern for another, or adding/removing a UI element **does** count as a real change requiring an update — even when no new data, table, or business logic was involved.
 
 ## Product Principles
 
