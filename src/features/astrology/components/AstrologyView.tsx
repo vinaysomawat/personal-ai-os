@@ -3,14 +3,14 @@
 import { useEffect, useState } from 'react'
 import { Pencil, Check, X } from 'lucide-react'
 import Card from '@/components/Card'
-import { upsertAstrologyProfile, getAstrologyReading, getStructuredDailyReading, getAstrologyCharacteristics, getCurrentGochara, getAstrologyProfile } from '../actions'
+import { upsertAstrologyProfile, getAstrologyReading, getStructuredDailyReading, getAstrologyCharacteristics, getAstrologyProfile } from '../actions'
 import { getCurrentDasha, getCurrentYogini } from '../chart-calculations'
 import { getRemediation } from '../remedies'
 import { todayIST } from '@/lib/date'
 import KundliChart from './KundliChart'
 import { UI_HI } from '../i18n/hi'
 import type { Lang } from '../i18n/hi'
-import type { AstrologyProfile, DailyReading, GocharaPosition, ReadingPeriod } from '../types'
+import type { AstrologyProfile, DailyReading, ReadingPeriod } from '../types'
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 function formatDate(iso: string): string {
@@ -151,7 +151,6 @@ export default function AstrologyView({ initialProfile }: { initialProfile: Astr
   const [readingLoading, setReadingLoading] = useState(false)
   const [chartMode, setChartMode] = useState<'d1' | 'd9'>('d1')
   const [characteristics, setCharacteristics] = useState<string | null>(null)
-  const [gochara, setGochara] = useState<GocharaPosition[] | null>(null)
   const { lang, toggleLang, t } = useAstrologyLang()
 
   const handleSaved = async () => {
@@ -197,16 +196,6 @@ export default function AstrologyView({ initialProfile }: { initialProfile: Astr
     if (!profile) return
     getAstrologyCharacteristics(profile, lang).then(setCharacteristics)
   }, [profile, lang])
-
-  // Gochara (astrology.md 3.2) — pure deterministic transit data, no AI, so
-  // it's auto-loaded the same way Panchang/Characteristics are, and shown
-  // persistently inside the Horoscope card regardless of which period tab
-  // is selected (Claude Design source: it sits below the daily structured
-  // breakdown, not gated behind it).
-  useEffect(() => {
-    if (!profile) return
-    getCurrentGochara(profile).then(setGochara)
-  }, [profile])
 
   const today = todayIST()
   const currentDasha = profile ? getCurrentDasha(profile.natal_chart.vimshottariDasha, today) : null
@@ -346,20 +335,6 @@ export default function AstrologyView({ initialProfile }: { initialProfile: Astr
                   }
                   return <p className="text-[12.5px] leading-[1.6] text-fg-secondary mb-3.5">{readings[tab as 'monthly' | 'yearly']}</p>
                 })()}
-
-                {gochara && gochara.length > 0 && (
-                  <div>
-                    <p className="text-[10.5px] font-bold text-fg-tertiary uppercase tracking-[0.4px] mb-2">{t('gochara', 'Gochara')}</p>
-                    <div className="flex flex-col gap-1.5">
-                      {gochara.map(g => (
-                        <div key={g.planet} className="bg-surface-2 rounded-[8px] px-2.5 py-1.5 text-[11.5px]">
-                          <span className="font-bold text-fg-primary">{g.planet}</span>
-                          <span className="text-fg-tertiary"> · {g.houseFromLagna} from Lagna · {g.houseFromMoon} from Moon{g.retrograde ? ' · (R)' : ''}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
               </Card>
 
               {remediation.length > 0 && (

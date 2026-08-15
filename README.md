@@ -367,16 +367,16 @@ compatibility/matching charts and Muhurta lookups remain explicitly out of scope
   current sidereal position, computes house-from-Lagna and house-from-Moon relative to the
   natal chart (both are standard reference points; a first pass surfaces all current transits
   rather than scoring their significance, which `astrology.md` explicitly defers).
-  Deterministic, no new ephemeris calls beyond the existing transit snapshot. Feeds directly
-  into the `astrology_reading` prompt context (dasha + gochara together, the standard
-  "which life theme is active + how today's sky affects it" combination), and — per the Claude
-  Design source, pulled and matched 2026-08-14 — is also rendered directly as its own persistent
-  list inside the Horoscope card (`getCurrentGochara(profile)`, a dedicated action separate from
-  the AI reading calls since this data is pure computation with no AI involved): each transiting
-  planet's house-from-Lagna/house-from-Moon, visible regardless of which period tab is selected,
-  no per-transit interpretive text attached (astrology.md explicitly defers significance
-  scoring, so the list stays factual rather than inventing a note per planet). `isChandrashtama()`
-  is one dedicated flag on top of this: true when the
+  Deterministic, no new ephemeris calls beyond the existing transit snapshot. Backend-only:
+  feeds into the `astrology_reading` prompt context (dasha + gochara together, the standard
+  "which life theme is active + how today's sky affects it" combination) and into
+  `isChandrashtama()` below, but is **not rendered as its own UI element** — the persistent
+  per-planet transit list that used to sit inside the Horoscope card was removed to match the
+  current Claude Design source (pulled and matched 2026-08-15, which no longer shows it), and
+  the now-unused `getCurrentGochara(profile)` wrapper action was deleted along with it (unlike
+  Panchang below, `computeGochara`/`isChandrashtama` in `gochara.ts` itself still has real
+  callers, so only the dedicated page-facing wrapper was removed, not the engine).
+  `isChandrashtama()` is one dedicated flag on top of the same computed data: true when the
   transiting Moon's own gochara entry has `houseFromMoon === 8` — a lookup against data already
   computed, not a new formula, so it doesn't carry its own separate verification caveat the way
   Yogini Dasha's starting-lord formula does. Chandrashtama is a well-defined traditional
@@ -802,9 +802,9 @@ the selected language (§13).
    structured breakdown (summary paragraph, then a side-by-side 2-column card grid — green
    "Favorable For" / red "Avoid", each a bulleted list, not chip pills — then a Mood Forecast
    card with a conditional ⚠ Chandrashtama warning line), **This Month/This Year** stay a single
-   prose paragraph; below the tab content, a persistent **Gochara** list (visible regardless of
-   which tab is selected, since it's pure computed data, not AI) shows each transiting planet's
-   house-from-Lagna/house-from-Moon; Remediation (the standalone card below the Horoscope card)
+   prose paragraph (the persistent Gochara transit list that used to sit below the tab content
+   was removed 2026-08-15 to match the current design mock — see §13); Remediation (the
+   standalone card below the Horoscope card)
    lists up to 3 curated, deterministically-templated remedies (not AI-generated) for the
    chart's Saturn/Rahu/Ketu/Mars/Moon placements, with a "traditional guidance, not medical or
    financial advice" disclaimer — not repeated inside Today's structured breakdown, matching the

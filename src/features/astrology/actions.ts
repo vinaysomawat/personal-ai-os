@@ -9,7 +9,7 @@ import { buildPlanetPositions, getRashi, computeVimshottariDasha, computeYoginiD
 import { computeGochara, isChandrashtama } from './gochara'
 import { getTodaysPanchang } from './panchang-actions'
 import { getRemediation } from './remedies'
-import type { AstrologyProfile, DailyReading, GocharaPosition, NatalChart, ReadingPeriod } from './types'
+import type { AstrologyProfile, DailyReading, NatalChart, ReadingPeriod } from './types'
 import type { Lang } from './i18n/hi'
 
 export async function getAstrologyProfile(): Promise<AstrologyProfile | null> {
@@ -209,18 +209,6 @@ function emptyDailyReading(chart: NatalChart, lang: Lang, chandrashtama = false)
     moodForecast: '',
     isChandrashtama: chandrashtama,
   }
-}
-
-// Gochara alone, for the Astrology page's persistent Gochara section (Claude
-// Design source: shown inside the Horoscope card below the daily structured
-// breakdown, visible regardless of which period tab is selected — it's raw
-// computed data, not AI, so it isn't gated behind the daily reading fetch).
-// Duplicates buildReadingContext's transit/gochara work rather than sharing
-// its return value — cheap local ephemeris math, not worth threading a
-// second return path through for.
-export async function getCurrentGochara(profile: AstrologyProfile): Promise<GocharaPosition[]> {
-  const { gochara } = await buildReadingContext(profile)
-  return gochara
 }
 
 // Daily reading's structured output (astrology.md 3.9) — summary/

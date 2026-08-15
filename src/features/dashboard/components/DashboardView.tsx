@@ -68,7 +68,7 @@ export default function DashboardView({ data, executive }: { data: DashboardData
           stays single-line via truncate, matching the Astrology strip's
           compact treatment right below it. */}
       {topPriority && (
-        <Link href={topPriority.href} className="flex items-center gap-3 px-4 py-3 rounded-[10px] bg-risk-soft border border-risk-border hover:-translate-y-0.5 transition-all">
+        <Link href={topPriority.href} className="flex items-center gap-3 px-4 py-2 rounded-[10px] bg-risk-soft border border-risk-border hover:-translate-y-0.5 transition-all">
           <span className="text-xl shrink-0">{topPriority.emoji}</span>
           <p className="text-sm text-fg-primary truncate">
             <span className="text-[11px] font-bold uppercase tracking-[0.6px] text-risk-strong mr-2">Top Priority</span>
@@ -86,7 +86,7 @@ export default function DashboardView({ data, executive }: { data: DashboardData
           — no until-date, no Yogini; that detail lives on the Astrology
           page itself). */}
       {data.astrology && (
-        <Link href="/astrology" className="flex flex-wrap items-center gap-3.5 rounded-[10px] px-4 py-2.5 bg-accent-soft border border-accent-border hover:-translate-y-0.5 transition-all">
+        <Link href="/astrology" className="flex flex-wrap items-center gap-3.5 rounded-[10px] px-4 py-2 bg-accent-soft border border-accent-border hover:-translate-y-0.5 transition-all">
           <p className="text-[10.5px] font-bold text-accent-strong uppercase tracking-[0.4px]">🔮 Astrology</p>
           <p className="text-[12.5px] text-fg-primary">{data.astrology.dashaLord} / {data.astrology.antardashaLord} dasha</p>
           {(data.astrology.tithi || data.astrology.nakshatra) && (

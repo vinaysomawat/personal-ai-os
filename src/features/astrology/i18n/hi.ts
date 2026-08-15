@@ -40,7 +40,6 @@ export const UI_HI: Record<string, string> = {
   remediation: 'उपाय',
   remediationDisclaimer: 'पारंपरिक उपचारात्मक मार्गदर्शन है, यह चिकित्सा या वित्तीय सलाह नहीं है।',
   editBirthDetails: 'जन्म विवरण संपादित करें',
-  gochara: 'गोचर',
   characteristics: 'आपकी विशेषताएँ',
   favorableFor: 'अनुकूल',
   avoid: 'बचें',
