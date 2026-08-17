@@ -3,6 +3,7 @@
 import { useState, useOptimistic, useTransition, useEffect } from 'react'
 import { Trash2, Sparkles, ExternalLink, ListTodo } from 'lucide-react'
 import Card from '@/components/Card'
+import ConfirmDialog from '@/components/ConfirmDialog'
 import EmptyState from '@/components/EmptyState'
 import StatCard from '@/components/StatCard'
 import ModuleRecommendations from '@/components/ModuleRecommendations'
@@ -189,6 +190,7 @@ export default function PlannerView({ initialTasks }: Props) {
   const [recurrence, setRecurrence] = useState<Recurrence | null>(null)
   const [isPending, startTransition] = useTransition()
   const [plannerFilter, setPlannerFilter] = useState<PlannerFilter>('all')
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
 
   const [optimisticTasks, updateOptimisticTasks] = useOptimistic(
     initialTasks,
@@ -267,6 +269,12 @@ export default function PlannerView({ initialTasks }: Props) {
       updateOptimisticTasks({ type: 'delete', payload: { id } })
       await deleteTask(id)
     })
+  }
+
+  const confirmDelete = () => {
+    if (!confirmDeleteId) return
+    handleDelete(confirmDeleteId)
+    setConfirmDeleteId(null)
   }
 
   const advisorOpen = useAIAdvisorOpen()
@@ -350,7 +358,7 @@ export default function PlannerView({ initialTasks }: Props) {
           </div>
         )}
         <ul className="flex flex-col gap-2 max-h-[480px] overflow-y-auto">
-          {visiblePending.map(task => <PendingTaskRow key={task.id} task={task} onToggle={handleToggle} onDelete={handleDelete} />)}
+          {visiblePending.map(task => <PendingTaskRow key={task.id} task={task} onToggle={handleToggle} onDelete={setConfirmDeleteId} />)}
         </ul>
 
         {done.length > 0 && (
@@ -360,7 +368,7 @@ export default function PlannerView({ initialTasks }: Props) {
             </summary>
             <ul className="flex flex-col gap-1.5 mt-2">
               {done.map(task => (
-                <CompletedTaskRow key={task.id} task={task} onToggle={handleToggle} onDelete={handleDelete} />
+                <CompletedTaskRow key={task.id} task={task} onToggle={handleToggle} onDelete={setConfirmDeleteId} />
               ))}
             </ul>
           </details>
@@ -378,7 +386,7 @@ export default function PlannerView({ initialTasks }: Props) {
             <span className="text-xs text-red-400">{overduePending.length} from previous months</span>
           </div>
           <ul className="flex flex-col gap-2 max-h-[480px] overflow-y-auto">
-            {overduePending.map(task => <PendingTaskRow key={task.id} task={task} onToggle={handleToggle} onDelete={handleDelete} />)}
+            {overduePending.map(task => <PendingTaskRow key={task.id} task={task} onToggle={handleToggle} onDelete={setConfirmDeleteId} />)}
           </ul>
         </div>
       )}
@@ -412,6 +420,15 @@ export default function PlannerView({ initialTasks }: Props) {
         )}
       </Card>
       </div>
+
+      {confirmDeleteId && (
+        <ConfirmDialog
+          title="Delete task?"
+          description="This task will be permanently removed."
+          onConfirm={confirmDelete}
+          onCancel={() => setConfirmDeleteId(null)}
+        />
+      )}
     </div>
   )
 }

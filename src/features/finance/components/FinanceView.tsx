@@ -3,6 +3,7 @@
 import { useState, useEffect, useTransition } from 'react'
 import { Sparkles, Pencil, Check, Eye, EyeOff, Repeat, Landmark, Target, Receipt } from 'lucide-react'
 import Card from '@/components/Card'
+import ConfirmDialog from '@/components/ConfirmDialog'
 import EmptyState from '@/components/EmptyState'
 import Modal, { modalLabelClass, modalInputClass, modalSelectClass, modalCancelButtonClass, modalSaveButtonClass } from '@/components/Modal'
 import { useAIAdvisor } from '@/components/AIAdvisorProvider'
@@ -43,6 +44,14 @@ const outlineAddBtn = 'px-2.5 py-1 rounded-[6px] border border-border-strong tex
 // Design uses a plain "✕" glyph for every delete control in Finance (expenses,
 // investments, recurring, loans) rather than a trash icon.
 const deleteGlyphBtn = 'shrink-0 opacity-0 group-hover:opacity-100 text-fg-quaternary hover:text-red-400 text-[11px] p-0.5 transition-all'
+
+const PENDING_DELETE_COPY: Record<'loan' | 'investment' | 'goal' | 'expense' | 'recurring', { title: string; description: (label: string) => string }> = {
+  loan: { title: 'Delete loan?', description: label => `The loan "${label}" will be permanently removed.` },
+  investment: { title: 'Delete investment?', description: label => `"${label}" will be permanently removed.` },
+  goal: { title: 'Delete goal?', description: label => `The goal "${label}" will be permanently removed.` },
+  expense: { title: 'Delete expense?', description: () => 'This expense will be permanently removed.' },
+  recurring: { title: 'Delete recurring expense?', description: label => `"${label}" will no longer be auto-logged each month.` },
+}
 
 function fmt(n: number) {
   return new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(n)
@@ -105,6 +114,7 @@ export default function FinanceView({ expenses, budgets, profile, loans, investm
   const [editingGoalId, setEditingGoalId] = useState<string | null>(null)
   const [editInput, setEditInput] = useState('')
   const [expandedCategory, setExpandedCategory] = useState<string | null>(null)
+  const [pendingDelete, setPendingDelete] = useState<{ kind: 'loan' | 'investment' | 'goal' | 'expense' | 'recurring'; id: string; label: string } | null>(null)
 
   // AI Advisor
   const [advisorTab, setAdvisorTab] = useState<'ask' | 'simulate'>('ask')
@@ -153,7 +163,7 @@ export default function FinanceView({ expenses, budgets, profile, loans, investm
           <InlineEdit value={String(inv.invested_amount)} prefix="₹" textSize="text-[12.5px]" inputWidth="w-24" onSave={v => handleInvAmountSave(inv.id, v)} /> invested
         </span>
         <span className={gain >= 0 ? 'text-good' : 'text-risk'}>({gain >= 0 ? '+' : ''}₹{gain.toLocaleString('en-IN')})</span>
-        <button onClick={() => handleDeleteInvestment(inv.id)} aria-label="Delete investment" className={deleteGlyphBtn}>✕</button>
+        <button onClick={() => setPendingDelete({ kind: 'investment', id: inv.id, label: inv.name })} aria-label="Delete investment" className={deleteGlyphBtn}>✕</button>
       </li>
     )
   }
@@ -261,6 +271,17 @@ export default function FinanceView({ expenses, budgets, profile, loans, investm
   const handleDeleteRecurring = (id: string) => {
     setLocalRecurring(prev => prev.filter(r => r.id !== id))
     startTransition(() => deleteRecurringExpense(id))
+  }
+
+  const confirmPendingDelete = () => {
+    if (!pendingDelete) return
+    const { kind, id } = pendingDelete
+    if (kind === 'loan') handleDeleteLoan(id)
+    else if (kind === 'investment') handleDeleteInvestment(id)
+    else if (kind === 'goal') handleDeleteGoal(id)
+    else if (kind === 'expense') handleDeleteExpense(id)
+    else if (kind === 'recurring') handleDeleteRecurring(id)
+    setPendingDelete(null)
   }
 
   const handleAsk = async () => {
@@ -453,7 +474,7 @@ export default function FinanceView({ expenses, budgets, profile, loans, investm
                             <span className="text-xs text-fg-quaternary shrink-0">{exp.date}</span>
                             {exp.description && <span className="text-xs text-fg-tertiary truncate flex-1">{exp.description}</span>}
                             <span className="text-xs text-fg-secondary font-medium shrink-0 ml-auto">{fmt(Number(exp.amount))}</span>
-                            <button onClick={() => handleDeleteExpense(exp.id)} aria-label="Delete expense" className={deleteGlyphBtn}>✕</button>
+                            <button onClick={() => setPendingDelete({ kind: 'expense', id: exp.id, label: exp.description || exp.category })} aria-label="Delete expense" className={deleteGlyphBtn}>✕</button>
                           </li>
                         ))}
                       </ul>
@@ -481,7 +502,7 @@ export default function FinanceView({ expenses, budgets, profile, loans, investm
                     <InlineEdit value={loan.remaining_months !== null ? String(loan.remaining_months) : ''} prefix="" suffix=" months left" placeholder="?" textSize="text-[12.5px]" inputWidth="w-14" onSave={v => handleLoanMonthsSave(loan.id, v)} />
                     <span>·</span>
                     <InlineEdit value={loan.interest_rate !== null ? String(loan.interest_rate) : ''} prefix="" suffix="% p.a." placeholder="set rate" textSize="text-[12.5px]" inputWidth="w-14" onSave={v => handleLoanRateSave(loan.id, v)} />
-                    <button onClick={() => handleDeleteLoan(loan.id)} aria-label="Delete loan" className={deleteGlyphBtn}>✕</button>
+                    <button onClick={() => setPendingDelete({ kind: 'loan', id: loan.id, label: loan.name })} aria-label="Delete loan" className={deleteGlyphBtn}>✕</button>
                   </li>
                 ))}
               </ul>
@@ -529,7 +550,7 @@ export default function FinanceView({ expenses, budgets, profile, loans, investm
                               <Pencil size={8} className="opacity-0 group-hover/g:opacity-50 transition-opacity" />
                             </button>
                           )}
-                          <button onClick={() => handleDeleteGoal(goal.id)} aria-label="Delete goal" className={deleteGlyphBtn}>✕</button>
+                          <button onClick={() => setPendingDelete({ kind: 'goal', id: goal.id, label: goal.name })} aria-label="Delete goal" className={deleteGlyphBtn}>✕</button>
                         </div>
                       </div>
                       <div className="h-[5px] rounded-[3px] bg-border">
@@ -555,7 +576,7 @@ export default function FinanceView({ expenses, budgets, profile, loans, investm
                     <span className="text-xs text-fg-quaternary shrink-0">{exp.date}</span>
                     {exp.description && <span className="text-xs text-fg-secondary truncate flex-1">{exp.description}</span>}
                     <span className="text-xs text-fg-secondary font-medium shrink-0 ml-auto">{fmt(Number(exp.amount))}</span>
-                    <button onClick={() => handleDeleteExpense(exp.id)} aria-label="Delete expense" className={deleteGlyphBtn}>✕</button>
+                    <button onClick={() => setPendingDelete({ kind: 'expense', id: exp.id, label: exp.description || exp.category })} aria-label="Delete expense" className={deleteGlyphBtn}>✕</button>
                   </li>
                 ))}
               </ul>
@@ -585,7 +606,7 @@ export default function FinanceView({ expenses, budgets, profile, loans, investm
                 <button onClick={() => handleToggleRecurring(r.id, !r.active)} className="px-2 py-0.5 rounded-[6px] border border-border-strong text-[10.5px] text-fg-tertiary hover:text-fg-secondary transition-colors whitespace-nowrap">
                   {r.active ? 'Pause' : 'Resume'}
                 </button>
-                <button onClick={() => handleDeleteRecurring(r.id)} aria-label="Delete recurring expense" className={deleteGlyphBtn}>✕</button>
+                <button onClick={() => setPendingDelete({ kind: 'recurring', id: r.id, label: r.name })} aria-label="Delete recurring expense" className={deleteGlyphBtn}>✕</button>
               </li>
             ))}
           </ul>
@@ -846,6 +867,15 @@ export default function FinanceView({ expenses, budgets, profile, loans, investm
               </form>
             )}
         </Modal>
+      )}
+
+      {pendingDelete && (
+        <ConfirmDialog
+          title={PENDING_DELETE_COPY[pendingDelete.kind].title}
+          description={PENDING_DELETE_COPY[pendingDelete.kind].description(pendingDelete.label)}
+          onConfirm={confirmPendingDelete}
+          onCancel={() => setPendingDelete(null)}
+        />
       )}
     </div>
   )

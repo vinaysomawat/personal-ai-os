@@ -3,6 +3,7 @@
 import { useState, useEffect, useTransition } from 'react'
 import { Plus, ExternalLink, X, Sparkles, ChevronRight, Pencil, Check, Bell } from 'lucide-react'
 import Card from '@/components/Card'
+import ConfirmDialog from '@/components/ConfirmDialog'
 import EmptyState from '@/components/EmptyState'
 import Modal, { modalLabelClass, modalInputClass, modalSelectClass, modalCancelButtonClass, modalSaveButtonClass } from '@/components/Modal'
 import { useAIAdvisor } from '@/components/AIAdvisorProvider'
@@ -126,6 +127,7 @@ export default function CareerView({ applications, profile, skills, quizAttempts
   const [filterStatus, setFilterStatus] = useState<AppStatus | 'all'>('all')
   const [appsSort, setAppsSort] = useState<'recent' | 'match' | 'company'>('recent')
   const [modal, setModal] = useState<'app' | null>(null)
+  const [confirmDeleteAppId, setConfirmDeleteAppId] = useState<string | null>(null)
   useEscapeKey(() => setModal(null))
   const { invalidFields, validate, clear, onFieldInput } = useFormValidation()
 
@@ -174,6 +176,11 @@ export default function CareerView({ applications, profile, skills, quizAttempts
   const handleDeleteApp = (id: string) => {
     setLocalApps(prev => prev.filter(a => a.id !== id))
     startTransition(() => deleteApplication(id))
+  }
+  const confirmDeleteApp = () => {
+    if (!confirmDeleteAppId) return
+    handleDeleteApp(confirmDeleteAppId)
+    setConfirmDeleteAppId(null)
   }
   const handleStatus = (id: string, status: AppStatus) => {
     setLocalApps(prev => prev.map(a => a.id === id ? { ...a, status } : a))
@@ -387,7 +394,7 @@ export default function CareerView({ applications, profile, skills, quizAttempts
                       ) : app.jd_analysis ? (
                         <span className={`text-[11px] font-bold px-2 py-[3px] rounded-[6px] bg-surface-2 ${matchTextColor(app.jd_analysis.matchPercentage)}`}>{app.jd_analysis.matchPercentage}%</span>
                       ) : null}
-                      <button onClick={e => { e.stopPropagation(); handleDeleteApp(app.id) }} aria-label="Delete application" className="text-fg-quaternary hover:text-red-400 transition-colors p-0.5">
+                      <button onClick={e => { e.stopPropagation(); setConfirmDeleteAppId(app.id) }} aria-label="Delete application" className="text-fg-quaternary hover:text-red-400 transition-colors p-0.5">
                         <X size={12} />
                       </button>
                     </div>
@@ -749,6 +756,18 @@ export default function CareerView({ applications, profile, skills, quizAttempts
             </form>
         </Modal>
       )}
+
+      {confirmDeleteAppId && (() => {
+        const app = localApps.find(a => a.id === confirmDeleteAppId)
+        return (
+          <ConfirmDialog
+            title="Delete application?"
+            description={app ? `The application for ${app.role} at ${app.company} will be permanently removed.` : 'This application will be permanently removed.'}
+            onConfirm={confirmDeleteApp}
+            onCancel={() => setConfirmDeleteAppId(null)}
+          />
+        )
+      })()}
     </div>
   )
 }

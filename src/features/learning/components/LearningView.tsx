@@ -3,6 +3,7 @@
 import { useState, useEffect, useTransition } from 'react'
 import { ExternalLink, Sparkles, Flame, BookOpen, Inbox } from 'lucide-react'
 import Card from '@/components/Card'
+import ConfirmDialog from '@/components/ConfirmDialog'
 import EmptyState from '@/components/EmptyState'
 import StatCard from '@/components/StatCard'
 import FilterPill from '@/components/FilterPill'
@@ -172,6 +173,13 @@ export default function LearningView({ initialResources, initialStudyLogs, initi
   const handleDelete = (id: string) => {
     setResources(prev => prev.filter(r => r.id !== id))
     startTransition(() => deleteResource(id))
+  }
+
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
+  const confirmDelete = () => {
+    if (!confirmDeleteId) return
+    handleDelete(confirmDeleteId)
+    setConfirmDeleteId(null)
   }
 
   const handleAddSuggestion = (s: typeof SUGGESTED_RESOURCES[number]) => {
@@ -357,7 +365,7 @@ export default function LearningView({ initialResources, initialStudyLogs, initi
                   <button onClick={() => handleQuiz(r)} className="shrink-0 text-[11px] px-2 py-0.5 rounded-[6px] border border-border-strong text-fg-secondary hover:bg-surface-3 transition-colors">
                     Quiz me
                   </button>
-                  <button onClick={() => handleDelete(r.id)} aria-label="Delete resource" className="shrink-0 text-fg-quaternary hover:text-red-400 text-[11px] p-0.5 transition-colors">✕</button>
+                  <button onClick={() => setConfirmDeleteId(r.id)} aria-label="Delete resource" className="shrink-0 text-fg-quaternary hover:text-red-400 text-[11px] p-0.5 transition-colors">✕</button>
                 </div>
                 <div className="flex items-center gap-2 mt-1.5 pl-[26px]">
                   <span className="text-xs text-fg-quaternary shrink-0">{r.category}</span>
@@ -621,6 +629,18 @@ export default function LearningView({ initialResources, initialStudyLogs, initi
             })()}
         </Modal>
       )}
+
+      {confirmDeleteId && (() => {
+        const r = resources.find(r => r.id === confirmDeleteId)
+        return (
+          <ConfirmDialog
+            title="Delete resource?"
+            description={r ? `"${r.title}" and its linked task will be permanently removed.` : 'This resource will be permanently removed.'}
+            onConfirm={confirmDelete}
+            onCancel={() => setConfirmDeleteId(null)}
+          />
+        )
+      })()}
     </div>
   )
 }

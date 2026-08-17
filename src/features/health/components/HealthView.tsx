@@ -3,6 +3,7 @@
 import { useState, useEffect, useOptimistic, useTransition } from 'react'
 import { Sparkles, Settings2, Dumbbell } from 'lucide-react'
 import Card from '@/components/Card'
+import ConfirmDialog from '@/components/ConfirmDialog'
 import EmptyState from '@/components/EmptyState'
 import ModuleRecommendations from '@/components/ModuleRecommendations'
 import { useAIAdvisor, useAIAdvisorOpen } from '@/components/AIAdvisorProvider'
@@ -184,6 +185,13 @@ export default function HealthView({ initialMetrics, initialProfile, initialWork
     startTransition(async () => { updateWorkouts({ type: 'delete', payload: { id } }); await deleteWorkout(id) })
   }
 
+  const [confirmDeleteWorkoutId, setConfirmDeleteWorkoutId] = useState<string | null>(null)
+  const confirmDeleteWorkout = () => {
+    if (!confirmDeleteWorkoutId) return
+    handleDeleteWorkout(confirmDeleteWorkoutId)
+    setConfirmDeleteWorkoutId(null)
+  }
+
   const healthPlan = computeHealthPlan(profile, metrics, workouts, today)
   const dailyTargets = healthPlan?.dailyTargets ?? null
   const healthScore = healthPlan?.healthScore ?? null
@@ -334,13 +342,25 @@ export default function HealthView({ initialMetrics, initialProfile, initialWork
                 <span className="text-[12.5px] text-fg-secondary">{w.type}</span>
                 <div className="flex items-center gap-2 shrink-0">
                   <span className="text-[12.5px] text-fg-secondary">{w.duration_minutes ? `${w.duration_minutes} min · ` : ''}{w.date}</span>
-                  <button onClick={() => handleDeleteWorkout(w.id)} aria-label="Delete workout" className="shrink-0 opacity-0 group-hover:opacity-100 text-fg-quaternary hover:text-red-400 text-[11px] p-0.5 transition-all">✕</button>
+                  <button onClick={() => setConfirmDeleteWorkoutId(w.id)} aria-label="Delete workout" className="shrink-0 opacity-0 group-hover:opacity-100 text-fg-quaternary hover:text-red-400 text-[11px] p-0.5 transition-all">✕</button>
                 </div>
               </li>
             ))}
           </ul>
         )}
       </Card>
+
+      {confirmDeleteWorkoutId && (() => {
+        const w = workouts.find(w => w.id === confirmDeleteWorkoutId)
+        return (
+          <ConfirmDialog
+            title="Delete workout?"
+            description={w ? `This ${w.type} workout${w.duration_minutes ? ` (${w.duration_minutes} min)` : ''} will be permanently removed.` : 'This workout will be permanently removed.'}
+            onConfirm={confirmDeleteWorkout}
+            onCancel={() => setConfirmDeleteWorkoutId(null)}
+          />
+        )
+      })()}
     </div>
   )
 }

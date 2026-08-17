@@ -2,6 +2,7 @@
 
 import { useState, useOptimistic, useTransition } from 'react'
 import Card from '@/components/Card'
+import ConfirmDialog from '@/components/ConfirmDialog'
 import Modal, { modalLabelClass, modalInputClass, modalSelectClass, modalCancelButtonClass, modalSaveButtonClass } from '@/components/Modal'
 import FieldError from '@/components/FieldError'
 import { signout } from '@/app/login/actions'
@@ -105,6 +106,13 @@ export default function SettingsView({ email, initialReminders, aiBudget, system
       updateReminders({ type: 'delete', payload: { id } })
       await deleteReminder(id)
     })
+  }
+
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
+  const confirmDelete = () => {
+    if (!confirmDeleteId) return
+    handleDelete(confirmDeleteId)
+    setConfirmDeleteId(null)
   }
 
   const handleToggle = (id: string, active: boolean) => {
@@ -233,7 +241,7 @@ export default function SettingsView({ email, initialReminders, aiBudget, system
                 </button>
                 <span className={`flex-1 ${r.active ? 'text-fg-primary' : 'text-fg-quaternary'}`}>{r.label}</span>
                 <span className="text-fg-tertiary text-xs whitespace-nowrap">{MODULE_LABEL[r.module] ?? r.module} · {r.slot === 'morning' ? 'Morning' : 'Evening'}</span>
-                <button onClick={() => handleDelete(r.id)} aria-label="Delete reminder" className="shrink-0 text-fg-quaternary hover:text-risk transition-colors text-xs leading-none p-0.5">
+                <button onClick={() => setConfirmDeleteId(r.id)} aria-label="Delete reminder" className="shrink-0 text-fg-quaternary hover:text-risk transition-colors text-xs leading-none p-0.5">
                   ✕
                 </button>
               </li>
@@ -274,6 +282,18 @@ export default function SettingsView({ email, initialReminders, aiBudget, system
           </form>
         </Modal>
       )}
+
+      {confirmDeleteId && (() => {
+        const r = reminders.find(r => r.id === confirmDeleteId)
+        return (
+          <ConfirmDialog
+            title="Delete reminder?"
+            description={r ? `"${r.label}" will be permanently removed.` : 'This reminder will be permanently removed.'}
+            onConfirm={confirmDelete}
+            onCancel={() => setConfirmDeleteId(null)}
+          />
+        )
+      })()}
     </div>
   )
 }
