@@ -118,19 +118,22 @@ export default function PaymentCalendar({ days }: { days: PaymentCalendarDay[] }
         <div className="grid gap-[4px]" style={{ gridTemplateColumns: 'repeat(7, 20px)' }}>
           {Array.from({ length: leadingBlanks }).map((_, i) => <div key={`blank-${i}`} style={{ width: 20, height: 20 }} />)}
           {cells.map(({ date }) => {
-            const status = dayByDate.get(date)?.status ?? 'none'
+            const day = dayByDate.get(date)
+            const status = day?.status ?? 'none'
             const isNone = status === 'none'
+            const hasExpenses = (day?.expenses.length ?? 0) > 0
+            const isClickable = !isNone || hasExpenses
             const isToday = date === today
             const isSelected = date === selectedDate
             return (
               <button
                 key={date}
-                title={isNone ? '' : `${date}: ${STATUS_LABEL[status]}`}
-                disabled={isNone}
+                title={!isClickable ? '' : isNone ? `${date}: ${day!.expenses.length} expense(s)` : `${date}: ${STATUS_LABEL[status]}`}
+                disabled={!isClickable}
                 onClick={() => setSelectedDate(isSelected ? null : date)}
                 style={{ width: 20, height: 20 }}
                 className={`rounded-[4px] box-border transition-transform hover:scale-110
-                  ${isNone ? 'border border-dashed border-border cursor-default' : `${STATUS_BG[status]} cursor-pointer`}
+                  ${isNone ? `border border-dashed border-border ${isClickable ? 'cursor-pointer' : 'cursor-default'}` : `${STATUS_BG[status]} cursor-pointer`}
                   ${isSelected ? 'ring-2 ring-fg-primary' : isToday ? 'ring-[1.5px] ring-accent' : ''}`}
               />
             )
@@ -144,9 +147,9 @@ export default function PaymentCalendar({ days }: { days: PaymentCalendarDay[] }
             <p className="text-[11.5px] font-semibold text-fg-primary">
               {monthLabel.split(' ')[0]} {Number(selectedDate.slice(-2))}
             </p>
-            <p className="text-[11px] text-fg-tertiary">{STATUS_LABEL[selectedDay.status]}</p>
+            {selectedDay.status !== 'none' && <p className="text-[11px] text-fg-tertiary">{STATUS_LABEL[selectedDay.status]}</p>}
           </div>
-          {selectedDay.payments.length > 0 ? (
+          {selectedDay.payments.length > 0 && (
             <ul className="flex flex-col gap-1 mt-1.5">
               {selectedDay.payments.map((p, i) => (
                 <li key={i} className="flex items-center gap-1.5 text-[11.5px]">
@@ -155,7 +158,21 @@ export default function PaymentCalendar({ days }: { days: PaymentCalendarDay[] }
                 </li>
               ))}
             </ul>
-          ) : (
+          )}
+          {selectedDay.expenses.length > 0 && (
+            <>
+              {selectedDay.payments.length > 0 && <p className="text-[10px] text-fg-quaternary uppercase tracking-[0.3px] mt-2">Expenses</p>}
+              <ul className="flex flex-col gap-1 mt-1.5">
+                {selectedDay.expenses.map((e, i) => (
+                  <li key={i} className="flex items-center gap-1.5 text-[11.5px]">
+                    <span className="flex-1 min-w-0 truncate text-fg-secondary">{e.description || e.category} · {e.category}</span>
+                    <span className="text-fg-tertiary shrink-0">{fmt(e.amount)}</span>
+                  </li>
+                ))}
+              </ul>
+            </>
+          )}
+          {selectedDay.payments.length === 0 && selectedDay.expenses.length === 0 && (
             <p className="text-[11.5px] text-fg-quaternary mt-1">No payment due this day.</p>
           )}
         </div>

@@ -3,7 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { todayIST } from '@/lib/date'
-import { computeRiskEngine, computeOpportunityEngine, type Risk, type Opportunity } from './risk-opportunity-engine'
+import { computeRiskEngine, computeOpportunityEngine, computeAutomationRules, type Risk, type Opportunity } from './risk-opportunity-engine'
 import { computeCodingStats } from '@/features/coding/daily-core'
 import { getWhatsChanged, type ChangeItem } from '@/features/dashboard/whats-changed'
 import { generateEveningReflection, type EveningReflectionResult } from '@/features/ai/evening-reflection'
@@ -12,6 +12,7 @@ export interface ExecutiveData {
   brief: string | null
   risks: Risk[]
   opportunities: Opportunity[]
+  automationRules: string[]
   whatsChanged: ChangeItem[]
   codingStreak: number
 }
@@ -23,13 +24,14 @@ export interface ExecutiveData {
 export async function getExecutiveData(): Promise<ExecutiveData> {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return { brief: null, risks: [], opportunities: [], whatsChanged: [], codingStreak: 0 }
+  if (!user) return { brief: null, risks: [], opportunities: [], automationRules: [], whatsChanged: [], codingStreak: 0 }
 
   const today = todayIST()
-  const [{ data: briefRow }, risks, opportunities, { data: dismissals }, whatsChanged, codingStats] = await Promise.all([
+  const [{ data: briefRow }, risks, opportunities, automationRules, { data: dismissals }, whatsChanged, codingStats] = await Promise.all([
     supabase.from('daily_briefings').select('message').eq('user_id', user.id).eq('date', today).maybeSingle(),
     computeRiskEngine(supabase, user.id),
     computeOpportunityEngine(supabase, user.id),
+    computeAutomationRules(supabase, user.id),
     supabase.from('decision_queue_dismissals').select('kind').eq('user_id', user.id).eq('date', today),
     getWhatsChanged(supabase, user.id),
     computeCodingStats(supabase, user.id),
@@ -41,6 +43,7 @@ export async function getExecutiveData(): Promise<ExecutiveData> {
     brief: briefRow?.message ?? null,
     risks: risks.filter(r => !dismissedKinds.has(r.kind)),
     opportunities: opportunities.filter(o => !dismissedKinds.has(o.kind)),
+    automationRules,
     whatsChanged,
     codingStreak: codingStats.currentStreak,
   }

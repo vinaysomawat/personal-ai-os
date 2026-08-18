@@ -157,7 +157,7 @@ export default function FinanceView({ expenses, budgets, profile, loans, investm
   const renderInvestmentItem = (inv: Investment) => {
     const gain = Number(inv.current_value) - Number(inv.invested_amount)
     return (
-      <li key={inv.id} className="flex items-center gap-x-1.5 gap-y-1 flex-wrap text-[12.5px] text-fg-secondary group">
+      <li key={inv.id} className="flex items-center gap-x-1.5 gap-y-1 flex-wrap text-[12.5px] text-fg-secondary group bg-surface-2 rounded-lg px-2.5 py-2">
         <span>{inv.name} —</span>
         <span className="flex items-center gap-1">
           <InlineEdit value={String(inv.current_value)} prefix="₹" textSize="text-[12.5px]" inputWidth="w-24" onSave={v => handleInvValueSave(inv.id, v)} /> current,
@@ -572,7 +572,7 @@ export default function FinanceView({ expenses, budgets, profile, loans, investm
             {localExpenses.length === 0 ? (
               <EmptyState icon={Receipt} message="No expenses this month" compact cta={{ label: 'Add', onClick: () => setModal('expense') }} />
             ) : (
-              <ul className="space-y-0.5 max-h-80 overflow-y-auto">
+              <ul className="space-y-0.5 max-h-32 overflow-y-auto">
                 {localExpenses.map(exp => (
                   <li key={exp.id} className="flex items-center gap-2.5 p-1 rounded-lg hover:bg-surface-2 transition-colors group">
                     <span className={`text-xs px-1.5 py-0.5 rounded-full font-medium shrink-0 ${CATEGORY_COLOR[exp.category]}`}>{exp.category}</span>

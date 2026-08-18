@@ -99,10 +99,17 @@ interface CalendarDayPayment {
   category: string
 }
 
+interface CalendarDayExpense {
+  description: string | null
+  category: string
+  amount: number
+}
+
 export interface PaymentCalendarDay {
   date: string
   status: 'paid' | 'pending' | 'missed' | 'none'
   payments: CalendarDayPayment[]
+  expenses: CalendarDayExpense[]
 }
 
 // Same shape/pattern as Coding's computeCodingCalendar and Learning's
@@ -117,15 +124,31 @@ export interface PaymentCalendarDay {
 // even though the cron currently always logs on the exact due day.
 // `pending` (not yet due-or-not-due-yet vs. genuinely overdue) covers
 // today-or-future unpaid due days; `missed` is strictly past and unpaid.
+//
+// `expenses` (added 2026-08-18, per user feedback that the calendar should
+// "show the expenses done on each day") is separate from `payments`: every
+// day's actual logged `expenses` rows, regardless of whether that day is a
+// recurring due-date — so a day with real ad-hoc spend but no recurring
+// template due is still clickable and shows what was spent. `status`/
+// `payments` keep meaning "recurring bill on-time tracking" unchanged; the
+// two lists are shown together in the calendar's detail panel, not merged.
 export async function computePaymentCalendar(supabase: Awaited<ReturnType<typeof createClient>>, userId: string, days = 182): Promise<PaymentCalendarDay[]> {
   const since = daysAgoIST(days)
-  const [{ data: templates }, { data: paidExpenses }] = await Promise.all([
+  const [{ data: templates }, { data: paidExpenses }, { data: allExpenses }] = await Promise.all([
     supabase.from('recurring_expenses').select('id, name, amount, category, day_of_month').eq('user_id', userId).eq('active', true),
     supabase.from('expenses').select('date, recurring_expense_id').eq('user_id', userId).gte('date', since).not('recurring_expense_id', 'is', null),
+    supabase.from('expenses').select('date, description, category, amount').eq('user_id', userId).gte('date', since),
   ])
 
   const activeTemplates = templates ?? []
   const paidMonths = new Set((paidExpenses ?? []).map(e => `${e.recurring_expense_id}:${e.date.slice(0, 7)}`))
+
+  const expensesByDate = new Map<string, CalendarDayExpense[]>()
+  for (const e of allExpenses ?? []) {
+    const list = expensesByDate.get(e.date) ?? []
+    list.push({ description: e.description, category: e.category, amount: Number(e.amount) })
+    expensesByDate.set(e.date, list)
+  }
 
   const today = todayIST()
   const result: PaymentCalendarDay[] = []
@@ -133,15 +156,16 @@ export async function computePaymentCalendar(supabase: Awaited<ReturnType<typeof
     const d = daysAgoIST(i)
     const dayOfMonth = Number(d.slice(8, 10))
     const monthKey = d.slice(0, 7)
+    const dayExpenses = expensesByDate.get(d) ?? []
     const dueTemplates = activeTemplates.filter(t => t.day_of_month === dayOfMonth)
     if (dueTemplates.length === 0) {
-      result.push({ date: d, status: 'none', payments: [] })
+      result.push({ date: d, status: 'none', payments: [], expenses: dayExpenses })
       continue
     }
     const payments = dueTemplates.map(t => ({ name: t.name, amount: t.amount, category: t.category }))
     const allPaid = dueTemplates.every(t => paidMonths.has(`${t.id}:${monthKey}`))
     const status: PaymentCalendarDay['status'] = allPaid ? 'paid' : (d >= today ? 'pending' : 'missed')
-    result.push({ date: d, status, payments })
+    result.push({ date: d, status, payments, expenses: dayExpenses })
   }
   return result.reverse()
 }

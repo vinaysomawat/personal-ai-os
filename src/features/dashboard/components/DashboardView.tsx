@@ -125,7 +125,7 @@ export default function DashboardView({ data, executive }: { data: DashboardData
           Stats above instead of duplicating information across cards. */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-[var(--grid-gap)] items-start">
         <WhatsChanged items={executive.whatsChanged} />
-        <ExecutiveBrief brief={executive.brief} />
+        <ExecutiveBrief brief={executive.brief} automationRules={executive.automationRules} risks={executive.risks} opportunities={executive.opportunities} />
       </div>
 
       {/* Needs Attention (Today's Focus signals + Decision Queue's Risks/

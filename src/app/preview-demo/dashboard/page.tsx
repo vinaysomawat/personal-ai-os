@@ -61,7 +61,7 @@ const dummyData = {
   astrology: null,
 }
 
-const dummyExecutive = { brief: null, risks: [], opportunities: [], whatsChanged: [], codingStreak: 0 }
+const dummyExecutive = { brief: null, risks: [], opportunities: [], automationRules: [], whatsChanged: [], codingStreak: 0 }
 
 export default function DashboardPreview() {
   return <DashboardView data={dummyData} executive={dummyExecutive} />
