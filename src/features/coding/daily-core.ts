@@ -108,6 +108,24 @@ export async function generateAssignmentForUser(supabase: SupabaseClient, userId
   const existing = await getTodayAssignmentRows(supabase, userId)
   if (existing.length > 0) return existing
 
+  // The check above isn't atomic with the inserts below — concurrent /coding
+  // page loads (browser prefetch on the nav link, a reload, dev-server
+  // hot-reload) can each pass it before the first request's inserts land,
+  // each generating its own duplicate set of picks + Planner tasks (observed
+  // in production 2026-08-18: 6 overlapping calls created 12 duplicate rows).
+  // `coding_daily_generation_locks` has a unique(user_id, assigned_date) key,
+  // so only one concurrent caller can win this insert; everyone else falls
+  // back to polling for the winner's rows instead of generating their own.
+  const { error: lockError } = await supabase.from('coding_daily_generation_locks').insert({ user_id: userId, assigned_date: today })
+  if (lockError) {
+    for (let i = 0; i < 10; i++) {
+      const rows = await getTodayAssignmentRows(supabase, userId)
+      if (rows.length > 0) return rows
+      await new Promise(resolve => setTimeout(resolve, 300))
+    }
+    return []
+  }
+
   const settings = await getSettings(supabase, userId)
   const weekday = new Date(`${today}T00:00:00Z`).getUTCDay()
 
