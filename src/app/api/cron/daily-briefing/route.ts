@@ -44,7 +44,7 @@ export async function GET(req: Request) {
   const riskSection = risks.length > 0
     ? `\n\n⚠️ *Risks*\n\n${risks.map(r => `${IMPACT_EMOJI[r.impact]} ${r.text}\n   → ${r.action}`).join('\n\n')}`
     : ''
-  const opportunitySection = opportunities.length > 0 ? `\n\n${opportunities.map(o => o.text).join('\n\n')}` : ''
+  const opportunitySection = opportunities.length > 0 ? `\n\n🚀 *Opportunities*\n\n${opportunities.map(o => `${o.text}\n   → ${o.action}`).join('\n\n')}` : ''
 
   await sendMessage(BOT_TOKEN, Number(CHAT_ID), `🌅 *Good Morning, Vinay!*\n\n${briefing.text}${automationSection}${riskSection}${opportunitySection}${reminders}\n\n_Open your dashboard → vinay-ai-os.vercel.app_`)
 

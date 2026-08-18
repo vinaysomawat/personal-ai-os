@@ -35,8 +35,13 @@ export default function WorkoutCalendar({ days, title }: { days: WorkoutCalendar
 
   const monthStart = new Date(viewYear, viewMonth, 1)
   const monthEnd = new Date(viewYear, viewMonth + 1, 0)
-  const monthStartStr = monthStart.toISOString().slice(0, 10)
-  const monthEndStr = monthEnd.toISOString().slice(0, 10)
+  // Built from the local y/m/d components directly, not via
+  // `.toISOString()` — that converts to UTC first, which silently shifts
+  // the date back a day for any timezone ahead of UTC (e.g. IST), throwing
+  // off which weekday column "today" and every other cell land in.
+  const pad = (n: number) => String(n).padStart(2, '0')
+  const monthStartStr = `${viewYear}-${pad(viewMonth + 1)}-01`
+  const monthEndStr = `${viewYear}-${pad(viewMonth + 1)}-${pad(monthEnd.getDate())}`
   const canGoPrev = monthStartStr > minDate
   const canGoNext = monthEndStr < maxDate
 
@@ -44,7 +49,7 @@ export default function WorkoutCalendar({ days, title }: { days: WorkoutCalendar
   const leadingBlanks = monthStart.getDay()
   const cells: { num: number; date: string }[] = []
   for (let d = 1; d <= daysInMonth; d++) {
-    const date = new Date(viewYear, viewMonth, d).toISOString().slice(0, 10)
+    const date = `${viewYear}-${pad(viewMonth + 1)}-${pad(d)}`
     cells.push({ num: d, date })
   }
 

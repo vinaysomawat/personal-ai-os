@@ -14,6 +14,7 @@ export interface Risk {
 export interface Opportunity {
   kind: 'interview_momentum'
   text: string
+  action: string
 }
 
 export const IMPACT_EMOJI: Record<Risk['impact'], string> = { high: '🔴', medium: '🟠', low: '🟡' }
@@ -141,7 +142,8 @@ export async function computeOpportunityEngine(supabase: SupabaseClient, userId:
   if (count >= 3) {
     opportunities.push({
       kind: 'interview_momentum',
-      text: `You have ${count} active interview-stage applications — strong momentum. Consider batch-scheduling extra interview practice sessions this week to capitalize on it.`,
+      text: `You have ${count} active interview-stage applications — strong momentum.`,
+      action: 'Batch-schedule extra interview practice sessions this week to capitalize on it.',
     })
   }
 

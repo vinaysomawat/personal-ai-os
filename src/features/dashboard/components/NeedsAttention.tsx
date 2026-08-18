@@ -2,11 +2,10 @@
 
 import { useOptimistic, useTransition } from 'react'
 import Link from 'next/link'
-import { Rocket } from 'lucide-react'
 import Card from '@/components/Card'
 import { dismissDecisionQueueItem } from '@/features/brain/executive-actions'
 import { buildPriorityItems, KIND_HREF } from '../priority'
-import { IMPACT_EMOJI, type Risk, type Opportunity } from '@/features/brain/risk-opportunity-engine'
+import type { Risk, Opportunity } from '@/features/brain/risk-opportunity-engine'
 import type { TopAction } from '../actions'
 
 // Every row shares one layout (bg-surface-2, colored left border, kind
@@ -14,7 +13,16 @@ import type { TopAction } from '../actions'
 // to each have their own bespoke row markup; this unifies them while
 // keeping risk's per-severity color nuance (design's own mockup flattens
 // risk to one flat red, but our impact tiers are real, worth keeping).
-const IMPACT_BORDER: Record<Risk['impact'], string> = { high: 'border-red-400', medium: 'border-amber-400', low: 'border-yellow-300' }
+//
+// Restyled 2026-08-18 to match the Claude Design source: a uniform colored
+// dot replaces the old per-type icon/emoji, and risk/opportunity rows show
+// a second "→ {action}" suggestion line (opportunity's action field split
+// out from its single sentence to match). Signal rows deliberately don't
+// get a suggestion line — the 12 signal generators across the module
+// signals.ts files each write one blended sentence, and inventing a
+// separate action string for each risked reading as filler rather than
+// real guidance (per user decision 2026-08-18).
+const IMPACT_DOT: Record<Risk['impact'], string> = { high: 'bg-red-400', medium: 'bg-amber-400', low: 'bg-yellow-300' }
 const IMPACT_TEXT: Record<Risk['impact'], string> = { high: 'text-red-400', medium: 'text-amber-400', low: 'text-yellow-300' }
 const MAX_ITEMS = 3
 
@@ -62,34 +70,35 @@ export default function NeedsAttention({ topActions, risks, opportunities }: Nee
           {items.map((item, i) => {
             if (item.type === 'signal') {
               return (
-                <li key={`signal-${i}`} className="flex items-start gap-3 bg-surface-2 border-l-[3px] border-warn rounded-lg px-3.5 py-[11px]">
-                  <span className="text-[17px] shrink-0">{item.emoji}</span>
+                <li key={`signal-${i}`} className="flex items-start gap-3 bg-surface-2 rounded-[10px] px-4 py-[14px]">
+                  <span className="w-2.5 h-2.5 rounded-full bg-warn shrink-0 mt-1" />
                   <Link href={item.href} className="flex-1 min-w-0 group">
-                    <p className="text-sm text-fg-primary group-hover:text-accent transition-colors">{item.text}</p>
-                    <p className="text-[10px] font-bold uppercase tracking-[0.3px] text-warn mt-0.5">Signal</p>
+                    <p className="text-sm leading-[1.4] text-fg-primary group-hover:text-accent transition-colors">{item.text}</p>
+                    <p className="text-[10px] font-bold uppercase tracking-[0.3px] text-warn mt-2">Signal</p>
                   </Link>
                 </li>
               )
             }
             if (item.type === 'risk') {
               return (
-                <li key={item.kind} className={`flex items-start gap-3 bg-surface-2 border-l-[3px] rounded-lg px-3.5 py-[11px] ${IMPACT_BORDER[item.impact]}`}>
-                  <span className="text-[17px] shrink-0">{IMPACT_EMOJI[item.impact]}</span>
+                <li key={item.kind} className="flex items-start gap-3 bg-surface-2 rounded-[10px] px-4 py-[14px]">
+                  <span className={`w-2.5 h-2.5 rounded-full shrink-0 mt-1 ${IMPACT_DOT[item.impact]}`} />
                   <Link href={KIND_HREF[item.kind]} className="flex-1 min-w-0 group">
-                    <p className="text-sm text-fg-primary group-hover:text-accent transition-colors">{item.text}</p>
-                    <p className="text-xs text-fg-tertiary mt-0.5">→ {item.action}</p>
-                    <p className={`text-[10px] font-bold uppercase tracking-[0.3px] mt-1 ${IMPACT_TEXT[item.impact]}`}>Risk</p>
+                    <p className="text-sm leading-[1.4] text-fg-primary group-hover:text-accent transition-colors">{item.text}</p>
+                    <p className="text-xs text-fg-tertiary mt-1.5">→ {item.action}</p>
+                    <p className={`text-[10px] font-bold uppercase tracking-[0.3px] mt-2 ${IMPACT_TEXT[item.impact]}`}>Risk</p>
                   </Link>
                   <button onClick={() => dismiss(item.kind)} aria-label="Dismiss" className="shrink-0 text-fg-quaternary hover:text-fg-secondary text-xs px-1">✕</button>
                 </li>
               )
             }
             return (
-              <li key={item.kind} className="flex items-start gap-3 bg-surface-2 border-l-[3px] border-good rounded-lg px-3.5 py-[11px]">
-                <Rocket size={17} className="text-good shrink-0" />
+              <li key={item.kind} className="flex items-start gap-3 bg-surface-2 rounded-[10px] px-4 py-[14px]">
+                <span className="w-2.5 h-2.5 rounded-full bg-good shrink-0 mt-1" />
                 <Link href={KIND_HREF[item.kind]} className="flex-1 min-w-0 group">
-                  <p className="text-sm text-fg-primary group-hover:text-accent transition-colors">{item.text}</p>
-                  <p className="text-[10px] font-bold uppercase tracking-[0.3px] text-good mt-0.5">Opportunity</p>
+                  <p className="text-sm leading-[1.4] text-fg-primary group-hover:text-accent transition-colors">{item.text}</p>
+                  <p className="text-xs text-fg-tertiary mt-1.5">→ {item.action}</p>
+                  <p className="text-[10px] font-bold uppercase tracking-[0.3px] text-good mt-2">Opportunity</p>
                 </Link>
                 <button onClick={() => dismiss(item.kind)} aria-label="Dismiss" className="shrink-0 text-fg-quaternary hover:text-fg-secondary text-xs px-1">✕</button>
               </li>
