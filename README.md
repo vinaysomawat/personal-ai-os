@@ -394,7 +394,10 @@ compatibility/matching charts and Muhurta lookups remain explicitly out of scope
 - **Your Characteristics card** — a one-time narrative (Lagna qualities, Moon sign/mind nature,
   notable strong/weak placements, general tendencies), grounded only in the natal chart +
   Navamsa, distinct from the daily/monthly/yearly readings in that it's not a forecast — a
-  stable read that only needs to change when birth details are re-edited.
+  stable read that only needs to change when birth details are re-edited. Collapsed by default
+  behind a native `<details>`/`<summary>` accordion (2026-08-18, same pattern Planner's
+  Completed-tasks list already uses) — the card's title doubles as the toggle, rather than a
+  separate `Card` title + always-expanded body.
   `getAstrologyCharacteristics(profile, lang)` uses its own AI Gateway task
   (`astrology_characteristics`, Sonnet) with an effectively-permanent cache (`ONE_YEAR` TTL in
   `TASK_CONFIG` — a ceiling, not the thing doing the real work: the cache key already changes
@@ -796,7 +799,8 @@ the selected language (§13).
    until-date, with the active Yogini period as a secondary line, right-aligned
 3. **Your Characteristics** card — a one-time narrative (Lagna/Moon-sign/strong-weak
    placements), auto-loaded on page view rather than click-to-load like the reading tabs, since
-   it's cached effectively permanently and a repeat view costs nothing
+   it's cached effectively permanently and a repeat view costs nothing; collapsed by default
+   behind a `<details>`/`<summary>` accordion, title doubling as the toggle
 4. **Natal Chart** + **Horoscope**/**Remediation** side by side
    (`lg:grid-cols-[minmax(280px,380px)_1fr]`) — the chart card has a Rashi (D1) / Navamsa (D9)
    tab toggle over the same North Indian style SVG kundli (fixed house positions, planets by

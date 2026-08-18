@@ -242,8 +242,13 @@ export default function AstrologyView({ initialProfile }: { initialProfile: Astr
           )}
 
           {characteristics && (
-            <Card title={t('characteristics', 'Your Characteristics')}>
-              <p className="text-[12.5px] leading-[1.6] text-fg-secondary">{characteristics}</p>
+            <Card>
+              <details>
+                <summary className="text-[13px] font-bold text-fg-primary cursor-pointer select-none list-none">
+                  {t('characteristics', 'Your Characteristics')}
+                </summary>
+                <p className="text-[12.5px] leading-[1.6] text-fg-secondary mt-2.5">{characteristics}</p>
+              </details>
             </Card>
           )}
 
