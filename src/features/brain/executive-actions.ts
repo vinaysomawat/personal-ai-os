@@ -6,7 +6,7 @@ import { todayIST } from '@/lib/date'
 import { computeRiskEngine, computeOpportunityEngine, type Risk, type Opportunity } from './risk-opportunity-engine'
 import { computeCodingStats } from '@/features/coding/daily-core'
 import { getWhatsChanged, type ChangeItem } from '@/features/dashboard/whats-changed'
-import { generateEveningReflection } from '@/features/ai/evening-reflection'
+import { generateEveningReflection, type EveningReflectionResult } from '@/features/ai/evening-reflection'
 
 export interface ExecutiveData {
   brief: string | null
@@ -65,10 +65,10 @@ export async function dismissDecisionQueueItem(kind: string): Promise<void> {
 // eager fetch: it's only relevant after 6pm IST, and per the PRD's own
 // performance requirement ("no blocking AI requests during initial load"),
 // the client only calls this once it's decided the time gate has passed.
-export async function getEveningReflection(): Promise<string> {
+export async function getEveningReflection(): Promise<EveningReflectionResult> {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return ''
+  if (!user) return { reflection: '', tomorrowsPriority: null }
 
   return generateEveningReflection(supabase, user.id)
 }

@@ -116,9 +116,13 @@ export default function CodingView({ dailyAssignment, codingStats, calendar, cod
         </Card>
       </div>
 
-      <TodaysPickCard title="Today's Quiz" pick={quizPick} />
-      <TodaysPickCard title="Today's JS Function" pick={jsFunctionsPick} />
-      <TodaysPickCard title="Today's UI Coding" pick={uiCodingPick} />
+      {/* Responsive grid, not stacked — matches the Claude Design source's
+          2026-08-18 update to this section. */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-[var(--grid-gap-sm)]">
+        <TodaysPickCard title="Today's Quiz" pick={quizPick} />
+        <TodaysPickCard title="Today's JS Function" pick={jsFunctionsPick} />
+        <TodaysPickCard title="Today's UI Coding" pick={uiCodingPick} />
+      </div>
 
       <QuestionHistory initialHistory={history} />
 

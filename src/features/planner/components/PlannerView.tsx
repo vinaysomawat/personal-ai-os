@@ -119,6 +119,9 @@ const PRIORITY_CHIP: Record<Priority, string> = {
   low: 'bg-surface-2 text-fg-tertiary',
 }
 
+// Monday-first, matching the Claude Design source's Pending Tasks by Day chart.
+const WEEKDAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+
 // A task's "relevant month" is its due_date's month if set, else the month
 // it was created in — so undated tasks implicitly belong to the month they
 // were added, and roll into Overdue once that month passes uncompleted.
@@ -224,6 +227,15 @@ export default function PlannerView({ initialTasks }: Props) {
     return acc
   }, {})
   const areaEntries = Object.entries(byArea).sort((a, b) => b[1] - a[1])
+
+  // Deterministic, client-side from the same `pending` list — no new query.
+  // Undated tasks have no weekday to bucket into, so (unlike By Area, which
+  // counts every pending task) this only counts tasks that actually have a
+  // due_date.
+  const pendingByDayCounts = WEEKDAY_LABELS.map((_, i) =>
+    pending.filter(t => t.due_date && (new Date(`${t.due_date}T00:00:00`).getDay() + 6) % 7 === i).length
+  )
+  const pendingByDayMax = Math.max(1, ...pendingByDayCounts)
 
   const plannerFilterActive = plannerFilter !== 'all'
   const plannerFilterLabel = plannerFilter === 'high' ? 'High Priority' : plannerFilter === 'overdue' ? 'Overdue' : plannerFilter.startsWith('area:') ? plannerFilter.slice(5) : ''
@@ -392,7 +404,8 @@ export default function PlannerView({ initialTasks }: Props) {
       )}
       </div>
 
-      <Card title="By Area" className="lg:col-span-2">
+      <div className="lg:col-span-2 flex flex-col gap-3.5">
+      <Card title="By Area">
         {areaEntries.length === 0 ? (
           <EmptyState icon={ListTodo} message="No pending tasks" compact />
         ) : (
@@ -419,6 +432,29 @@ export default function PlannerView({ initialTasks }: Props) {
           </ul>
         )}
       </Card>
+
+      {/* Pending Tasks by Day — deterministic bar chart from due_date
+          weekday, added 2026-08-18 per the Claude Design source, paired
+          in the same right column as By Area. */}
+      <Card title="Pending Tasks by Day">
+        <div className="flex items-end gap-2" style={{ height: 100 }}>
+          {pendingByDayCounts.map((count, i) => (
+            <div key={i} className="flex-1 flex flex-col items-center justify-end h-full gap-1">
+              <span className="text-[11px] font-bold text-fg-secondary">{count}</span>
+              <div
+                className="w-full max-w-[32px] rounded-t-[4px] bg-accent"
+                style={{ height: `${Math.max(4, Math.round((count / pendingByDayMax) * 100))}%` }}
+              />
+            </div>
+          ))}
+        </div>
+        <div className="flex gap-2 mt-1.5">
+          {WEEKDAY_LABELS.map(label => (
+            <p key={label} className="flex-1 text-center text-[10px] text-fg-tertiary">{label}</p>
+          ))}
+        </div>
+      </Card>
+      </div>
       </div>
 
       {confirmDeleteId && (

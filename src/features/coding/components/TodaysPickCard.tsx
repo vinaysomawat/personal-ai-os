@@ -40,19 +40,23 @@ export default function TodaysPickCard({ title, pick }: { title: string; pick: D
     startTransition(async () => { await markQuestionComplete(item.id, outcome ? { outcome } : undefined) })
   }
 
+  const categoryLabel = item.question.topics?.[0] ?? item.question.category
+
   return (
     <Card title={title} action={
       <span className={`text-[11px] font-bold px-2.5 py-[3px] rounded-[6px] ${item.completed ? 'bg-good-soft text-good' : 'bg-warn-soft text-warn'}`}>
         {item.completed ? 'Answered' : 'Pending'}
       </span>
     }>
-      <div className="flex items-center gap-1.5 flex-wrap">
-        <p className={`text-[14px] font-semibold ${item.completed ? 'text-fg-tertiary line-through' : 'text-fg-primary'}`}>{item.question.title}</p>
-        <span className={`text-[11px] font-medium ${DIFFICULTY_COLOR[item.question.difficulty]}`}>{item.question.difficulty}</span>
-        <a href={item.question.url} target="_blank" rel="noopener noreferrer" className="shrink-0 text-fg-tertiary hover:text-accent transition-colors">
-          <ExternalLink size={12} />
-        </a>
-      </div>
+      <p className="text-[11px] text-fg-tertiary uppercase tracking-[0.4px] mb-1.5">{categoryLabel}</p>
+      <p className={`text-[14px] font-semibold ${item.completed ? 'text-fg-tertiary line-through' : 'text-fg-primary'}`}>
+        {item.question.title} <span className={`text-[11px] font-medium ${DIFFICULTY_COLOR[item.question.difficulty]}`}>{item.question.difficulty}</span>
+      </p>
+      <a href={item.question.url} target="_blank" rel="noopener noreferrer"
+        className="flex items-center justify-between bg-surface-2 border border-border-strong rounded-[8px] px-3 py-[9px] text-[12px] text-fg-primary mt-2.5 hover:border-accent/40 transition-colors">
+        <span>Open on {item.question.source}</span>
+        <ExternalLink size={12} />
+      </a>
       {!item.completed && (
         <button onClick={() => setShowOutcome(true)} disabled={isPending}
           className="mt-3 px-3.5 py-2 rounded-[7px] bg-good text-on-good text-[12.5px] font-semibold hover:opacity-90 disabled:opacity-50 transition-colors">
