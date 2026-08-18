@@ -6,6 +6,11 @@ export interface Expense {
   description: string | null
   date: string
   created_at: string
+  // Set only on rows auto-inserted by the recurring-expenses cron
+  // (api/cron/recurring-expenses/route.ts) — the FK this column always had
+  // at the DB layer, just never typed here until the Payment Calendar
+  // needed to join a paid month back to its recurring template.
+  recurring_expense_id: string | null
 }
 
 export interface Budget {

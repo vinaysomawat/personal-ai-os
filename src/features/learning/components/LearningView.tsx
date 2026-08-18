@@ -12,6 +12,8 @@ import { logAdvisorUsage } from '@/lib/advisor-usage'
 import Modal, { modalLabelClass, modalInputClass, modalSelectClass, modalCancelButtonClass, modalSaveButtonClass } from '@/components/Modal'
 import { useAIAdvisor, useAIAdvisorOpen } from '@/components/AIAdvisorProvider'
 import { addResource, updateResource, deleteResource, logStudySession, saveResourceQuizAttempt } from '../actions'
+import type { StudyCalendarDay } from '../actions'
+import StudyCalendar from './StudyCalendar'
 import { getDailyStudyPlan, generateResourceQuiz, recommendResources } from '@/features/ai/study-plan'
 import { getStudyStreak } from '../calculations'
 import { gradeQuiz, computeCategoryWeakAreas } from '../quiz-calculations'
@@ -90,9 +92,10 @@ interface Props {
   initialResources: Resource[]
   initialStudyLogs: StudyLog[]
   initialQuizAttempts: ResourceQuizAttempt[]
+  calendar: StudyCalendarDay[]
 }
 
-export default function LearningView({ initialResources, initialStudyLogs, initialQuizAttempts }: Props) {
+export default function LearningView({ initialResources, initialStudyLogs, initialQuizAttempts, calendar }: Props) {
   const [, startTransition] = useTransition()
   const [resources, setResources] = useState(initialResources)
   const [studyLogs, setStudyLogs] = useState(initialStudyLogs)
@@ -399,6 +402,15 @@ export default function LearningView({ initialResources, initialStudyLogs, initi
           </ul>
         )}
       </Card>
+      </div>
+
+      {/* Study Calendar — centered, standalone card per the design (unlike
+          Coding's Contribution Calendar, which pairs side-by-side with
+          Today's Question), same GitHub-style heatmap pattern. */}
+      <div className="flex justify-center">
+        <Card className="max-w-[420px] w-full" title="Study Calendar">
+          <StudyCalendar days={calendar} />
+        </Card>
       </div>
 
       {/* Suggested Resources — curated (hand-verified URLs) + on-demand AI picks,

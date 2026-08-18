@@ -14,9 +14,11 @@ import { daysAgoIST } from '@/lib/date'
 import HealthProfileForm from './HealthProfileForm'
 import HealthScoreHero from './HealthScoreHero'
 import DailyWorkoutCard from './DailyWorkoutCard'
+import WorkoutCalendar from './WorkoutCalendar'
 import { logAdvisorUsage } from '@/lib/advisor-usage'
 import type { HealthMetric, MetricField, HealthProfile, Workout } from '../types'
 import type { DailyWorkout, WorkoutStats } from '../workout-core'
+import type { WorkoutCalendarDay } from '../actions'
 
 const METRICS: { field: MetricField; label: string; unit: string; decimals?: number }[] = [
   { field: 'weight_kg',      label: 'Weight',   unit: 'kg',   decimals: 1 },
@@ -128,11 +130,12 @@ interface Props {
   initialDailyWorkout: DailyWorkout | null
   workoutStats: WorkoutStats
   tip: string | null
+  calendar: WorkoutCalendarDay[]
 }
 
 const WORKOUT_TYPES = ['Strength', 'Cardio', 'Run', 'Yoga', 'Sports', 'Other']
 
-export default function HealthView({ initialMetrics, initialProfile, initialWorkouts, initialDailyWorkout, workoutStats, tip }: Props) {
+export default function HealthView({ initialMetrics, initialProfile, initialWorkouts, initialDailyWorkout, workoutStats, tip, calendar }: Props) {
   const [workoutType, setWorkoutType] = useState('Strength')
   const [workoutDuration, setWorkoutDuration] = useState('')
 
@@ -307,7 +310,10 @@ export default function HealthView({ initialMetrics, initialProfile, initialWork
         </div>
       )}
 
-      {/* Workouts log */}
+      {/* Workouts log + Workout Calendar side by side, matching the design's
+          shared calendar-widget pattern (same pairing as Coding's Today's
+          Question + Contribution Calendar). */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-[var(--grid-gap)] items-start">
       <Card title="Workouts" action={<span className="text-xs text-fg-tertiary">{workouts.length} today</span>}>
         <div className="flex gap-2 mb-3">
           <select
@@ -349,6 +355,11 @@ export default function HealthView({ initialMetrics, initialProfile, initialWork
           </ul>
         )}
       </Card>
+
+      <Card title="Workout Calendar">
+        <WorkoutCalendar days={calendar} />
+      </Card>
+      </div>
 
       {confirmDeleteWorkoutId && (() => {
         const w = workouts.find(w => w.id === confirmDeleteWorkoutId)

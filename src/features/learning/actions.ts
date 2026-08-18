@@ -90,6 +90,58 @@ export async function getLearningData() {
   }
 }
 
+interface CalendarDaySession {
+  resourceTitle: string | null
+  durationMinutes: number
+}
+
+export interface StudyCalendarDay {
+  date: string
+  status: 'done' | 'missed' | 'none'
+  sessions: CalendarDaySession[]
+}
+
+// Same shape/pattern as Coding's computeCodingCalendar (daily-core.ts) — a
+// wider (182-day) window than getLearningData()'s own 30-day studyLogs
+// fetch, since a 6-month heatmap needs more history than the page's other
+// widgets do. Only Done/Missed (no "partial"), since study_logs is a flat
+// activity log, not an assigned-N-per-day quota like coding questions.
+export async function computeStudyCalendar(supabase: Awaited<ReturnType<typeof createClient>>, userId: string, days = 182): Promise<StudyCalendarDay[]> {
+  const since = daysAgoIST(days)
+  const { data } = await supabase
+    .from('study_logs')
+    .select('date, duration_minutes, resource:resources(title)')
+    .eq('user_id', userId)
+    .gte('date', since)
+
+  // Same PostgREST many-to-one-embeds-as-object quirk computeCodingCalendar
+  // already works around — resource_id is nullable, so resource can be null.
+  const rows = (data ?? []) as unknown as { date: string; duration_minutes: number; resource: { title: string } | null }[]
+  const byDate = new Map<string, CalendarDaySession[]>()
+  for (const r of rows) {
+    const entry = byDate.get(r.date) ?? []
+    entry.push({ resourceTitle: r.resource?.title ?? null, durationMinutes: r.duration_minutes })
+    byDate.set(r.date, entry)
+  }
+
+  const today = todayIST()
+  const result: StudyCalendarDay[] = []
+  for (let i = 0; i < days; i++) {
+    const d = daysAgoIST(i)
+    const sessions = byDate.get(d) ?? []
+    const status: StudyCalendarDay['status'] = sessions.length > 0 ? 'done' : d < today ? 'missed' : 'none'
+    result.push({ date: d, status, sessions })
+  }
+  return result.reverse()
+}
+
+export async function getLearningCalendarData(days = 182): Promise<StudyCalendarDay[]> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return []
+  return computeStudyCalendar(supabase, user.id, days)
+}
+
 // Shared by the revision auto-readd and the pending-queue top-up — both add
 // resources with no linked Planner task (unlike a user-initiated addResource,
 // these are silent background inserts, not something the user needs a task

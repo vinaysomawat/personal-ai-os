@@ -72,6 +72,62 @@ export async function deleteWorkout(id: string) {
   revalidatePath('/health')
 }
 
+interface CalendarDayWorkout {
+  type: string
+  durationMinutes: number | null
+}
+
+export interface WorkoutCalendarDay {
+  date: string
+  status: 'done' | 'missed' | 'none'
+  workouts: CalendarDayWorkout[]
+}
+
+// Same shape/pattern as Coding's computeCodingCalendar and Learning's
+// computeStudyCalendar. Only Done/Missed — no "Rest" status, since workouts
+// are logged ad-hoc with no assigned/expected day to compare against
+// (daily_workouts is "one active workout at a time," not "one per
+// calendar day," per workout-core.ts) and there's no per-user rest-day
+// schedule stored anywhere, so a real Rest/Missed distinction isn't
+// derivable from the data. The simple `workouts` table (not
+// `daily_workouts`) is the source of truth here — completing a
+// daily_workouts row already mirrors into `workouts` (workout-core.ts's
+// markWorkoutComplete), so this reads one table, same as the Health Score
+// Activity sub-score does.
+export async function computeWorkoutCalendar(supabase: Awaited<ReturnType<typeof createClient>>, userId: string, days = 182): Promise<WorkoutCalendarDay[]> {
+  const since = daysAgoIST(days)
+  const { data } = await supabase
+    .from('workouts')
+    .select('date, type, duration_minutes')
+    .eq('user_id', userId)
+    .gte('date', since)
+
+  const rows = (data ?? []) as { date: string; type: string; duration_minutes: number | null }[]
+  const byDate = new Map<string, CalendarDayWorkout[]>()
+  for (const r of rows) {
+    const entry = byDate.get(r.date) ?? []
+    entry.push({ type: r.type, durationMinutes: r.duration_minutes })
+    byDate.set(r.date, entry)
+  }
+
+  const today = todayIST()
+  const result: WorkoutCalendarDay[] = []
+  for (let i = 0; i < days; i++) {
+    const d = daysAgoIST(i)
+    const workouts = byDate.get(d) ?? []
+    const status: WorkoutCalendarDay['status'] = workouts.length > 0 ? 'done' : d < today ? 'missed' : 'none'
+    result.push({ date: d, status, workouts })
+  }
+  return result.reverse()
+}
+
+export async function getHealthCalendarData(days = 182): Promise<WorkoutCalendarDay[]> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return []
+  return computeWorkoutCalendar(supabase, user.id, days)
+}
+
 export async function getHealthProfile() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()

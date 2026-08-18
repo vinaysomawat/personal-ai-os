@@ -93,6 +93,66 @@ export async function getFinanceData() {
   }
 }
 
+interface CalendarDayPayment {
+  name: string
+  amount: number
+  category: string
+}
+
+export interface PaymentCalendarDay {
+  date: string
+  status: 'paid' | 'pending' | 'missed' | 'none'
+  payments: CalendarDayPayment[]
+}
+
+// Same shape/pattern as Coding's computeCodingCalendar and Learning's
+// computeStudyCalendar, but the underlying question is different: not "was
+// something logged today" for one activity stream, but "was every active
+// recurring expense due on this day-of-month actually paid this month" — a
+// day only has a status at all if it's some active template's due day
+// (`day_of_month`), matched against a paid `expenses` row via the
+// `recurring_expense_id` FK the recurring-expenses cron already sets
+// (api/cron/recurring-expenses/route.ts). Matched by month, not exact date,
+// since a template's actual paid date could shift a little in principle
+// even though the cron currently always logs on the exact due day.
+// `pending` (not yet due-or-not-due-yet vs. genuinely overdue) covers
+// today-or-future unpaid due days; `missed` is strictly past and unpaid.
+export async function computePaymentCalendar(supabase: Awaited<ReturnType<typeof createClient>>, userId: string, days = 182): Promise<PaymentCalendarDay[]> {
+  const since = daysAgoIST(days)
+  const [{ data: templates }, { data: paidExpenses }] = await Promise.all([
+    supabase.from('recurring_expenses').select('id, name, amount, category, day_of_month').eq('user_id', userId).eq('active', true),
+    supabase.from('expenses').select('date, recurring_expense_id').eq('user_id', userId).gte('date', since).not('recurring_expense_id', 'is', null),
+  ])
+
+  const activeTemplates = templates ?? []
+  const paidMonths = new Set((paidExpenses ?? []).map(e => `${e.recurring_expense_id}:${e.date.slice(0, 7)}`))
+
+  const today = todayIST()
+  const result: PaymentCalendarDay[] = []
+  for (let i = 0; i < days; i++) {
+    const d = daysAgoIST(i)
+    const dayOfMonth = Number(d.slice(8, 10))
+    const monthKey = d.slice(0, 7)
+    const dueTemplates = activeTemplates.filter(t => t.day_of_month === dayOfMonth)
+    if (dueTemplates.length === 0) {
+      result.push({ date: d, status: 'none', payments: [] })
+      continue
+    }
+    const payments = dueTemplates.map(t => ({ name: t.name, amount: t.amount, category: t.category }))
+    const allPaid = dueTemplates.every(t => paidMonths.has(`${t.id}:${monthKey}`))
+    const status: PaymentCalendarDay['status'] = allPaid ? 'paid' : (d >= today ? 'pending' : 'missed')
+    result.push({ date: d, status, payments })
+  }
+  return result.reverse()
+}
+
+export async function getFinanceCalendarData(days = 182): Promise<PaymentCalendarDay[]> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return []
+  return computePaymentCalendar(supabase, user.id, days)
+}
+
 export async function upsertProfile(salary: number | null, emergencyFundMonths: number) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()

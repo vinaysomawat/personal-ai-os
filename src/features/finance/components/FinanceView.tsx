@@ -18,8 +18,10 @@ import {
 import { askFinanceAdvisor } from '@/features/ai/finance-advisor'
 import ScenarioSimulator from './ScenarioSimulator'
 import SpendingHistory from './SpendingHistoryLazy'
+import PaymentCalendar from './PaymentCalendar'
 import { CATEGORIES, INVESTMENT_TYPES } from '../types'
 import type { Expense, Budget, FinanceProfile, Loan, Investment, FinancialGoal, RecurringExpense, InvestmentType, GoalPriority } from '../types'
+import type { PaymentCalendarDay } from '../actions'
 import { useEscapeKey } from '@/lib/use-escape-key'
 import { useFormValidation } from '@/lib/use-form-validation'
 import FieldError from '@/components/FieldError'
@@ -89,9 +91,10 @@ interface Props {
   avgMonthlyExpense: number
   expenseHistory: { amount: number; category: string; date: string }[]
   month: string
+  calendar: PaymentCalendarDay[]
 }
 
-export default function FinanceView({ expenses, budgets, profile, loans, investments, goals, recurringExpenses, salaryHistory, avgMonthlyExpense, expenseHistory, month }: Props) {
+export default function FinanceView({ expenses, budgets, profile, loans, investments, goals, recurringExpenses, salaryHistory, avgMonthlyExpense, expenseHistory, month, calendar }: Props) {
   const [, startTransition] = useTransition()
   const [salaryVisible, setSalaryVisible] = useState(false)
 
@@ -585,6 +588,7 @@ export default function FinanceView({ expenses, budgets, profile, loans, investm
         </div>
       </div>
 
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-[var(--grid-gap)] items-start">
       <Card title="Recurring Expenses" action={
         <div className="flex items-center gap-3">
           {localRecurring.some(r => r.active) && (
@@ -612,6 +616,11 @@ export default function FinanceView({ expenses, budgets, profile, loans, investm
           </ul>
         )}
       </Card>
+
+      <Card title="Payment Calendar">
+        <PaymentCalendar days={calendar} />
+      </Card>
+      </div>
 
       <SpendingHistory expenseHistory={expenseHistory} currentMonth={month} />
 
@@ -785,6 +794,7 @@ export default function FinanceView({ expenses, budgets, profile, loans, investm
                   description: fd.get('description') as string || null,
                   date: fd.get('date') as string || todayIST(),
                   created_at: new Date().toISOString(),
+                  recurring_expense_id: null,
                 }
                 setLocalExpenses(prev => [newExp, ...prev])
                 setModal(null)
