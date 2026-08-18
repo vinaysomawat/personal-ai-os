@@ -127,12 +127,18 @@ function computeAntardashas(mahaLord: Planet, mahaStart: string, mahaEnd: string
 // starting-point rule. Single-level only — no antardasha subdivision;
 // Yogini is traditionally consulted at the Mahadasha-equivalent level alone.
 //
-// Starting lord: ((nakshatraNumber × 2 + 3) mod 8), 0 mapped to 8 — the
-// formula given in Uttara Kalamrita and used by mainstream Vedic software
-// (Jagannatha Hora etc.). Flagging this the same way as the ephemeris spike:
-// unlike Vimshottari's ayanamsa (independently verified against a published
-// reference constant), this specific formula hasn't been cross-checked
-// against a reference chart — worth spot-checking before relying on it.
+// Starting lord: ((nakshatraNumber + 3) mod 8), 0 mapped to 8 — the classical
+// Devi Bhagavata formula (count nakshatra number from Ashwini=1, add 3,
+// divide by 8, remainder gives the Yogini). Verified 2026-08-18 against the
+// full published 27-nakshatra → starting-Yogini table (e.g. Ashwini/
+// Ashlesha/Anuradha/Purvabhadrapada → Bhramari; Rohini/Uttara Phalguni/
+// Purva Ashadha → Siddha) and cross-checked against an independent worked
+// example (Anuradha, nakshatra 17 → (17+3) mod 8 = 4 → Bhramari) — all 27
+// nakshatras match. This formula previously had an erroneous extra "× 2"
+// (`(nakshatraNumber × 2 + 3) mod 8`), which produced the wrong starting
+// lord for every chart (e.g. Rohini incorrectly started Dhanya instead of
+// the correct Siddha) — fixed as part of this verification, not just
+// flagged.
 const YOGINI_ORDER: Yogini[] = ['Mangala', 'Pingala', 'Dhanya', 'Bhramari', 'Bhadrika', 'Ulka', 'Siddha', 'Sankata']
 const YOGINI_YEARS: Record<Yogini, number> = {
   Mangala: 1, Pingala: 2, Dhanya: 3, Bhramari: 4, Bhadrika: 5, Ulka: 6, Siddha: 7, Sankata: 8,
@@ -144,7 +150,7 @@ export function computeYoginiDasha(moonSiderealLongitude: number, birthDateIso: 
   const positionInNakshatra = moonSiderealLongitude - nakIndex * NAKSHATRA_SPAN
   const fractionElapsed = positionInNakshatra / NAKSHATRA_SPAN
 
-  const rawStart = (nakshatraNumber * 2 + 3) % 8
+  const rawStart = (nakshatraNumber + 3) % 8
   const startLordIndex = (rawStart === 0 ? 8 : rawStart) - 1
 
   const periods: YoginiPeriod[] = []
@@ -173,9 +179,13 @@ export function getCurrentYogini(timeline: YoginiPeriod[] | undefined, todayIso:
 // the D9 sign is (rashiIndex × 9 + navamsaNumber - 1) mod 12. This closed-
 // form is the standard computational shortcut for the classical rule
 // (movable signs start their navamsa count from themselves, fixed signs
-// from the 9th sign, dual signs from the 5th) — verified by hand against
-// the classical rule for a movable sign (Mesha) and a fixed sign
-// (Vrishabha) before trusting it, same as every other formula in this file.
+// from the 9th sign, dual signs from the 5th). Verified 2026-08-18: proved
+// algebraically equivalent to the verbose classical branching rule for all
+// 12 rashis (rashiIndex mod 3 selects movable/fixed/dual, giving a start
+// offset of 0/8/4 — since gcd(9,12)=3, rashiIndex×9 mod 12 collapses to
+// exactly that same offset pattern for every rashi, not just two examples),
+// then spot-checked against a real natal chart's Lagna + all 9 planets — all
+// 10 positions matched the verbose rule's output exactly.
 const NAVAMSA_SPAN = 30 / 9 // 3°20'
 
 function navamsaRashi(rashi: Rashi, rashiDegree: number): Rashi {

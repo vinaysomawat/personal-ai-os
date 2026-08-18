@@ -28,7 +28,14 @@ export function computeGochara(transitRaw: RawPosition[], natalChart: NatalChart
 // rule-of-thumb marking an emotionally lower/more cautious day. The
 // transiting Moon's own gochara entry already carries houseFromMoon (every
 // planet's position is expressed relative to the natal Moon, including the
-// Moon's own transit), so this is a lookup, not a new calculation.
+// Moon's own transit), so this is a lookup, not a new calculation. Verified
+// 2026-08-18 against two real dates for a natal Moon in Vrishabha (8th house
+// = Dhanu): 2026-01-17 noon IST, transiting Moon at 255.26° sidereal (Dhanu)
+// → houseFromMoon 8 → Chandrashtama true; 2026-01-05 noon IST, transiting
+// Moon at 105.83° (Karka) → houseFromMoon 3 → Chandrashtama false — both
+// computed independently via swisseph-wasm directly (bypassing this
+// module's own callers), confirming `getHouse()` fires correctly on
+// unambiguous real dates, not just in the abstract.
 export function isChandrashtama(gochara: GocharaPosition[]): boolean {
   const transitingMoon = gochara.find(g => g.planet === 'Moon')
   return transitingMoon?.houseFromMoon === 8

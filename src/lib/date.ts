@@ -35,6 +35,13 @@ export function istHour(): number {
   return nowIST().getUTCHours()
 }
 
+// "HH:MM" in IST — for comparing against local-time strings already stored
+// in this shape (e.g. Choghadiya block start/end, panchang sunrise/sunset).
+export function nowISTHHMM(): string {
+  const d = nowIST()
+  return `${String(d.getUTCHours()).padStart(2, '0')}:${String(d.getUTCMinutes()).padStart(2, '0')}`
+}
+
 export function toISTDateStr(date: Date | string): string {
   const d = typeof date === 'string' ? new Date(date) : date
   return new Date(d.getTime() + IST_OFFSET_MS).toISOString().split('T')[0]

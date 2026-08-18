@@ -8,12 +8,13 @@ type Difficulty = 'easy' | 'medium' | 'hard'
 // auto-graded judge), so "accuracy" can only ever be what the user reports.
 export type Outcome = 'solved' | 'solved_with_help' | 'struggled'
 
-// 'quiz' and 'system-design' share this same pool/table rather than a
-// separate one (quiz.md's generalized-practice scope) — both are link-out
-// only (title/url/difficulty, same shape as an algorithm question), so the
-// existing daily-assignment/streak/Planner-sync/weak-area/Life-Score
-// machinery already works for them with zero changes beyond this field.
-export type QuestionCategory = 'algorithm' | 'quiz' | 'system-design'
+// 'quiz', 'system-design', 'javascript-functions', and 'ui-coding' all share
+// this same pool/table rather than a separate one per format (quiz.md's
+// generalized-practice scope) — all are link-out only (title/url/difficulty,
+// same shape as an algorithm question), so the existing daily-assignment/
+// streak/Planner-sync/weak-area/Life-Score machinery already works for them
+// with zero changes beyond this field.
+export type QuestionCategory = 'algorithm' | 'quiz' | 'system-design' | 'javascript-functions' | 'ui-coding'
 
 export interface CodingQuestion {
   id: string
@@ -141,6 +142,19 @@ export async function generateAssignmentForUser(supabase: SupabaseClient, userId
   if (quizPick) {
     picks.push(quizPick)
     assignedIds.add(quizPick.id)
+  }
+
+  // One JS-functions pick and one UI-coding pick every day, same independent
+  // "always one, regardless of mode/rotation" pattern as the quiz pick above.
+  const [jsFunctionsPick] = pickQuestions(allQuestions, assignedIds, null, 1, 'javascript-functions')
+  if (jsFunctionsPick) {
+    picks.push(jsFunctionsPick)
+    assignedIds.add(jsFunctionsPick.id)
+  }
+  const [uiCodingPick] = pickQuestions(allQuestions, assignedIds, null, 1, 'ui-coding')
+  if (uiCodingPick) {
+    picks.push(uiCodingPick)
+    assignedIds.add(uiCodingPick.id)
   }
 
   if (picks.length === 0) return []

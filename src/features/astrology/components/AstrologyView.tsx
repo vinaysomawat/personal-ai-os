@@ -328,6 +328,7 @@ export default function AstrologyView({ initialProfile }: { initialProfile: Astr
                             {dailyReading.isChandrashtama && (
                               <p className="text-[10.5px] text-warn mt-1.5">⚠ Moon transit: Chandrashtama today — a traditionally lower-energy day, not a diagnosis.</p>
                             )}
+                            <p className="text-[10px] text-fg-tertiary mt-1.5">{t('moodForecastDisclaimer', 'Traditional astrological interpretation, not a statement about how you actually feel.')}</p>
                           </div>
                         )}
                       </div>

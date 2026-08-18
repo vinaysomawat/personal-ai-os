@@ -9,7 +9,7 @@ import CodingCalendar from './CodingCalendar'
 import CodingSettingsPopover from './CodingSettingsPopover'
 import QuestionHistory from './QuestionHistory'
 import RecommendedQuestions from './RecommendedQuestions'
-import TodaysQuizPickCard from './TodaysQuizPickCard'
+import TodaysPickCard from './TodaysPickCard'
 import { computeWeakAreas, type DailyQuestion, type CodingStats, type CalendarDay, type CodingSettings } from '../daily-core'
 
 interface Props {
@@ -26,14 +26,19 @@ const MODE_LABEL: Record<CodingSettings['mode'], (fixedCount: number) => string>
 }
 
 export default function CodingView({ dailyAssignment, codingStats, calendar, codingSettings, history }: Props) {
-  // dailyAssignment carries all of today's picks — algorithm, quiz, and (on
-  // alternate Saturdays) system-design — sharing one category column
-  // (quiz.md) rather than separate tables, so the split happens here in the
-  // view layer: DailyCodingCard renders everything except the quiz pick
-  // (system-design rows have the same shape as algorithm rows, so they need
-  // no special handling), and the quiz pick gets its own card.
-  const algorithmAssignment = dailyAssignment.filter(a => a.question.category !== 'quiz')
+  // dailyAssignment carries all of today's picks — algorithm, quiz,
+  // javascript-functions, ui-coding, and (on alternate Saturdays)
+  // system-design — sharing one category column (quiz.md) rather than
+  // separate tables, so the split happens here in the view layer:
+  // DailyCodingCard renders everything except the standalone-card
+  // categories below (system-design rows have the same shape as algorithm
+  // rows, so they need no special handling), and each standalone category
+  // gets its own TodaysPickCard.
+  const STANDALONE_CATEGORIES = ['quiz', 'javascript-functions', 'ui-coding']
+  const algorithmAssignment = dailyAssignment.filter(a => !STANDALONE_CATEGORIES.includes(a.question.category))
   const quizPick = dailyAssignment.find(a => a.question.category === 'quiz') ?? null
+  const jsFunctionsPick = dailyAssignment.find(a => a.question.category === 'javascript-functions') ?? null
+  const uiCodingPick = dailyAssignment.find(a => a.question.category === 'ui-coding') ?? null
   const codingContext = `Current streak: ${codingStats.currentStreak}d (longest: ${codingStats.longestStreak}d). Total solved: ${codingStats.totalSolved} (${codingStats.easySolved} easy, ${codingStats.mediumSolved} medium, ${codingStats.hardSolved} hard). Completion rate: ${codingStats.completionRate}%.`
 
   const advisorOpen = useAIAdvisorOpen()
@@ -111,7 +116,9 @@ export default function CodingView({ dailyAssignment, codingStats, calendar, cod
         </Card>
       </div>
 
-      <TodaysQuizPickCard pick={quizPick} />
+      <TodaysPickCard title="Today's Quiz" pick={quizPick} />
+      <TodaysPickCard title="Today's JS Function" pick={jsFunctionsPick} />
+      <TodaysPickCard title="Today's UI Coding" pick={uiCodingPick} />
 
       <QuestionHistory initialHistory={history} />
 

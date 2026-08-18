@@ -19,15 +19,17 @@ const DIFFICULTY_COLOR: Record<string, string> = {
 // for deprecated tables) with a real daily question from the same category
 // pool DailyCodingCard already renders — link-out + self-report, same
 // interaction algorithm questions use, not an in-app graded quiz anymore.
-export default function TodaysQuizPickCard({ pick }: { pick: DailyQuestion | null }) {
+// Generalized beyond quiz to also render the JS-functions and UI-coding
+// daily picks — identical shape, only the title and underlying pick differ.
+export default function TodaysPickCard({ title, pick }: { title: string; pick: DailyQuestion | null }) {
   const [item, setItem] = useState(pick)
   const [isPending, startTransition] = useTransition()
   const [showOutcome, setShowOutcome] = useState(false)
 
   if (!item) {
     return (
-      <Card title="Today's Quiz">
-        <EmptyState icon={HelpCircle} message="No quiz question available yet — the practice pool hasn't been crawled." />
+      <Card title={title}>
+        <EmptyState icon={HelpCircle} message="No question available yet — the practice pool hasn't been crawled." />
       </Card>
     )
   }
@@ -39,7 +41,7 @@ export default function TodaysQuizPickCard({ pick }: { pick: DailyQuestion | nul
   }
 
   return (
-    <Card title="Today's Quiz" action={
+    <Card title={title} action={
       <span className={`text-[11px] font-bold px-2.5 py-[3px] rounded-[6px] ${item.completed ? 'bg-good-soft text-good' : 'bg-warn-soft text-warn'}`}>
         {item.completed ? 'Answered' : 'Pending'}
       </span>

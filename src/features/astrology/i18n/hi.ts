@@ -44,6 +44,7 @@ export const UI_HI: Record<string, string> = {
   favorableFor: 'अनुकूल',
   avoid: 'बचें',
   moodForecast: 'मनोदशा पूर्वानुमान',
+  moodForecastDisclaimer: 'पारंपरिक ज्योतिषीय व्याख्या है, यह आपकी वास्तविक भावनाओं का विवरण नहीं है।',
 }
 
 export const PLANET_HI: Record<Planet, string> = {

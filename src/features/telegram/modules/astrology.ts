@@ -1,6 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { ModuleReply } from '@/lib/telegram/types'
-import { todayIST } from '@/lib/date'
+import { todayIST, nowISTHHMM } from '@/lib/date'
 
 // Read-mostly bot (astrology.md 3.5) — this module's data has no
 // logging/CRUD equivalent to expenses or tasks, so there's no add/undo
@@ -55,9 +55,16 @@ export async function execute(action: Record<string, unknown>, db: SupabaseClien
     }
     case 'panchang': {
       const { getTodaysPanchang } = await import('@/features/astrology/panchang-actions')
+      const { getCurrentChoghadiyaBlock } = await import('@/features/astrology/panchang')
       const panchang = await getTodaysPanchang(profile.birth_lat, profile.birth_lng, profile.birth_timezone)
       if (!panchang) return `🔮 Could not compute today's panchang.`
-      return `🔮 *Today's Panchang*\n\nTithi: ${panchang.tithi} (${panchang.paksha} Paksha)\nNakshatra: ${panchang.nakshatra}\nYoga: ${panchang.yoga} · Karana: ${panchang.karana}\nSunrise: ${panchang.sunrise} · Sunset: ${panchang.sunset}\n\n⚠️ Rahu Kalam: ${panchang.rahu_kalam_start}–${panchang.rahu_kalam_end}\n⚠️ Yamaganda: ${panchang.yamaganda_start}–${panchang.yamaganda_end}\n⚠️ Gulika Kalam: ${panchang.gulika_kalam_start}–${panchang.gulika_kalam_end}`
+      let text = `🔮 *Today's Panchang*\n\nTithi: ${panchang.tithi} (${panchang.paksha} Paksha)\nNakshatra: ${panchang.nakshatra}\nYoga: ${panchang.yoga} · Karana: ${panchang.karana}\nSunrise: ${panchang.sunrise} · Sunset: ${panchang.sunset}\n\n⚠️ Rahu Kalam: ${panchang.rahu_kalam_start}–${panchang.rahu_kalam_end}\n⚠️ Yamaganda: ${panchang.yamaganda_start}–${panchang.yamaganda_end}\n⚠️ Gulika Kalam: ${panchang.gulika_kalam_start}–${panchang.gulika_kalam_end}`
+      const currentBlock = getCurrentChoghadiyaBlock(panchang.choghadiya ?? [], nowISTHHMM())
+      if (currentBlock) {
+        const emoji = currentBlock.type === 'good' ? '✅' : currentBlock.type === 'bad' ? '⚠️' : '➖'
+        text += `\n\n${emoji} Choghadiya now: ${currentBlock.name} (${currentBlock.type}) until ${currentBlock.end}`
+      }
+      return text
     }
     case 'characteristics': {
       const { getAstrologyCharacteristics } = await import('@/features/astrology/actions')

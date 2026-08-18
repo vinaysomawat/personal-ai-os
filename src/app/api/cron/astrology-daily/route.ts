@@ -4,6 +4,8 @@ import { sendMessage } from '@/lib/telegram/send'
 import { logCronRun } from '@/lib/cron-log'
 import { getAstrologyReading } from '@/features/astrology/actions'
 import { getTodaysPanchang } from '@/features/astrology/panchang-actions'
+import { getCurrentChoghadiyaBlock } from '@/features/astrology/panchang'
+import { nowISTHHMM } from '@/lib/date'
 import type { AstrologyProfile } from '@/features/astrology/types'
 
 const CHAT_ID = process.env.TELEGRAM_ALLOWED_CHAT_ID!
@@ -34,7 +36,13 @@ export async function GET(req: Request) {
 
   let text = `🔮 *Today's Astrology*\n\n`
   if (panchang) {
-    text += `Tithi: ${panchang.tithi} (${panchang.paksha} Paksha) · Nakshatra: ${panchang.nakshatra}\nSunrise: ${panchang.sunrise} · Sunset: ${panchang.sunset}\n⚠️ Rahu Kalam: ${panchang.rahu_kalam_start}–${panchang.rahu_kalam_end}\n\n`
+    text += `Tithi: ${panchang.tithi} (${panchang.paksha} Paksha) · Nakshatra: ${panchang.nakshatra}\nSunrise: ${panchang.sunrise} · Sunset: ${panchang.sunset}\n⚠️ Rahu Kalam: ${panchang.rahu_kalam_start}–${panchang.rahu_kalam_end}`
+    const currentBlock = getCurrentChoghadiyaBlock(panchang.choghadiya ?? [], nowISTHHMM())
+    if (currentBlock) {
+      const emoji = currentBlock.type === 'good' ? '✅' : currentBlock.type === 'bad' ? '⚠️' : '➖'
+      text += `\n${emoji} Choghadiya now: ${currentBlock.name} (${currentBlock.type}) until ${currentBlock.end}`
+    }
+    text += `\n\n`
   }
   text += reading
 
