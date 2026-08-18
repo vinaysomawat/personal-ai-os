@@ -581,7 +581,7 @@ export default function CareerView({ applications, profile, skills, quizAttempts
             </div>
           : undefined
       }>
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-6 gap-y-4">
+        <div className="grid grid-cols-2 sm:grid-cols-5 gap-x-3 gap-y-4">
           <ProfileField label="Current Role" value={localProfile?.current_role ?? ''} onSave={v => saveProfile('current_role', v)} placeholder="Senior Frontend Engineer" />
           <ProfileField label="Company" value={localProfile?.current_company ?? ''} onSave={v => saveProfile('current_company', v)} placeholder="Accenture" />
           <ProfileField label="Current Salary (₹/yr)" value={localProfile?.current_salary?.toString() ?? ''} onSave={v => saveProfile('current_salary', v)} type="number" placeholder="1200000" masked />

@@ -617,8 +617,8 @@ export default function FinanceView({ expenses, budgets, profile, loans, investm
         )}
       </Card>
 
-      <Card title="Payment Calendar">
-        <PaymentCalendar days={calendar} />
+      <Card>
+        <PaymentCalendar days={calendar} title="Payment Calendar" />
       </Card>
       </div>
 

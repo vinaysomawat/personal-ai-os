@@ -392,9 +392,9 @@ export default function LearningView({ initialResources, initialStudyLogs, initi
         {categoryEntries.length === 0 ? (
           <EmptyState icon={BookOpen} message="No resources yet" compact />
         ) : (
-          <ul className="flex flex-col gap-1">
+          <ul className="flex flex-col">
             {categoryEntries.map(([category, count]) => (
-              <li key={category} className="flex items-center justify-between text-[12.5px] text-fg-secondary py-[5px]">
+              <li key={category} className="flex items-center justify-between text-[12.5px] text-fg-secondary">
                 <span className="truncate">{category}</span>
                 <span className="shrink-0">{count}</span>
               </li>
@@ -408,8 +408,8 @@ export default function LearningView({ initialResources, initialStudyLogs, initi
           Coding's Contribution Calendar, which pairs side-by-side with
           Today's Question), same GitHub-style heatmap pattern. */}
       <div className="flex justify-center">
-        <Card className="max-w-[420px] w-full" title="Study Calendar">
-          <StudyCalendar days={calendar} />
+        <Card className="max-w-[420px] w-full">
+          <StudyCalendar days={calendar} title="Study Calendar" />
         </Card>
       </div>
 

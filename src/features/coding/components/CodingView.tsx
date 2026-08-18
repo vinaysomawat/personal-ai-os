@@ -111,8 +111,8 @@ export default function CodingView({ dailyAssignment, codingStats, calendar, cod
           instead of a separate card, see learning/daily-read.ts). */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-[var(--grid-gap)] items-start">
         <DailyCodingCard initialAssignment={algorithmAssignment} stats={codingStats} />
-        <Card title="Contribution Calendar">
-          <CodingCalendar days={calendar} />
+        <Card>
+          <CodingCalendar days={calendar} title="Contribution Calendar" />
         </Card>
       </div>
 
@@ -124,9 +124,10 @@ export default function CodingView({ dailyAssignment, codingStats, calendar, cod
         <TodaysPickCard title="Today's UI Coding" pick={uiCodingPick} />
       </div>
 
-      <QuestionHistory initialHistory={history} />
-
-      <RecommendedQuestions />
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-[var(--grid-gap)] items-start">
+        <QuestionHistory initialHistory={history} />
+        <RecommendedQuestions />
+      </div>
     </div>
   )
 }

@@ -21,7 +21,7 @@ const WEEKDAYS = ['S', 'M', 'T', 'W', 'T', 'F', 'S']
 // Layout restyled 2026-08-18 to match the Claude Design source: streak/
 // active-rate/status-count text sits in a left column beside the day-grid
 // (horizontal split), not stacked above it.
-export default function StudyCalendar({ days }: { days: StudyCalendarDay[] }) {
+export default function StudyCalendar({ days, title }: { days: StudyCalendarDay[]; title: string }) {
   const dayByDate = useMemo(() => new Map(days.map(d => [d.date, d])), [days])
   const minDate = useMemo(() => days.reduce((min, d) => (d.date < min ? d.date : min), days[0]?.date ?? ''), [days])
   const maxDate = useMemo(() => days.reduce((max, d) => (d.date > max ? d.date : max), days[0]?.date ?? ''), [days])
@@ -83,16 +83,19 @@ export default function StudyCalendar({ days }: { days: StudyCalendarDay[] }) {
 
   return (
     <div className="flex flex-col gap-3">
-      <div className="flex items-center gap-1.5">
-        <button onClick={goPrev} disabled={!canGoPrev} aria-label="Previous month"
-          className="w-[26px] h-[26px] rounded-[6px] border border-border-strong text-fg-secondary disabled:opacity-30 disabled:pointer-events-none hover:bg-surface-2 transition-colors">
-          ‹
-        </button>
-        <p className="text-[12px] text-fg-secondary min-w-[92px] text-center font-medium">{monthLabel}</p>
-        <button onClick={goNext} disabled={!canGoNext} aria-label="Next month"
-          className="w-[26px] h-[26px] rounded-[6px] border border-border-strong text-fg-secondary disabled:opacity-30 disabled:pointer-events-none hover:bg-surface-2 transition-colors">
-          ›
-        </button>
+      <div className="flex items-center justify-between gap-2">
+        <h2 className="text-[13px] font-bold text-fg-primary">{title}</h2>
+        <div className="flex items-center gap-1.5">
+          <button onClick={goPrev} disabled={!canGoPrev} aria-label="Previous month"
+            className="w-[26px] h-[26px] rounded-[6px] border border-border-strong text-fg-secondary disabled:opacity-30 disabled:pointer-events-none hover:bg-surface-2 transition-colors">
+            ‹
+          </button>
+          <p className="text-[12px] text-fg-secondary min-w-[92px] text-center font-medium">{monthLabel}</p>
+          <button onClick={goNext} disabled={!canGoNext} aria-label="Next month"
+            className="w-[26px] h-[26px] rounded-[6px] border border-border-strong text-fg-secondary disabled:opacity-30 disabled:pointer-events-none hover:bg-surface-2 transition-colors">
+            ›
+          </button>
+        </div>
       </div>
 
       <div className="flex gap-4 flex-1 min-h-0">
@@ -156,7 +159,7 @@ export default function StudyCalendar({ days }: { days: StudyCalendarDay[] }) {
         </div>
       </div>
 
-      <div className="flex items-center gap-3 pt-2.5 border-t border-surface-3 text-[10.5px] text-fg-tertiary flex-wrap">
+      <div className="flex items-center gap-3 pt-2.5 border-t border-surface-3 text-[10.5px] text-fg-tertiary flex-wrap justify-center">
         <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-[3px] bg-good inline-block" />Studied</span>
         <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-[3px] bg-risk inline-block" />Missed</span>
         <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-[3px] bg-border inline-block" />None</span>

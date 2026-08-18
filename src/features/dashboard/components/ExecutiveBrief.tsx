@@ -1,4 +1,5 @@
 import Card from '@/components/Card'
+import FormattedText from '@/components/FormattedText'
 import type { Risk, Opportunity } from '@/features/brain/risk-opportunity-engine'
 
 interface ExecutiveBriefProps {
@@ -33,7 +34,7 @@ export default function ExecutiveBrief({ brief, automationRules, risks, opportun
     <Card title="Morning Brief" action={brief && <span className="text-[10.5px] text-fg-tertiary">Generated 8:30am</span>}>
       {brief ? (
         <>
-          <p className="text-[13.5px] leading-[1.55] text-fg-secondary">{brief}</p>
+          <p className="text-[13.5px] leading-[1.55] text-fg-secondary"><FormattedText text={brief} /></p>
           {addenda.length > 0 && (
             <div className="flex flex-col gap-[7px] mt-3 pt-3 border-t border-border">
               {addenda.map(a => (

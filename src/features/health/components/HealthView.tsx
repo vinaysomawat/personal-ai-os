@@ -356,8 +356,8 @@ export default function HealthView({ initialMetrics, initialProfile, initialWork
         )}
       </Card>
 
-      <Card title="Workout Calendar">
-        <WorkoutCalendar days={calendar} />
+      <Card>
+        <WorkoutCalendar days={calendar} title="Workout Calendar" />
       </Card>
       </div>
 

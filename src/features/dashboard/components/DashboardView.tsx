@@ -57,16 +57,22 @@ export default function DashboardView({ data, executive }: { data: DashboardData
           transitional fallback for pages that haven't made this move yet. */}
       <div className="flex items-end justify-between flex-wrap gap-1">
         <h1 className="text-[34px] font-bold tracking-[-0.05em] text-fg-primary">Dashboard</h1>
-        <p className="text-[13px] text-fg-tertiary">{today} · {greeting}</p>
+        {/* Dasha info replaces the plain greeting here (2026-08-18, per the
+            Claude Design source) — the standalone Astrology strip that used
+            to render below Top Priority was removed from the design in
+            favor of folding just the dasha lords into this date line;
+            tithi/nakshatra detail still lives on the Astrology page itself.
+            Falls back to the greeting when no birth chart exists yet. */}
+        <p className="text-[13px] text-fg-tertiary">
+          {today} · {data.astrology ? <Link href="/astrology" className="hover:text-accent transition-colors">{data.astrology.dashaLord} / {data.astrology.antardashaLord} dasha</Link> : greeting}
+        </p>
       </div>
 
       {/* Top priority — the single highest-ranked Needs Attention item,
           surfaced here so the most important action doesn't require
           scrolling past four other cards to find. Full top-3 detail (with
           dismiss) still lives in the Needs Attention card further down. The
-          whole row is the click target (no separate "Open X →" button) and
-          stays single-line via truncate, matching the Astrology strip's
-          compact treatment right below it. */}
+          whole row is the click target (no separate "Open X →" button). */}
       {topPriority && (
         <Link href={topPriority.href} className="flex items-center gap-3 px-4 py-2 rounded-[10px] bg-risk-soft border border-risk-border hover:-translate-y-0.5 transition-all">
           <span className="text-xl shrink-0">{topPriority.emoji}</span>
@@ -74,24 +80,6 @@ export default function DashboardView({ data, executive }: { data: DashboardData
             <span className="text-[11px] font-bold uppercase tracking-[0.6px] text-risk-strong mr-2">Top Priority</span>
             {topPriority.text}
           </p>
-        </Link>
-      )}
-
-      {/* Astrology strip (astrology.md 3.4) — pure display of already-
-          computed values (natal_chart's stored dasha timeline + today's
-          cached panchang_daily row), no new query cost beyond the two cheap
-          reads in getDashboardData. Only rendered once a birth chart
-          exists. Positioned right after Top Priority per the Claude Design
-          source, which keeps it minimal (dasha lords + tithi/nakshatra only
-          — no until-date, no Yogini; that detail lives on the Astrology
-          page itself). */}
-      {data.astrology && (
-        <Link href="/astrology" className="flex flex-wrap items-center gap-3.5 rounded-[10px] px-4 py-2 bg-accent-soft border border-accent-border hover:-translate-y-0.5 transition-all">
-          <p className="text-[10.5px] font-bold text-accent-strong uppercase tracking-[0.4px]">🔮 Astrology</p>
-          <p className="text-[12.5px] text-fg-primary">{data.astrology.dashaLord} / {data.astrology.antardashaLord} dasha</p>
-          {(data.astrology.tithi || data.astrology.nakshatra) && (
-            <p className="text-xs text-fg-secondary">{[data.astrology.tithi, data.astrology.nakshatra].filter(Boolean).join(' · ')}</p>
-          )}
         </Link>
       )}
 
