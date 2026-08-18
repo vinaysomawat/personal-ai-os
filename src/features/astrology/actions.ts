@@ -182,10 +182,19 @@ export async function getAstrologyReading(profile: AstrologyProfile, period: Rea
   // day+language, so calling both the same day only costs one real AI call.
   if (period === 'daily') {
     const daily = await getStructuredDailyReading(profile, lang)
+    // These connector labels are only ever seen by this function's non-web
+    // callers (Telegram bot, astrology-daily cron) — the web page renders
+    // favorableFor/avoid/moodForecast as separate structured sections via
+    // getStructuredDailyReading directly, never through this flattened
+    // string, so `lang` has to drive the labels here too, not just the
+    // AI-generated content.
+    const LABELS = lang === 'hi'
+      ? { favorableFor: 'अनुकूल', avoid: 'बचें', mood: 'मनोदशा' }
+      : { favorableFor: 'Favorable for', avoid: 'Avoid', mood: 'Mood' }
     const lines = [daily.summary]
-    if (daily.favorableFor.length) lines.push(`Favorable for: ${daily.favorableFor.join('; ')}.`)
-    if (daily.avoid.length) lines.push(`Avoid: ${daily.avoid.join('; ')}.`)
-    if (daily.moodForecast) lines.push(`Mood: ${daily.moodForecast}`)
+    if (daily.favorableFor.length) lines.push(`${LABELS.favorableFor}: ${daily.favorableFor.join('; ')}.`)
+    if (daily.avoid.length) lines.push(`${LABELS.avoid}: ${daily.avoid.join('; ')}.`)
+    if (daily.moodForecast) lines.push(`${LABELS.mood}: ${daily.moodForecast}`)
     return lines.join('\n\n')
   }
 

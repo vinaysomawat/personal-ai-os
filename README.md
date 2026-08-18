@@ -213,7 +213,7 @@ Each module is its own Telegram bot (own `TELEGRAM_BOT_TOKEN_*`), all pointed at
 | **Health** | "weight 88kg", "8000 steps", "2000 calories", "120g protein", "200g chicken breast", "drank 250ml milk", "2 rotis with dal", "did 45 min strength training", "today's workout", "finished my workout", "skip today's workout", "undo that workout", "today's plan", "how was my week", "why isn't my weight moving?", *[meal photo]* | log metric/ad-hoc workout, log a named food/drink with AI-estimated calories/protein (`food_log`, additive to the day's total, undo button), today's metrics, fetch/complete/skip today's structured workout (fuzzy-free — always operates on the single active workout), undo last ad-hoc workout log, AI daily plan, AI weekly report, free-form AI coach Q&A, meal-photo calorie/protein estimate |
 | **Learning** | "add Next.js course from Udemy", "started JavaScript: The Good Parts book", "update Next.js to 60%", "finished React docs", "show in-progress resources", "what should I study today", "what am I forgetting", "today's reading", "finished reading", "quiz me on React hooks", "undo that" | add/undo resource, update progress, complete (direct — the quiz gate on "Completed" only applies to the web UI, see §6), list by status/needs-revision, AI daily study plan, fetch/complete today's daily read (generates one via `ensureDailyRead()` if none exists yet, §6), on-demand 10-question quiz sheet with answer key (read-only text reply, not a graded attempt — see §6) |
 | **Coding** | "today's question", "solved Two Sum", "explain closures in JS", "undo that" | fetch/complete today's coding challenge (fuzzy title match), free-form AI coding-mentor Q&A (uses recent streak/solved as context), undo the most recently completed question. (The daily-reading commands moved to the Learning bot, above, alongside the rest of the daily reading habit, §6.) |
-| **Astrology** | "today's reading", "this month's/year's reading", "current dasha", "today's panchang", "my characteristics" | daily/monthly/yearly AI reading (same `astrology_reading` task the web app uses), current Vimshottari + Yogini dasha (read from the stored chart, no recompute), today's panchang (tithi/nakshatra/yoga/karana/sunrise/sunset/kalam windows, same cached-by-date `panchang_daily` row — no web card of its own anymore, see §13), one-time AI characteristics summary. Read-mostly — no add/undo surface, since this module has no logging/CRUD equivalent to expenses or tasks (§13). |
+| **Astrology** | "today's reading", "this month's/year's reading", "current dasha", "today's panchang", "my characteristics" | daily/monthly/yearly AI reading (same `astrology_reading` task the web app uses), current Vimshottari + Yogini dasha (read from the stored chart, no recompute), today's panchang (tithi/nakshatra/yoga/karana/sunrise/sunset/kalam windows, same cached-by-date `panchang_daily` row — no web card of its own anymore, see §13), one-time AI characteristics summary. Always replies in Hindi (see §13), unconditionally — the only bot module that doesn't default to English. Read-mostly — no add/undo surface, since this module has no logging/CRUD equivalent to expenses or tasks (§13). |
 Any message the model can't confidently map to an action falls back to `{"action":"help"}`, answered with that bot's own cheat-sheet.
 
 ## 11. Scheduled jobs (Vercel Cron)
@@ -236,7 +236,7 @@ Defined in `vercel.json`, all protected by `Authorization: Bearer $CRON_SECRET`,
 | `daily-journal` | `30 17 * * *` (~11:00pm IST) | Planner bot | **Daily Auto Journal** (Phase 3 PRD) — `generateDailyJournal()` (`src/features/ai/daily-journal.ts`) gathers today's itemized activity (coding question solved, today's daily-read article read, study minutes, health metrics logged, workouts, expenses, interview prep quizzes taken (topic + score), new applications submitted) and has Claude write one paragraph grounded only in that list (never inventing an event or number), `upsert`ed into `daily_journals` (`onConflict: user_id,date`, idempotent) before sending. Deliberately excludes plain Planner task completions — `tasks` has no `completed_at` (only its Coding-synced/Learning-resource-synced rows do), so "which tasks got done today" isn't reliably knowable. |
 | `learning-tip` | `45 3 * * *` (~9:15am IST) | Learning bot | Sends an "AI/Tech Tip of the Day" via the same `getDailyTip()` rotation as `health-tip`/`daily-coding`, over the curated `learning_tips` pool (~30 short AI/ML concepts and frontend facts to start, not AI-generated). Idempotent per day. |
 | `cron-health-check` | `0 4 * * *` (~9:30am IST) | Planner bot | Reads `cron_runs`; if a job that's run before has gone quiet past its expected cadence, sends a Telegram alert naming which ones. Jobs with no history yet aren't alarmed on. Silent (no message) when everything's healthy. Now also logs its own run (2026-07-23 fix — see §11's Self-monitoring note) so it's covered by the same watch list it maintains for everything else. |
-| `astrology-daily` | `0 4 * * *` (9:30am IST) | Astrology bot | Pushes a combined Panchang summary (tithi/paksha/nakshatra/sunrise/sunset/Rahu Kalam) + the daily `astrology_reading` (§13). Idempotent by construction — reads/upserts the day's already-keyed `panchang_daily` row and relies on the AI Gateway's own per-day cache, not a bespoke dedup. Silent no-op if no birth chart has been saved yet. Shares its exact minute with `cron-health-check` — Vercel has no same-minute restriction across different job paths, and the two are unrelated jobs that just happen to land on the same slot. |
+| `astrology-daily` | `0 4 * * *` (9:30am IST) | Astrology bot | Pushes a combined Panchang summary (tithi/paksha/nakshatra/sunrise/sunset/Rahu Kalam/current Choghadiya block) + the daily `astrology_reading` (§13), entirely in Hindi. Idempotent by construction — reads/upserts the day's already-keyed `panchang_daily` row and relies on the AI Gateway's own per-day cache, not a bespoke dedup. Silent no-op if no birth chart has been saved yet. Shares its exact minute with `cron-health-check` — Vercel has no same-minute restriction across different job paths, and the two are unrelated jobs that just happen to land on the same slot. |
 
 ## 12. AI Gateway
 
@@ -470,16 +470,28 @@ compatibility/matching charts and Muhurta lookups remain explicitly out of scope
   "today's reading" / "this month's reading" / "this year's reading" → `reading` (calls the same
   `getAstrologyReading()` the web app uses — for `daily` this already includes the
   Favorable-for/Avoid/Mood lines flattened into the prose, since that function internally calls
-  `getStructuredDailyReading()`; English only for now, a `lang` param would thread through the
-  same way if this is ever extended to Hindi), "current dasha" → `current_dasha`
+  `getStructuredDailyReading()`), "current dasha" → `current_dasha`
   (Mahadasha/Antardasha + Yogini, read straight from the stored chart, no recompute), "today's
   panchang" → `panchang` (via `getTodaysPanchang()`, the same cached-by-date row the Dashboard
   strip and daily cron read — no web card of its own anymore, see §13), "my characteristics" →
   `characteristics` (`getAstrologyCharacteristics()`, same
   effectively-permanent cache as the web card). Replies with a friendly "add your birth details
-  first" message if no chart exists yet rather than erroring. The **`astrology-daily` cron** (`0 4 * * *`, 9:30am IST — moved here
+  first" message if no chart exists yet rather than erroring. **Always replies in Hindi**
+  (2026-08-18, by direct request) — `getAstrologyReading()`/`getAstrologyCharacteristics()` are
+  called with `lang: 'hi'`, which drives the AI-generated content itself (via
+  `LANGUAGE_INSTRUCTION` in `actions.ts`, same mechanism the web page's own EN/हिं toggle uses),
+  while every hardcoded label/connector word (section headers, "Favorable for"/"Avoid"/"Mood",
+  panchang field labels, dasha/Yogini lord names, tithi/nakshatra/yoga/karana/Choghadiya value
+  names) is translated via `i18n/hi.ts`'s dictionaries — `UI_HI`/`PLANET_HI`/`YOGINI_HI`/
+  `NAKSHATRA_HI` (already existed for the web page) plus four new maps added for this
+  (`TITHI_HI`/`YOGA_HI`/`KARANA_HI`/`CHOGHADIYA_NAME_HI`/`PAKSHA_HI`), since those panchang value
+  names are plain `string` return types, not a typed union, so they can't reuse a
+  `Record<SomeType, string>` the way planet/nakshatra names do. This is unconditional, not a
+  setting — no per-user language preference is persisted anywhere (the web page's own toggle is
+  client-only `localStorage`, unreachable from the bot or cron), and the web page itself is
+  unaffected, still defaulting to English. The **`astrology-daily` cron** (`0 4 * * *`, 9:30am IST — moved here
   from an initial 9:20am slot per explicit request) pushes a combined Panchang summary + daily reading every
-  morning — idempotent by construction, since it only reads/upserts the day's already-keyed
+  morning, same Hindi treatment — idempotent by construction, since it only reads/upserts the day's already-keyed
   `panchang_daily` row and the AI Gateway's own cache, the same pattern every other daily cron
   in §11 relies on rather than a bespoke per-job dedup mechanism.
 - **Data**: `astrology_profile` (§ Database below, one row per user, same single-row-upsert
