@@ -16,6 +16,20 @@ export default {
         'bg-translucent': 'var(--bg-translucent)',
         'border-strong': 'var(--border-strong)',
         overlay: 'var(--overlay)',
+        // Flat, not nested under `good`/`risk`, so call sites can use
+        // `text-on-good`/`text-on-risk` (matching the `--on-good`/`--on-risk`
+        // CSS variable names) rather than the `text-good-on`/`text-risk-on`
+        // Tailwind's nested-key convention would otherwise generate — that
+        // mismatch previously made every `text-on-good` use silently invalid
+        // (no CSS emitted), so those buttons' text fell back to the browser
+        // default color instead of the theme-correct contrast color. Both
+        // tokens exist because `good`/`risk` flip which end is light vs.
+        // dark between themes (bright bg in dark mode, darker bg in light
+        // mode), so a single hardcoded text color can't stay readable in
+        // both — `on-good`/`on-risk` pick dark or light text per theme to
+        // match whichever end of that flip is currently the background.
+        'on-good': 'var(--on-good)',
+        'on-risk': 'var(--on-risk)',
         // Brand purple — used throughout existing UI
         accent: {
           DEFAULT: 'var(--accent)',
@@ -35,7 +49,6 @@ export default {
         good: {
           DEFAULT: 'var(--good)',
           soft: 'var(--good-soft)',
-          on: 'var(--on-good)',
         },
         risk: {
           DEFAULT: 'var(--risk)',

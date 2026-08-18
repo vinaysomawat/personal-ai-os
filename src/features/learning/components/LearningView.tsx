@@ -97,7 +97,7 @@ export default function LearningView({ initialResources, initialStudyLogs, initi
   const [resources, setResources] = useState(initialResources)
   const [studyLogs, setStudyLogs] = useState(initialStudyLogs)
   const [quizAttempts, setQuizAttempts] = useState(initialQuizAttempts)
-  const [filter, setFilter] = useState<'all' | ResourceStatus>('all')
+  const [filter, setFilter] = useState<'all' | ResourceStatus>('not-started')
   const [showForm, setShowForm] = useState(false)
 
   // Quiz

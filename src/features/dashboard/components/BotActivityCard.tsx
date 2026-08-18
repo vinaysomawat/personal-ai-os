@@ -67,8 +67,9 @@ export default function BotActivityCard({ botActivity, aiBudget }: {
                 <li key={i} className="flex items-baseline gap-2.5 py-[9px] border-t border-surface-3 first:border-t-0 text-[12.5px] hover:bg-surface-2 transition-colors">
                   <span className="shrink-0 w-5">{meta.emoji}</span>
                   <span className={`shrink-0 w-[78px] truncate font-medium ${meta.color}`}>{meta.label}</span>
-                  <span className="flex-1 min-w-0 truncate text-fg-secondary">{entry.message}</span>
-                  {firstLine && <span className="flex-1 min-w-0 truncate text-fg-quaternary hidden md:block">{firstLine}</span>}
+                  <span className="flex-1 min-w-0 truncate text-fg-secondary">
+                    &quot;{entry.message}&quot;{firstLine && <><span className="text-fg-quaternary"> → </span>{firstLine}</>}
+                  </span>
                   <span className="shrink-0 text-border-strong">{timeAgo}</span>
                 </li>
               )

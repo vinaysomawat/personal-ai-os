@@ -19,7 +19,7 @@ export default function ConfirmDialog({ title, description, confirmLabel = 'Dele
           <button onClick={onCancel} className={modalCancelButtonClass}>Cancel</button>
           <button
             onClick={onConfirm}
-            className="bg-risk rounded-[8px] px-[18px] py-[9px] text-[13px] font-bold text-white hover:bg-risk-strong transition-colors"
+            className="bg-risk rounded-[8px] px-[18px] py-[9px] text-[13px] font-bold text-on-risk hover:bg-risk-strong transition-colors"
           >
             {confirmLabel}
           </button>

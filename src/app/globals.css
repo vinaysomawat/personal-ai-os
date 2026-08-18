@@ -78,6 +78,7 @@
     --risk-soft: rgba(248, 113, 113, 0.12);
     --risk-border: rgba(248, 113, 113, 0.35);
     --risk-strong: #fca5a5;
+    --on-risk: #450a0a;
 
     --cyan: #22d3ee;
     --ring-glow-strength: 0.45;
@@ -138,6 +139,7 @@
     --risk-soft: rgba(220, 38, 38, 0.08);
     --risk-border: rgba(220, 38, 38, 0.25);
     --risk-strong: #b91c1c;
+    --on-risk: #ffffff;
 
     --cyan: #0e7490;
     --ring-glow-strength: 0.16;
