@@ -335,7 +335,11 @@ export async function getDashboardData() {
     tasksDueToday: tasksDueTodayRes.data ?? [],
     metricsLoggedToday,
     workoutStatus,
-    codingToday: codingTodayRows,
+    // Algorithm/system-design rows only — quiz, JS Function, and UI Coding
+    // are each their own checklist item below (same 4-way split CodingView
+    // uses for its cards), not folded into one "solve the coding question"
+    // check via .every() like this used to do.
+    codingToday: codingTodayRows.filter(r => !['quiz', 'javascript-functions', 'ui-coding'].includes(r.question.category)),
     dailyRead: todayDailyReadStatus,
     hasLearningResources: resources.length > 0,
     studiedToday,
@@ -345,6 +349,8 @@ export async function getDashboardData() {
     // pipeline codingTodayRows already reads for codingQuestionPending
     // above, so this is a free derived check, not a new query.
     codingQuizDone: codingTodayRows.some(r => r.question.category === 'quiz' && r.completed),
+    codingJsFunctionPick: codingTodayRows.find(r => r.question.category === 'javascript-functions') ?? null,
+    codingUiCodingPick: codingTodayRows.find(r => r.question.category === 'ui-coding') ?? null,
   })
 
   const codingWeakAreas = computeWeakAreas(codingHistoryForWeakAreas)

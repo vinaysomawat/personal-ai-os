@@ -28,6 +28,8 @@ export interface TodayProgressInput {
   studiedToday: boolean
   expenseLoggedToday: boolean
   codingQuizDone: boolean
+  codingJsFunctionPick: { completed: boolean } | null
+  codingUiCodingPick: { completed: boolean } | null
 }
 
 export function computeTodayProgress(input: TodayProgressInput): TodayProgress {
@@ -44,10 +46,18 @@ export function computeTodayProgress(input: TodayProgressInput): TodayProgress {
   }
 
   if (input.codingToday.length > 0) {
-    items.push({ key: 'coding', label: "Solve today's coding question", done: input.codingToday.every(q => q.completed), href: '/coding' })
+    items.push({ key: 'coding', label: "Solve today's algorithm question", done: input.codingToday.every(q => q.completed), href: '/coding' })
   }
 
   items.push({ key: 'coding-quiz', label: "Complete Today's Quiz", done: input.codingQuizDone, href: '/coding' })
+
+  if (input.codingJsFunctionPick) {
+    items.push({ key: 'coding-js-function', label: "Complete today's JS Function", done: input.codingJsFunctionPick.completed, href: '/coding' })
+  }
+
+  if (input.codingUiCodingPick) {
+    items.push({ key: 'coding-ui-coding', label: "Complete today's UI Coding", done: input.codingUiCodingPick.completed, href: '/coding' })
+  }
 
   if (input.dailyRead) {
     items.push({ key: 'daily-read', label: "Read today's article", done: input.dailyRead.completed, href: '/learning' })

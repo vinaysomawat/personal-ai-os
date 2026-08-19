@@ -39,6 +39,7 @@ export default function DailyCodingCard({ initialAssignment, stats }: Props) {
 
   return (
     <div className="flex flex-col gap-3.5">
+      <h2 className="text-[13px] font-bold text-fg-primary">Today&apos;s Algorithm Question</h2>
       {assignment.length === 0 ? (
         <div className="bg-surface-1 border border-surface-3 rounded-2xl p-[var(--card-pad-lg)]">
           <EmptyState icon={Moon} message="No new questions today — revision day. Browse your history below." />
