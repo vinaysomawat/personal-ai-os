@@ -50,9 +50,18 @@ export interface DailyWorkout {
 }
 
 const HISTORY_LIMIT = 7
-// Avoid repeating the same category as the last N completed workouts, so
-// muscle groups get proper recovery time before being trained again.
-const RECENT_CATEGORY_AVOID_WINDOW = 2
+
+// Fixed 4-day fat-loss split, cycled in order regardless of completed vs.
+// skipped — a skip still advances the split (no "catch up" re-offering) so
+// it can't stall on one day. Day 3 and Day 4 each cover two muscle
+// groups/categories the library doesn't have a combined entry for, so they
+// alternate between their two categories on every pass through that slot.
+const SPLIT_CYCLE: readonly (readonly string[])[] = [
+  ['Chest & Triceps'],
+  ['Back & Biceps'],
+  ['Shoulders', 'Legs'],
+  ['Active Recovery', 'Mobility & Recovery'],
+]
 
 const todayStr = todayIST
 
@@ -100,20 +109,49 @@ async function getRecentCompleted(supabase: SupabaseClient, userId: string, limi
   return (data ?? []) as unknown as DailyWorkout[]
 }
 
-// Deterministic rotation — no AI. Filters out (a) workouts completed within
-// the last HISTORY_LIMIT sessions, so nothing repeats too soon, and (b)
-// whatever category was trained in the last RECENT_CATEGORY_AVOID_WINDOW
-// sessions, so muscle groups get recovery time. Falls back to progressively
-// relaxed filters if the pool would otherwise be empty (55 workouts is
-// small enough that over-filtering is a real risk).
-function pickNextWorkout(pool: Workout[], recentHistory: DailyWorkout[]): Workout | null {
+// Any status (completed, skipped, or in_progress) — used to find the split
+// cycle's current position. Unlike getRecentCompleted, a skip must count
+// here or the cycle would never move past a repeatedly-skipped day.
+async function getRecentAny(supabase: SupabaseClient, userId: string, limit: number): Promise<DailyWorkout[]> {
+  const { data } = await supabase
+    .from('daily_workouts')
+    .select('*, workout:workout_library(*)')
+    .eq('user_id', userId)
+    .order('created_at', { ascending: false })
+    .limit(limit)
+  return (data ?? []) as unknown as DailyWorkout[]
+}
+
+function nextSplitCategories(lastCategory: string | null): readonly string[] {
+  const slot = SPLIT_CYCLE.findIndex(cats => cats.includes(lastCategory ?? ''))
+  return SPLIT_CYCLE[(slot + 1) % SPLIT_CYCLE.length]
+}
+
+// For a two-category slot (Day 3, Day 4), alternate with whichever of the
+// two ran last time this slot came around; default to the first when the
+// slot has never been seen before.
+function pickSplitCategory(slotCategories: readonly string[], recentAny: DailyWorkout[]): string {
+  if (slotCategories.length === 1) return slotCategories[0]
+  const lastUsed = recentAny.find(h => slotCategories.includes(h.workout?.category ?? ''))?.workout?.category
+  return slotCategories.find(c => c !== lastUsed) ?? slotCategories[0]
+}
+
+// Fixed split, no AI. The next day's category comes from where the split
+// cycle is (see SPLIT_CYCLE), not from randomness or muscle-recovery
+// filtering. Within that category, pick a random variation not completed in
+// the last HISTORY_LIMIT sessions, so the specific workout still varies.
+function pickNextWorkout(pool: Workout[], recentCompleted: DailyWorkout[], recentAny: DailyWorkout[]): Workout | null {
   if (pool.length === 0) return null
 
-  const recentIds = new Set(recentHistory.slice(0, HISTORY_LIMIT).map(h => h.workout_id))
-  const recentCategories = new Set(recentHistory.slice(0, RECENT_CATEGORY_AVOID_WINDOW).map(h => h.workout?.category).filter(Boolean))
+  const lastCategory = recentAny[0]?.workout?.category ?? null
+  const slotCategories = nextSplitCategories(lastCategory)
+  const category = pickSplitCategory(slotCategories, recentAny)
 
-  let candidates = pool.filter(w => !recentIds.has(w.id) && !recentCategories.has(w.category))
-  if (candidates.length === 0) candidates = pool.filter(w => !recentIds.has(w.id))
+  const recentIds = new Set(recentCompleted.slice(0, HISTORY_LIMIT).map(h => h.workout_id))
+  const categoryPool = pool.filter(w => w.category === category)
+
+  let candidates = categoryPool.filter(w => !recentIds.has(w.id))
+  if (candidates.length === 0) candidates = categoryPool
   if (candidates.length === 0) candidates = pool
 
   const shuffled = [...candidates].sort(() => Math.random() - 0.5)
@@ -127,12 +165,13 @@ export async function generateWorkoutForUser(supabase: SupabaseClient, userId: s
   const completedToday = await getTodayCompleted(supabase, userId)
   if (completedToday) return completedToday
 
-  const [{ data: pool }, recentHistory] = await Promise.all([
+  const [{ data: pool }, recentCompleted, recentAny] = await Promise.all([
     supabase.from('workout_library').select('*'),
     getRecentCompleted(supabase, userId, HISTORY_LIMIT),
+    getRecentAny(supabase, userId, 20),
   ])
 
-  const picked = pickNextWorkout((pool ?? []) as Workout[], recentHistory)
+  const picked = pickNextWorkout((pool ?? []) as Workout[], recentCompleted, recentAny)
   if (!picked) return null
 
   const { data: task } = await supabase

@@ -388,29 +388,26 @@ export default function LearningView({ initialResources, initialStudyLogs, initi
         </ul>
       </Card>
 
-      <Card title="By Category" className="lg:col-span-2">
-        {categoryEntries.length === 0 ? (
-          <EmptyState icon={BookOpen} message="No resources yet" compact />
-        ) : (
-          <ul className="flex flex-col">
-            {categoryEntries.map(([category, count]) => (
-              <li key={category} className="flex items-center justify-between text-[12.5px] text-fg-secondary">
-                <span className="truncate">{category}</span>
-                <span className="shrink-0">{count}</span>
-              </li>
-            ))}
-          </ul>
-        )}
-      </Card>
-      </div>
+      <div className="lg:col-span-2 flex flex-col gap-[var(--grid-gap)]">
+        <Card title="By Category">
+          {categoryEntries.length === 0 ? (
+            <EmptyState icon={BookOpen} message="No resources yet" compact />
+          ) : (
+            <ul className="flex flex-col gap-1">
+              {categoryEntries.map(([category, count]) => (
+                <li key={category} className="flex items-center justify-between text-[12.5px] text-fg-secondary">
+                  <span className="truncate">{category}</span>
+                  <span className="shrink-0">{count}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </Card>
 
-      {/* Study Calendar — centered, standalone card per the design (unlike
-          Coding's Contribution Calendar, which pairs side-by-side with
-          Today's Question), same GitHub-style heatmap pattern. */}
-      <div className="flex justify-center">
-        <Card className="max-w-[420px] w-full">
+        <Card>
           <StudyCalendar days={calendar} title="Study Calendar" />
         </Card>
+      </div>
       </div>
 
       {/* Suggested Resources — curated (hand-verified URLs) + on-demand AI picks,
