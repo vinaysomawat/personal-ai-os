@@ -17,12 +17,16 @@ export interface CompanyInsights {
 export interface JobAlert {
   id: string
   user_id: string
-  source: 'greenhouse' | 'lever'
+  source: 'greenhouse' | 'lever' | 'ashby'
   company: string
   external_id: string
   title: string
   url: string
   created_at: string
+  salary_min: number | null
+  salary_max: number | null
+  matched_skills: string[]
+  score: number
 }
 
 export interface Application {

@@ -8,7 +8,7 @@ import { getActiveWorkout, computeWorkoutStats } from '@/features/health/workout
 import type { Resource, StudyLog } from '@/features/learning/types'
 import { rankSignals, type Signal } from '@/lib/signals'
 import { checkOverdueTasks, checkHighPriorityPending } from '@/features/planner/signals'
-import { checkInterviewStage, checkQuizNeedsRevision, checkQuizWeakArea } from '@/features/career/signals'
+import { checkInterviewStage, checkQuizNeedsRevision, checkQuizWeakArea, checkHighValueJobAlert } from '@/features/career/signals'
 import { daysSinceLastQuiz, topWeakSubtopic } from '@/features/career/quiz-calculations'
 import { checkBudget } from '@/features/finance/signals'
 import { checkQuestionPending, checkStaleRevision, checkCodingWeakArea } from '@/features/coding/signals'
@@ -42,6 +42,7 @@ interface TopActionInput {
   workoutPending: boolean
   codingWeakAreas: WeakArea[]
   careerTopWeakSubtopic: { subtopic: string; count: number } | null
+  topJobAlert: { company: string; title: string } | null
 }
 
 // Deterministic ranking — no AI call. Per Product Principles (CLAUDE.md):
@@ -50,7 +51,7 @@ interface TopActionInput {
 // module's signals.ts (see src/lib/signals.ts) rather than being hand-rolled
 // here, so new modules can plug into Today's Focus without touching this file.
 function computeTopActions(input: TopActionInput): TopAction[] {
-  const { today, pendingTasks, applications, monthSpend, monthBudget, todayMetric, resourcesNeedingRevision, codingQuestionPending, codingStaleRevisionCount, daysSinceLastQuiz, workoutPending, codingWeakAreas, careerTopWeakSubtopic } = input
+  const { today, pendingTasks, applications, monthSpend, monthBudget, todayMetric, resourcesNeedingRevision, codingQuestionPending, codingStaleRevisionCount, daysSinceLastQuiz, workoutPending, codingWeakAreas, careerTopWeakSubtopic, topJobAlert } = input
 
   const signals = [
     checkOverdueTasks(pendingTasks, today),
@@ -65,6 +66,7 @@ function computeTopActions(input: TopActionInput): TopAction[] {
     checkQuizNeedsRevision(daysSinceLastQuiz),
     checkCodingWeakArea(codingWeakAreas),
     checkQuizWeakArea(careerTopWeakSubtopic),
+    checkHighValueJobAlert(topJobAlert),
   ].filter((s): s is Signal => s !== null)
 
   return rankSignals(signals, 5).map(s => ({ emoji: s.emoji, text: s.message, href: s.href }))
@@ -106,7 +108,7 @@ export async function getDashboardData() {
     aiUsageMonthRes, studyLogsRes, codingTodayRows, activeWorkout, codingSolved30dRes,
     codingCompletionsRes, quizAttemptsRes, tasksDueTodayRes, workoutCompletedTodayRes,
     recentPatterns, financialGoalsRes, codingHistoryForWeakAreas,
-    workoutStats, astrologyProfileRes, panchangTodayRes,
+    workoutStats, astrologyProfileRes, panchangTodayRes, topJobAlertsRes,
   ] = await Promise.all([
     supabase.from('tasks').select('id, text, done, priority, due_date').eq('user_id', user.id).eq('done', false).order('created_at', { ascending: false }).limit(5),
     supabase.from('applications').select('id, company, role, status, applied_at').eq('user_id', user.id).order('created_at', { ascending: false }).limit(5),
@@ -137,6 +139,9 @@ export async function getDashboardData() {
     // already-cached panchang_daily row — no new AI/ephemeris cost added.
     supabase.from('astrology_profile').select('natal_chart').eq('user_id', user.id).maybeSingle(),
     supabase.from('panchang_daily').select('tithi, nakshatra').eq('date', today).maybeSingle(),
+    // Top Job Alert signal below: best-scoring ("Top Fit", see job-alerts.ts's
+    // deterministic computeScore) new posting from the last 30 days.
+    supabase.from('job_alerts_seen').select('company, title').eq('user_id', user.id).gte('created_at', istMidnightUtc(30)).gte('score', 70).order('score', { ascending: false }).limit(5),
   ])
 
   const pendingTasks = tasksRes.data ?? []
@@ -369,10 +374,14 @@ export async function getDashboardData() {
     nakshatra: panchangTodayRes.data?.nakshatra ?? null,
   } : null
 
+  const appliedCompanies = new Set(applications.map(a => (a as { company: string }).company.toLowerCase()))
+  const topJobAlert = ((topJobAlertsRes.data ?? []) as { company: string; title: string }[])
+    .find(j => !appliedCompanies.has(j.company.toLowerCase())) ?? null
+
   const topActions = computeTopActions({
     today, pendingTasks, applications, monthSpend, monthBudget, todayMetric, workoutPending,
     resourcesNeedingRevision, codingQuestionPending, codingStaleRevisionCount, daysSinceLastQuiz: daysSinceLastQuizAttempt,
-    codingWeakAreas, careerTopWeakSubtopic,
+    codingWeakAreas, careerTopWeakSubtopic, topJobAlert,
   })
 
   // Upsert XP record

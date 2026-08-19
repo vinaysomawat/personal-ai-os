@@ -507,32 +507,49 @@ export default function CareerView({ applications, profile, skills, quizAttempts
         )}
       </Card>
 
-      {/* Job Alerts — deterministic daily poll of public Greenhouse/Lever
-          boards (src/features/career/job-alerts.ts), already Telegram-
-          notified; this surfaces the same job_alerts_seen log in-app. */}
+      {/* Job Alerts — deterministic daily poll of public Greenhouse/Lever/
+          Ashby boards (src/features/career/job-alerts.ts), already
+          Telegram-notified; this surfaces the same job_alerts_seen log
+          in-app, best-fit (score) first. Score is deterministic (skill
+          overlap + seniority + salary vs. current), never AI — see
+          computeScore() in job-alerts.ts. */}
       <Card title="Job Alerts" padding="p-3.5" action={
         jobAlerts.length > 0 ? <span className="text-xs text-fg-tertiary">{jobAlerts.length} in the last 30 days</span> : undefined
       }>
         {jobAlerts.length === 0 ? (
-          <EmptyState icon={Bell} message="No new postings yet — checked daily against 16 companies' public job boards" compact />
+          <EmptyState icon={Bell} message="No new postings yet — checked daily against public job boards" compact />
         ) : (
           <div className="flex flex-col gap-1 max-h-[264px] overflow-y-auto">
             {jobAlerts.map(alert => {
               const isApplied = appliedCompanies.has(alert.company.toLowerCase())
+              const salaryLabel = alert.salary_min && alert.salary_max
+                ? `$${Math.round(alert.salary_min / 1000)}k–$${Math.round(alert.salary_max / 1000)}k`
+                : null
               return (
-                <div key={alert.id} className="flex items-center gap-2.5 py-[9px] border-b border-surface-3">
-                  <div className="flex-1 min-w-0">
-                    <span className="text-[13px] font-semibold text-fg-primary">{alert.company}</span>
-                    <span className="text-[13px] text-fg-secondary"> · {alert.title}</span>
+                <div key={alert.id} className="flex flex-col gap-1 py-[9px] border-b border-surface-3">
+                  <div className="flex items-center gap-2.5">
+                    <div className="flex-1 min-w-0">
+                      <span className="text-[13px] font-semibold text-fg-primary">{alert.company}</span>
+                      <span className="text-[13px] text-fg-secondary"> · {alert.title}</span>
+                      {salaryLabel && <span className="text-[12px] text-good font-semibold"> · {salaryLabel}</span>}
+                      {alert.score >= 70 && <span className="text-[10px] font-bold px-1.5 py-[1px] rounded-[5px] bg-accent-soft text-accent-strong ml-1.5 align-middle">Top Fit</span>}
+                    </div>
+                    <span className="text-[11px] text-fg-tertiary whitespace-nowrap">{shortDate(alert.created_at)}</span>
+                    <a href={alert.url} target="_blank" rel="noopener noreferrer" aria-label="View posting" className="text-[12px] text-fg-tertiary hover:text-accent transition-colors no-underline">↗</a>
+                    {isApplied ? (
+                      <span className="shrink-0 text-[11.5px] font-bold px-2.5 py-1 rounded-[6px] bg-good-soft text-good whitespace-nowrap">✓ Applied</span>
+                    ) : (
+                      <button onClick={() => handleTrackJobAlert(alert)} className="shrink-0 text-[11.5px] px-2.5 py-1 rounded-[6px] border border-border-strong text-fg-secondary hover:text-accent hover:border-accent/40 transition-colors whitespace-nowrap">
+                        Track
+                      </button>
+                    )}
                   </div>
-                  <span className="text-[11px] text-fg-tertiary whitespace-nowrap">{shortDate(alert.created_at)}</span>
-                  <a href={alert.url} target="_blank" rel="noopener noreferrer" aria-label="View posting" className="text-[12px] text-fg-tertiary hover:text-accent transition-colors no-underline">↗</a>
-                  {isApplied ? (
-                    <span className="shrink-0 text-[11.5px] font-bold px-2.5 py-1 rounded-[6px] bg-good-soft text-good whitespace-nowrap">✓ Applied</span>
-                  ) : (
-                    <button onClick={() => handleTrackJobAlert(alert)} className="shrink-0 text-[11.5px] px-2.5 py-1 rounded-[6px] border border-border-strong text-fg-secondary hover:text-accent hover:border-accent/40 transition-colors whitespace-nowrap">
-                      Track
-                    </button>
+                  {alert.matched_skills.length > 0 && (
+                    <div className="flex flex-wrap gap-1">
+                      {alert.matched_skills.map(s => (
+                        <span key={s} className="text-[10.5px] px-1.5 py-[1px] rounded-[5px] bg-surface-2 text-fg-tertiary">{s}</span>
+                      ))}
+                    </div>
                   )}
                 </div>
               )

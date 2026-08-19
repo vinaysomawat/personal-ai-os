@@ -24,9 +24,14 @@ export async function GET(req: Request) {
     return NextResponse.json({ ok: true, notified: false })
   }
 
-  // Cap at 10 in one message — a wall of 40 links defeats the purpose of an alert.
+  // Cap at 10 in one message, best-fit first (findNewJobAlerts already
+  // sorts by score) — a wall of 40 links defeats the purpose of an alert.
   const shown = newJobs.slice(0, 10)
-  const lines = shown.map(j => `🏢 *${j.company}* — ${j.title}\n${j.url}`)
+  const lines = shown.map(j => {
+    const salary = j.salary_min && j.salary_max ? ` · $${Math.round(j.salary_min / 1000)}k–$${Math.round(j.salary_max / 1000)}k` : ''
+    const fit = j.score >= 70 ? ' 🎯' : ''
+    return `🏢 *${j.company}* — ${j.title}${salary}${fit}\n${j.url}`
+  })
   const overflow = newJobs.length > shown.length ? `\n\n_+${newJobs.length - shown.length} more new posting(s) — check the companies directly._` : ''
 
   await sendMessage(BOT_TOKEN, Number(CHAT_ID), `💼 *New Frontend/Staff Openings*\n\n${lines.join('\n\n')}${overflow}`)

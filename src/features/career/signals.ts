@@ -21,6 +21,18 @@ export function checkInterviewStage(applications: ApplicationLike[]): Signal | n
   }
 }
 
+// Surfaces the best new job-alert lead (score >= 70, "Top Fit" — see
+// job-alerts.ts's deterministic computeScore) that isn't already tracked as
+// an application. Only the single best one fires the signal — the full list
+// lives on the Career page's Job Alerts card.
+export function checkHighValueJobAlert(topAlert: { company: string; title: string } | null): Signal | null {
+  if (!topAlert) return null
+  return {
+    id: 'career.high_value_job_alert', module: 'career', weight: 55, emoji: '💼', href: '/career',
+    message: `Top-fit opening at ${topAlert.company}: ${topAlert.title}`,
+  }
+}
+
 export function checkQuizNeedsRevision(daysSinceLastQuiz: number | null): Signal | null {
   if (daysSinceLastQuiz === null) {
     return {

@@ -26,8 +26,10 @@ export async function getCareerData() {
     // Same "checked daily against public job boards" data the job-alerts cron
     // already Telegram-notifies on (src/features/career/job-alerts.ts) — this
     // just surfaces the same job_alerts_seen log in the web app too, rather
-    // than it being Telegram-only. 30-day rolling window, capped, newest first.
-    supabase.from('job_alerts_seen').select('*').eq('user_id', user.id).gte('created_at', istMidnightUtc(30)).order('created_at', { ascending: false }).limit(20),
+    // than it being Telegram-only. 30-day rolling window, capped, best-fit
+    // (highest score) first rather than pure recency — the point of scoring
+    // is surfacing the highest-value leads first, not just the newest.
+    supabase.from('job_alerts_seen').select('*').eq('user_id', user.id).gte('created_at', istMidnightUtc(30)).order('score', { ascending: false }).order('created_at', { ascending: false }).limit(20),
   ])
 
   const quizAttempts = (quizAttemptsRes.data ?? []) as QuizAttempt[]
