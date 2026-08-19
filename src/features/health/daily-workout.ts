@@ -3,7 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import {
-  generateWorkoutForUser, markWorkoutComplete, markWorkoutSkipped, startWorkout, computeWorkoutStats,
+  generateWorkoutForUser, markWorkoutComplete, markWorkoutSkipped, computeWorkoutStats,
 } from './workout-core'
 
 export async function getActiveOrGenerateWorkout() {
@@ -31,14 +31,6 @@ export async function skipWorkout(id: string) {
   revalidatePath('/health')
   revalidatePath('/planner')
   revalidatePath('/dashboard')
-}
-
-export async function beginWorkout(id: string) {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) throw new Error('Not authenticated')
-  await startWorkout(supabase, id)
-  revalidatePath('/health')
 }
 
 export async function getWorkoutStats() {

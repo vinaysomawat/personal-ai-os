@@ -229,11 +229,12 @@ export default function PlannerView({ initialTasks }: Props) {
   const areaEntries = Object.entries(byArea).sort((a, b) => b[1] - a[1])
 
   // Deterministic, client-side from the same `pending` list — no new query.
-  // Undated tasks have no weekday to bucket into, so (unlike By Area, which
-  // counts every pending task) this only counts tasks that actually have a
-  // due_date.
+  // Buckets by weekday CREATED, not due_date: almost no task ever gets a
+  // due_date (the web Add Task form has no due-date field; only the
+  // Telegram bot's add_task sets one), so grouping by due_date left this
+  // chart empty for virtually everyone. created_at is always populated.
   const pendingByDayCounts = WEEKDAY_LABELS.map((_, i) =>
-    pending.filter(t => t.due_date && (new Date(`${t.due_date}T00:00:00`).getDay() + 6) % 7 === i).length
+    pending.filter(t => (new Date(t.created_at).getDay() + 6) % 7 === i).length
   )
   const pendingByDayMax = Math.max(1, ...pendingByDayCounts)
 
@@ -433,9 +434,10 @@ export default function PlannerView({ initialTasks }: Props) {
         )}
       </Card>
 
-      {/* Pending Tasks by Day — deterministic bar chart from due_date
-          weekday, added 2026-08-18 per the Claude Design source, paired
-          in the same right column as By Area. */}
+      {/* Pending Tasks by Day — deterministic bar chart, added 2026-08-18
+          per the Claude Design source, paired in the same right column as
+          By Area. Bucketed by created-at weekday (see pendingByDayCounts
+          above), not due_date. */}
       <Card title="Pending Tasks by Day">
         <div className="flex items-end gap-2" style={{ height: 100 }}>
           {pendingByDayCounts.map((count, i) => (

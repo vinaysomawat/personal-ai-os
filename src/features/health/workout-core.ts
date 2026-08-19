@@ -246,10 +246,6 @@ export async function markWorkoutSkipped(supabase: SupabaseClient, id: string): 
   }
 }
 
-export async function startWorkout(supabase: SupabaseClient, id: string): Promise<void> {
-  await supabase.from('daily_workouts').update({ status: 'in_progress' }).eq('id', id)
-}
-
 export interface WorkoutStats {
   totalCompleted: number
   currentStreakDays: number

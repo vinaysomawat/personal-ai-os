@@ -1,9 +1,9 @@
 'use client'
 
 import { useState, useTransition } from 'react'
-import { Flame, Trophy, Play, CheckCircle2, SkipForward, Clock, Zap, Dumbbell } from 'lucide-react'
+import { Flame, Trophy, CheckCircle2, SkipForward, Clock, Zap, Dumbbell } from 'lucide-react'
 import EmptyState from '@/components/EmptyState'
-import { completeWorkout, skipWorkout, beginWorkout, getActiveOrGenerateWorkout } from '../daily-workout'
+import { completeWorkout, skipWorkout, getActiveOrGenerateWorkout } from '../daily-workout'
 import type { DailyWorkout, WorkoutStats } from '../workout-core'
 
 const STATUS_CONFIG: Record<string, { label: string; color: string }> = {
@@ -35,10 +35,6 @@ export default function DailyWorkoutCard({ initialWorkout, stats }: Props) {
   const w = workout.workout
   const status = STATUS_CONFIG[workout.status]
 
-  const handleStart = () => {
-    setWorkout(prev => prev ? { ...prev, status: 'in_progress' } : prev)
-    startTransition(async () => { await beginWorkout(workout.id) })
-  }
   const handleComplete = () => {
     setWorkout(prev => prev ? { ...prev, status: 'completed' } : prev)
     startTransition(async () => {
@@ -78,11 +74,6 @@ export default function DailyWorkoutCard({ initialWorkout, stats }: Props) {
       </div>
 
       <div className="flex items-center gap-2 mt-3.5 flex-wrap">
-        {workout.status === 'pending' && (
-          <button onClick={handleStart} disabled={isPending} className="flex items-center gap-1.5 px-3.5 py-2 rounded-[7px] bg-accent text-white text-[12.5px] font-semibold hover:bg-accent/80 disabled:opacity-50 transition-colors">
-            <Play size={12} /> Start
-          </button>
-        )}
         {!isDone && (
           <>
             <button onClick={handleComplete} disabled={isPending} className="flex items-center gap-1.5 px-3.5 py-2 rounded-[7px] bg-good text-on-good text-[12.5px] font-semibold hover:opacity-90 disabled:opacity-50 transition-colors">
