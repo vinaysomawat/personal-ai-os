@@ -6,6 +6,7 @@ import Card from '@/components/Card'
 import ConfirmDialog from '@/components/ConfirmDialog'
 import EmptyState from '@/components/EmptyState'
 import Modal, { modalLabelClass, modalInputClass, modalSelectClass, modalCancelButtonClass, modalSaveButtonClass } from '@/components/Modal'
+import PageTabs from '@/components/PageTabs'
 import { useAIAdvisor } from '@/components/AIAdvisorProvider'
 import { todayIST } from '@/lib/date'
 import {
@@ -91,9 +92,18 @@ interface Props {
   calendar: PaymentCalendarDay[]
 }
 
+type FinanceTab = 'expenses' | 'portfolio' | 'calendar' | 'history'
+const FINANCE_TABS: { key: FinanceTab; label: string }[] = [
+  { key: 'expenses', label: 'Expenses' },
+  { key: 'portfolio', label: 'Portfolio' },
+  { key: 'calendar', label: 'Calendar' },
+  { key: 'history', label: 'History' },
+]
+
 export default function FinanceView({ expenses, budgets, profile, loans, investments, goals, salaryHistory, avgMonthlyExpense, expenseHistory, month, calendar }: Props) {
   const [, startTransition] = useTransition()
   const [salaryVisible, setSalaryVisible] = useState(false)
+  const [activeTab, setActiveTab] = useState<FinanceTab>('expenses')
 
   // Local state mirrors (optimistic)
   const [localProfile, setLocalProfile] = useState(profile)
@@ -385,10 +395,10 @@ export default function FinanceView({ expenses, budgets, profile, loans, investm
         </div>
       </div>
 
-      {/* By Category (left) + Loans/Investments/Goals/Expenses stack (right) —
-          matches the design's two-column grouping instead of stacking every
-          section full-width. */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-[var(--grid-gap)] items-start">
+      <PageTabs tabs={FINANCE_TABS} active={activeTab} onChange={setActiveTab} />
+
+      {/* By Category (left) + Just Added (right) — this month's actual spend. */}
+      {activeTab === 'expenses' && <div className="grid grid-cols-1 lg:grid-cols-2 gap-[var(--grid-gap)] items-start">
         <Card title="By Category" action={
           <button onClick={() => setModal('expense')} className="px-3.5 py-[7px] rounded-[7px] bg-accent text-white text-[12.5px] font-semibold hover:bg-accent/80 transition-colors whitespace-nowrap">
             + Add Expense
@@ -474,110 +484,112 @@ export default function FinanceView({ expenses, budgets, profile, loans, investm
           )}
         </Card>
 
-        <div className="flex flex-col gap-3.5">
-          <Card title="Loans" padding="p-[var(--card-pad-md)]" action={
-            <button onClick={() => setModal('loan')} className={outlineAddBtn}>+ Add</button>
-          }>
-            {localLoans.length === 0 ? (
-              <EmptyState icon={Landmark} message="No loans added" compact cta={{ label: 'Add loan', onClick: () => setModal('loan') }} />
-            ) : (
-              <ul className="flex flex-col gap-2">
-                {localLoans.map(loan => (
-                  <li key={loan.id} className="flex items-center gap-x-1.5 gap-y-1 flex-wrap text-[12.5px] text-fg-secondary group">
-                    <span>{loan.name} — EMI</span>
-                    <InlineEdit value={String(loan.emi)} prefix="₹" textSize="text-[12.5px]" inputWidth="w-20" onSave={v => handleLoanEmiSave(loan.id, v)} />
-                    <span>·</span>
-                    <InlineEdit value={loan.remaining_months !== null ? String(loan.remaining_months) : ''} prefix="" suffix=" months left" placeholder="?" textSize="text-[12.5px]" inputWidth="w-14" onSave={v => handleLoanMonthsSave(loan.id, v)} />
-                    <span>·</span>
-                    <InlineEdit value={loan.interest_rate !== null ? String(loan.interest_rate) : ''} prefix="" suffix="% p.a." placeholder="set rate" textSize="text-[12.5px]" inputWidth="w-14" onSave={v => handleLoanRateSave(loan.id, v)} />
-                    <button onClick={() => setPendingDelete({ kind: 'loan', id: loan.id, label: loan.name })} aria-label="Delete loan" className={deleteGlyphBtn}>✕</button>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </Card>
+        <Card title="Just Added" padding="p-[var(--card-pad-md)]" action={
+          <button onClick={() => setModal('expense')} className={outlineAddBtn}>+ Add</button>
+        }>
+          {localExpenses.length === 0 ? (
+            <EmptyState icon={Receipt} message="No expenses this month" compact cta={{ label: 'Add', onClick: () => setModal('expense') }} />
+          ) : (
+            <ul className="space-y-0.5 max-h-32 overflow-y-auto">
+              {localExpenses.map(exp => (
+                <li key={exp.id} className="flex items-center gap-2.5 p-1 rounded-lg hover:bg-surface-2 transition-colors group">
+                  <span className={`text-xs px-1.5 py-0.5 rounded-full font-medium shrink-0 ${CATEGORY_COLOR[exp.category]}`}>{exp.category}</span>
+                  <span className="text-xs text-fg-quaternary shrink-0">{exp.date}</span>
+                  {exp.description && <span className="text-xs text-fg-secondary truncate flex-1">{exp.description}</span>}
+                  <span className="text-xs text-fg-secondary font-medium shrink-0 ml-auto">{fmt(Number(exp.amount))}</span>
+                  <button onClick={() => setPendingDelete({ kind: 'expense', id: exp.id, label: exp.description || exp.category })} aria-label="Delete expense" className={deleteGlyphBtn}>✕</button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </Card>
+      </div>}
 
-          <Card title="Investments" padding="p-[var(--card-pad-md)]" action={
-            <button onClick={() => setModal('investment')} className={outlineAddBtn}>+ Add</button>
-          }>
-            {localInvestments.length === 0 ? (
-              <EmptyState icon={Target} message="No investments added" compact cta={{ label: 'Add', onClick: () => setModal('investment') }} />
-            ) : (
-              <ul className="flex flex-col gap-2">{localInvestments.map(inv => renderInvestmentItem(inv))}</ul>
-            )}
-          </Card>
+      {/* Loans + Investments + Financial Goals — net-worth building blocks,
+          side by side on wide viewports rather than stacked full-width. */}
+      {activeTab === 'portfolio' && <div className="grid grid-cols-1 lg:grid-cols-3 gap-[var(--grid-gap)] items-start">
+        <Card title="Loans" padding="p-[var(--card-pad-md)]" action={
+          <button onClick={() => setModal('loan')} className={outlineAddBtn}>+ Add</button>
+        }>
+          {localLoans.length === 0 ? (
+            <EmptyState icon={Landmark} message="No loans added" compact cta={{ label: 'Add loan', onClick: () => setModal('loan') }} />
+          ) : (
+            <ul className="flex flex-col gap-2">
+              {localLoans.map(loan => (
+                <li key={loan.id} className="flex items-center gap-x-1.5 gap-y-1 flex-wrap text-[12.5px] text-fg-secondary group">
+                  <span>{loan.name} — EMI</span>
+                  <InlineEdit value={String(loan.emi)} prefix="₹" textSize="text-[12.5px]" inputWidth="w-20" onSave={v => handleLoanEmiSave(loan.id, v)} />
+                  <span>·</span>
+                  <InlineEdit value={loan.remaining_months !== null ? String(loan.remaining_months) : ''} prefix="" suffix=" months left" placeholder="?" textSize="text-[12.5px]" inputWidth="w-14" onSave={v => handleLoanMonthsSave(loan.id, v)} />
+                  <span>·</span>
+                  <InlineEdit value={loan.interest_rate !== null ? String(loan.interest_rate) : ''} prefix="" suffix="% p.a." placeholder="set rate" textSize="text-[12.5px]" inputWidth="w-14" onSave={v => handleLoanRateSave(loan.id, v)} />
+                  <button onClick={() => setPendingDelete({ kind: 'loan', id: loan.id, label: loan.name })} aria-label="Delete loan" className={deleteGlyphBtn}>✕</button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </Card>
 
-          <Card title="Financial Goals" padding="p-[var(--card-pad-md)]" action={
-            <button onClick={() => setModal('goal')} className={outlineAddBtn}>+ Add</button>
-          }>
-            {localGoals.length === 0 ? (
-              <EmptyState icon={Target} message="No goals set — add one to track your savings" compact cta={{ label: 'Add goal', onClick: () => setModal('goal') }} />
-            ) : (
-              <div className="flex flex-col gap-3">
-                {localGoals.map(goal => {
-                  const pct = Math.min((Number(goal.current_amount) / Number(goal.target_amount)) * 100, 100)
-                  return (
-                    <div key={goal.id} className="group">
-                      <div className="flex items-start justify-between mb-1">
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <p className="text-[12.5px] text-fg-secondary font-medium">{goal.name}</p>
-                            <span className={`text-xs font-medium ${PRIORITY_COLOR[goal.priority as GoalPriority]}`}>{goal.priority}</span>
-                          </div>
-                          {goal.target_date && <p className="text-xs text-fg-quaternary mt-0.5">Target: {goal.target_date}</p>}
+        <Card title="Investments" padding="p-[var(--card-pad-md)]" action={
+          <button onClick={() => setModal('investment')} className={outlineAddBtn}>+ Add</button>
+        }>
+          {localInvestments.length === 0 ? (
+            <EmptyState icon={Target} message="No investments added" compact cta={{ label: 'Add', onClick: () => setModal('investment') }} />
+          ) : (
+            <ul className="flex flex-col gap-2">{localInvestments.map(inv => renderInvestmentItem(inv))}</ul>
+          )}
+        </Card>
+
+        <Card title="Financial Goals" padding="p-[var(--card-pad-md)]" action={
+          <button onClick={() => setModal('goal')} className={outlineAddBtn}>+ Add</button>
+        }>
+          {localGoals.length === 0 ? (
+            <EmptyState icon={Target} message="No goals set — add one to track your savings" compact cta={{ label: 'Add goal', onClick: () => setModal('goal') }} />
+          ) : (
+            <div className="flex flex-col gap-3">
+              {localGoals.map(goal => {
+                const pct = Math.min((Number(goal.current_amount) / Number(goal.target_amount)) * 100, 100)
+                return (
+                  <div key={goal.id} className="group">
+                    <div className="flex items-start justify-between mb-1">
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <p className="text-[12.5px] text-fg-secondary font-medium">{goal.name}</p>
+                          <span className={`text-xs font-medium ${PRIORITY_COLOR[goal.priority as GoalPriority]}`}>{goal.priority}</span>
                         </div>
-                        <div className="flex items-center gap-1">
-                          {editingGoalId === goal.id ? (
-                            <div className="flex items-center gap-1">
-                              <input value={editInput} onChange={e => setEditInput(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') handleGoalProgressSave(goal.id); if (e.key === 'Escape') setEditingGoalId(null) }} autoFocus className="w-24 bg-surface-2 border border-accent rounded px-2 py-0.5 text-xs outline-none" />
-                              <button onClick={() => handleGoalProgressSave(goal.id)} aria-label="Save goal progress" className="p-1.5 -m-1.5 text-green-400"><Check size={10} /></button>
-                            </div>
-                          ) : (
-                            <button onClick={() => { setEditingGoalId(goal.id); setEditInput(String(goal.current_amount)) }} className="text-xs text-fg-secondary hover:text-white flex items-center gap-1 group/g">
-                              {fmt(Number(goal.current_amount))} / {fmt(Number(goal.target_amount))}
-                              <Pencil size={8} className="opacity-0 group-hover/g:opacity-50 transition-opacity" />
-                            </button>
-                          )}
-                          <button onClick={() => setPendingDelete({ kind: 'goal', id: goal.id, label: goal.name })} aria-label="Delete goal" className={deleteGlyphBtn}>✕</button>
-                        </div>
+                        {goal.target_date && <p className="text-xs text-fg-quaternary mt-0.5">Target: {goal.target_date}</p>}
                       </div>
-                      <div className="h-[5px] rounded-[3px] bg-border">
-                        <div className="h-full bg-accent rounded-[3px] transition-all" style={{ width: `${pct}%` }} />
+                      <div className="flex items-center gap-1">
+                        {editingGoalId === goal.id ? (
+                          <div className="flex items-center gap-1">
+                            <input value={editInput} onChange={e => setEditInput(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') handleGoalProgressSave(goal.id); if (e.key === 'Escape') setEditingGoalId(null) }} autoFocus className="w-24 bg-surface-2 border border-accent rounded px-2 py-0.5 text-xs outline-none" />
+                            <button onClick={() => handleGoalProgressSave(goal.id)} aria-label="Save goal progress" className="p-1.5 -m-1.5 text-green-400"><Check size={10} /></button>
+                          </div>
+                        ) : (
+                          <button onClick={() => { setEditingGoalId(goal.id); setEditInput(String(goal.current_amount)) }} className="text-xs text-fg-secondary hover:text-white flex items-center gap-1 group/g">
+                            {fmt(Number(goal.current_amount))} / {fmt(Number(goal.target_amount))}
+                            <Pencil size={8} className="opacity-0 group-hover/g:opacity-50 transition-opacity" />
+                          </button>
+                        )}
+                        <button onClick={() => setPendingDelete({ kind: 'goal', id: goal.id, label: goal.name })} aria-label="Delete goal" className={deleteGlyphBtn}>✕</button>
                       </div>
                     </div>
-                  )
-                })}
-              </div>
-            )}
-          </Card>
+                    <div className="h-[5px] rounded-[3px] bg-border">
+                      <div className="h-full bg-accent rounded-[3px] transition-all" style={{ width: `${pct}%` }} />
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </Card>
+      </div>}
 
-          <Card title="Just Added" padding="p-[var(--card-pad-md)]" action={
-            <button onClick={() => setModal('expense')} className={outlineAddBtn}>+ Add</button>
-          }>
-            {localExpenses.length === 0 ? (
-              <EmptyState icon={Receipt} message="No expenses this month" compact cta={{ label: 'Add', onClick: () => setModal('expense') }} />
-            ) : (
-              <ul className="space-y-0.5 max-h-32 overflow-y-auto">
-                {localExpenses.map(exp => (
-                  <li key={exp.id} className="flex items-center gap-2.5 p-1 rounded-lg hover:bg-surface-2 transition-colors group">
-                    <span className={`text-xs px-1.5 py-0.5 rounded-full font-medium shrink-0 ${CATEGORY_COLOR[exp.category]}`}>{exp.category}</span>
-                    <span className="text-xs text-fg-quaternary shrink-0">{exp.date}</span>
-                    {exp.description && <span className="text-xs text-fg-secondary truncate flex-1">{exp.description}</span>}
-                    <span className="text-xs text-fg-secondary font-medium shrink-0 ml-auto">{fmt(Number(exp.amount))}</span>
-                    <button onClick={() => setPendingDelete({ kind: 'expense', id: exp.id, label: exp.description || exp.category })} aria-label="Delete expense" className={deleteGlyphBtn}>✕</button>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </Card>
-        </div>
-      </div>
-
-      <Card>
+      {activeTab === 'calendar' && <Card>
         <PaymentCalendar days={calendar} title="Payment Calendar" />
-      </Card>
+      </Card>}
 
-      <SpendingHistory expenseHistory={expenseHistory} currentMonth={month} />
+      {activeTab === 'history' && <SpendingHistory expenseHistory={expenseHistory} currentMonth={month} />}
 
       {/* Modals */}
       {modal && (

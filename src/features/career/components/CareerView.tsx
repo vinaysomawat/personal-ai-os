@@ -7,6 +7,7 @@ import Card from '@/components/Card'
 import ConfirmDialog from '@/components/ConfirmDialog'
 import EmptyState from '@/components/EmptyState'
 import Modal, { modalLabelClass, modalInputClass, modalSelectClass, modalCancelButtonClass, modalSaveButtonClass } from '@/components/Modal'
+import PageTabs from '@/components/PageTabs'
 import { useAIAdvisor } from '@/components/AIAdvisorProvider'
 import { todayIST } from '@/lib/date'
 import {
@@ -118,8 +119,17 @@ interface Props {
   jobAlerts: JobAlert[]
 }
 
+type CareerTab = 'applications' | 'job-alerts' | 'interview-prep' | 'profile'
+const CAREER_TABS: { key: CareerTab; label: string }[] = [
+  { key: 'applications', label: 'Applications' },
+  { key: 'job-alerts', label: 'Job Alerts' },
+  { key: 'interview-prep', label: 'Interview Prep' },
+  { key: 'profile', label: 'Profile' },
+]
+
 export default function CareerView({ applications, profile, skills, quizAttempts, recommendedTopic, codingStreak, studyStreak, jobAlerts }: Props) {
   const [, startTransition] = useTransition()
+  const [activeTab, setActiveTab] = useState<CareerTab>('applications')
 
   const [localApps, setLocalApps] = useState(applications)
   const [localProfile, setLocalProfile] = useState(profile)
@@ -337,8 +347,10 @@ export default function CareerView({ applications, profile, skills, quizAttempts
         )}
       </div>
 
+      <PageTabs tabs={CAREER_TABS} active={activeTab} onChange={setActiveTab} />
+
       {/* Applications Pipeline */}
-      <Card title="Applications" padding="p-3.5" action={
+      {activeTab === 'applications' && <Card title="Applications" padding="p-3.5" action={
         <div className="flex items-center gap-2">
           <select value={appsSort} onChange={e => setAppsSort(e.target.value as typeof appsSort)}
             className="bg-surface-2 border border-surface-3 rounded-[7px] px-2 py-[6px] text-[11.5px] text-fg-secondary outline-none cursor-pointer">
@@ -507,7 +519,7 @@ export default function CareerView({ applications, profile, skills, quizAttempts
             })}
           </div>
         )}
-      </Card>
+      </Card>}
 
       {/* Job Alerts — deterministic daily poll of public Greenhouse/Lever/
           Ashby boards (src/features/career/job-alerts.ts), already
@@ -515,7 +527,7 @@ export default function CareerView({ applications, profile, skills, quizAttempts
           in-app, best-fit (score) first. Score is deterministic (skill
           overlap + seniority + salary vs. current), never AI — see
           computeScore() in job-alerts.ts. */}
-      <Card title="Job Alerts" padding="p-3.5" action={
+      {activeTab === 'job-alerts' && <Card title="Job Alerts" padding="p-3.5" action={
         jobAlerts.length > 0 ? <span className="text-xs text-fg-tertiary">{jobAlerts.length} in the last 30 days</span> : undefined
       }>
         {jobAlerts.length === 0 ? (
@@ -558,10 +570,10 @@ export default function CareerView({ applications, profile, skills, quizAttempts
             })}
           </div>
         )}
-      </Card>
+      </Card>}
 
       {/* Interview Prep — Interactive Topic Quiz */}
-      <Card title="Interview Prep — Topic Quiz" padding="p-3.5">
+      {activeTab === 'interview-prep' && <Card title="Interview Prep — Topic Quiz" padding="p-3.5">
         {recommendedTopic && (
           <div className="flex items-center gap-3 p-3 mb-4 rounded-[10px] bg-accent-soft border border-accent-border">
             <span className="shrink-0">🎯</span>
@@ -590,10 +602,10 @@ export default function CareerView({ applications, profile, skills, quizAttempts
             )
           })}
         </div>
-      </Card>
+      </Card>}
 
       {/* Career Profile */}
-      <Card title="Career Profile" padding="p-3.5" action={
+      {activeTab === 'profile' && <Card title="Career Profile" padding="p-3.5" action={
         (codingStreak > 0 || studyStreak > 0)
           ? <div className="flex items-center gap-2 flex-wrap">
               {codingStreak > 0 && <span className="text-[11px] font-semibold bg-surface-2 rounded-full px-2.5 py-1 text-fg-secondary">🔥 {codingStreak}-day coding streak</span>}
@@ -611,7 +623,7 @@ export default function CareerView({ applications, profile, skills, quizAttempts
         <div className="mt-4 pt-3.5 border-t border-surface-3">
           <ProfileField label="Bio / Focus" value={localProfile?.bio ?? ''} onSave={v => saveProfile('bio', v)} placeholder="Frontend + Testing specialist" />
         </div>
-      </Card>
+      </Card>}
 
       {/* Quiz modal */}
       {quiz && (
