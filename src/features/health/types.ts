@@ -40,10 +40,8 @@ export interface HealthProfile {
   age: number | null
   gender: Gender | null
   height_cm: number | null
-  target_weight_kg: number | null
   activity_level: ActivityLevel | null
   workout_days_per_week: number | null
   food_preference: string | null
-  goal_deadline: string | null
   updated_at: string
 }

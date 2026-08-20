@@ -172,10 +172,9 @@ function computeScore(title: string, matchedSkills: string[], salaryMin: number 
 // Deterministic — no AI. Fetches every configured company's public board in
 // parallel, filters by role keyword, dedupes against job_alerts_seen (which
 // this also writes to), and returns only postings genuinely new since the
-// last check — same dedupe-log shape as trending_readings. Each new posting
-// is scored against the user's tracked Skills and Career Profile salary
-// (see computeScore above) so the caller can sort/filter by fit without
-// recomputing anything.
+// last check. Each new posting is scored against the user's tracked Skills
+// and Career Profile salary (see computeScore above) so the caller can
+// sort/filter by fit without recomputing anything.
 export async function findNewJobAlerts(supabase: SupabaseClient, userId: string): Promise<JobAlert[]> {
   const [results, { data: skillRows }, { data: profile }] = await Promise.all([
     Promise.all(COMPANIES.map(c => {

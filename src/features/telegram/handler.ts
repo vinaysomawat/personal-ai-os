@@ -95,11 +95,8 @@ async function handleCallbackQuery(moduleName: ModuleName, update: TelegramUpdat
     const db = createServiceClient()
     await db.from('tasks').update({ done: true }).eq('id', taskId)
     // Two-way sync with the Coding daily-question habit system and Learning
-    // resources (incl. the daily-read pick), same as the web app's
-    // toggleTask. trending_readings is legacy — kept for any old linked
-    // tasks from before the daily-read habit moved into `resources`.
+    // resources (incl. the daily-read pick), same as the web app's toggleTask.
     await db.from('coding_daily_questions').update({ completed: true, completed_at: new Date().toISOString() }).eq('task_id', taskId)
-    await db.from('trending_readings').update({ completed: true, completed_at: new Date().toISOString() }).eq('task_id', taskId)
     await db.from('resources').update({ status: 'completed', progress: 100 }).eq('task_id', taskId)
     const { data: dw } = await db.from('daily_workouts').select('id').eq('task_id', taskId).in('status', ['pending', 'in_progress']).maybeSingle()
     if (dw) {

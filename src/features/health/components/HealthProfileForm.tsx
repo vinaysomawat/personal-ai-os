@@ -29,11 +29,9 @@ export default function HealthProfileForm({ profile, onClose, onSaved }: Props) 
       age: parseInt(fd.get('age') as string) || null,
       gender: (fd.get('gender') as Gender) || null,
       height_cm: parseFloat(fd.get('height_cm') as string) || null,
-      target_weight_kg: null,
       activity_level: (fd.get('activity_level') as ActivityLevel) || null,
       workout_days_per_week: parseInt(fd.get('workout_days_per_week') as string) || null,
       food_preference: (fd.get('food_preference') as string) || null,
-      goal_deadline: null,
     }
     await upsertHealthProfile(payload)
     onSaved({

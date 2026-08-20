@@ -141,11 +141,9 @@ export async function upsertHealthProfile(profile: {
   age: number | null
   gender: Gender | null
   height_cm: number | null
-  target_weight_kg: number | null
   activity_level: ActivityLevel | null
   workout_days_per_week: number | null
   food_preference: string | null
-  goal_deadline: string | null
 }) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
