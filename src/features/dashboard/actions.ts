@@ -86,7 +86,6 @@ export async function getDashboardData() {
     scoreTips: { health: '', finance: '', career: '', learning: '', projects: '' },
     todayHealth: null,
     scoreHistory: [] as { date: string; life: number; health: number; finance: number; career: number; learning: number; projects: number }[],
-    gamification: { xp: 0, level: 1, xpProgress: 0, streak: 0, badges: [] as string[] },
     stats: { pendingTaskCount: 0, overdueCount: 0, activeApplications: 0, workoutsToday: 0, monthSpend: 0, monthBudget: 0, learningInProgress: 0, resourcesNeedingRevision: 0, codingSolved30d: 0, workoutStreak: 0, learningStreak: 0 },
     codingQuestionPending: false,
     workoutCategory: null as string | null,
@@ -261,55 +260,17 @@ export async function getDashboardData() {
     projects_score: projectsScore, life_score: lifeScore,
   }, { onConflict: 'user_id,date' })
 
-  // Fetch 30-day history + compute XP/gamification
   const since = daysAgoIST(30)
-  const allTimeSince = daysAgoIST(365)
+  const { data: historyData } = await supabase.from('life_score_logs')
+    .select('date, life_score, health_score, finance_score, career_score, learning_score, projects_score')
+    .eq('user_id', user.id).gte('date', since).order('date', { ascending: true })
 
-  const [historyRes, allTimeRes] = await Promise.all([
-    supabase.from('life_score_logs')
-      .select('date, life_score, health_score, finance_score, career_score, learning_score, projects_score')
-      .eq('user_id', user.id).gte('date', since).order('date', { ascending: true }),
-    supabase.from('life_score_logs')
-      .select('date, life_score')
-      .eq('user_id', user.id).gte('date', allTimeSince).order('date', { ascending: true }),
-  ])
-
-  const scoreHistory = (historyRes.data ?? []).map(r => ({
+  const scoreHistory = (historyData ?? []).map(r => ({
     date: r.date as string, life: r.life_score as number,
     health: r.health_score as number, finance: r.finance_score as number,
     career: r.career_score as number, learning: r.learning_score as number,
     projects: r.projects_score as number,
   }))
-
-  // --- Gamification ---
-  const allLogs = allTimeRes.data ?? []
-  const totalXP = allLogs.reduce((s, r) => s + (r.life_score as number), 0)
-  const LEVEL_THRESHOLDS = [0, 200, 500, 1000, 2000, 3500, 5000, 7500, 10000]
-  const level = LEVEL_THRESHOLDS.findIndex(t => totalXP < t) - 1
-  const xpLevel = level < 0 ? LEVEL_THRESHOLDS.length - 1 : Math.max(1, level)
-  const xpForNext = LEVEL_THRESHOLDS[xpLevel] ?? LEVEL_THRESHOLDS[LEVEL_THRESHOLDS.length - 1]
-  const xpForCurrent = LEVEL_THRESHOLDS[xpLevel - 1] ?? 0
-  const xpProgress = xpForNext > xpForCurrent ? Math.round(((totalXP - xpForCurrent) / (xpForNext - xpForCurrent)) * 100) : 100
-
-  // Streak: consecutive days from today backwards
-  const logDates = new Set(allLogs.map(r => r.date as string))
-  let streak = 0
-  const d = new Date(`${today}T00:00:00Z`)
-  while (logDates.has(d.toISOString().split('T')[0])) {
-    streak++
-    d.setUTCDate(d.getUTCDate() - 1)
-  }
-
-  const badges: string[] = []
-  if (allLogs.length >= 1)  badges.push('🌱 First Step')
-  if (allLogs.length >= 7)  badges.push('📅 Week Warrior')
-  if (allLogs.length >= 30) badges.push('💪 Month Master')
-  if (streak >= 7)          badges.push('🔥 7-Day Streak')
-  if (streak >= 30)         badges.push('⚡ 30-Day Streak')
-  if (lifeScore >= 50)      badges.push('⭐ Half Century')
-  if (lifeScore >= 70)      badges.push('🏆 Century Club')
-  if (lifeScore >= 90)      badges.push('💎 Elite')
-  if (totalXP >= 1000)      badges.push('🎯 1K XP Club')
 
   // --- AI spend (from ai_usage_logs, written by the AI Gateway) ---
   const aiUsageMonth = aiUsageMonthRes.data ?? []
@@ -384,19 +345,12 @@ export async function getDashboardData() {
     codingWeakAreas, careerTopWeakSubtopic, topJobAlert,
   })
 
-  // Upsert XP record
-  await supabase.from('user_xp').upsert(
-    { user_id: user.id, xp: totalXP, level: xpLevel, badges, updated_at: new Date().toISOString() },
-    { onConflict: 'user_id' }
-  )
-
   return {
     pendingTasks,
     recentApplications: applications.slice(0, 3),
     botActivity: botLogsRes.data ?? [],
     todayHealth: todayMetric,
     scoreHistory,
-    gamification: { xp: totalXP, level: xpLevel, xpProgress, streak, badges },
     scores: { health: healthScore, finance: financeScore, career: careerScore, learning: learningScore, projects: projectsScore, life: lifeScore },
     scoreTips,
     stats: {

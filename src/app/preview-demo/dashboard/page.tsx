@@ -23,7 +23,6 @@ const dummyData = {
     life: 55 + Math.round(Math.sin(i / 2) * 15 + i),
     health: 60 + i, finance: 70 - i, career: 50 + i, learning: 45 + i, projects: 40 + i * 2,
   })),
-  gamification: { xp: 2400, level: 4, xpProgress: 62, streak: 12, badges: ['🌱 First Step', '📅 Week Warrior', '🔥 7-Day Streak'] },
   scores: { health: 72, finance: 68, career: 64, learning: 58, projects: 76, life: 68 },
   scoreTips: {
     health: 'Log today\'s steps for a full score',
