@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useTransition } from 'react'
-import { Sparkles, Pencil, Check, Eye, EyeOff, Repeat, Landmark, Target, Receipt } from 'lucide-react'
+import { Sparkles, Pencil, Check, Eye, EyeOff, Landmark, Target, Receipt } from 'lucide-react'
 import Card from '@/components/Card'
 import ConfirmDialog from '@/components/ConfirmDialog'
 import EmptyState from '@/components/EmptyState'
@@ -13,14 +13,13 @@ import {
   upsertProfile, addLoan, deleteLoan, updateLoanTerms,
   addInvestment, updateInvestmentValue, updateInvestmentAmount, deleteInvestment,
   addGoal, updateGoalProgress, deleteGoal,
-  addRecurringExpense, toggleRecurringExpense, deleteRecurringExpense,
 } from '../actions'
 import { askFinanceAdvisor } from '@/features/ai/finance-advisor'
 import ScenarioSimulator from './ScenarioSimulator'
 import SpendingHistory from './SpendingHistoryLazy'
 import PaymentCalendar from './PaymentCalendar'
 import { CATEGORIES, INVESTMENT_TYPES } from '../types'
-import type { Expense, Budget, FinanceProfile, Loan, Investment, FinancialGoal, RecurringExpense, InvestmentType, GoalPriority } from '../types'
+import type { Expense, Budget, FinanceProfile, Loan, Investment, FinancialGoal, InvestmentType, GoalPriority } from '../types'
 import type { PaymentCalendarDay } from '../actions'
 import { useEscapeKey } from '@/lib/use-escape-key'
 import { useFormValidation } from '@/lib/use-form-validation'
@@ -47,12 +46,11 @@ const outlineAddBtn = 'px-2.5 py-1 rounded-[6px] border border-border-strong tex
 // investments, recurring, loans) rather than a trash icon.
 const deleteGlyphBtn = 'shrink-0 opacity-0 group-hover:opacity-100 text-fg-quaternary hover:text-red-400 text-[11px] p-0.5 transition-all'
 
-const PENDING_DELETE_COPY: Record<'loan' | 'investment' | 'goal' | 'expense' | 'recurring', { title: string; description: (label: string) => string }> = {
+const PENDING_DELETE_COPY: Record<'loan' | 'investment' | 'goal' | 'expense', { title: string; description: (label: string) => string }> = {
   loan: { title: 'Delete loan?', description: label => `The loan "${label}" will be permanently removed.` },
   investment: { title: 'Delete investment?', description: label => `"${label}" will be permanently removed.` },
   goal: { title: 'Delete goal?', description: label => `The goal "${label}" will be permanently removed.` },
   expense: { title: 'Delete expense?', description: () => 'This expense will be permanently removed.' },
-  recurring: { title: 'Delete recurring expense?', description: label => `"${label}" will no longer be auto-logged each month.` },
 }
 
 function fmt(n: number) {
@@ -86,7 +84,6 @@ interface Props {
   loans: Loan[]
   investments: Investment[]
   goals: FinancialGoal[]
-  recurringExpenses: RecurringExpense[]
   salaryHistory: { amount: number; effective_date: string; note: string | null }[]
   avgMonthlyExpense: number
   expenseHistory: { amount: number; category: string; date: string }[]
@@ -94,7 +91,7 @@ interface Props {
   calendar: PaymentCalendarDay[]
 }
 
-export default function FinanceView({ expenses, budgets, profile, loans, investments, goals, recurringExpenses, salaryHistory, avgMonthlyExpense, expenseHistory, month, calendar }: Props) {
+export default function FinanceView({ expenses, budgets, profile, loans, investments, goals, salaryHistory, avgMonthlyExpense, expenseHistory, month, calendar }: Props) {
   const [, startTransition] = useTransition()
   const [salaryVisible, setSalaryVisible] = useState(false)
 
@@ -105,10 +102,9 @@ export default function FinanceView({ expenses, budgets, profile, loans, investm
   const [localGoals, setLocalGoals] = useState(goals)
   const [localExpenses, setLocalExpenses] = useState(expenses)
   const [localBudgets, setLocalBudgets] = useState(budgets)
-  const [localRecurring, setLocalRecurring] = useState(recurringExpenses)
 
   // Modal state
-  const [modal, setModal] = useState<'loan' | 'investment' | 'goal' | 'expense' | 'recurring' | null>(null)
+  const [modal, setModal] = useState<'loan' | 'investment' | 'goal' | 'expense' | null>(null)
   useEscapeKey(() => setModal(null))
   const { invalidFields, validate, clear, onFieldInput } = useFormValidation()
   useEffect(() => clear(), [modal, clear])
@@ -117,7 +113,7 @@ export default function FinanceView({ expenses, budgets, profile, loans, investm
   const [editingGoalId, setEditingGoalId] = useState<string | null>(null)
   const [editInput, setEditInput] = useState('')
   const [expandedCategory, setExpandedCategory] = useState<string | null>(null)
-  const [pendingDelete, setPendingDelete] = useState<{ kind: 'loan' | 'investment' | 'goal' | 'expense' | 'recurring'; id: string; label: string } | null>(null)
+  const [pendingDelete, setPendingDelete] = useState<{ kind: 'loan' | 'investment' | 'goal' | 'expense'; id: string; label: string } | null>(null)
 
   // AI Advisor
   const [advisorTab, setAdvisorTab] = useState<'ask' | 'simulate'>('ask')
@@ -266,16 +262,6 @@ export default function FinanceView({ expenses, budgets, profile, loans, investm
     startTransition(() => deleteExpense(id))
   }
 
-  const handleToggleRecurring = (id: string, active: boolean) => {
-    setLocalRecurring(prev => prev.map(r => r.id === id ? { ...r, active } : r))
-    startTransition(() => toggleRecurringExpense(id, active))
-  }
-
-  const handleDeleteRecurring = (id: string) => {
-    setLocalRecurring(prev => prev.filter(r => r.id !== id))
-    startTransition(() => deleteRecurringExpense(id))
-  }
-
   const confirmPendingDelete = () => {
     if (!pendingDelete) return
     const { kind, id } = pendingDelete
@@ -283,7 +269,6 @@ export default function FinanceView({ expenses, budgets, profile, loans, investm
     else if (kind === 'investment') handleDeleteInvestment(id)
     else if (kind === 'goal') handleDeleteGoal(id)
     else if (kind === 'expense') handleDeleteExpense(id)
-    else if (kind === 'recurring') handleDeleteRecurring(id)
     setPendingDelete(null)
   }
 
@@ -588,46 +573,16 @@ export default function FinanceView({ expenses, budgets, profile, loans, investm
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-[var(--grid-gap)] items-start">
-      <Card title="Recurring Expenses" action={
-        <div className="flex items-center gap-3">
-          {localRecurring.some(r => r.active) && (
-            <span className="text-xs text-fg-tertiary">{fmt(localRecurring.filter(r => r.active).reduce((s, r) => s + Number(r.amount), 0))}/mo total</span>
-          )}
-          <button onClick={() => setModal('recurring')} className={outlineAddBtn}>+ Add</button>
-        </div>
-      }>
-        <p className="text-xs text-fg-quaternary mb-3">Auto-logged into Expenses each month on its scheduled day — rent, subscriptions, and other fixed monthly costs you&apos;d otherwise have to re-enter by hand.</p>
-        {localRecurring.length === 0 ? (
-          <EmptyState icon={Repeat} message="No recurring expenses set up" compact cta={{ label: 'Add', onClick: () => setModal('recurring') }} />
-        ) : (
-          <ul className="flex flex-col gap-2">
-            {localRecurring.map(r => (
-              <li key={r.id} className="flex items-center gap-2 flex-wrap group">
-                <span className={`text-[12.5px] ${r.active ? 'text-fg-secondary' : 'text-fg-quaternary line-through'}`}>
-                  {r.name} — {fmt(Number(r.amount))} · day {r.day_of_month} of month · {r.category}
-                </span>
-                <button onClick={() => handleToggleRecurring(r.id, !r.active)} className="px-2 py-0.5 rounded-[6px] border border-border-strong text-[10.5px] text-fg-tertiary hover:text-fg-secondary transition-colors whitespace-nowrap">
-                  {r.active ? 'Pause' : 'Resume'}
-                </button>
-                <button onClick={() => setPendingDelete({ kind: 'recurring', id: r.id, label: r.name })} aria-label="Delete recurring expense" className={deleteGlyphBtn}>✕</button>
-              </li>
-            ))}
-          </ul>
-        )}
-      </Card>
-
       <Card>
         <PaymentCalendar days={calendar} title="Payment Calendar" />
       </Card>
-      </div>
 
       <SpendingHistory expenseHistory={expenseHistory} currentMonth={month} />
 
       {/* Modals */}
       {modal && (
         <Modal
-          title={modal === 'loan' ? 'Add Loan' : modal === 'investment' ? 'Add Investment' : modal === 'goal' ? 'Add Financial Goal' : modal === 'recurring' ? 'Add Recurring Expense' : 'Add Expense'}
+          title={modal === 'loan' ? 'Add Loan' : modal === 'investment' ? 'Add Investment' : modal === 'goal' ? 'Add Financial Goal' : 'Add Expense'}
           onClose={() => setModal(null)}
           maxWidthClass={modal === 'expense' ? 'max-w-[400px]' : undefined}
         >
@@ -794,7 +749,6 @@ export default function FinanceView({ expenses, budgets, profile, loans, investm
                   description: fd.get('description') as string || null,
                   date: fd.get('date') as string || todayIST(),
                   created_at: new Date().toISOString(),
-                  recurring_expense_id: null,
                 }
                 setLocalExpenses(prev => [newExp, ...prev])
                 setModal(null)
@@ -829,53 +783,6 @@ export default function FinanceView({ expenses, budgets, profile, loans, investm
               </form>
             )}
 
-            {modal === 'recurring' && (
-              <form className="flex flex-col gap-3.5" noValidate onInput={onFieldInput} onSubmit={async e => {
-                e.preventDefault()
-                if (!validate(e.currentTarget)) return
-                const fd = new FormData(e.currentTarget)
-                const name = fd.get('name') as string
-                const amount = parseFloat(fd.get('amount') as string)
-                const category = fd.get('category') as string
-                const dayOfMonth = parseInt(fd.get('day') as string, 10)
-                if (!name || !amount || !dayOfMonth) return
-                const newRec: RecurringExpense = {
-                  id: `temp-${Date.now()}`, user_id: '', name, amount, category, day_of_month: dayOfMonth, active: true, created_at: new Date().toISOString(),
-                }
-                setLocalRecurring(prev => [...prev, newRec])
-                setModal(null)
-                await addRecurringExpense(name, amount, category, dayOfMonth)
-              }}>
-                <div>
-                  <label className={modalLabelClass}>Name</label>
-                  <input name="name" required autoFocus placeholder="e.g. Rent" className={modalInputClass(invalidFields.has('name'))} />
-                  <FieldError show={invalidFields.has('name')} />
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className={modalLabelClass}>Amount (₹)</label>
-                    <input name="amount" type="number" required min="0" step="0.01" placeholder="15000" className={modalInputClass(invalidFields.has('amount'))} />
-                    <FieldError show={invalidFields.has('amount')} />
-                  </div>
-                  <div>
-                    <label className={modalLabelClass}>Day of Month</label>
-                    <input name="day" type="number" required min="1" max="28" placeholder="1-28" className={modalInputClass(invalidFields.has('day'))} />
-                    <FieldError show={invalidFields.has('day')} />
-                  </div>
-                </div>
-                <div>
-                  <label className={modalLabelClass}>Category</label>
-                  <select name="category" required className={modalSelectClass}>
-                    {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
-                  </select>
-                  <FieldError show={invalidFields.has('category')} />
-                </div>
-                <div className="flex justify-end gap-2.5 mt-1.5">
-                  <button type="button" onClick={() => setModal(null)} className={modalCancelButtonClass}>Cancel</button>
-                  <button type="submit" className={modalSaveButtonClass}>Save</button>
-                </div>
-              </form>
-            )}
         </Modal>
       )}
 

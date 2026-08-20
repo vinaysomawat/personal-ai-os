@@ -5,6 +5,7 @@ append here whenever you deploy, same cadence as the version bump.
 
 ## 2026-08-20
 
+- Removed Recurring Expenses entirely (table, cron, UI, Telegram commands); redesigned Payment Calendar into a simple day-by-day "what did I spend today" log (Logged/None) instead of tracking recurring due-dates.
 - Fixed the Health Score's Nutrition reason text, which always named the protein gap even when calories were the bigger miss (protein's target is high enough its gap was almost always >20g, permanently winning) — now shows whichever of the two is actually worse that day.
 - Added this changelog page (`/changelog`, linked from the version string in the header).
 - Added AI-derived "Updated {relative time}" freshness timestamps to Career's Recommended Topic and Interview Guidance, and Astrology's Characteristics card.

@@ -27,9 +27,9 @@ export async function getFinanceData() {
   const threeMonthsAgo = daysAgoIST(90)
   const historyStart = `${monthsAgoStr(11)}-01`
 
-  if (!user) return { expenses: [], budgets: [], profile: null, loans: [], investments: [], goals: [], recurringExpenses: [], salaryHistory: [], avgMonthlyExpense: 0, expenseHistory: [], month }
+  if (!user) return { expenses: [], budgets: [], profile: null, loans: [], investments: [], goals: [], salaryHistory: [], avgMonthlyExpense: 0, expenseHistory: [], month }
 
-  const [expensesRes, budgetsRes, profileRes, loansRes, investmentsRes, goalsRes, recentExpensesRes, salaryHistoryRes, recurringRes, historyRes] = await Promise.all([
+  const [expensesRes, budgetsRes, profileRes, loansRes, investmentsRes, goalsRes, recentExpensesRes, salaryHistoryRes, historyRes] = await Promise.all([
     supabase.from('expenses').select('*').eq('user_id', user.id).gte('date', startOfMonth).order('date', { ascending: false }),
     supabase.from('budgets').select('*').eq('user_id', user.id).eq('month', month),
     supabase.from('finance_profile').select('*').eq('user_id', user.id).single(),
@@ -38,7 +38,6 @@ export async function getFinanceData() {
     supabase.from('financial_goals').select('*').eq('user_id', user.id).order('created_at', { ascending: true }),
     supabase.from('expenses').select('amount').eq('user_id', user.id).gte('date', threeMonthsAgo),
     supabase.from('salary_history').select('amount, effective_date, note').eq('user_id', user.id).order('effective_date', { ascending: true }),
-    supabase.from('recurring_expenses').select('*').eq('user_id', user.id).order('day_of_month', { ascending: true }),
     supabase.from('expenses').select('amount, category, date').eq('user_id', user.id).gte('date', historyStart).order('date', { ascending: true }),
   ])
 
@@ -85,18 +84,11 @@ export async function getFinanceData() {
     loans: loansRes.data ?? [],
     investments: investmentsRes.data ?? [],
     goals: goalsRes.data ?? [],
-    recurringExpenses: recurringRes.data ?? [],
     salaryHistory: (salaryHistoryRes.data ?? []) as { amount: number; effective_date: string; note: string | null }[],
     avgMonthlyExpense,
     expenseHistory: (historyRes.data ?? []) as { amount: number; category: string; date: string }[],
     month,
   }
-}
-
-interface CalendarDayPayment {
-  name: string
-  amount: number
-  category: string
 }
 
 interface CalendarDayExpense {
@@ -107,41 +99,20 @@ interface CalendarDayExpense {
 
 export interface PaymentCalendarDay {
   date: string
-  status: 'paid' | 'pending' | 'missed' | 'none'
-  payments: CalendarDayPayment[]
+  status: 'logged' | 'none'
   expenses: CalendarDayExpense[]
 }
 
-// Same shape/pattern as Coding's computeCodingCalendar and Learning's
-// computeStudyCalendar, but the underlying question is different: not "was
-// something logged today" for one activity stream, but "was every active
-// recurring expense due on this day-of-month actually paid this month" — a
-// day only has a status at all if it's some active template's due day
-// (`day_of_month`), matched against a paid `expenses` row via the
-// `recurring_expense_id` FK the recurring-expenses cron already sets
-// (api/cron/recurring-expenses/route.ts). Matched by month, not exact date,
-// since a template's actual paid date could shift a little in principle
-// even though the cron currently always logs on the exact due day.
-// `pending` (not yet due-or-not-due-yet vs. genuinely overdue) covers
-// today-or-future unpaid due days; `missed` is strictly past and unpaid.
-//
-// `expenses` (added 2026-08-18, per user feedback that the calendar should
-// "show the expenses done on each day") is separate from `payments`: every
-// day's actual logged `expenses` rows, regardless of whether that day is a
-// recurring due-date — so a day with real ad-hoc spend but no recurring
-// template due is still clickable and shows what was spent. `status`/
-// `payments` keep meaning "recurring bill on-time tracking" unchanged; the
-// two lists are shown together in the calendar's detail panel, not merged.
+// Simple day-by-day expense log (redesigned 2026-08-20, replacing the old
+// recurring-bill on-time tracker once Recurring Expenses was removed
+// entirely) — "logged" if >=1 expense was recorded that day, "none"
+// otherwise. Deliberately no streak/active-rate stats here unlike Coding/
+// Learning/Health's calendars: those track a daily habit worth being
+// consistent at, but spending money isn't something to keep a streak on —
+// a "none" day is often a good day, not a missed one.
 export async function computePaymentCalendar(supabase: Awaited<ReturnType<typeof createClient>>, userId: string, days = 182): Promise<PaymentCalendarDay[]> {
   const since = daysAgoIST(days)
-  const [{ data: templates }, { data: paidExpenses }, { data: allExpenses }] = await Promise.all([
-    supabase.from('recurring_expenses').select('id, name, amount, category, day_of_month').eq('user_id', userId).eq('active', true),
-    supabase.from('expenses').select('date, recurring_expense_id').eq('user_id', userId).gte('date', since).not('recurring_expense_id', 'is', null),
-    supabase.from('expenses').select('date, description, category, amount').eq('user_id', userId).gte('date', since),
-  ])
-
-  const activeTemplates = templates ?? []
-  const paidMonths = new Set((paidExpenses ?? []).map(e => `${e.recurring_expense_id}:${e.date.slice(0, 7)}`))
+  const { data: allExpenses } = await supabase.from('expenses').select('date, description, category, amount').eq('user_id', userId).gte('date', since)
 
   const expensesByDate = new Map<string, CalendarDayExpense[]>()
   for (const e of allExpenses ?? []) {
@@ -150,22 +121,11 @@ export async function computePaymentCalendar(supabase: Awaited<ReturnType<typeof
     expensesByDate.set(e.date, list)
   }
 
-  const today = todayIST()
   const result: PaymentCalendarDay[] = []
   for (let i = 0; i < days; i++) {
     const d = daysAgoIST(i)
-    const dayOfMonth = Number(d.slice(8, 10))
-    const monthKey = d.slice(0, 7)
     const dayExpenses = expensesByDate.get(d) ?? []
-    const dueTemplates = activeTemplates.filter(t => t.day_of_month === dayOfMonth)
-    if (dueTemplates.length === 0) {
-      result.push({ date: d, status: 'none', payments: [], expenses: dayExpenses })
-      continue
-    }
-    const payments = dueTemplates.map(t => ({ name: t.name, amount: t.amount, category: t.category }))
-    const allPaid = dueTemplates.every(t => paidMonths.has(`${t.id}:${monthKey}`))
-    const status: PaymentCalendarDay['status'] = allPaid ? 'paid' : (d >= today ? 'pending' : 'missed')
-    result.push({ date: d, status, payments, expenses: dayExpenses })
+    result.push({ date: d, status: dayExpenses.length > 0 ? 'logged' : 'none', expenses: dayExpenses })
   }
   return result.reverse()
 }
@@ -315,29 +275,6 @@ export async function upsertBudget(category: string, amount: number) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) throw new Error('Not authenticated')
   const { error } = await supabase.from('budgets').upsert({ user_id: user.id, category, amount, month: currentMonth() }, { onConflict: 'user_id,category,month' })
-  if (error) throw new Error(error.message)
-  revalidatePath('/finance')
-}
-
-export async function addRecurringExpense(name: string, amount: number, category: string, dayOfMonth: number) {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) throw new Error('Not authenticated')
-  const { error } = await supabase.from('recurring_expenses').insert({ user_id: user.id, name, amount, category, day_of_month: dayOfMonth })
-  if (error) throw new Error(error.message)
-  revalidatePath('/finance')
-}
-
-export async function toggleRecurringExpense(id: string, active: boolean) {
-  const supabase = await createClient()
-  const { error } = await supabase.from('recurring_expenses').update({ active }).eq('id', id)
-  if (error) throw new Error(error.message)
-  revalidatePath('/finance')
-}
-
-export async function deleteRecurringExpense(id: string) {
-  const supabase = await createClient()
-  const { error } = await supabase.from('recurring_expenses').delete().eq('id', id)
   if (error) throw new Error(error.message)
   revalidatePath('/finance')
 }
