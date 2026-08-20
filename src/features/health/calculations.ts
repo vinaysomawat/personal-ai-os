@@ -103,16 +103,26 @@ function calculateHealthScore(
     nutritionScore = 0
     nutritionReason = 'Nothing logged today — log calories and protein to see this score'
   } else {
-    const calDelta = todayMetric?.calories != null ? Math.abs(todayMetric.calories - targets.calories) / targets.calories : 0.5
+    const calLogged = todayMetric?.calories != null
+    const proteinLogged = todayMetric?.protein_g != null
+    const calDelta = calLogged ? Math.abs(todayMetric!.calories! - targets.calories) / targets.calories : 0.5
     const calScore = clamp(100 - calDelta * 150)
-    const proteinScore = todayMetric?.protein_g != null ? clamp((todayMetric.protein_g / targets.protein) * 100) : 40
+    const proteinScore = proteinLogged ? clamp((todayMetric!.protein_g! / targets.protein) * 100) : 40
     nutritionScore = Math.round((calScore + proteinScore) / 2)
-    const proteinGap = targets.protein - (todayMetric?.protein_g ?? 0)
-    nutritionReason = proteinGap > 20
-      ? `Protein is ${Math.round(proteinGap)}g below target`
-      : calDelta > 0.15
-        ? `Calories are ${Math.round(calDelta * 100)}% off target`
-        : 'On track with today\'s nutrition targets'
+
+    // Whichever of calories/protein is actually worse today drives the
+    // reason message — previously this always favored protein regardless
+    // of which one was further off target, so a real calorie miss never
+    // showed even when it was the bigger problem (protein's target is high
+    // enough that its gap was almost always >20g, permanently winning).
+    const proteinGap = Math.round(targets.protein - (todayMetric?.protein_g ?? 0))
+    const calOffPct = Math.round(calDelta * 100)
+    const calIssue = !calLogged ? 'Calories aren\'t logged yet today' : calDelta > 0.15 ? `Calories are ${calOffPct}% off target` : null
+    const proteinIssue = !proteinLogged ? 'Protein isn\'t logged yet today' : proteinGap > 20 ? `Protein is ${proteinGap}g below target` : null
+
+    nutritionReason = calIssue && proteinIssue
+      ? (calScore <= proteinScore ? calIssue : proteinIssue)
+      : calIssue ?? proteinIssue ?? 'On track with today\'s nutrition targets'
   }
 
   // Activity
