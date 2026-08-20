@@ -3,6 +3,7 @@ import { daysAgoIST, todayIST } from '@/lib/date'
 import { computeHealthPlan } from '@/features/health/calculations'
 import { computeCodingStats } from '@/features/coding/daily-core'
 import type { HealthProfile, HealthMetric } from '@/features/health/types'
+import { RISK_THRESHOLDS, AUTOMATION_RULE_THRESHOLDS, OPPORTUNITY_THRESHOLDS } from '@/lib/thresholds'
 
 export interface Risk {
   kind: 'budget_pace' | 'protein_decline' | 'coding_streak'
@@ -30,7 +31,7 @@ export async function computeRiskEngine(supabase: SupabaseClient, userId: string
   const [{ data: expenses }, { data: budgets }, { data: metrics }, { data: todayCoding }, codingStats] = await Promise.all([
     supabase.from('expenses').select('amount').eq('user_id', userId).gte('date', today.slice(0, 7) + '-01'),
     supabase.from('budgets').select('amount').eq('user_id', userId).eq('month', today.slice(0, 7)),
-    supabase.from('health_metrics').select('date, protein_g').eq('user_id', userId).gte('date', daysAgoIST(6)).not('protein_g', 'is', null),
+    supabase.from('health_metrics').select('date, protein_g').eq('user_id', userId).gte('date', daysAgoIST(RISK_THRESHOLDS.proteinDeclineLookbackDays)).not('protein_g', 'is', null),
     supabase.from('coding_daily_questions').select('completed').eq('user_id', userId).eq('assigned_date', today),
     computeCodingStats(supabase, userId),
   ])
@@ -46,12 +47,12 @@ export async function computeRiskEngine(supabase: SupabaseClient, userId: string
     const daysInMonth = new Date(Date.UTC(year, month, 0)).getUTCDate()
     const projectedSpend = (monthSpend / daysElapsed) * daysInMonth
     const overBy = projectedSpend - monthBudget
-    if (overBy / monthBudget >= 0.05) {
+    if (overBy / monthBudget >= RISK_THRESHOLDS.budgetOverageMinRatio) {
       const ratio = overBy / monthBudget
       risks.push({
         kind: 'budget_pace',
         text: `At your current pace (₹${Math.round(monthSpend / daysElapsed).toLocaleString('en-IN')}/day), you're projected to spend ₹${Math.round(projectedSpend).toLocaleString('en-IN')} this month — ₹${Math.round(overBy).toLocaleString('en-IN')} over your ₹${Math.round(monthBudget).toLocaleString('en-IN')} budget.`,
-        impact: ratio >= 0.25 ? 'high' : ratio >= 0.15 ? 'medium' : 'low',
+        impact: ratio >= RISK_THRESHOLDS.budgetOverageHighImpactRatio ? 'high' : ratio >= RISK_THRESHOLDS.budgetOverageMediumImpactRatio ? 'medium' : 'low',
         action: 'Pull back discretionary spending for the rest of the month.',
       })
     }
@@ -59,15 +60,16 @@ export async function computeRiskEngine(supabase: SupabaseClient, userId: string
 
   // Risk: protein intake declining over the last few days.
   const proteinRows = (metrics ?? []) as { date: string; protein_g: number }[]
-  if (proteinRows.length >= 6) {
+  const { proteinDeclineLookbackDays: lookback, proteinDeclineWindowDays: window } = RISK_THRESHOLDS
+  if (proteinRows.length >= lookback) {
     const sorted = [...proteinRows].sort((a, b) => a.date.localeCompare(b.date))
-    const recent3 = sorted.slice(-3)
-    const prior3 = sorted.slice(-6, -3)
-    if (recent3.length === 3 && prior3.length === 3) {
+    const recent3 = sorted.slice(-window)
+    const prior3 = sorted.slice(-lookback, -window)
+    if (recent3.length === window && prior3.length === window) {
       const avg = (arr: typeof sorted) => arr.reduce((s, r) => s + r.protein_g, 0) / arr.length
       const recentAvg = avg(recent3)
       const priorAvg = avg(prior3)
-      if (priorAvg > 0 && (priorAvg - recentAvg) / priorAvg >= 0.2) {
+      if (priorAvg > 0 && (priorAvg - recentAvg) / priorAvg >= RISK_THRESHOLDS.proteinDeclineMinRatio) {
         risks.push({
           kind: 'protein_decline',
           text: `Protein intake has declined from ~${Math.round(priorAvg)}g to ~${Math.round(recentAvg)}g avg over the last 3 days.`,
@@ -85,7 +87,7 @@ export async function computeRiskEngine(supabase: SupabaseClient, userId: string
     risks.push({
       kind: 'coding_streak',
       text: `You have a ${codingStats.currentStreak}-day coding streak, and today's question isn't solved yet.`,
-      impact: codingStats.currentStreak >= 7 ? 'high' : 'medium',
+      impact: codingStats.currentStreak >= RISK_THRESHOLDS.codingStreakHighImpactDays ? 'high' : 'medium',
       action: "Solve today's question to keep the streak alive.",
     })
   }
@@ -99,7 +101,7 @@ export async function computeAutomationRules(supabase: SupabaseClient, userId: s
   const yesterday = daysAgoIST(1)
   const [{ data: profile }, { data: metrics }, { data: interviewApps }] = await Promise.all([
     supabase.from('health_profile').select('*').eq('user_id', userId).maybeSingle(),
-    supabase.from('health_metrics').select('*').eq('user_id', userId).gte('date', daysAgoIST(14)).order('date', { ascending: false }),
+    supabase.from('health_metrics').select('*').eq('user_id', userId).gte('date', daysAgoIST(AUTOMATION_RULE_THRESHOLDS.metricsLookbackDays)).order('date', { ascending: false }),
     supabase.from('applications').select('id').eq('user_id', userId).eq('status', 'interview'),
   ])
 
@@ -113,7 +115,7 @@ export async function computeAutomationRules(supabase: SupabaseClient, userId: s
   if (plan && yesterdayMetric?.calories) {
     const target = plan.dailyTargets.dailyCalorieTarget
     const overBy = yesterdayMetric.calories - target
-    if (target > 0 && overBy / target >= 0.15) {
+    if (target > 0 && overBy / target >= AUTOMATION_RULE_THRESHOLDS.calorieOverageMinRatio) {
       lines.push(`🍽️ Yesterday you were ~${Math.round(overBy)} kcal over target (${yesterdayMetric.calories} vs ${target}) — lighter meals today will help stay on track this week.`)
     }
   }
@@ -139,7 +141,7 @@ export async function computeOpportunityEngine(supabase: SupabaseClient, userId:
   // Opportunity: interview-invite surge → capitalize with extra practice,
   // distinct from Automation Rules' single-application "lighter workout"
   // suggestion — this is momentum to lean into, not a load to offset.
-  if (count >= 3) {
+  if (count >= OPPORTUNITY_THRESHOLDS.interviewMomentumMinCount) {
     opportunities.push({
       kind: 'interview_momentum',
       text: `You have ${count} active interview-stage applications — strong momentum.`,

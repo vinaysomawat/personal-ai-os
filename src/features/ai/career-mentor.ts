@@ -1,6 +1,6 @@
 'use server'
 
-import { askAI } from '@/lib/ai-gateway'
+import { askAI, askAIWithMeta } from '@/lib/ai-gateway'
 import { computeReadiness } from '@/features/career/quiz-calculations'
 import { QUIZ_TOPICS, READINESS_CONFIG } from '@/features/career/types'
 import type { CareerProfile, Skill, Application, JDAnalysis, QuizAttempt, CompanyInsights } from '@/features/career/types'
@@ -119,10 +119,10 @@ interviewTrends: 2-4 sentences on interview format/rounds/what's emphasized.
 hiringPatterns: 1-2 sentences on hiring bar, team growth, or role focus if known — otherwise general guidance for this type of role.
 source: "company-specific" only if you have genuine knowledge of this exact company; "general-fallback" otherwise. Be honest — do not fabricate company-specific details.`
 
-  const raw = await askAI('company_insights', prompt, 'You are a well-informed technical recruiter. Return only valid JSON, no explanation, no markdown fences. Never invent specific facts about a company you do not have genuine knowledge of.')
+  const { text: raw, generatedAt } = await askAIWithMeta('company_insights', prompt, 'You are a well-informed technical recruiter. Return only valid JSON, no explanation, no markdown fences. Never invent specific facts about a company you do not have genuine knowledge of.')
   try {
     const match = raw.match(/\{[\s\S]*\}/)
-    return match ? JSON.parse(match[0]) : null
+    return match ? { ...JSON.parse(match[0]), generatedAt } : null
   } catch {
     return null
   }

@@ -12,19 +12,11 @@ import { REMINDER_MODULES } from '../types'
 import type { Reminder, ReminderSlot } from '../types'
 import type { CronJobHealth } from '@/lib/cron-log'
 import { useEscapeKey } from '@/lib/use-escape-key'
+import { TASK_LABEL } from '@/lib/ai-task-modules'
 
 const MODULE_LABEL: Record<string, string> = {
   planner: 'Planner', career: 'Career', finance: 'Finance', health: 'Health',
   learning: 'Learning', coding: 'Coding',
-}
-
-const TASK_LABEL: Record<string, string> = {
-  telegram_intent: 'Telegram intent parsing',
-  career_mentor: 'Career Mentor', interview_questions: 'Interview question generation', finance_advisor: 'Money Advisor',
-  health_report: 'Health report', health_daily_plan: 'Daily health plan', health_advisor: 'Health Coach',
-  study_plan: 'Study plan', resource_quiz: 'Resource quiz', coding_mentor: 'Code Mentor',
-  module_recommendations: 'Module recommendations', daily_briefing: 'Daily briefing',
-  weekly_digest: 'Weekly digest', monthly_digest: 'Monthly digest', telegram_vision: 'Photo recognition',
 }
 
 const JOB_LABEL: Record<string, string> = {
@@ -60,7 +52,7 @@ function barColor(pct: number): string {
 interface Props {
   email: string | null
   initialReminders: Reminder[]
-  aiBudget: { dailyBudget: number; monthlyBudget: number; spentToday: number; spentThisMonth: number; spendByTask: { task: string; cost: number }[] }
+  aiBudget: { dailyBudget: number; monthlyBudget: number; spentToday: number; spentThisMonth: number; spendByTask: { task: string; cost: number }[]; spendByModule: { module: string; cost: number }[] }
   systemHealth: CronJobHealth[]
 }
 
@@ -185,13 +177,26 @@ export default function SettingsView({ email, initialReminders, aiBudget, system
               </div>
             </div>
             <p className="text-xs text-fg-quaternary">Ceilings are set via environment variables (AI_DAILY_BUDGET_USD / AI_MONTHLY_BUDGET_USD) — once hit, AI features fall back to a friendly message instead of erroring.</p>
+            {aiBudget.spendByModule.length > 0 && (
+              <div className="pt-1 border-t border-surface-3">
+                <p className="text-[11px] font-bold text-fg-tertiary uppercase tracking-[0.4px] mb-2 mt-3">Spend by module</p>
+                <ul className="space-y-1.5">
+                  {aiBudget.spendByModule.map(({ module, cost }) => (
+                    <li key={module} className="flex items-center justify-between text-[12.5px]">
+                      <span className="text-fg-secondary">{module}</span>
+                      <span className="text-fg-tertiary tabular-nums">${fmtUsd(cost)}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
             {aiBudget.spendByTask.length > 0 && (
               <div className="pt-1 border-t border-surface-3">
                 <p className="text-[11px] font-bold text-fg-tertiary uppercase tracking-[0.4px] mb-2 mt-3">Top spend by feature</p>
                 <ul className="space-y-1.5">
                   {aiBudget.spendByTask.slice(0, 5).map(({ task, cost }) => (
                     <li key={task} className="flex items-center justify-between text-[12.5px]">
-                      <span className="text-fg-secondary">{TASK_LABEL[task] ?? task}</span>
+                      <span className="text-fg-secondary">{TASK_LABEL[task as keyof typeof TASK_LABEL] ?? task}</span>
                       <span className="text-fg-tertiary tabular-nums">${fmtUsd(cost)}</span>
                     </li>
                   ))}

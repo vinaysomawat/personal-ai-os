@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { formatDistanceToNow } from 'date-fns'
 import { Pencil, Check, X } from 'lucide-react'
 import Card from '@/components/Card'
 import { upsertAstrologyProfile, getAstrologyReading, getStructuredDailyReading, getAstrologyCharacteristics, getAstrologyProfile } from '../actions'
@@ -150,7 +151,7 @@ export default function AstrologyView({ initialProfile }: { initialProfile: Astr
   const [dailyReading, setDailyReading] = useState<DailyReading | null>(null)
   const [readingLoading, setReadingLoading] = useState(false)
   const [chartMode, setChartMode] = useState<'d1' | 'd9'>('d1')
-  const [characteristics, setCharacteristics] = useState<string | null>(null)
+  const [characteristics, setCharacteristics] = useState<{ text: string; generatedAt: string } | null>(null)
   const { lang, toggleLang, t } = useAstrologyLang()
 
   const handleSaved = async () => {
@@ -247,7 +248,8 @@ export default function AstrologyView({ initialProfile }: { initialProfile: Astr
                 <summary className="text-[13px] font-bold text-fg-primary cursor-pointer select-none list-none">
                   {t('characteristics', 'Your Characteristics')}
                 </summary>
-                <p className="text-[12.5px] leading-[1.6] text-fg-secondary mt-2.5">{characteristics}</p>
+                <p className="text-[12.5px] leading-[1.6] text-fg-secondary mt-2.5">{characteristics.text}</p>
+                <p className="text-[10.5px] text-fg-quaternary mt-1.5">Updated {formatDistanceToNow(new Date(characteristics.generatedAt), { addSuffix: true })}</p>
               </details>
             </Card>
           )}

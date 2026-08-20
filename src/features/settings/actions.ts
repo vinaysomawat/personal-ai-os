@@ -2,7 +2,8 @@
 
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
-import { getAiBudgetLimits } from '@/lib/ai-gateway'
+import { getAiBudgetLimits, type AITask } from '@/lib/ai-gateway'
+import { TASK_MODULE, TASK_MODULE_LABEL } from '@/lib/ai-task-modules'
 import { getCronJobHealth, type CronJobHealth } from '@/lib/cron-log'
 import { todayIST, istMidnightUtc, istDateStrToUtcMidnight } from '@/lib/date'
 import type { ReminderSlot } from './types'
@@ -54,7 +55,7 @@ export async function getAiBudgetStatus() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   const { dailyBudget, monthlyBudget } = await getAiBudgetLimits()
-  if (!user) return { dailyBudget, monthlyBudget, spentToday: 0, spentThisMonth: 0, spendByTask: [] as { task: string; cost: number }[] }
+  if (!user) return { dailyBudget, monthlyBudget, spentToday: 0, spentThisMonth: 0, spendByTask: [] as { task: string; cost: number }[], spendByModule: [] as { module: string; cost: number }[] }
 
   const todayStart = istMidnightUtc()
   const monthStart = istDateStrToUtcMidnight(todayIST().slice(0, 7) + '-01')
@@ -79,7 +80,18 @@ export async function getAiBudgetStatus() {
     .map(([task, cost]) => ({ task, cost }))
     .sort((a, b) => b.cost - a.cost)
 
-  return { dailyBudget, monthlyBudget, spentToday, spentThisMonth, spendByTask }
+  // Same spend, regrouped by module (TASK_MODULE) instead of raw task name —
+  // "Career cost $X this month" is more actionable than a flat task list.
+  const byModule = new Map<string, number>()
+  for (const r of rows) {
+    const mod = TASK_MODULE[r.task as AITask] ?? 'shared'
+    byModule.set(mod, (byModule.get(mod) ?? 0) + Number(r.estimated_cost_usd))
+  }
+  const spendByModule = [...byModule.entries()]
+    .map(([mod, cost]) => ({ module: TASK_MODULE_LABEL[mod as keyof typeof TASK_MODULE_LABEL] ?? mod, cost }))
+    .sort((a, b) => b.cost - a.cost)
+
+  return { dailyBudget, monthlyBudget, spentToday, spentThisMonth, spendByTask, spendByModule }
 }
 
 export async function getSystemHealth(): Promise<CronJobHealth[]> {

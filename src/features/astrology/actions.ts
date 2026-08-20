@@ -2,7 +2,7 @@
 
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
-import { askAI } from '@/lib/ai-gateway'
+import { askAI, askAIWithMeta } from '@/lib/ai-gateway'
 import { todayIST, istMidnightUtc, istDateStrToUtcMidnight } from '@/lib/date'
 import { getPlanetPositions, getAscendant, julianDay, julianDayNow } from './ephemeris'
 import { buildPlanetPositions, getRashi, computeVimshottariDasha, computeYoginiDasha, computeNavamsa, getCurrentDasha, getCurrentYogini } from './chart-calculations'
@@ -271,7 +271,7 @@ export async function getStructuredDailyReading(profile: AstrologyProfile, lang:
 // prompt — and therefore the cache key — only changes when the chart itself
 // changes (birth details re-saved), no dynamic TTL needed here unlike
 // getAstrologyReading above.
-export async function getAstrologyCharacteristics(profile: AstrologyProfile, lang: Lang = 'en'): Promise<string> {
+export async function getAstrologyCharacteristics(profile: AstrologyProfile, lang: Lang = 'en'): Promise<{ text: string; generatedAt: string }> {
   const chart = profile.natal_chart
   const natalSummary = chart.planets
     .map(p => `${p.planet} in ${p.rashi} (house ${p.house}, ${p.nakshatra} nakshatra${p.retrograde ? ', retrograde' : ''})`)
@@ -282,7 +282,7 @@ export async function getAstrologyCharacteristics(profile: AstrologyProfile, lan
 
   const context = `Natal chart (Rashi/D1) — Lagna: ${chart.lagna.rashi}. Planets: ${natalSummary}.\n${navamsaSummary}`
 
-  return askAI(
+  return askAIWithMeta(
     'astrology_characteristics',
     context,
     `You are a traditional Vedic astrology reader. Given a natal chart summary (Lagna, planetary placements with houses/nakshatras, and Navamsa/D9), write a grounded characteristics/personality profile: Lagna qualities, Moon sign (mind/emotional nature), notable strong and weak planetary placements, and general tendencies. 4-6 sentences, plain language, grounded only in the actual chart data given — never invent a placement not in the data. Frame as traditional astrological interpretation, not a definitive personal judgment. Plain text only, no markdown. Under 180 words.${LANGUAGE_INSTRUCTION[lang]}`

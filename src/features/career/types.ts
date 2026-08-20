@@ -12,6 +12,7 @@ export interface CompanyInsights {
   interviewTrends: string
   hiringPatterns: string
   source: 'company-specific' | 'general-fallback'
+  generatedAt: string
 }
 
 export interface JobAlert {

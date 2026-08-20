@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useTransition } from 'react'
+import { formatDistanceToNow } from 'date-fns'
 import { Plus, ExternalLink, X, Sparkles, ChevronRight, Pencil, Check, Bell } from 'lucide-react'
 import Card from '@/components/Card'
 import ConfirmDialog from '@/components/ConfirmDialog'
@@ -111,7 +112,7 @@ interface Props {
   profile: CareerProfile | null
   skills: Skill[]
   quizAttempts: QuizAttempt[]
-  recommendedTopic: { topic: string; reason: string } | null
+  recommendedTopic: { topic: string; reason: string; generatedAt: string } | null
   codingStreak: number
   studyStreak: number
   jobAlerts: JobAlert[]
@@ -487,6 +488,7 @@ export default function CareerView({ applications, profile, skills, quizAttempts
                               </span>
                               <p className="text-sm text-fg-secondary leading-relaxed">{companyInsights[app.company]!.interviewTrends}</p>
                               <p className="text-sm text-fg-secondary leading-relaxed">{companyInsights[app.company]!.hiringPatterns}</p>
+                              <p className="text-[10.5px] text-fg-quaternary">Updated {formatDistanceToNow(new Date(companyInsights[app.company]!.generatedAt), { addSuffix: true })}</p>
                             </div>
                           ) : (
                             <p className="text-sm text-fg-quaternary italic">Unavailable — AI budget may have been reached.</p>
@@ -565,6 +567,7 @@ export default function CareerView({ applications, profile, skills, quizAttempts
             <span className="shrink-0">🎯</span>
             <div className="flex-1 min-w-0">
               <p className="text-[12.5px] text-fg-secondary">Recommended: <span className="font-bold text-fg-primary">{recommendedTopic.topic}</span> — {recommendedTopic.reason}</p>
+              <p className="text-[10.5px] text-fg-quaternary mt-0.5">Updated {formatDistanceToNow(new Date(recommendedTopic.generatedAt), { addSuffix: true })}</p>
             </div>
             <button onClick={() => handleOpenQuiz(recommendedTopic.topic)} className="shrink-0 text-xs px-3 py-1.5 rounded-lg bg-accent text-white font-medium hover:bg-accent/80 transition-colors">
               Start Quiz
