@@ -1,13 +1,11 @@
 'use client'
 
-import { useState, useEffect, useOptimistic, useTransition } from 'react'
-import { Sparkles, Settings2, Dumbbell } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { Sparkles, Settings2 } from 'lucide-react'
 import Card from '@/components/Card'
-import ConfirmDialog from '@/components/ConfirmDialog'
-import EmptyState from '@/components/EmptyState'
 import ModuleRecommendations from '@/components/ModuleRecommendations'
 import { useAIAdvisor, useAIAdvisorOpen } from '@/components/AIAdvisorProvider'
-import { upsertTodayMetric, logWorkout, deleteWorkout } from '../actions'
+import { upsertTodayMetric } from '../actions'
 import { getHealthReport } from '@/features/ai/health-report'
 import { computeHealthPlan } from '../calculations'
 import { daysAgoIST } from '@/lib/date'
@@ -133,21 +131,8 @@ interface Props {
   calendar: WorkoutCalendarDay[]
 }
 
-const WORKOUT_TYPES = ['Strength', 'Cardio', 'Run', 'Yoga', 'Sports', 'Other']
-
 export default function HealthView({ initialMetrics, initialProfile, initialWorkouts, initialDailyWorkout, workoutStats, tip, calendar }: Props) {
-  const [workoutType, setWorkoutType] = useState('Strength')
-  const [workoutDuration, setWorkoutDuration] = useState('')
-
-  const [workouts, updateWorkouts] = useOptimistic(
-    initialWorkouts,
-    (state: Workout[], action: { type: 'add' | 'delete'; payload: Workout | { id: string } }) => {
-      if (action.type === 'add') return [action.payload as Workout, ...state]
-      if (action.type === 'delete') return state.filter(w => w.id !== (action.payload as { id: string }).id)
-      return state
-    }
-  )
-  const [, startTransition] = useTransition()
+  const workouts = initialWorkouts
   const [saving, setSaving] = useState<MetricField | null>(null)
   const [metrics, setMetrics] = useState<HealthMetric[]>(initialMetrics)
   const [profile, setProfile] = useState<HealthProfile | null>(initialProfile)
@@ -172,27 +157,6 @@ export default function HealthView({ initialMetrics, initialProfile, initialWork
       return [{ id: `temp`, user_id: '', date: today, weight_kg: null, calories: null, protein_g: null, steps: null, recovery_score: null, notes: null, created_at: new Date().toISOString(), [field]: value }, ...prev]
     })
     upsertTodayMetric(field, value).finally(() => setSaving(null))
-  }
-
-  const handleLogWorkout = () => {
-    const duration = workoutDuration ? parseInt(workoutDuration, 10) : null
-    const type = workoutType
-    const optimistic: Workout = {
-      id: `temp-${Date.now()}`, user_id: '', date: today, type, duration_minutes: duration, notes: null, created_at: new Date().toISOString(),
-    }
-    setWorkoutDuration('')
-    startTransition(async () => { updateWorkouts({ type: 'add', payload: optimistic }); await logWorkout(type, duration, null) })
-  }
-
-  const handleDeleteWorkout = (id: string) => {
-    startTransition(async () => { updateWorkouts({ type: 'delete', payload: { id } }); await deleteWorkout(id) })
-  }
-
-  const [confirmDeleteWorkoutId, setConfirmDeleteWorkoutId] = useState<string | null>(null)
-  const confirmDeleteWorkout = () => {
-    if (!confirmDeleteWorkoutId) return
-    handleDeleteWorkout(confirmDeleteWorkoutId)
-    setConfirmDeleteWorkoutId(null)
   }
 
   const healthPlan = computeHealthPlan(profile, metrics, workouts, today)
@@ -263,16 +227,6 @@ export default function HealthView({ initialMetrics, initialProfile, initialWork
         ))}
       </div>
 
-      {tip && (
-        <div className="bg-surface-1 border border-surface-3 rounded-[18px] shadow-card p-[var(--card-pad-lg)] flex items-start gap-3">
-          <div className="text-[22px] leading-none">💡</div>
-          <div>
-            <p className="text-[13px] font-bold text-fg-primary mb-1">Health Tip of the Day</p>
-            <p className="text-[12.5px] leading-[1.5] text-fg-secondary">{tip}</p>
-          </div>
-        </div>
-      )}
-
       {showProfileForm && (
         <HealthProfileForm
           profile={profile}
@@ -310,68 +264,32 @@ export default function HealthView({ initialMetrics, initialProfile, initialWork
         </div>
       )}
 
-      {/* Workouts log + Workout Calendar side by side, matching the design's
-          shared calendar-widget pattern (same pairing as Coding's Today's
-          Question + Contribution Calendar). */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-[var(--grid-gap)] items-start">
-      <Card title="Workouts" action={<span className="text-xs text-fg-tertiary">{workouts.length} today</span>}>
-        <div className="flex gap-2 mb-3">
-          <select
-            value={workoutType}
-            onChange={e => setWorkoutType(e.target.value)}
-            className="bg-surface-2 border border-surface-3 rounded-[8px] px-2 py-2 text-xs text-fg-secondary outline-none focus:border-accent transition-colors"
-          >
-            {WORKOUT_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
-          </select>
-          <input
-            type="number"
-            min={1}
-            value={workoutDuration}
-            onChange={e => setWorkoutDuration(e.target.value)}
-            onKeyDown={e => e.key === 'Enter' && handleLogWorkout()}
-            placeholder="Minutes (optional)"
-            className="flex-1 bg-surface-2 border border-surface-3 rounded-[8px] px-[11px] py-2 text-[12.5px] text-fg-primary placeholder-fg-quaternary outline-none focus:border-accent transition-colors"
-          />
-          <button
-            onClick={handleLogWorkout}
-            className="px-3.5 py-2 rounded-[8px] bg-accent text-white text-[12.5px] font-semibold hover:bg-accent/80 transition-colors whitespace-nowrap"
-          >
-            + Log
-          </button>
+      {/* Health Tip of the Day + Workout Calendar side by side, matching the
+          design's shared calendar-widget pattern (same pairing as Coding's
+          Today's Question + Contribution Calendar). Health Tip moved here
+          2026-08-21 (was its own standalone card above), replacing the
+          ad-hoc Workouts log — that logging capability stays available via
+          the Daily Workout Planner above and the Health Telegram bot. */}
+      {tip ? (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-[var(--grid-gap)] items-start">
+          <Card>
+            <div className="flex items-start gap-3">
+              <div className="text-[22px] leading-none">💡</div>
+              <div>
+                <p className="text-[13px] font-bold text-fg-primary mb-1">Health Tip of the Day</p>
+                <p className="text-[12.5px] leading-[1.5] text-fg-secondary">{tip}</p>
+              </div>
+            </div>
+          </Card>
+          <Card>
+            <WorkoutCalendar days={calendar} title="Workout Calendar" />
+          </Card>
         </div>
-        {workouts.length === 0 ? (
-          <EmptyState icon={Dumbbell} message="No workouts logged today" compact />
-        ) : (
-          <ul className="flex flex-col gap-1.5">
-            {workouts.map(w => (
-              <li key={w.id} className="flex items-center justify-between gap-3 py-1 group">
-                <span className="text-[12.5px] text-fg-secondary">{w.type}</span>
-                <div className="flex items-center gap-2 shrink-0">
-                  <span className="text-[12.5px] text-fg-secondary">{w.duration_minutes ? `${w.duration_minutes} min · ` : ''}{w.date}</span>
-                  <button onClick={() => setConfirmDeleteWorkoutId(w.id)} aria-label="Delete workout" className="shrink-0 opacity-0 group-hover:opacity-100 text-fg-quaternary hover:text-red-400 text-[11px] p-0.5 transition-all">✕</button>
-                </div>
-              </li>
-            ))}
-          </ul>
-        )}
-      </Card>
-
-      <Card>
-        <WorkoutCalendar days={calendar} title="Workout Calendar" />
-      </Card>
-      </div>
-
-      {confirmDeleteWorkoutId && (() => {
-        const w = workouts.find(w => w.id === confirmDeleteWorkoutId)
-        return (
-          <ConfirmDialog
-            title="Delete workout?"
-            description={w ? `This ${w.type} workout${w.duration_minutes ? ` (${w.duration_minutes} min)` : ''} will be permanently removed.` : 'This workout will be permanently removed.'}
-            onConfirm={confirmDeleteWorkout}
-            onCancel={() => setConfirmDeleteWorkoutId(null)}
-          />
-        )
-      })()}
+      ) : (
+        <Card>
+          <WorkoutCalendar days={calendar} title="Workout Calendar" />
+        </Card>
+      )}
     </div>
   )
 }

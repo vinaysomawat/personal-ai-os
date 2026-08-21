@@ -3,6 +3,15 @@
 One line per shipped change, newest first. Sourced from commit messages —
 append here whenever you deploy, same cadence as the version bump.
 
+## 2026-08-21
+
+- Learning: finishing the mandatory completion quiz now rolls straight into the Log Study Session modal, prefilled with the resource's estimated time, instead of requiring a separate "Log" click.
+- Learning: quiz results now show every question with its own options (correct answer green, a wrong pick red), not just a text list of the misses.
+- Coding: moved "Today's Algorithm Question" into the shared Card component (title now renders inside the card); put the Open/Mark Solved and Open/Mark Answered buttons on one row with shortened link text ("Open" instead of "Open on {source}"); removed the Easy/Medium/Hard breakdown box.
+- Coding: paired Weak Areas with the Contribution Calendar (half-width each) instead of pairing the Calendar with the Algorithm Question card, which is now standalone/full-width.
+- Career: Job Alerts is no longer a tab — it's a passive daily feed, so it always renders as its own card below Applications regardless of which tab is active.
+- Health: removed the ad-hoc Workouts log card from the web page (still loggable via Telegram, still read by the Health Score); replaced it with the Health Tip of the Day card, paired with the Workout Calendar.
+
 ## 2026-08-20
 
 - Converted Career and Finance to tabbed layouts — both had grown to 5+ stacked full-width sections, violating the app's own "5+ sections belongs in tabs" density rule (Career was the rule's own cited example, but had never actually been converted). Finance's tabs also regroup Loans/Investments/Goals into their own "Portfolio" tab instead of an arbitrary shared column.

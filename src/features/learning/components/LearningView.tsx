@@ -273,6 +273,22 @@ export default function LearningView({ initialResources, initialStudyLogs, initi
 
   const handleCloseQuiz = () => setQuiz(null)
 
+  // Finishing the mandatory completion quiz rolls straight into the existing
+  // Log Study Session modal for that resource — completing something almost
+  // always means time was just spent on it, so asking separately (the "Log"
+  // button) would just be an easy-to-forget extra step. Voluntary "Quiz me"
+  // attempts (completesOnFinish false) just close normally.
+  const handleFinishQuiz = () => {
+    const resource = quiz?.resource
+    const shouldLogTime = quiz?.completesOnFinish
+    setQuiz(null)
+    if (shouldLogTime && resource) {
+      setLogDuration(String(resource.estimated_minutes || 30))
+      setLogNotes('')
+      setShowLog(resource)
+    }
+  }
+
   const learningContext = `Resources tracked: ${resources.length} (${STATUSES.map(s => `${counts[s]} ${STATUS_CONFIG[s].label.toLowerCase()}`).join(', ')}). Study streak: ${streak} days. Minutes studied this week: ${weekMinutes}. In-progress resources: ${resources.filter(r => r.status === 'in-progress').map(r => r.title).join(', ') || 'none'}. Weak areas by category (from quiz scores): ${weakAreasByCategory.length ? weakAreasByCategory.map(w => `${w.category} ${w.avgPercent}%`).join(', ') : 'none yet'}.`
 
   const advisorOpen = useAIAdvisorOpen()
@@ -299,28 +315,39 @@ export default function LearningView({ initialResources, initialStudyLogs, initi
       {/* Weak areas by category — from quiz scores (quiz is now mandatory to
           mark a resource Completed, so this fills in as real data accrues).
           Resources needing revision are no longer nudged manually; they're
-          silently re-added to the pending queue instead (see getLearningData). */}
-      {weakAreasByCategory.length > 0 && (
-        <Card title="Weak Areas by Category">
-          <p className="text-[11px] text-fg-tertiary mb-3">Average quiz score per category, worst first</p>
-          <div className="flex flex-col gap-2.5">
-            {weakAreasByCategory.map(w => {
-              const tier = w.avgPercent < 50 ? 'risk' : w.avgPercent < 75 ? 'warn' : 'good'
-              const barColor = tier === 'risk' ? 'bg-red-400' : tier === 'warn' ? 'bg-amber-400' : 'bg-green-400'
-              const textColor = tier === 'risk' ? 'text-red-400' : tier === 'warn' ? 'text-amber-400' : 'text-green-400'
-              return (
-                <div key={w.category}>
-                  <div className="flex items-center justify-between text-[12.5px] mb-1">
-                    <span className="font-semibold text-fg-primary">{w.category}</span>
-                    <span className={`font-bold ${textColor}`}>{w.avgPercent}% <span className="font-normal text-fg-tertiary">({w.attempts} quiz{w.attempts === 1 ? '' : 'zes'})</span></span>
+          silently re-added to the pending queue instead (see getLearningData).
+          Paired side by side with Study Calendar (half width each) once weak-area
+          data exists; Study Calendar takes the full row alone until then. */}
+      {weakAreasByCategory.length > 0 ? (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-[var(--grid-gap)] items-start">
+          <Card title="Weak Areas by Category">
+            <p className="text-[11px] text-fg-tertiary mb-3">Average quiz score per category, worst first</p>
+            <div className="flex flex-col gap-2.5">
+              {weakAreasByCategory.map(w => {
+                const tier = w.avgPercent < 50 ? 'risk' : w.avgPercent < 75 ? 'warn' : 'good'
+                const barColor = tier === 'risk' ? 'bg-red-400' : tier === 'warn' ? 'bg-amber-400' : 'bg-green-400'
+                const textColor = tier === 'risk' ? 'text-red-400' : tier === 'warn' ? 'text-amber-400' : 'text-green-400'
+                return (
+                  <div key={w.category}>
+                    <div className="flex items-center justify-between text-[12.5px] mb-1">
+                      <span className="font-semibold text-fg-primary">{w.category}</span>
+                      <span className={`font-bold ${textColor}`}>{w.avgPercent}% <span className="font-normal text-fg-tertiary">({w.attempts} quiz{w.attempts === 1 ? '' : 'zes'})</span></span>
+                    </div>
+                    <div className="h-[5px] rounded-[3px] bg-border">
+                      <div className={`h-full rounded-[3px] ${barColor}`} style={{ width: `${w.avgPercent}%` }} />
+                    </div>
                   </div>
-                  <div className="h-[5px] rounded-[3px] bg-border">
-                    <div className={`h-full rounded-[3px] ${barColor}`} style={{ width: `${w.avgPercent}%` }} />
-                  </div>
-                </div>
-              )
-            })}
-          </div>
+                )
+              })}
+            </div>
+          </Card>
+          <Card>
+            <StudyCalendar days={calendar} title="Study Calendar" />
+          </Card>
+        </div>
+      ) : (
+        <Card>
+          <StudyCalendar days={calendar} title="Study Calendar" />
         </Card>
       )}
 
@@ -388,26 +415,20 @@ export default function LearningView({ initialResources, initialStudyLogs, initi
         </ul>
       </Card>
 
-      <div className="lg:col-span-2 flex flex-col gap-[var(--grid-gap)]">
-        <Card title="By Category">
-          {categoryEntries.length === 0 ? (
-            <EmptyState icon={BookOpen} message="No resources yet" compact />
-          ) : (
-            <ul className="flex flex-col gap-1">
-              {categoryEntries.map(([category, count]) => (
-                <li key={category} className="flex items-center justify-between text-[12.5px] text-fg-secondary">
-                  <span className="truncate">{category}</span>
-                  <span className="shrink-0">{count}</span>
-                </li>
-              ))}
-            </ul>
-          )}
-        </Card>
-
-        <Card>
-          <StudyCalendar days={calendar} title="Study Calendar" />
-        </Card>
-      </div>
+      <Card title="By Category" className="lg:col-span-2">
+        {categoryEntries.length === 0 ? (
+          <EmptyState icon={BookOpen} message="No resources yet" compact />
+        ) : (
+          <ul className="flex flex-col gap-1">
+            {categoryEntries.map(([category, count]) => (
+              <li key={category} className="flex items-center justify-between text-[12.5px] text-fg-secondary">
+                <span className="truncate">{category}</span>
+                <span className="shrink-0">{count}</span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </Card>
       </div>
 
       {/* Suggested Resources — curated (hand-verified URLs) + on-demand AI picks,
@@ -607,7 +628,6 @@ export default function LearningView({ initialResources, initialStudyLogs, initi
             })()}
 
             {quiz.stage === 'results' && (() => {
-              const wrongQuestions = quiz.questions.filter((q, qi) => quiz.answers[qi] !== q.correctIndex)
               const percent = Math.round((quiz.score / quiz.questions.length) * 100)
               const scoreColor = percent >= 80 ? 'var(--good)' : percent >= 60 ? 'var(--accent)' : percent >= 40 ? 'var(--warn)' : 'var(--risk)'
               return (
@@ -617,22 +637,36 @@ export default function LearningView({ initialResources, initialStudyLogs, initi
                     <p className="text-[12.5px] text-fg-tertiary mt-0.5">{quiz.score} of {quiz.questions.length} correct · {quiz.resource.category}</p>
                     {quiz.completesOnFinish && <p className="text-[11.5px] font-semibold mt-1.5 text-good">✓ Marked Completed</p>}
                   </div>
-                  {wrongQuestions.length > 0 ? (
-                    <>
-                      <p className="text-[11px] font-bold text-fg-tertiary uppercase tracking-[0.4px] mb-2">Review</p>
-                      <div className="flex flex-col gap-2.5 mb-4">
-                        {quiz.questions.map((q, qi) => quiz.answers[qi] !== q.correctIndex && (
-                          <div key={qi} className="bg-risk-soft border border-risk-border rounded-[10px] px-3 py-2.5">
-                            <p className="text-[12.5px] font-semibold text-fg-primary mb-1">{q.question}</p>
-                            <p className="text-xs text-fg-secondary">{q.explanation}</p>
+                  <p className="text-[11px] font-bold text-fg-tertiary uppercase tracking-[0.4px] mb-2">Review</p>
+                  <div className="flex flex-col gap-2.5 mb-4">
+                    {quiz.questions.map((q, qi) => {
+                      const userAnswer = quiz.answers[qi]
+                      const isCorrect = userAnswer === q.correctIndex
+                      return (
+                        <div key={qi} className="bg-surface-2 rounded-[10px] px-3 py-2.5">
+                          <div className="flex items-center gap-1.5 mb-2">
+                            <span className={`text-xs shrink-0 ${isCorrect ? 'text-good' : 'text-risk'}`}>{isCorrect ? '✓' : '✗'}</span>
+                            <p className="text-[12.5px] font-semibold text-fg-primary">{qi + 1}. {q.question}</p>
                           </div>
-                        ))}
-                      </div>
-                    </>
-                  ) : (
-                    <p className="text-sm text-green-400 text-center mb-4">Perfect score — no incorrect answers.</p>
-                  )}
-                  <button onClick={handleCloseQuiz} className={`${modalSaveButtonClass} w-full`}>Done</button>
+                          <div className="flex flex-col gap-1 mb-2">
+                            {q.options.map((opt, oi) => {
+                              const isCorrectOpt = oi === q.correctIndex
+                              const isUserWrongPick = oi === userAnswer && !isCorrect
+                              return (
+                                <p key={oi} className={`text-xs px-2.5 py-1.5 rounded-[6px] ${
+                                  isCorrectOpt ? 'bg-good-soft text-good font-medium'
+                                  : isUserWrongPick ? 'bg-risk-soft text-risk font-medium'
+                                  : 'text-fg-tertiary'
+                                }`}>{opt}</p>
+                              )
+                            })}
+                          </div>
+                          <p className="text-xs text-fg-secondary">{q.explanation}</p>
+                        </div>
+                      )
+                    })}
+                  </div>
+                  <button onClick={handleFinishQuiz} className={`${modalSaveButtonClass} w-full`}>Done</button>
                 </div>
               )
             })()}

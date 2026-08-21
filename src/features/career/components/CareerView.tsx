@@ -119,10 +119,9 @@ interface Props {
   jobAlerts: JobAlert[]
 }
 
-type CareerTab = 'applications' | 'job-alerts' | 'interview-prep' | 'profile'
+type CareerTab = 'applications' | 'interview-prep' | 'profile'
 const CAREER_TABS: { key: CareerTab; label: string }[] = [
   { key: 'applications', label: 'Applications' },
-  { key: 'job-alerts', label: 'Job Alerts' },
   { key: 'interview-prep', label: 'Interview Prep' },
   { key: 'profile', label: 'Profile' },
 ]
@@ -526,8 +525,11 @@ export default function CareerView({ applications, profile, skills, quizAttempts
           Telegram-notified; this surfaces the same job_alerts_seen log
           in-app, best-fit (score) first. Score is deterministic (skill
           overlap + seniority + salary vs. current), never AI — see
-          computeScore() in job-alerts.ts. */}
-      {activeTab === 'job-alerts' && <Card title="Job Alerts" padding="p-3.5" action={
+          computeScore() in job-alerts.ts. Deliberately outside the tab
+          system — a passive daily feed, not a section to toggle in/out of
+          view like Applications/Interview Prep/Profile — so it always
+          renders as its own card directly below Applications. */}
+      <Card title="Job Alerts" padding="p-3.5" action={
         jobAlerts.length > 0 ? <span className="text-xs text-fg-tertiary">{jobAlerts.length} in the last 30 days</span> : undefined
       }>
         {jobAlerts.length === 0 ? (
@@ -570,7 +572,7 @@ export default function CareerView({ applications, profile, skills, quizAttempts
             })}
           </div>
         )}
-      </Card>}
+      </Card>
 
       {/* Interview Prep — Interactive Topic Quiz */}
       {activeTab === 'interview-prep' && <Card title="Interview Prep — Topic Quiz" padding="p-3.5">

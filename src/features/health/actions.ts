@@ -55,23 +55,6 @@ export async function getTodaysWorkouts() {
   return data ?? []
 }
 
-export async function logWorkout(type: string, durationMinutes: number | null, notes: string | null) {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) throw new Error('Not authenticated')
-
-  const { error } = await supabase.from('workouts').insert({ user_id: user.id, type, duration_minutes: durationMinutes, notes })
-  if (error) throw new Error(error.message)
-  revalidatePath('/health')
-}
-
-export async function deleteWorkout(id: string) {
-  const supabase = await createClient()
-  const { error } = await supabase.from('workouts').delete().eq('id', id)
-  if (error) throw new Error(error.message)
-  revalidatePath('/health')
-}
-
 interface CalendarDayWorkout {
   type: string
   durationMinutes: number | null

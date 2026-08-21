@@ -87,34 +87,39 @@ export default function CodingView({ dailyAssignment, codingStats, calendar, cod
         </div>
       </div>
 
-      {weakAreas.length > 0 && (
-        <Card title="Weak Areas">
-          <p className="text-[11px] text-fg-tertiary mb-3">Topics with ≥2 attempts where struggles recur, worst first</p>
-          <div className="flex flex-col gap-2.5">
-            {weakAreas.slice(0, 5).map(w => (
-              <div key={w.topic}>
-                <div className="flex items-center justify-between text-[12.5px] mb-1">
-                  <span className="font-semibold text-fg-primary">{w.topic}</span>
-                  <span className="text-fg-tertiary">{w.strugglingCount} of {w.total} struggled · {w.struggleRate}%</span>
-                </div>
-                <div className="h-[5px] rounded-[3px] bg-border">
-                  <div className={`h-full rounded-[3px] ${w.struggleRate >= 70 ? 'bg-risk' : 'bg-warn'}`} style={{ width: `${w.struggleRate}%` }} />
-                </div>
-              </div>
-            ))}
-          </div>
-        </Card>
-      )}
+      {/* Today's Algorithm Question — standalone, full-width. */}
+      <DailyCodingCard initialAssignment={algorithmAssignment} />
 
-      {/* Today's Question + Contribution Calendar side by side — Daily Tech
-          Read moved to Learning (folded into its daily reading habit
-          instead of a separate card, see learning/daily-read.ts). */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-[var(--grid-gap)] items-start">
-        <DailyCodingCard initialAssignment={algorithmAssignment} stats={codingStats} />
+      {/* Weak Areas + Contribution Calendar side by side, Weak Areas at half
+          width. Weak Areas only renders once ≥2-attempt data exists, so the
+          Calendar takes the full row alone until then. */}
+      {weakAreas.length > 0 ? (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-[var(--grid-gap)] items-start">
+          <Card title="Weak Areas">
+            <p className="text-[11px] text-fg-tertiary mb-3">Topics with ≥2 attempts where struggles recur, worst first</p>
+            <div className="flex flex-col gap-2.5">
+              {weakAreas.slice(0, 5).map(w => (
+                <div key={w.topic}>
+                  <div className="flex items-center justify-between text-[12.5px] mb-1">
+                    <span className="font-semibold text-fg-primary">{w.topic}</span>
+                    <span className="text-fg-tertiary">{w.strugglingCount} of {w.total} struggled · {w.struggleRate}%</span>
+                  </div>
+                  <div className="h-[5px] rounded-[3px] bg-border">
+                    <div className={`h-full rounded-[3px] ${w.struggleRate >= 70 ? 'bg-risk' : 'bg-warn'}`} style={{ width: `${w.struggleRate}%` }} />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </Card>
+          <Card>
+            <CodingCalendar days={calendar} title="Contribution Calendar" />
+          </Card>
+        </div>
+      ) : (
         <Card>
           <CodingCalendar days={calendar} title="Contribution Calendar" />
         </Card>
-      </div>
+      )}
 
       {/* Responsive grid, not stacked — matches the Claude Design source's
           2026-08-18 update to this section. */}
