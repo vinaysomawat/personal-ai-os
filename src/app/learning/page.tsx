@@ -1,10 +1,7 @@
 import LearningView from '@/features/learning/components/LearningView'
-import { getLearningData, getLearningCalendarData } from '@/features/learning/actions'
+import { getLearningData } from '@/features/learning/actions'
 
 export default async function LearningPage() {
-  const [{ resources, studyLogs, resourceQuizAttempts }, calendar] = await Promise.all([
-    getLearningData(),
-    getLearningCalendarData(),
-  ])
-  return <LearningView initialResources={resources} initialStudyLogs={studyLogs} initialQuizAttempts={resourceQuizAttempts} calendar={calendar} />
+  const { resources, resourceQuizAttempts } = await getLearningData()
+  return <LearningView initialResources={resources} initialQuizAttempts={resourceQuizAttempts} />
 }

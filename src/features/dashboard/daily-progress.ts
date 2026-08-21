@@ -24,8 +24,6 @@ export interface TodayProgressInput {
   workoutStatus: 'completed' | 'pending' | 'none'
   codingToday: { completed: boolean }[]
   dailyRead: { completed: boolean } | null
-  hasLearningResources: boolean
-  studiedToday: boolean
   expenseLoggedToday: boolean
   codingQuizDone: boolean
   codingJsFunctionPick: { completed: boolean } | null
@@ -61,10 +59,6 @@ export function computeTodayProgress(input: TodayProgressInput): TodayProgress {
 
   if (input.dailyRead) {
     items.push({ key: 'daily-read', label: "Read today's article", done: input.dailyRead.completed, href: '/learning' })
-  }
-
-  if (input.hasLearningResources) {
-    items.push({ key: 'study', label: 'Log a study session', done: input.studiedToday, href: '/learning' })
   }
 
   items.push({ key: 'expense', label: "Log today's expenses", done: input.expenseLoggedToday, href: '/finance' })

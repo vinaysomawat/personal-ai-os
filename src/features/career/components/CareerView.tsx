@@ -115,7 +115,6 @@ interface Props {
   quizAttempts: QuizAttempt[]
   recommendedTopic: { topic: string; reason: string; generatedAt: string } | null
   codingStreak: number
-  studyStreak: number
   jobAlerts: JobAlert[]
 }
 
@@ -126,7 +125,7 @@ const CAREER_TABS: { key: CareerTab; label: string }[] = [
   { key: 'profile', label: 'Profile' },
 ]
 
-export default function CareerView({ applications, profile, skills, quizAttempts, recommendedTopic, codingStreak, studyStreak, jobAlerts }: Props) {
+export default function CareerView({ applications, profile, skills, quizAttempts, recommendedTopic, codingStreak, jobAlerts }: Props) {
   const [, startTransition] = useTransition()
   const [activeTab, setActiveTab] = useState<CareerTab>('applications')
 
@@ -257,7 +256,7 @@ export default function CareerView({ applications, profile, skills, quizAttempts
     if (!mentorQ.trim() || mentorLoading) return
     setMentorLoading(true); setMentorA(null)
     try {
-      const answer = await askCareerMentor(mentorQ, { profile: localProfile, skills, applications: localApps, quizAttempts: localQuizAttempts, codingStreak, studyStreak })
+      const answer = await askCareerMentor(mentorQ, { profile: localProfile, skills, applications: localApps, quizAttempts: localQuizAttempts, codingStreak })
       setMentorA(answer)
     } finally { setMentorLoading(false) }
   }
@@ -608,11 +607,8 @@ export default function CareerView({ applications, profile, skills, quizAttempts
 
       {/* Career Profile */}
       {activeTab === 'profile' && <Card title="Career Profile" padding="p-3.5" action={
-        (codingStreak > 0 || studyStreak > 0)
-          ? <div className="flex items-center gap-2 flex-wrap">
-              {codingStreak > 0 && <span className="text-[11px] font-semibold bg-surface-2 rounded-full px-2.5 py-1 text-fg-secondary">🔥 {codingStreak}-day coding streak</span>}
-              {studyStreak > 0 && <span className="text-[11px] font-semibold bg-surface-2 rounded-full px-2.5 py-1 text-fg-secondary">📚 {studyStreak}-day study streak</span>}
-            </div>
+        codingStreak > 0
+          ? <span className="text-[11px] font-semibold bg-surface-2 rounded-full px-2.5 py-1 text-fg-secondary">🔥 {codingStreak}-day coding streak</span>
           : undefined
       }>
         <div className="grid grid-cols-2 sm:grid-cols-5 gap-x-3 gap-y-4">

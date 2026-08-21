@@ -24,12 +24,11 @@ export async function gatherTodayActivityLines(db: SupabaseClient, userId: strin
   const today = todayIST()
 
   const [
-    codingRes, resourcesRes, studyRes, metricRes,
+    codingRes, resourcesRes, metricRes,
     workoutsRes, expensesRes, quizRes, appsRes,
   ] = await Promise.all([
     db.from('coding_daily_questions').select('completed').eq('user_id', userId).eq('assigned_date', today),
     db.from('resources').select('status, title, notes, created_at').eq('user_id', userId),
-    db.from('study_logs').select('duration_minutes').eq('user_id', userId).eq('date', today),
     db.from('health_metrics').select('weight_kg, calories, protein_g, steps').eq('user_id', userId).eq('date', today).maybeSingle(),
     db.from('workouts').select('type, duration_minutes').eq('user_id', userId).eq('date', today),
     db.from('expenses').select('amount, category').eq('user_id', userId).eq('date', today),
@@ -44,9 +43,6 @@ export async function gatherTodayActivityLines(db: SupabaseClient, userId: strin
 
   const dailyRead = (resourcesRes.data ?? []).find(r => isMarkedToday(r) && r.status === 'completed')
   if (dailyRead) lines.push(`Read today's article: "${dailyRead.title}"`)
-
-  const studyMinutes = (studyRes.data ?? []).reduce((s, r) => s + (r.duration_minutes ?? 0), 0)
-  if (studyMinutes > 0) lines.push(`Studied for ${studyMinutes} minutes`)
 
   const metric = metricRes.data
   if (metric) {

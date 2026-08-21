@@ -99,8 +99,6 @@ export default function DashboardView({ data, executive }: { data: DashboardData
           codingQuestionPending={data.codingQuestionPending}
           workoutStreak={stats.workoutStreak}
           workoutCategory={data.workoutCategory}
-          learningStreak={stats.learningStreak}
-          learningInProgress={stats.learningInProgress}
           budgetRemaining={stats.monthBudget - stats.monthSpend}
           budgetTotal={stats.monthBudget}
           workoutDoneToday={stats.workoutsToday > 0}

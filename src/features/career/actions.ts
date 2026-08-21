@@ -11,18 +11,16 @@ import type { AppStatus, Difficulty, JDAnalysis, JobAlert, QuizQuestion, QuizAtt
 export async function getCareerData() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return { applications: [], profile: null, skills: [], quizAttempts: [], recommendedTopic: null, codingStreak: 0, studyStreak: 0, jobAlerts: [] }
+  if (!user) return { applications: [], profile: null, skills: [], quizAttempts: [], recommendedTopic: null, codingStreak: 0, jobAlerts: [] }
 
   const { computeCodingStats } = await import('@/features/coding/daily-core')
-  const { getStudyStreak } = await import('@/features/learning/calculations')
 
-  const [appsRes, profileRes, skillsRes, quizAttemptsRes, codingStats, studyLogsRes, jobAlertsRes] = await Promise.all([
+  const [appsRes, profileRes, skillsRes, quizAttemptsRes, codingStats, jobAlertsRes] = await Promise.all([
     supabase.from('applications').select('*').order('created_at', { ascending: false }),
     supabase.from('career_profile').select('*').eq('user_id', user.id).single(),
     supabase.from('skills').select('*').eq('user_id', user.id).order('category').order('level'),
     supabase.from('quiz_attempts').select('*').eq('user_id', user.id).order('created_at', { ascending: false }),
     computeCodingStats(supabase, user.id),
-    supabase.from('study_logs').select('date').eq('user_id', user.id),
     // Same "checked daily against public job boards" data the job-alerts cron
     // already Telegram-notifies on (src/features/career/job-alerts.ts) — this
     // just surfaces the same job_alerts_seen log in the web app too, rather
@@ -50,7 +48,6 @@ export async function getCareerData() {
     quizAttempts,
     recommendedTopic,
     codingStreak: codingStats.currentStreak,
-    studyStreak: getStudyStreak(studyLogsRes.data ?? []),
     jobAlerts: (jobAlertsRes.data ?? []) as JobAlert[],
   }
 }

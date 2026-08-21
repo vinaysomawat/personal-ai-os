@@ -11,8 +11,7 @@ const OPTIONS: { value: Outcome; emoji: string; label: string }[] = [
 
 // Shared by DailyCodingCard and QuestionHistory's completion flows — a
 // single click captures the self-reported outcome (the only "accuracy"
-// signal possible for open-ended, non-auto-graded problems), same low-
-// friction pattern as Learning's duration-picker for study sessions.
+// signal possible for open-ended, non-auto-graded problems).
 // "Skip" preserves the old one-click-complete behavior for anyone who
 // doesn't want to bother — outcome just stays null.
 export default function OutcomeModal({ title, onPick, onSkip, onClose }: {

@@ -33,8 +33,8 @@ const dummyData = {
   },
   stats: {
     pendingTaskCount: 3, overdueCount: 1, activeApplications: 2, workoutsToday: 1,
-    monthSpend: 32000, monthBudget: 45000, learningInProgress: 2, resourcesNeedingRevision: 1, codingSolved30d: 19,
-    workoutStreak: 4, learningStreak: 6,
+    monthSpend: 32000, monthBudget: 45000, learningInProgress: 2, codingSolved30d: 19,
+    workoutStreak: 4,
   },
   codingQuestionPending: true,
   workoutCategory: 'Push Day',

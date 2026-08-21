@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useTransition } from 'react'
-import { ExternalLink, Sparkles, Flame, BookOpen, Inbox } from 'lucide-react'
+import { ExternalLink, Sparkles, BookOpen, Inbox } from 'lucide-react'
 import Card from '@/components/Card'
 import ConfirmDialog from '@/components/ConfirmDialog'
 import EmptyState from '@/components/EmptyState'
@@ -11,19 +11,16 @@ import ModuleRecommendations from '@/components/ModuleRecommendations'
 import { logAdvisorUsage } from '@/lib/advisor-usage'
 import Modal, { modalLabelClass, modalInputClass, modalSelectClass, modalCancelButtonClass, modalSaveButtonClass } from '@/components/Modal'
 import { useAIAdvisor, useAIAdvisorOpen } from '@/components/AIAdvisorProvider'
-import { addResource, updateResource, deleteResource, logStudySession, saveResourceQuizAttempt } from '../actions'
-import type { StudyCalendarDay } from '../actions'
-import StudyCalendar from './StudyCalendar'
+import { addResource, updateResource, deleteResource, saveResourceQuizAttempt } from '../actions'
 import { getDailyStudyPlan, generateResourceQuiz, recommendResources } from '@/features/ai/study-plan'
-import { getStudyStreak } from '../calculations'
 import { gradeQuiz, computeCategoryWeakAreas } from '../quiz-calculations'
 import { isMarkedToday } from '../daily-read'
 import { SUGGESTED_RESOURCES } from '../suggested-resources'
-import { todayIST, daysAgoIST } from '@/lib/date'
+import { todayIST } from '@/lib/date'
 import { useEscapeKey } from '@/lib/use-escape-key'
 import { useFormValidation } from '@/lib/use-form-validation'
 import FieldError from '@/components/FieldError'
-import type { Resource, ResourceStatus, ResourceType, StudyLog, RecommendedResource, QuizQuestion, ResourceQuizAttempt } from '../types'
+import type { Resource, ResourceStatus, ResourceType, RecommendedResource, QuizQuestion, ResourceQuizAttempt } from '../types'
 
 const TYPE_ICON: Record<ResourceType, string> = {
   course: '🎓', book: '📚', video: '🎬', article: '📄', podcast: '🎙️',
@@ -36,14 +33,9 @@ const STATUS_CONFIG: Record<ResourceStatus, { label: string; color: string; bg: 
 const STATUSES = Object.keys(STATUS_CONFIG) as ResourceStatus[]
 const TYPES: ResourceType[] = ['course', 'book', 'video', 'article', 'podcast']
 
-function totalMinutesThisWeek(logs: StudyLog[]): number {
-  const since = daysAgoIST(7)
-  return logs.filter(l => l.date >= since).reduce((s, l) => s + l.duration_minutes, 0)
-}
-
 // Merges the generic recommendations widget + the daily study plan into one
 // tabbed panel registered as the "Study Coach" advisor (see AIAdvisorProvider).
-function StudyCoachContent({ isOpen, context, resources, studyLogs }: { isOpen: boolean; context: string; resources: Resource[]; studyLogs: StudyLog[] }) {
+function StudyCoachContent({ isOpen, context, resources }: { isOpen: boolean; context: string; resources: Resource[] }) {
   const [tab, setTab] = useState<'recommendations' | 'plan'>('recommendations')
   const [plan, setPlan] = useState<string | null>(null)
   const [planLoading, setPlanLoading] = useState(false)
@@ -51,7 +43,7 @@ function StudyCoachContent({ isOpen, context, resources, studyLogs }: { isOpen: 
   useEffect(() => {
     if (isOpen && tab === 'plan' && !plan && !planLoading) {
       setPlanLoading(true)
-      getDailyStudyPlan(resources, studyLogs).then(setPlan).finally(() => setPlanLoading(false))
+      getDailyStudyPlan(resources).then(setPlan).finally(() => setPlanLoading(false))
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, tab])
@@ -90,27 +82,18 @@ interface QuizSession {
 
 interface Props {
   initialResources: Resource[]
-  initialStudyLogs: StudyLog[]
   initialQuizAttempts: ResourceQuizAttempt[]
-  calendar: StudyCalendarDay[]
 }
 
-export default function LearningView({ initialResources, initialStudyLogs, initialQuizAttempts, calendar }: Props) {
+export default function LearningView({ initialResources, initialQuizAttempts }: Props) {
   const [, startTransition] = useTransition()
   const [resources, setResources] = useState(initialResources)
-  const [studyLogs, setStudyLogs] = useState(initialStudyLogs)
   const [quizAttempts, setQuizAttempts] = useState(initialQuizAttempts)
   const [filter, setFilter] = useState<'all' | ResourceStatus>('not-started')
   const [showForm, setShowForm] = useState(false)
 
   // Quiz
   const [quiz, setQuiz] = useState<QuizSession | null>(null)
-
-  // Log session modal — 'general' logs study time not tied to any resource
-  // (design's header-level "Log Session" button, distinct from per-resource logging)
-  const [showLog, setShowLog] = useState<Resource | 'general' | null>(null)
-  const [logDuration, setLogDuration] = useState('30')
-  const [logNotes, setLogNotes] = useState('')
 
   // Suggested resources
   const [addedSuggestionUrls, setAddedSuggestionUrls] = useState<Set<string>>(new Set())
@@ -125,16 +108,10 @@ export default function LearningView({ initialResources, initialStudyLogs, initi
 
   useEscapeKey(() => {
     if (showForm) setShowForm(false)
-    if (showLog) setShowLog(null)
     if (quiz) setQuiz(null)
   })
   const { invalidFields, validate, clear, onFieldInput } = useFormValidation()
   useEffect(() => { clear(); if (!showForm) setPrefill(null) }, [showForm, clear])
-
-  const today = todayIST()
-  const streak = getStudyStreak(studyLogs)
-  const weekMinutes = totalMinutesThisWeek(studyLogs)
-  const studiedTodayIds = new Set(studyLogs.filter(l => l.date === today).map(l => l.resource_id))
 
   const isTodaysRead = isMarkedToday
 
@@ -225,20 +202,6 @@ export default function LearningView({ initialResources, initialStudyLogs, initi
 
   const handleDismissAiSuggestion = (title: string) => setHandledAiTitles(prev => new Set(prev).add(title))
 
-  const handleLogSession = async (resource: Resource | 'general' | null) => {
-    const resourceObj = resource === 'general' ? null : resource
-    const duration = parseInt(logDuration) || 30
-    const notes = logNotes.trim() || null
-    const newLog: StudyLog = {
-      id: `temp-${Date.now()}`, user_id: '', date: today,
-      resource_id: resourceObj?.id ?? null, duration_minutes: duration, notes, created_at: new Date().toISOString(),
-    }
-    setStudyLogs(prev => [newLog, ...prev])
-    setShowLog(null)
-    setLogNotes('')
-    await logStudySession(resourceObj?.id ?? null, duration, notes)
-  }
-
   const handleQuiz = async (resource: Resource, completesOnFinish = false) => {
     setQuiz({ resource, stage: 'generating', questions: [], answers: [], score: 0, weakAreas: [], completesOnFinish })
     const questions = await generateResourceQuiz(resource.title, resource.category, resource.type, resource.notes)
@@ -273,27 +236,11 @@ export default function LearningView({ initialResources, initialStudyLogs, initi
 
   const handleCloseQuiz = () => setQuiz(null)
 
-  // Finishing the mandatory completion quiz rolls straight into the existing
-  // Log Study Session modal for that resource — completing something almost
-  // always means time was just spent on it, so asking separately (the "Log"
-  // button) would just be an easy-to-forget extra step. Voluntary "Quiz me"
-  // attempts (completesOnFinish false) just close normally.
-  const handleFinishQuiz = () => {
-    const resource = quiz?.resource
-    const shouldLogTime = quiz?.completesOnFinish
-    setQuiz(null)
-    if (shouldLogTime && resource) {
-      setLogDuration(String(resource.estimated_minutes || 30))
-      setLogNotes('')
-      setShowLog(resource)
-    }
-  }
-
-  const learningContext = `Resources tracked: ${resources.length} (${STATUSES.map(s => `${counts[s]} ${STATUS_CONFIG[s].label.toLowerCase()}`).join(', ')}). Study streak: ${streak} days. Minutes studied this week: ${weekMinutes}. In-progress resources: ${resources.filter(r => r.status === 'in-progress').map(r => r.title).join(', ') || 'none'}. Weak areas by category (from quiz scores): ${weakAreasByCategory.length ? weakAreasByCategory.map(w => `${w.category} ${w.avgPercent}%`).join(', ') : 'none yet'}.`
+  const learningContext = `Resources tracked: ${resources.length} (${STATUSES.map(s => `${counts[s]} ${STATUS_CONFIG[s].label.toLowerCase()}`).join(', ')}). In-progress resources: ${resources.filter(r => r.status === 'in-progress').map(r => r.title).join(', ') || 'none'}. Weak areas by category (from quiz scores): ${weakAreasByCategory.length ? weakAreasByCategory.map(w => `${w.category} ${w.avgPercent}%`).join(', ') : 'none yet'}.`
 
   const advisorOpen = useAIAdvisorOpen()
   const advisorPortal = useAIAdvisor('Study Coach', Sparkles, (
-    <StudyCoachContent isOpen={advisorOpen} context={learningContext} resources={resources} studyLogs={studyLogs} />
+    <StudyCoachContent isOpen={advisorOpen} context={learningContext} resources={resources} />
   ))
 
   return (
@@ -301,53 +248,38 @@ export default function LearningView({ initialResources, initialStudyLogs, initi
       {advisorPortal}
       <div className="flex items-center gap-3 flex-wrap">
         <h1 className="text-[34px] font-bold tracking-[-0.05em] text-fg-primary">Learning</h1>
-        <span className="text-[11px] font-semibold bg-surface-2 rounded-full px-2.5 py-1 text-fg-secondary">📚 {streak}-day study streak</span>
         <span className="text-[11px] font-semibold bg-surface-2 rounded-full px-2.5 py-1 text-fg-secondary">📖 {counts['in-progress']} in progress</span>
       </div>
       {/* Stats row */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-[var(--grid-gap-sm)]">
+      <div className="grid grid-cols-3 gap-[var(--grid-gap-sm)]">
         <StatCard value={resources.length} label="Total" />
         <StatCard value={counts['in-progress']} label="In progress" valueClassName="text-amber-400" />
         <StatCard value={counts['completed']} label="Completed" valueClassName="text-green-400" />
-        <StatCard value={`${streak}d`} label={`Streak · ${weekMinutes}m this week`} valueClassName="text-amber-400" icon={<Flame size={16} className="text-amber-400" />} />
       </div>
 
-      {/* Weak areas by category — from quiz scores (quiz is now mandatory to
-          mark a resource Completed, so this fills in as real data accrues).
-          Resources needing revision are no longer nudged manually; they're
-          silently re-added to the pending queue instead (see getLearningData).
-          Paired side by side with Study Calendar (half width each) once weak-area
-          data exists; Study Calendar takes the full row alone until then. */}
-      {weakAreasByCategory.length > 0 ? (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-[var(--grid-gap)] items-start">
-          <Card title="Weak Areas by Category">
-            <p className="text-[11px] text-fg-tertiary mb-3">Average quiz score per category, worst first</p>
-            <div className="flex flex-col gap-2.5">
-              {weakAreasByCategory.map(w => {
-                const tier = w.avgPercent < 50 ? 'risk' : w.avgPercent < 75 ? 'warn' : 'good'
-                const barColor = tier === 'risk' ? 'bg-red-400' : tier === 'warn' ? 'bg-amber-400' : 'bg-green-400'
-                const textColor = tier === 'risk' ? 'text-red-400' : tier === 'warn' ? 'text-amber-400' : 'text-green-400'
-                return (
-                  <div key={w.category}>
-                    <div className="flex items-center justify-between text-[12.5px] mb-1">
-                      <span className="font-semibold text-fg-primary">{w.category}</span>
-                      <span className={`font-bold ${textColor}`}>{w.avgPercent}% <span className="font-normal text-fg-tertiary">({w.attempts} quiz{w.attempts === 1 ? '' : 'zes'})</span></span>
-                    </div>
-                    <div className="h-[5px] rounded-[3px] bg-border">
-                      <div className={`h-full rounded-[3px] ${barColor}`} style={{ width: `${w.avgPercent}%` }} />
-                    </div>
+      {/* Weak areas by category — from quiz scores (quiz is mandatory to mark
+          a resource Completed, so this fills in as real data accrues). */}
+      {weakAreasByCategory.length > 0 && (
+        <Card title="Weak Areas by Category">
+          <p className="text-[11px] text-fg-tertiary mb-3">Average quiz score per category, worst first</p>
+          <div className="flex flex-col gap-2.5">
+            {weakAreasByCategory.map(w => {
+              const tier = w.avgPercent < 50 ? 'risk' : w.avgPercent < 75 ? 'warn' : 'good'
+              const barColor = tier === 'risk' ? 'bg-red-400' : tier === 'warn' ? 'bg-amber-400' : 'bg-green-400'
+              const textColor = tier === 'risk' ? 'text-red-400' : tier === 'warn' ? 'text-amber-400' : 'text-green-400'
+              return (
+                <div key={w.category}>
+                  <div className="flex items-center justify-between text-[12.5px] mb-1">
+                    <span className="font-semibold text-fg-primary">{w.category}</span>
+                    <span className={`font-bold ${textColor}`}>{w.avgPercent}% <span className="font-normal text-fg-tertiary">({w.attempts} quiz{w.attempts === 1 ? '' : 'zes'})</span></span>
                   </div>
-                )
-              })}
-            </div>
-          </Card>
-          <Card>
-            <StudyCalendar days={calendar} title="Study Calendar" />
-          </Card>
-        </div>
-      ) : (
-        <Card>
-          <StudyCalendar days={calendar} title="Study Calendar" />
+                  <div className="h-[5px] rounded-[3px] bg-border">
+                    <div className={`h-full rounded-[3px] ${barColor}`} style={{ width: `${w.avgPercent}%` }} />
+                  </div>
+                </div>
+              )
+            })}
+          </div>
         </Card>
       )}
 
@@ -361,19 +293,13 @@ export default function LearningView({ initialResources, initialStudyLogs, initi
 
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-[var(--grid-gap)] items-start">
       <Card title="Resources" className="lg:col-span-3" action={
-        <div className="flex items-center gap-2">
-          <button onClick={() => setShowLog('general')} className="px-2.5 py-1 rounded-[6px] border border-border-strong text-[11.5px] text-fg-secondary hover:bg-surface-2 transition-colors whitespace-nowrap">
-            Log Session
-          </button>
-          <button onClick={() => setShowForm(true)} className="px-2.5 py-1 rounded-[6px] bg-accent text-white text-[11.5px] font-semibold hover:bg-accent/80 transition-colors whitespace-nowrap">
-            + Add Resource
-          </button>
-        </div>
+        <button onClick={() => setShowForm(true)} className="px-2.5 py-1 rounded-[6px] bg-accent text-white text-[11.5px] font-semibold hover:bg-accent/80 transition-colors whitespace-nowrap">
+          + Add Resource
+        </button>
       }>
         {filtered.length === 0 && <EmptyState icon={Inbox} message="Nothing here yet" cta={{ label: 'Add', onClick: () => setShowForm(true) }} compact />}
         <ul className="flex flex-col gap-2.5 max-h-[480px] overflow-y-auto">
           {filtered.map(r => {
-            const studiedToday = studiedTodayIds.has(r.id)
             const todaysRead = isTodaysRead(r)
             return (
               <li key={r.id} className={`rounded-[10px] px-3.5 py-3 ${todaysRead ? 'bg-accent-soft border border-accent-border' : 'bg-surface-2'}`}>
@@ -382,16 +308,11 @@ export default function LearningView({ initialResources, initialStudyLogs, initi
                   {todaysRead && <span className="text-[10px] font-bold uppercase px-1.5 py-0.5 rounded-[5px] bg-accent text-white shrink-0 whitespace-nowrap">📖 Today&apos;s Read</span>}
                   <span className="text-[13px] font-semibold text-fg-primary flex-1 min-w-0 truncate">{r.title}</span>
                   {r.url && <a href={r.url} target="_blank" rel="noopener noreferrer" className="text-fg-quaternary hover:text-accent transition-colors shrink-0"><ExternalLink size={11} /></a>}
-                  {studiedToday && <span className="text-xs text-green-400/70 flex items-center gap-0.5 shrink-0"><Flame size={10} />studied today</span>}
                   <select value={r.status} onChange={e => handleStatusChange(r, e.target.value as ResourceStatus)}
                     className="text-[11px] px-2 py-0.5 rounded-[6px] border border-border-strong outline-none cursor-pointer font-semibold bg-transparent shrink-0"
                     style={{ color: r.status === 'completed' ? 'var(--good)' : r.status === 'in-progress' ? 'var(--accent)' : 'var(--text-tertiary)' }}>
                     {STATUSES.map(s => <option key={s} value={s}>{s === 'completed' ? 'Completed (quiz)' : STATUS_CONFIG[s].label}</option>)}
                   </select>
-                  <button onClick={() => setShowLog(r)}
-                    className="shrink-0 text-[11px] px-2 py-0.5 rounded-[6px] border border-border-strong text-fg-secondary hover:bg-surface-3 transition-colors whitespace-nowrap">
-                    {studiedToday ? '✓ Logged' : 'Log'}
-                  </button>
                   <button onClick={() => handleQuiz(r)} className="shrink-0 text-[11px] px-2 py-0.5 rounded-[6px] border border-border-strong text-fg-secondary hover:bg-surface-3 transition-colors">
                     Quiz me
                   </button>
@@ -546,39 +467,6 @@ export default function LearningView({ initialResources, initialStudyLogs, initi
         </Modal>
       )}
 
-      {/* Log session modal */}
-      {showLog !== null && (
-        <Modal title="Log Study Session" onClose={() => setShowLog(null)}>
-            <div className="flex flex-col gap-3.5">
-              <div>
-                <label className={modalLabelClass}>Resource</label>
-                <p className="text-[13px] text-fg-primary">{showLog === 'general' ? 'General study time (no specific resource)' : showLog.title}</p>
-              </div>
-              <div>
-                <label className={modalLabelClass}>Duration</label>
-                <div className="flex gap-2">
-                  {[15, 30, 45, 60, 90].map(d => (
-                    <button key={d} onClick={() => setLogDuration(String(d))}
-                      className={`rounded-[7px] px-3 py-[7px] text-[12.5px] transition-colors ${logDuration === String(d) ? 'bg-accent text-white' : 'bg-surface-2 border border-surface-3 text-fg-primary hover:bg-surface-3'}`}>
-                      {d}m
-                    </button>
-                  ))}
-                </div>
-              </div>
-              <div>
-                <label className={modalLabelClass}>Notes</label>
-                <input value={logNotes} onChange={e => setLogNotes(e.target.value)} placeholder="optional" className={modalInputClass()} />
-              </div>
-              <div className="flex justify-end gap-2.5 mt-1.5">
-                <button onClick={() => setShowLog(null)} className={modalCancelButtonClass}>Cancel</button>
-                <button onClick={() => handleLogSession(showLog)} className={`${modalSaveButtonClass} flex items-center gap-1.5`}>
-                  <Flame size={13} /> Log {logDuration}m
-                </button>
-              </div>
-            </div>
-        </Modal>
-      )}
-
       {/* Quiz modal — graded multiple-choice. Mandatory (completesOnFinish)
           when triggered by picking "Completed"; voluntary otherwise via
           "Quiz me". Either way, closing before submitting leaves the
@@ -666,7 +554,7 @@ export default function LearningView({ initialResources, initialStudyLogs, initi
                       )
                     })}
                   </div>
-                  <button onClick={handleFinishQuiz} className={`${modalSaveButtonClass} w-full`}>Done</button>
+                  <button onClick={handleCloseQuiz} className={`${modalSaveButtonClass} w-full`}>Done</button>
                 </div>
               )
             })()}

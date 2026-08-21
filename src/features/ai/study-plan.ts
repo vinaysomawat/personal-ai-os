@@ -1,12 +1,11 @@
 'use server'
 
 import { askAI } from '@/lib/ai-gateway'
-import { todayIST } from '@/lib/date'
 import { getActiveCompanyPriorityTopics, getInsightsHistory } from '@/features/coding/daily'
 import { computeWeakAreas } from '@/features/coding/daily-core'
-import type { Resource, StudyLog, RecommendedResource, QuizQuestion } from '@/features/learning/types'
+import type { Resource, RecommendedResource, QuizQuestion } from '@/features/learning/types'
 
-export async function getDailyStudyPlan(resources: Resource[], recentLogs: StudyLog[]): Promise<string> {
+export async function getDailyStudyPlan(resources: Resource[]): Promise<string> {
   const inProgress = resources.filter(r => r.status === 'in-progress')
   const completed = resources.filter(r => r.status === 'completed')
   const notStarted = resources.filter(r => r.status === 'not-started')
@@ -14,10 +13,6 @@ export async function getDailyStudyPlan(resources: Resource[], recentLogs: Study
   if (inProgress.length === 0 && notStarted.length === 0) {
     return "You've completed everything in your list! Add new resources to keep the momentum going."
   }
-
-  const studiedToday = recentLogs
-    .filter(l => l.date === todayIST())
-    .map(l => resources.find(r => r.id === l.resource_id)?.title ?? 'Unknown')
 
   const prompt = `Vinay's learning resources:
 
@@ -28,7 +23,6 @@ Not started (${notStarted.length}):
 ${notStarted.slice(0, 5).map(r => `- ${r.title} (${r.type}, ${r.category})`).join('\n') || 'none'}
 
 Completed: ${completed.length} resources
-Studied today already: ${studiedToday.length ? studiedToday.join(', ') : 'nothing yet'}
 
 Create a focused study plan for today. Include:
 1. **Main focus** (60 min): which resource, what specifically to cover

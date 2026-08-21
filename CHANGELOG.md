@@ -5,7 +5,7 @@ append here whenever you deploy, same cadence as the version bump.
 
 ## 2026-08-21
 
-- Learning: finishing the mandatory completion quiz now rolls straight into the Log Study Session modal, prefilled with the resource's estimated time, instead of requiring a separate "Log" click.
+- Learning: removed study-time logging entirely (Log Study Session modal, per-resource Log button, Study Calendar, `study_logs` table) — along with everything downstream of it that had no other data to run on: the revision auto-re-add feature, Dashboard's matching Needs Attention nudge, the Dashboard "Learning Streak" stat and Daily Mission item, and Career's study-streak badge.
 - Learning: quiz results now show every question with its own options (correct answer green, a wrong pick red), not just a text list of the misses.
 - Coding: moved "Today's Algorithm Question" into the shared Card component (title now renders inside the card); put the Open/Mark Solved and Open/Mark Answered buttons on one row with shortened link text ("Open" instead of "Open on {source}"); removed the Easy/Medium/Hard breakdown box.
 - Coding: paired Weak Areas with the Contribution Calendar (half-width each) instead of pairing the Calendar with the Algorithm Question card, which is now standalone/full-width.

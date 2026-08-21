@@ -275,9 +275,9 @@ export function computeWeakAreas(history: DailyQuestion[], minSample = 2): WeakA
     .sort((a, b) => b.struggleRate - a.struggleRate)
 }
 
-// Auto-detected complement to the manual `needs_revision` toggle — same 14-day
-// idle rule as Learning's getResourcesNeedingRevision, adapted for the fact
-// that a question can be re-assigned and re-solved after the rotation pool
+// Auto-detected complement to the manual `needs_revision` toggle — a 14-day
+// idle rule, adapted for the fact that a question can be re-assigned and
+// re-solved after the rotation pool
 // cycles (README §7), so multiple rows can share one question_id. Dedupe by
 // question_id and use each question's *latest* solve, not any historical row,
 // so a question re-solved recently doesn't stay flagged from an old row.

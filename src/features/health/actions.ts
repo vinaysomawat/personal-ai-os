@@ -66,8 +66,8 @@ export interface WorkoutCalendarDay {
   workouts: CalendarDayWorkout[]
 }
 
-// Same shape/pattern as Coding's computeCodingCalendar and Learning's
-// computeStudyCalendar. Only Done/Missed — no "Rest" status, since workouts
+// Same shape/pattern as Coding's computeCodingCalendar. Only Done/Missed —
+// no "Rest" status, since workouts
 // are logged ad-hoc with no assigned/expected day to compare against
 // (daily_workouts is "one active workout at a time," not "one per
 // calendar day," per workout-core.ts) and there's no per-user rest-day

@@ -11,7 +11,6 @@ interface CareerContext {
   applications: Application[]
   quizAttempts?: QuizAttempt[]
   codingStreak?: number
-  studyStreak?: number
 }
 
 export async function askCareerMentor(question: string, ctx: CareerContext): Promise<string> {
@@ -43,7 +42,6 @@ Job search: ${activeApps.length} active applications${offers.length ? `, ${offer
 Recent applications: ${ctx.applications.slice(0, 5).map(a => `${a.company} (${a.role}, ${a.status})`).join(', ') || 'none'}
 ${attemptedTopics.length ? `Interview quiz readiness: ${attemptedTopics.join(', ')}` : ''}
 ${ctx.codingStreak ? `Coding practice: ${ctx.codingStreak}-day streak — factor consistency into interview readiness` : ''}
-${ctx.studyStreak ? `Study consistency: ${ctx.studyStreak}-day streak — factor into how prepared they are on fundamentals` : ''}
 
 Question: ${question}`
 
