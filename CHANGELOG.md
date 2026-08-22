@@ -3,6 +3,10 @@
 One line per shipped change, newest first. Sourced from commit messages —
 append here whenever you deploy, same cadence as the version bump.
 
+## 2026-08-22
+
+- Coding: "Today's Algorithm Question" now sits in the same row as Today's Quiz/JS Function/UI Coding (4 cards, was standalone full-width above them).
+
 ## 2026-08-21
 
 - Learning: removed study-time logging entirely (Log Study Session modal, per-resource Log button, Study Calendar, `study_logs` table) — along with everything downstream of it that had no other data to run on: the revision auto-re-add feature, Dashboard's matching Needs Attention nudge, the Dashboard "Learning Streak" stat and Daily Mission item, and Career's study-streak badge.

@@ -23,6 +23,10 @@ interface Props {
 // TodaysPickCard — static "Algorithm" label instead of a topics-derived one,
 // plus a topics line the pick cards don't show) in an auto-fit grid, rather
 // than one "Today's Question(s)" card with a header/status pill and a list.
+// Stacked single-column (2026-08-22) rather than a 2-col sub-grid — this
+// card now sits alongside the other 3 daily-pick cards in one row (see
+// CodingView.tsx), so its own width is a quarter of the page, too narrow
+// for a 2-up sub-grid on a Monday's 2 easy picks.
 export default function DailyCodingCard({ initialAssignment }: Props) {
   const [assignment, setAssignment] = useState(initialAssignment)
   const [isPending, startTransition] = useTransition()
@@ -40,7 +44,7 @@ export default function DailyCodingCard({ initialAssignment }: Props) {
         {assignment.length === 0 ? (
           <EmptyState icon={Moon} message="No new questions today — revision day. Browse your history below." />
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-[var(--grid-gap-sm)]">
+          <div className="flex flex-col gap-[var(--grid-gap-sm)]">
             {assignment.map(a => (
               <div key={a.id} className="bg-surface-2 border border-surface-3 rounded-2xl p-[var(--card-pad-lg)]">
                 <p className="text-[11px] text-fg-tertiary uppercase tracking-[0.4px] mb-1.5">Algorithm</p>

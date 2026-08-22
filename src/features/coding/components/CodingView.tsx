@@ -87,9 +87,6 @@ export default function CodingView({ dailyAssignment, codingStats, calendar, cod
         </div>
       </div>
 
-      {/* Today's Algorithm Question — standalone, full-width. */}
-      <DailyCodingCard initialAssignment={algorithmAssignment} />
-
       {/* Weak Areas + Contribution Calendar side by side, Weak Areas at half
           width. Weak Areas only renders once ≥2-attempt data exists, so the
           Calendar takes the full row alone until then. */}
@@ -121,9 +118,11 @@ export default function CodingView({ dailyAssignment, codingStats, calendar, cod
         </Card>
       )}
 
-      {/* Responsive grid, not stacked — matches the Claude Design source's
-          2026-08-18 update to this section. */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-[var(--grid-gap-sm)]">
+      {/* Today's Algorithm Question in the same row as the other 3 daily
+          picks (added 2026-08-22 — was previously its own standalone,
+          full-width card above). */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-[var(--grid-gap-sm)]">
+        <DailyCodingCard initialAssignment={algorithmAssignment} />
         <TodaysPickCard title="Today's Quiz" pick={quizPick} />
         <TodaysPickCard title="Today's JS Function" pick={jsFunctionsPick} />
         <TodaysPickCard title="Today's UI Coding" pick={uiCodingPick} />
