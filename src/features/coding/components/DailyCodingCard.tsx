@@ -46,7 +46,7 @@ export default function DailyCodingCard({ initialAssignment }: Props) {
         ) : (
           <div className="flex-1 flex flex-col gap-[var(--grid-gap-sm)]">
             {assignment.map(a => (
-              <div key={a.id} className="flex-1 flex flex-col bg-surface-2 border border-surface-3 rounded-2xl p-[var(--card-pad-lg)]">
+              <div key={a.id} className="flex-1 flex flex-col">
                 <p className="text-[11px] text-fg-tertiary uppercase tracking-[0.4px] mb-1.5">Algorithm</p>
                 <p className={`text-[14px] font-semibold ${a.completed ? 'text-fg-tertiary line-through' : 'text-fg-primary'}`}>
                   {a.question.title} <span className={`text-[11px] font-medium ${DIFFICULTY_COLOR[a.question.difficulty]}`}>{a.question.difficulty}</span>
