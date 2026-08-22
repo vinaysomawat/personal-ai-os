@@ -52,7 +52,7 @@ export default function TodaysPickCard({ title, pick }: { title: string; pick: D
       <p className={`text-[14px] font-semibold ${item.completed ? 'text-fg-tertiary line-through' : 'text-fg-primary'}`}>
         {item.question.title} <span className={`text-[11px] font-medium ${DIFFICULTY_COLOR[item.question.difficulty]}`}>{item.question.difficulty}</span>
       </p>
-      <div className="flex items-center gap-2 mt-2.5">
+      <div className="flex items-center gap-2 mt-auto pt-2.5">
         <a href={item.question.url} target="_blank" rel="noopener noreferrer"
           className="flex-1 flex items-center justify-center gap-1.5 bg-surface-2 border border-border-strong rounded-[8px] px-3 py-[9px] text-[12px] text-fg-primary hover:border-accent/40 transition-colors">
           <span>Open</span>

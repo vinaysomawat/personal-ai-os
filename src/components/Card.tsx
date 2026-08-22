@@ -10,7 +10,7 @@ interface CardProps {
 
 export default function Card({ title, children, className = '', action, padding = 'p-[var(--card-pad-lg)]' }: CardProps) {
   return (
-    <div className={`bg-surface-1 border border-surface-3 rounded-[18px] shadow-card ${padding} ${className}`}>
+    <div className={`bg-surface-1 border border-surface-3 rounded-[18px] shadow-card h-full flex flex-col ${padding} ${className}`}>
       {title && (
         <div className="flex items-center justify-between mb-2.5">
           <h2 className="text-[13px] font-bold text-fg-primary">{title}</h2>

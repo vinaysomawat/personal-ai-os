@@ -44,9 +44,9 @@ export default function DailyCodingCard({ initialAssignment }: Props) {
         {assignment.length === 0 ? (
           <EmptyState icon={Moon} message="No new questions today — revision day. Browse your history below." />
         ) : (
-          <div className="flex flex-col gap-[var(--grid-gap-sm)]">
+          <div className="flex-1 flex flex-col gap-[var(--grid-gap-sm)]">
             {assignment.map(a => (
-              <div key={a.id} className="bg-surface-2 border border-surface-3 rounded-2xl p-[var(--card-pad-lg)]">
+              <div key={a.id} className="flex-1 flex flex-col bg-surface-2 border border-surface-3 rounded-2xl p-[var(--card-pad-lg)]">
                 <p className="text-[11px] text-fg-tertiary uppercase tracking-[0.4px] mb-1.5">Algorithm</p>
                 <p className={`text-[14px] font-semibold ${a.completed ? 'text-fg-tertiary line-through' : 'text-fg-primary'}`}>
                   {a.question.title} <span className={`text-[11px] font-medium ${DIFFICULTY_COLOR[a.question.difficulty]}`}>{a.question.difficulty}</span>
@@ -54,7 +54,7 @@ export default function DailyCodingCard({ initialAssignment }: Props) {
                 {a.question.topics && a.question.topics.length > 0 && (
                   <p className="text-[12.5px] text-fg-tertiary mt-0.5 truncate">{a.question.topics.join(', ')}</p>
                 )}
-                <div className="flex items-center gap-2 mt-2.5">
+                <div className="flex items-center gap-2 mt-auto pt-2.5">
                   <a href={a.question.url} target="_blank" rel="noopener noreferrer"
                     className="flex-1 flex items-center justify-center gap-1.5 bg-surface-1 border border-border-strong rounded-[8px] px-3 py-[9px] text-[12px] text-fg-primary hover:border-accent/40 transition-colors">
                     <span>Open</span>

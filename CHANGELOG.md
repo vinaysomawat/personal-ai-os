@@ -6,6 +6,7 @@ append here whenever you deploy, same cadence as the version bump.
 ## 2026-08-22
 
 - Coding: "Today's Algorithm Question" now sits in the same row as Today's Quiz/JS Function/UI Coding (4 cards, was standalone full-width above them).
+- Coding: those 4 cards now stretch to equal height with their Open/Mark button rows bottom-aligned in a column, instead of sitting at whatever height each card's own content produced. `Card` now stretches to fill its grid cell by default (`h-full flex flex-col`).
 
 ## 2026-08-21
 
