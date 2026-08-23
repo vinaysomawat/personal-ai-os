@@ -3,6 +3,13 @@
 One line per shipped change, newest first. Sourced from commit messages —
 append here whenever you deploy, same cadence as the version bump.
 
+## 2026-08-23
+
+- Dashboard: Life Score v2 — every module score is now a blend of today's quality-aware daily score and its trailing-7-day average (60/40), instead of a pure daily snapshot that could sit high forever just because something was logged, regardless of whether the value was actually good (the bug that prompted this: eating well over a fat-loss calorie target didn't move the score).
+- Health's sub-score now reuses the real nutrition/activity calorie-and-protein-accuracy formula instead of a presence-only "was something logged" check.
+- Finance's sub-score bands are smoothed (no more 15-point cliff at 90% of budget); Career's sub-score now rewards recurring activity (quiz attempts in the last 30 days, job alerts tracked into applications) instead of one-time static fillers; Coding's sub-score weights algorithm/system-design questions higher than quiz/JS-function/UI-coding picks.
+- Explain My Score now shows each module's full "today · this week avg → blended" breakdown instead of just a single delta-from-yesterday number.
+
 ## 2026-08-22
 
 - Coding: "Today's Algorithm Question" now sits in the same row as Today's Quiz/JS Function/UI Coding (4 cards, was standalone full-width above them).

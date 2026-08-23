@@ -22,8 +22,8 @@ import { todayISTLabel, istHour } from '@/lib/date'
 type DashboardData = Awaited<ReturnType<typeof getDashboardData>>
 
 export default function DashboardView({ data, executive }: { data: DashboardData; executive: ExecutiveData }) {
-  const { botActivity, stats, scores, scoreTips, scoreHistory, aiBudget, topActions, todayProgress } = data
-  const scoreExplanation = explainScore(scoreHistory, scores, scoreTips)
+  const { botActivity, stats, scores, scoreTips, scoreHistory, scoreBreakdown, lifeDelta, aiBudget, topActions, todayProgress } = data
+  const scoreExplanation = explainScore(scoreBreakdown, { score: scores.life, delta: lifeDelta }, scoreTips)
   const brainContext = buildBrainContext(data)
   const today = todayISTLabel()
   const hour = istHour()

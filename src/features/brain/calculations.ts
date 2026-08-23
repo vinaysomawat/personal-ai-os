@@ -1,41 +1,39 @@
-import { daysAgoIST } from '@/lib/date'
-import type { ScoreExplanation, ScoreExplanationResult, ScoreHistoryEntry, ScoreModule } from './types'
+import type { ScoreExplanation, ScoreExplanationResult, ScoreModule } from './types'
 
 const MODULE_LABEL: Record<ScoreModule, string> = {
   health: 'Health', finance: 'Finance', career: 'Career', learning: 'Learning', projects: 'Coding',
 }
 
-// "Explain My Score" — deterministic, no AI call (Product Principle 2): every
-// number here is just today's already-computed score minus yesterday's, read
-// from the 30-day history the dashboard already fetches. The "why" for each
-// module reuses the same scoreTips already shown elsewhere, not a new prompt.
+export interface ModuleBreakdown {
+  today: number
+  weeklyAvg: number
+  blended: number
+  delta: number | null
+}
+
+// "Explain My Score" — deterministic, no AI call (Product Principle 2). All
+// the actual blending math (today's raw score × 0.6 + trailing-7-day average
+// × 0.4, and the day-over-day delta of that blend) happens in
+// getDashboardData() where the raw history already lives; this function is
+// just sorting/labeling the finished per-module breakdown, plus the "why"
+// from the same scoreTips already shown elsewhere.
 export function explainScore(
-  scoreHistory: ScoreHistoryEntry[],
-  scores: Record<ScoreModule, number> & { life: number },
+  breakdown: Record<ScoreModule, ModuleBreakdown>,
+  life: { score: number; delta: number | null },
   scoreTips: Record<ScoreModule, string>,
 ): ScoreExplanationResult {
-  const yesterday = daysAgoIST(1)
-  const yesterdayEntry = scoreHistory.find(e => e.date === yesterday)
-
-  const delta = (module: ScoreModule | 'life'): number | null => {
-    if (!yesterdayEntry) return null
-    const current = module === 'life' ? scores.life : scores[module]
-    return current - yesterdayEntry[module]
-  }
-
   const modules: ScoreExplanation[] = (['health', 'finance', 'career', 'learning', 'projects'] as ScoreModule[])
     .map(module => ({
       module,
       label: MODULE_LABEL[module],
-      score: scores[module],
-      delta: delta(module),
+      today: breakdown[module].today,
+      weeklyAvg: breakdown[module].weeklyAvg,
+      blended: breakdown[module].blended,
+      delta: breakdown[module].delta,
       tip: scoreTips[module],
     }))
     // Biggest movers first — improvements and regressions both surface above "no change"
     .sort((a, b) => Math.abs(b.delta ?? 0) - Math.abs(a.delta ?? 0))
 
-  return {
-    life: { score: scores.life, delta: delta('life') },
-    modules,
-  }
+  return { life, modules }
 }

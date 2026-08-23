@@ -35,3 +35,25 @@ export const OPPORTUNITY_THRESHOLDS = {
   // opportunity (batch-schedule extra practice) fires.
   interviewMomentumMinCount: 3,
 } as const
+
+// Life Score v2 (2026-08-23) — every module score is a blend of today's fresh
+// daily raw score and the trailing-7-day average of that same raw score, so
+// one good/bad day moves the number without either fully erasing a real week
+// or letting one lucky day carry it. Not a fixed constant — this is the one
+// knob to turn if "today matters more" or "consistency matters more" feels
+// off in practice. See README §1 for the full formula.
+export const LIFE_SCORE_THRESHOLDS = {
+  dailyWeight: 0.6,
+  weeklyWeight: 0.4,
+  // Coding category weights for the Projects/Coding sub-score — algorithm and
+  // system-design questions count for more than the shorter quiz/JS-function/
+  // UI-coding picks.
+  codingCategoryWeight: {
+    algorithm: 1.0,
+    'system-design': 1.5,
+    quiz: 0.6,
+    'javascript-functions': 0.6,
+    'ui-coding': 0.6,
+  } as Record<string, number>,
+  codingWeightedMultiplier: 3.2,
+} as const

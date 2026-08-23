@@ -16,7 +16,6 @@ import { getDailyStudyPlan, generateResourceQuiz, recommendResources } from '@/f
 import { gradeQuiz, computeCategoryWeakAreas } from '../quiz-calculations'
 import { isMarkedToday } from '../daily-read'
 import { SUGGESTED_RESOURCES } from '../suggested-resources'
-import { todayIST } from '@/lib/date'
 import { useEscapeKey } from '@/lib/use-escape-key'
 import { useFormValidation } from '@/lib/use-form-validation'
 import FieldError from '@/components/FieldError'

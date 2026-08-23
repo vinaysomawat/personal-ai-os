@@ -10,10 +10,15 @@ export interface ScoreHistoryEntry {
   projects: number
 }
 
+// Life Score v2 (2026-08-23) — each module's line shows both halves of the
+// blend (today's fresh raw score and the trailing-7-day average), not just
+// the final blended number, so "why did this move" stays legible.
 export interface ScoreExplanation {
   module: ScoreModule
   label: string
-  score: number
+  today: number
+  weeklyAvg: number
+  blended: number
   delta: number | null
   tip: string
 }

@@ -4,6 +4,8 @@ import { createClient } from '@/lib/supabase/server'
 import { todayIST, daysAgoIST, istMidnightUtc, istDateStrToUtcMidnight } from '@/lib/date'
 import { getTodayAssignmentRows, getStaleRevisionCount } from '@/features/coding/daily-core'
 import { getActiveWorkout, computeWorkoutStats } from '@/features/health/workout-core'
+import { computeHealthPlan } from '@/features/health/calculations'
+import type { Workout } from '@/features/health/types'
 import { rankSignals, type Signal } from '@/lib/signals'
 import { checkOverdueTasks, checkHighPriorityPending } from '@/features/planner/signals'
 import { checkInterviewStage, checkQuizNeedsRevision, checkQuizWeakArea, checkHighValueJobAlert } from '@/features/career/signals'
@@ -16,8 +18,12 @@ import { checkWorkoutPending, checkNoMetricsToday } from '@/features/health/sign
 import { isMarkedToday } from '@/features/learning/daily-read'
 import { computeTodayProgress } from './daily-progress'
 import { getRecentPatterns, type RecentPattern } from '@/features/brain/signals'
+import type { ScoreModule } from '@/features/brain/types'
 import { getCurrentDasha } from '@/features/astrology/chart-calculations'
 import type { NatalChart } from '@/features/astrology/types'
+import { LIFE_SCORE_THRESHOLDS } from '@/lib/thresholds'
+
+type ModuleBreakdown = { today: number; weeklyAvg: number; blended: number; delta: number | null }
 
 export interface TopAction {
   emoji: string
@@ -79,6 +85,14 @@ export async function getDashboardData() {
     pendingTasks: [], recentApplications: [], botActivity: [],
     scores: { health: 0, finance: 50, career: 0, learning: 0, projects: 0, life: 0 },
     scoreTips: { health: '', finance: '', career: '', learning: '', projects: '' },
+    scoreBreakdown: {
+      health: { today: 0, weeklyAvg: 0, blended: 0, delta: null },
+      finance: { today: 0, weeklyAvg: 0, blended: 0, delta: null },
+      career: { today: 0, weeklyAvg: 0, blended: 0, delta: null },
+      learning: { today: 0, weeklyAvg: 0, blended: 0, delta: null },
+      projects: { today: 0, weeklyAvg: 0, blended: 0, delta: null },
+    } as Record<ScoreModule, ModuleBreakdown>,
+    lifeDelta: null as number | null,
     todayHealth: null,
     scoreHistory: [] as { date: string; life: number; health: number; finance: number; career: number; learning: number; projects: number }[],
     stats: { pendingTaskCount: 0, overdueCount: 0, activeApplications: 0, workoutsToday: 0, monthSpend: 0, monthBudget: 0, learningInProgress: 0, codingSolved30d: 0, workoutStreak: 0 },
@@ -96,11 +110,12 @@ export async function getDashboardData() {
   const [
     tasksRes, appsRes, workoutsRes,
     expensesRes, budgetsRes, resourcesRes,
-    botLogsRes, healthMetricRes, careerProfileRes, skillsRes, quizCountRes,
+    botLogsRes, healthMetricRes, careerProfileRes, skillsRes,
     aiUsageMonthRes, codingTodayRows, activeWorkout, codingSolved30dRes,
     codingCompletionsRes, quizAttemptsRes, tasksDueTodayRes, workoutCompletedTodayRes,
     recentPatterns, financialGoalsRes, codingHistoryForWeakAreas,
     workoutStats, astrologyProfileRes, panchangTodayRes, topJobAlertsRes,
+    healthProfileRes, healthMetricsHistoryRes, allApplicationsRes, jobAlerts30dRes,
   ] = await Promise.all([
     supabase.from('tasks').select('id, text, done, priority, due_date').eq('user_id', user.id).eq('done', false).order('created_at', { ascending: false }).limit(5),
     supabase.from('applications').select('id, company, role, status, applied_at').eq('user_id', user.id).order('created_at', { ascending: false }).limit(5),
@@ -112,7 +127,6 @@ export async function getDashboardData() {
     supabase.from('health_metrics').select('*').eq('user_id', user.id).eq('date', today).single(),
     supabase.from('career_profile').select('current_role, target_role, current_company, current_salary, bio').eq('user_id', user.id).single(),
     supabase.from('skills').select('id', { count: 'exact', head: true }).eq('user_id', user.id),
-    supabase.from('quiz_attempts').select('id', { count: 'exact', head: true }).eq('user_id', user.id),
     supabase.from('ai_usage_logs').select('estimated_cost_usd, cache_hit, created_at').eq('user_id', user.id).gte('created_at', istDateStrToUtcMidnight(monthStart)),
     getTodayAssignmentRows(supabase, user.id),
     getActiveWorkout(supabase, user.id),
@@ -133,6 +147,17 @@ export async function getDashboardData() {
     // Top Job Alert signal below: best-scoring ("Top Fit", see job-alerts.ts's
     // deterministic computeScore) new posting from the last 30 days.
     supabase.from('job_alerts_seen').select('company, title').eq('user_id', user.id).gte('created_at', istMidnightUtc(30)).gte('score', 70).order('score', { ascending: false }).limit(5),
+    // Life Score v2's Health sub-score reuses the Health module's own
+    // nutrition/activity calc instead of a separate presence-only formula —
+    // needs the profile (for targets) and enough metric history for the
+    // same-day-or-most-recent weight lookback computeHealthPlan does.
+    supabase.from('health_profile').select('*').eq('user_id', user.id).single(),
+    supabase.from('health_metrics').select('*').eq('user_id', user.id).gte('date', since30).order('date', { ascending: false }),
+    // Unlimited (unlike appsRes above, capped at 5 recent) — needed to
+    // reliably detect a job-alert-to-application conversion from any point
+    // in the last 30 days, not just the 5 most recently added applications.
+    supabase.from('applications').select('company').eq('user_id', user.id),
+    supabase.from('job_alerts_seen').select('company').eq('user_id', user.id).gte('created_at', istMidnightUtc(30)),
   ])
 
   const pendingTasks = tasksRes.data ?? []
@@ -151,70 +176,115 @@ export async function getDashboardData() {
   const learningInProgress = resources.filter(r => r.status === 'in-progress').length
   const learningCompleted = resources.filter(r => r.status === 'completed').length
 
-  // --- Scores ---
-  // Health: workout logged today + metrics logged today
+  // --- Scores (Life Score v2, 2026-08-23) ---
+  // Each of these is today's fresh "daily raw" score — the quality-aware
+  // half of the eventual blend. The other half (trailing-7-day average of
+  // this same raw score) is computed further down, once scoreHistory is
+  // fetched. These raw values are what get persisted to life_score_logs —
+  // never the blended figure, so the weekly average never recursively
+  // smooths itself into unmovability (see README §1).
+
+  // Health: reuses the Health module's own quality-aware calculateHealthScore
+  // (nutrition×0.6 + activity×0.4, checked against real BMR/TDEE targets)
+  // instead of a separate presence-only formula, so eating over/under a real
+  // calorie target actually moves this score. Falls back to the old
+  // presence-only calc only when no health_profile exists yet (targets
+  // uncomputable) — same shape as before: workout-logged-today (60) +
+  // metrics-logged-today (up to 40).
   const workoutScore = workoutsToday.length > 0 ? 60 : 0
   const metricsLogged = todayMetric ? Object.entries(todayMetric)
     .filter(([k]) => ['weight_kg','calories','protein_g','steps'].includes(k))
     .filter(([, v]) => v !== null).length : 0
-  const healthScore = Math.round(workoutScore + (metricsLogged / 4) * 40)
+  const healthPlan = computeHealthPlan(
+    healthProfileRes.data ?? null,
+    healthMetricsHistoryRes.data ?? [],
+    workoutsToday.map(() => ({ date: today })) as unknown as Workout[],
+    today
+  )
+  const healthScore = healthPlan
+    ? healthPlan.healthScore.overall
+    : Math.round(workoutScore + (metricsLogged / 4) * 40)
 
-  // Finance: under/over budget; no budget = neutral 50
+  // Finance: same band shape as before, smoothed within each band instead of
+  // a hard cliff at 0.9→1.0 — a ₹1 overspend used to cost 25 points outright.
   let financeScore = 50
   if (monthBudget > 0) {
     const ratio = monthSpend / monthBudget
-    financeScore = ratio <= 0.7 ? 100 : ratio <= 0.9 ? 85 : ratio <= 1.0 ? 70 : ratio <= 1.2 ? 45 : 20
+    financeScore = Math.round(
+      ratio <= 0.70 ? 100
+      : ratio <= 0.85 ? 90 - (ratio - 0.70) / 0.15 * 15
+      : ratio <= 1.00 ? 75 - (ratio - 0.85) / 0.15 * 20
+      : ratio <= 1.20 ? 55 - (ratio - 1.00) / 0.20 * 25
+      : Math.max(10, 30 - (ratio - 1.20) * 40)
+    )
   } else if (monthSpend === 0) {
     financeScore = 60
   }
 
-  // Career: profile filled + skills + active apps + quiz practice
+  // Career: recurring signals replace static one-time fillers — a quiz taken
+  // once used to permanently max that clause; now it's quiz attempts in the
+  // last 30 days, plus a new job-alert-tracked signal.
   const profileFilled = !!(careerProfileRes.data?.current_role && careerProfileRes.data?.target_role)
   const skillCount = skillsRes.count ?? 0
-  const quizCount = quizCountRes.count ?? 0
+  const quizAttempts30dCount = (quizAttemptsRes.data ?? []).filter(a => (a.created_at as string) >= istMidnightUtc(30)).length
+  const allApplicationCompanies = new Set((allApplicationsRes.data ?? []).map(a => (a.company as string).toLowerCase()))
+  const jobAlertTracked30d = ((jobAlerts30dRes.data ?? []) as { company: string }[])
+    .some(j => allApplicationCompanies.has(j.company.toLowerCase()))
   const careerScore = Math.min(100,
-    (profileFilled ? 25 : 0) +
-    Math.min(25, skillCount * 3) +
-    Math.min(30, activeApps * 10) +
-    (quizCount > 0 ? 20 : 0)
+    (profileFilled ? 15 : 0) +
+    Math.min(20, skillCount * 2) +
+    Math.min(25, activeApps * 8) +
+    Math.min(20, quizAttempts30dCount * 4) +
+    (jobAlertTracked30d ? 20 : 0)
   )
 
-  // Learning: completed / total (in-progress counts as half)
+  // Learning: completed / total (in-progress counts as half) — unchanged.
+  // A "recency" component (studied in the last N days) was considered but
+  // dropped: study-time logging was removed entirely 2026-08-21, and Resource
+  // has no other "touched recently" timestamp to build one from.
   const learningScore = resources.length > 0
     ? Math.min(100, Math.round(((learningCompleted + learningInProgress * 0.5) / resources.length) * 100))
     : 0
 
-  // Coding: daily-question completions over the last 30 days (was GitHub push
-  // activity — swapped to the app's own coding-module data so the score
-  // doesn't depend on external credentials that were never configured, per
-  // Product Principle 1: prefer what's already tracked in-app).
+  // Coding: weighted by category over the last 30 days instead of a flat
+  // count — algorithm and system-design questions take meaningfully longer
+  // than a quiz/JS-function/UI-coding pick, so they're worth more. Reuses
+  // codingHistoryForWeakAreas (already fetched for Weak Areas) — no new query.
   const codingSolved30d = codingSolved30dRes.count ?? 0
-  const projectsScore = Math.min(100, codingSolved30d * 4)
+  const codingWeighted30d = codingHistoryForWeakAreas
+    .filter(r => r.completed && r.assigned_date >= since30)
+    .reduce((sum, r) => sum + (LIFE_SCORE_THRESHOLDS.codingCategoryWeight[r.question.category] ?? 1.0), 0)
+  const projectsScore = Math.min(100, Math.round(codingWeighted30d * LIFE_SCORE_THRESHOLDS.codingWeightedMultiplier))
 
   // --- Score tips ---
   // Deterministic, no AI call — each tip names the single highest-point-value
   // gap for that module, picked the same way computeTopActions ranks by score.
   const healthDeficit = workoutScore === 0 ? 60 : 0
   const metricsDeficit = 40 - (metricsLogged / 4) * 40
-  const healthTip = healthDeficit > 0 && healthDeficit >= metricsDeficit
-    ? 'No workout logged today — worth 60% of this score'
-    : metricsDeficit > 0
-      ? `Log ${4 - metricsLogged} more metric${4 - metricsLogged > 1 ? 's' : ''} today (weight, calories, protein, steps)`
-      : 'Fully logged today — keep it up'
+  const healthTip = healthPlan
+    ? (healthPlan.healthScore.nutrition.score <= healthPlan.healthScore.activity.score
+        ? healthPlan.healthScore.nutrition.reason
+        : healthPlan.healthScore.activity.reason)
+    : healthDeficit > 0 && healthDeficit >= metricsDeficit
+      ? 'No workout logged today — worth 60% of this score'
+      : metricsDeficit > 0
+        ? `Log ${4 - metricsLogged} more metric${4 - metricsLogged > 1 ? 's' : ''} today (weight, calories, protein, steps)`
+        : 'Fully logged today — keep it up'
 
   const financeTip = monthBudget === 0
     ? 'Set a monthly budget for a real score instead of the neutral default'
-    : monthSpend / monthBudget >= 1
+    : monthSpend / monthBudget >= 1.00
       ? 'Over budget this month — pull back spending to recover'
-      : monthSpend / monthBudget >= 0.9
+      : monthSpend / monthBudget >= 0.85
         ? 'Close to your budget limit — slow down for the rest of the month'
         : 'Under budget — nothing to do here'
 
   const careerDeficits: [number, string][] = [
-    [profileFilled ? 0 : 25, 'Fill in your career profile (current + target role) — worth 25 points'],
-    [25 - Math.min(25, skillCount * 3), 'Add a few more skills to the tracker'],
-    [30 - Math.min(30, activeApps * 10), 'No active applications — apply somewhere to earn up to 30 points'],
-    [quizCount > 0 ? 0 : 20, 'Take an interview prep quiz — worth 20 points'],
+    [profileFilled ? 0 : 15, 'Fill in your career profile (current + target role) — worth 15 points'],
+    [20 - Math.min(20, skillCount * 2), 'Add a few more skills to the tracker'],
+    [25 - Math.min(25, activeApps * 8), 'No active applications — apply somewhere to earn up to 25 points'],
+    [20 - Math.min(20, quizAttempts30dCount * 4), 'Take an interview prep quiz — worth up to 20 points, and recurring monthly (not a one-time fill)'],
+    [jobAlertTracked30d ? 0 : 20, 'Track a Job Alert lead into an application — worth 20 points'],
   ]
   const topCareerDeficit = careerDeficits.reduce((a, b) => (b[0] > a[0] ? b : a))
   const careerTip = topCareerDeficit[0] > 0 ? topCareerDeficit[1] : 'Career basics maxed — check the AI Mentor for what\'s next'
@@ -227,24 +297,103 @@ export async function getDashboardData() {
         ? 'Start one of your queued resources to begin earning credit'
         : 'All resources completed — add a new one to keep growing this score'
 
-  const projectsTip = codingSolved30d === 0
+  const projectsTip = codingWeighted30d === 0
     ? 'No coding questions solved in the last 30 days — start today\'s question'
-    : codingSolved30d < 25
-      ? `${25 - codingSolved30d} more solved questions this month would max this score`
+    : projectsScore < 100
+      ? 'Keep solving daily — algorithm and system-design questions count for more toward this score'
       : 'Maxed out — consistent practice'
 
   const scoreTips = { health: healthTip, finance: financeTip, career: careerTip, learning: learningTip, projects: projectsTip }
 
-  // Life Score: weighted aggregate
-  const lifeScore = Math.round(
-    healthScore   * 0.25 +
-    financeScore  * 0.20 +
-    careerScore   * 0.20 +
-    learningScore * 0.20 +
-    projectsScore * 0.15
-  )
+  // --- Life Score v2 blend: daily raw × 0.6 + trailing-7-day average × 0.4 ---
+  // life_score_logs only ever stores each module's pure daily raw score
+  // (unchanged from before) — never the blended figure. Storing the blend
+  // would make tomorrow's weekly average partly an average of an average,
+  // compounding every day into an un-moveable number. All blending happens
+  // here, at read time, from that pure history.
+  const since = daysAgoIST(30)
+  const { data: historyData } = await supabase.from('life_score_logs')
+    .select('date, life_score, health_score, finance_score, career_score, learning_score, projects_score')
+    .eq('user_id', user.id).gte('date', since).order('date', { ascending: true })
 
-  // Upsert today's scores for history tracking
+  const priorHistory = (historyData ?? []).map(r => ({
+    date: r.date as string, life: r.life_score as number,
+    health: r.health_score as number, finance: r.finance_score as number,
+    career: r.career_score as number, learning: r.learning_score as number,
+    projects: r.projects_score as number,
+  }))
+  const priorHistoryByDate = new Map(priorHistory.map(r => [r.date, r]))
+
+  const todayRaw: Record<ScoreModule, number> = {
+    health: healthScore, finance: financeScore, career: careerScore,
+    learning: learningScore, projects: projectsScore,
+  }
+
+  // Brand-new accounts shouldn't have their first week's weekly average
+  // crushed toward 0 by pre-signup days that were never really "missed."
+  const accountCreatedDate = user.created_at ? user.created_at.slice(0, 10) : null
+
+  function subtractDays(dateStr: string, n: number): string {
+    const [y, m, d] = dateStr.split('-').map(Number)
+    return new Date(Date.UTC(y, m - 1, d - n)).toISOString().split('T')[0]
+  }
+
+  // A day in the trailing window with no life_score_logs row at all (app
+  // wasn't opened, so nothing was ever computed/stored) counts as 0 raw
+  // score for that day — not excluded from the average. Excluding it would
+  // let a day with zero engagement be averaged out of existence.
+  function rawOn(date: string, key: ScoreModule): number {
+    if (date === today) return todayRaw[key]
+    return priorHistoryByDate.get(date)?.[key] ?? 0
+  }
+
+  function weeklyAvgEnding(date: string, key: ScoreModule): number {
+    const days: string[] = []
+    for (let i = 0; i < 7; i++) {
+      const d = subtractDays(date, i)
+      if (accountCreatedDate && d < accountCreatedDate) continue
+      days.push(d)
+    }
+    if (days.length === 0) return 0
+    return days.reduce((s, d) => s + rawOn(d, key), 0) / days.length
+  }
+
+  function blendedOn(date: string, key: ScoreModule): number {
+    return Math.round(
+      rawOn(date, key) * LIFE_SCORE_THRESHOLDS.dailyWeight +
+      weeklyAvgEnding(date, key) * LIFE_SCORE_THRESHOLDS.weeklyWeight
+    )
+  }
+
+  const yesterday = subtractDays(today, 1)
+  const isFirstDay = accountCreatedDate === today
+
+  const moduleKeys: ScoreModule[] = ['health', 'finance', 'career', 'learning', 'projects']
+  const scoreBreakdown = Object.fromEntries(moduleKeys.map(key => {
+    const blendedToday = blendedOn(today, key)
+    const blendedYesterday = isFirstDay ? null : blendedOn(yesterday, key)
+    return [key, {
+      today: todayRaw[key],
+      weeklyAvg: Math.round(weeklyAvgEnding(today, key)),
+      blended: blendedToday,
+      delta: blendedYesterday === null ? null : blendedToday - blendedYesterday,
+    }]
+  })) as Record<ScoreModule, ModuleBreakdown>
+
+  const lifeScore = Math.round(
+    scoreBreakdown.health.blended    * 0.25 +
+    scoreBreakdown.finance.blended   * 0.20 +
+    scoreBreakdown.career.blended    * 0.20 +
+    scoreBreakdown.learning.blended  * 0.20 +
+    scoreBreakdown.projects.blended  * 0.15
+  )
+  const yesterdayLifeScore = isFirstDay ? null : (priorHistoryByDate.get(yesterday)?.life ?? null)
+  const lifeDelta = yesterdayLifeScore === null ? null : lifeScore - yesterdayLifeScore
+
+  // Upsert today's *raw* scores for history tracking, plus the blended
+  // life_score (the one figure that's fine to store already-blended, since
+  // nothing ever averages life_score itself back into a future computation —
+  // only the per-module raw scores feed the weekly averages above).
   await supabase.from('life_score_logs').upsert({
     user_id: user.id, date: today,
     health_score: healthScore, finance_score: financeScore,
@@ -252,17 +401,10 @@ export async function getDashboardData() {
     projects_score: projectsScore, life_score: lifeScore,
   }, { onConflict: 'user_id,date' })
 
-  const since = daysAgoIST(30)
-  const { data: historyData } = await supabase.from('life_score_logs')
-    .select('date, life_score, health_score, finance_score, career_score, learning_score, projects_score')
-    .eq('user_id', user.id).gte('date', since).order('date', { ascending: true })
-
-  const scoreHistory = (historyData ?? []).map(r => ({
-    date: r.date as string, life: r.life_score as number,
-    health: r.health_score as number, finance: r.finance_score as number,
-    career: r.career_score as number, learning: r.learning_score as number,
-    projects: r.projects_score as number,
-  }))
+  const scoreHistory = [
+    ...priorHistory.filter(r => r.date !== today),
+    { date: today, life: lifeScore, health: healthScore, finance: financeScore, career: careerScore, learning: learningScore, projects: projectsScore },
+  ].sort((a, b) => a.date.localeCompare(b.date))
 
   // --- AI spend (from ai_usage_logs, written by the AI Gateway) ---
   const aiUsageMonth = aiUsageMonthRes.data ?? []
@@ -337,7 +479,18 @@ export async function getDashboardData() {
     botActivity: botLogsRes.data ?? [],
     todayHealth: todayMetric,
     scoreHistory,
-    scores: { health: healthScore, finance: financeScore, career: careerScore, learning: learningScore, projects: projectsScore, life: lifeScore },
+    // The blended (daily×0.6 + weekly×0.4) figure per module — what the
+    // Module Score rings display, consistent with lifeScore itself being a
+    // blended aggregate. scoreBreakdown carries the raw/weekly/blended/delta
+    // detail Explain My Score needs; scoreHistory stays pure-raw per module
+    // (see the upsert comment above).
+    scores: {
+      health: scoreBreakdown.health.blended, finance: scoreBreakdown.finance.blended,
+      career: scoreBreakdown.career.blended, learning: scoreBreakdown.learning.blended,
+      projects: scoreBreakdown.projects.blended, life: lifeScore,
+    },
+    scoreBreakdown,
+    lifeDelta,
     scoreTips,
     stats: {
       pendingTaskCount: pendingTasks.length,

@@ -24,6 +24,14 @@ const dummyData = {
     health: 60 + i, finance: 70 - i, career: 50 + i, learning: 45 + i, projects: 40 + i * 2,
   })),
   scores: { health: 72, finance: 68, career: 64, learning: 58, projects: 76, life: 68 },
+  scoreBreakdown: {
+    health: { today: 75, weeklyAvg: 68, blended: 72, delta: 2 },
+    finance: { today: 70, weeklyAvg: 65, blended: 68, delta: -1 },
+    career: { today: 60, weeklyAvg: 68, blended: 64, delta: 0 },
+    learning: { today: 55, weeklyAvg: 62, blended: 58, delta: -3 },
+    projects: { today: 80, weeklyAvg: 70, blended: 76, delta: 5 },
+  },
+  lifeDelta: 2,
   scoreTips: {
     health: 'Log today\'s steps for a full score',
     finance: 'Under budget — nothing to do here',
