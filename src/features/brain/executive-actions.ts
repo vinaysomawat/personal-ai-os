@@ -65,13 +65,14 @@ export async function dismissDecisionQueueItem(kind: string): Promise<void> {
 }
 
 // Evening Reflection (Phase 5 PRD) — deliberately NOT part of getExecutiveData()'s
-// eager fetch: it's only relevant after 6pm IST, and per the PRD's own
-// performance requirement ("no blocking AI requests during initial load"),
-// the client only calls this once it's decided the time gate has passed.
-export async function getEveningReflection(): Promise<EveningReflectionResult> {
+// eager fetch: it's only relevant after 6pm IST (through 5am the next
+// morning — see EveningReflection.tsx), and per the PRD's own performance
+// requirement ("no blocking AI requests during initial load"), the client
+// only calls this once it's decided the time gate has passed.
+export async function getEveningReflection(isLateNight: boolean = false): Promise<EveningReflectionResult> {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { reflection: '', tomorrowsPriority: null }
 
-  return generateEveningReflection(supabase, user.id)
+  return generateEveningReflection(supabase, user.id, isLateNight)
 }

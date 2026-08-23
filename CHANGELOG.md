@@ -3,6 +3,10 @@
 One line per shipped change, newest first. Sourced from commit messages —
 append here whenever you deploy, same cadence as the version bump.
 
+## 2026-08-24
+
+- Dashboard: fixed Evening Reflection disappearing at midnight — it now stays visible until 5am the next morning, and correctly reflects on yesterday's activity (not the just-started, nearly-empty new day) when viewed post-midnight.
+
 ## 2026-08-23
 
 - Coding: replaced each daily-pick card's separate "Open" button with a small external-link icon beside the question title; "Mark Solved"/"Mark Answered" is now the full-width button alone (the link icon stays visible even after a question is completed).

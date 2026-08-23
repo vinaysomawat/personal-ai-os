@@ -5,11 +5,17 @@ import Card from '@/components/Card'
 import { getEveningReflection } from '@/features/brain/executive-actions'
 import type { EveningReflectionResult } from '@/features/ai/evening-reflection'
 
-// Daily Operating System's "Evening Reflection" (Phase 5 PRD) — visible only
-// after 6pm, same local-hour check the existing greeting bar already uses
-// (this is a single-user, India-based app, so browser-local hours already
-// serve as an IST proxy elsewhere in DashboardView.tsx). Fetches on mount
-// only when the gate has passed, so it never blocks the initial page load.
+// Daily Operating System's "Evening Reflection" (Phase 5 PRD) — visible from
+// 6pm through 5am the next morning (same local-hour check the existing
+// greeting bar already uses elsewhere in DashboardView.tsx — this is a
+// single-user, India-based app, so browser-local hours already serve as an
+// IST proxy). The 6pm→5am window (not just 6pm→midnight) matters for a
+// genuinely late night: without it, the section used to silently vanish at
+// midnight even though nothing about "was today reflected on" had changed.
+// Past midnight, the server reflects on *yesterday* (the evening that just
+// happened) instead of the new, nearly-empty calendar day — see
+// evening-reflection.ts's `isLateNight` param. Fetches on mount only when
+// the gate has passed, so it never blocks the initial page load.
 export default function EveningReflection() {
   const [visible, setVisible] = useState(false)
   const [result, setResult] = useState<EveningReflectionResult | null>(null)
@@ -17,11 +23,12 @@ export default function EveningReflection() {
 
   useEffect(() => {
     const hour = new Date().getHours()
-    if (hour < 18) return
+    const isLateNight = hour < 5
+    if (hour < 18 && !isLateNight) return
     setVisible(true)
     setLoading(true)
     let cancelled = false
-    getEveningReflection().then(r => { if (!cancelled) { setResult(r); setLoading(false) } })
+    getEveningReflection(isLateNight).then(r => { if (!cancelled) { setResult(r); setLoading(false) } })
     return () => { cancelled = true }
   }, [])
 

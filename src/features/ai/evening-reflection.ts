@@ -26,16 +26,24 @@ export interface EveningReflectionResult {
 // recap that needs to run after even a late-night session). Reuses the same
 // activity-gathering as the journal rather than duplicating those queries.
 //
+// `isLateNight` (set when the client is between midnight and 5am IST — see
+// EveningReflection.tsx) reflects on *yesterday* (daysAgo: 1) instead of the
+// just-started, nearly-empty new calendar day, so a genuinely late night
+// still shows the evening that just happened rather than going blank at
+// midnight. "Tomorrow's priority" always stays anchored to the real current
+// date, though — overdue-ness and what's next to do is evaluated as of right
+// now regardless of which day's activity is being reflected on.
+//
 // Tomorrow's priority (Product Principle 2 — rule engine before AI) is
 // picked here deterministically, same overdue-first/priority-rank sort the
 // Dashboard's own Top Priority banner uses, then shown as its own line
 // rather than woven into the AI's prose — the AI's only job is summarizing
 // the day, never picking or paraphrasing which task matters most.
-export async function generateEveningReflection(db: SupabaseClient, userId: string): Promise<EveningReflectionResult> {
+export async function generateEveningReflection(db: SupabaseClient, userId: string, isLateNight: boolean = false): Promise<EveningReflectionResult> {
   const today = todayIST()
 
   const [lines, { data: pendingTasks }] = await Promise.all([
-    gatherTodayActivityLines(db, userId),
+    gatherTodayActivityLines(db, userId, isLateNight ? 1 : 0),
     db.from('tasks').select('text, priority, due_date').eq('user_id', userId).eq('done', false),
   ])
 

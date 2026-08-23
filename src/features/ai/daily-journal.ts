@@ -2,8 +2,8 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { askAI } from '@/lib/ai-gateway'
-import { todayIST, istMidnightUtc } from '@/lib/date'
-import { isMarkedToday } from '@/features/learning/daily-read'
+import { todayIST, daysAgoIST, istMidnightUtc, toISTDateStr } from '@/lib/date'
+import { DAILY_READ_NOTE_PREFIX } from '@/features/learning/daily-read'
 
 const SYSTEM_PROMPT = `You are writing Vinay's Daily Auto Journal — a nightly "what happened today" entry from his actual logged activity across Work, Learning, Health, Finance, and Career.
 
@@ -20,8 +20,13 @@ Rules:
 // reliably timestamped: tasks.done has no completed_at (only coding's/the
 // daily-read resource's synced rows do), so plain Planner task completions
 // aren't included — see README.
-export async function gatherTodayActivityLines(db: SupabaseClient, userId: string): Promise<string[]> {
-  const today = todayIST()
+//
+// `daysAgo` (default 0 = today) lets Evening Reflection reuse this for
+// "yesterday" when viewed between midnight and 5am IST — see evening-
+// reflection.ts. The daily-journal cron always calls with the default, so
+// its own behavior is unaffected.
+export async function gatherTodayActivityLines(db: SupabaseClient, userId: string, daysAgo: number = 0): Promise<string[]> {
+  const today = daysAgoIST(daysAgo)
 
   const [
     codingRes, resourcesRes, metricRes,
@@ -32,7 +37,10 @@ export async function gatherTodayActivityLines(db: SupabaseClient, userId: strin
     db.from('health_metrics').select('weight_kg, calories, protein_g, steps').eq('user_id', userId).eq('date', today).maybeSingle(),
     db.from('workouts').select('type, duration_minutes').eq('user_id', userId).eq('date', today),
     db.from('expenses').select('amount, category').eq('user_id', userId).eq('date', today),
-    db.from('quiz_attempts').select('topic, score, total').eq('user_id', userId).gte('created_at', istMidnightUtc()),
+    // Upper-bounded (not just gte) so a daysAgo>0 call doesn't also pick up
+    // attempts made after that day ended — a no-op for the normal daysAgo=0
+    // case, since "now" is always before tomorrow's midnight anyway.
+    db.from('quiz_attempts').select('topic, score, total').eq('user_id', userId).gte('created_at', istMidnightUtc(daysAgo)).lt('created_at', istMidnightUtc(daysAgo - 1)),
     db.from('applications').select('company, role').eq('user_id', userId).eq('applied_at', today),
   ])
 
@@ -41,7 +49,9 @@ export async function gatherTodayActivityLines(db: SupabaseClient, userId: strin
   const codingSolved = (codingRes.data ?? []).some(q => q.completed)
   if (codingSolved) lines.push('Solved today\'s coding question')
 
-  const dailyRead = (resourcesRes.data ?? []).find(r => isMarkedToday(r) && r.status === 'completed')
+  const dailyRead = (resourcesRes.data ?? []).find(r =>
+    !!r.notes?.startsWith(DAILY_READ_NOTE_PREFIX) && toISTDateStr(r.created_at) === today && r.status === 'completed'
+  )
   if (dailyRead) lines.push(`Read today's article: "${dailyRead.title}"`)
 
   const metric = metricRes.data
