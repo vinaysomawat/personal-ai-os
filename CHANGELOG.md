@@ -5,6 +5,8 @@ append here whenever you deploy, same cadence as the version bump.
 
 ## 2026-08-23
 
+- Coding: replaced each daily-pick card's separate "Open" button with a small external-link icon beside the question title; "Mark Solved"/"Mark Answered" is now the full-width button alone (the link icon stays visible even after a question is completed).
+- Coding: the whole daily-pick card body is now clickable to open the question link in a new tab, not just the small icon.
 - Dashboard: Life Score v2 — every module score is now a blend of today's quality-aware daily score and its trailing-7-day average (60/40), instead of a pure daily snapshot that could sit high forever just because something was logged, regardless of whether the value was actually good (the bug that prompted this: eating well over a fat-loss calorie target didn't move the score).
 - Health's sub-score now reuses the real nutrition/activity calorie-and-protein-accuracy formula instead of a presence-only "was something logged" check.
 - Finance's sub-score bands are smoothed (no more 15-point cliff at 90% of budget); Career's sub-score now rewards recurring activity (quiz attempts in the last 30 days, job alerts tracked into applications) instead of one-time static fillers; Coding's sub-score weights algorithm/system-design questions higher than quiz/JS-function/UI-coding picks.

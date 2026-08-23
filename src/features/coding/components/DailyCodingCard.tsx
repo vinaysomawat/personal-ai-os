@@ -46,26 +46,26 @@ export default function DailyCodingCard({ initialAssignment }: Props) {
         ) : (
           <div className="flex-1 flex flex-col gap-[var(--grid-gap-sm)]">
             {assignment.map(a => (
-              <div key={a.id} className="flex-1 flex flex-col">
+              <div key={a.id} onClick={() => window.open(a.question.url, '_blank', 'noopener,noreferrer')}
+                className="flex-1 flex flex-col cursor-pointer">
                 <p className="text-[11px] text-fg-tertiary uppercase tracking-[0.4px] mb-1.5">Algorithm</p>
-                <p className={`text-[14px] font-semibold ${a.completed ? 'text-fg-tertiary line-through' : 'text-fg-primary'}`}>
-                  {a.question.title} <span className={`text-[11px] font-medium ${DIFFICULTY_COLOR[a.question.difficulty]}`}>{a.question.difficulty}</span>
-                </p>
+                <div className="flex items-start gap-1.5">
+                  <p className={`text-[14px] font-semibold flex-1 min-w-0 ${a.completed ? 'text-fg-tertiary line-through' : 'text-fg-primary'}`}>
+                    {a.question.title} <span className={`text-[11px] font-medium ${DIFFICULTY_COLOR[a.question.difficulty]}`}>{a.question.difficulty}</span>
+                  </p>
+                  <a href={a.question.url} target="_blank" rel="noopener noreferrer" aria-label="Open question" onClick={e => e.stopPropagation()}
+                    className="shrink-0 text-fg-quaternary hover:text-accent transition-colors mt-0.5">
+                    <ExternalLink size={13} />
+                  </a>
+                </div>
                 {a.question.topics && a.question.topics.length > 0 && (
                   <p className="text-[12.5px] text-fg-tertiary mt-0.5 truncate">{a.question.topics.join(', ')}</p>
                 )}
-                <div className="flex items-center gap-2 mt-auto pt-2.5">
-                  <a href={a.question.url} target="_blank" rel="noopener noreferrer"
-                    className="flex-1 flex items-center justify-center gap-1.5 bg-surface-1 border border-border-strong rounded-[8px] px-3 py-[9px] text-[12px] text-fg-primary hover:border-accent/40 transition-colors">
-                    <span>Open</span>
-                    <ExternalLink size={12} />
-                  </a>
-                  {!a.completed && (
-                    <button onClick={() => setOutcomeFor(a)} disabled={isPending} className="flex-1 px-3.5 py-2 rounded-[7px] bg-good text-on-good text-[12.5px] font-semibold hover:opacity-90 disabled:opacity-50 transition-colors">
-                      Mark Solved
-                    </button>
-                  )}
-                </div>
+                {!a.completed && (
+                  <button onClick={e => { e.stopPropagation(); setOutcomeFor(a) }} disabled={isPending} className="mt-auto w-full py-2 rounded-[7px] bg-good text-on-good text-[12.5px] font-semibold hover:opacity-90 disabled:opacity-50 transition-colors">
+                    Mark Solved
+                  </button>
+                )}
               </div>
             ))}
           </div>

@@ -48,19 +48,20 @@ export default function TodaysPickCard({ title, pick }: { title: string; pick: D
         {item.completed ? 'Answered' : 'Pending'}
       </span>
     }>
-      <p className="text-[11px] text-fg-tertiary uppercase tracking-[0.4px] mb-1.5">{categoryLabel}</p>
-      <p className={`text-[14px] font-semibold ${item.completed ? 'text-fg-tertiary line-through' : 'text-fg-primary'}`}>
-        {item.question.title} <span className={`text-[11px] font-medium ${DIFFICULTY_COLOR[item.question.difficulty]}`}>{item.question.difficulty}</span>
-      </p>
-      <div className="flex items-center gap-2 mt-auto pt-2.5">
-        <a href={item.question.url} target="_blank" rel="noopener noreferrer"
-          className="flex-1 flex items-center justify-center gap-1.5 bg-surface-2 border border-border-strong rounded-[8px] px-3 py-[9px] text-[12px] text-fg-primary hover:border-accent/40 transition-colors">
-          <span>Open</span>
-          <ExternalLink size={12} />
-        </a>
+      <div onClick={() => window.open(item.question.url, '_blank', 'noopener,noreferrer')} className="flex-1 flex flex-col cursor-pointer">
+        <p className="text-[11px] text-fg-tertiary uppercase tracking-[0.4px] mb-1.5">{categoryLabel}</p>
+        <div className="flex items-start gap-1.5">
+          <p className={`text-[14px] font-semibold flex-1 min-w-0 ${item.completed ? 'text-fg-tertiary line-through' : 'text-fg-primary'}`}>
+            {item.question.title} <span className={`text-[11px] font-medium ${DIFFICULTY_COLOR[item.question.difficulty]}`}>{item.question.difficulty}</span>
+          </p>
+          <a href={item.question.url} target="_blank" rel="noopener noreferrer" aria-label="Open question" onClick={e => e.stopPropagation()}
+            className="shrink-0 text-fg-quaternary hover:text-accent transition-colors mt-0.5">
+            <ExternalLink size={13} />
+          </a>
+        </div>
         {!item.completed && (
-          <button onClick={() => setShowOutcome(true)} disabled={isPending}
-            className="flex-1 px-3.5 py-2 rounded-[7px] bg-good text-on-good text-[12.5px] font-semibold hover:opacity-90 disabled:opacity-50 transition-colors">
+          <button onClick={e => { e.stopPropagation(); setShowOutcome(true) }} disabled={isPending}
+            className="mt-auto w-full py-2 rounded-[7px] bg-good text-on-good text-[12.5px] font-semibold hover:opacity-90 disabled:opacity-50 transition-colors">
             Mark Answered
           </button>
         )}
