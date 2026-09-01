@@ -8,7 +8,7 @@ import EmptyState from '@/components/EmptyState'
 import StatCard from '@/components/StatCard'
 import ModuleRecommendations from '@/components/ModuleRecommendations'
 import { useAIAdvisor, useAIAdvisorOpen } from '@/components/AIAdvisorProvider'
-import { addTask, toggleTask, deleteTask } from '../actions'
+import { addTask, toggleTask, deleteTask, deleteCompletedTasks } from '../actions'
 import { getExecutiveSummaryData, type ExecutiveSummaryData } from '@/features/brain/advisor'
 import { logAdvisorUsage } from '@/lib/advisor-usage'
 import { daysAgoIST, toISTDateStr } from '@/lib/date'
@@ -202,6 +202,7 @@ export default function PlannerView({ initialTasks }: Props) {
   const [isPending, startTransition] = useTransition()
   const [plannerFilter, setPlannerFilter] = useState<PlannerFilter>('all')
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
+  const [confirmClearCompleted, setConfirmClearCompleted] = useState(false)
 
   const [optimisticTasks, updateOptimisticTasks] = useOptimistic(
     initialTasks,
@@ -214,6 +215,9 @@ export default function PlannerView({ initialTasks }: Props) {
       if (action.type === 'delete') {
         const p = action.payload as Partial<Task>
         return state.filter(t => t.id !== p.id)
+      }
+      if (action.type === 'clear-completed') {
+        return state.filter(t => !t.done)
       }
       return state
     }
@@ -306,6 +310,14 @@ export default function PlannerView({ initialTasks }: Props) {
     setConfirmDeleteId(null)
   }
 
+  const confirmClearAllCompleted = () => {
+    setConfirmClearCompleted(false)
+    startTransition(async () => {
+      updateOptimisticTasks({ type: 'clear-completed', payload: {} })
+      await deleteCompletedTasks()
+    })
+  }
+
   const advisorOpen = useAIAdvisorOpen()
   const advisorPortal = useAIAdvisor('Plan Coach', Sparkles, (
     <ModuleRecommendations moduleLabel="Planner" context={plannerContext} isOpen={advisorOpen} />
@@ -395,7 +407,12 @@ export default function PlannerView({ initialTasks }: Props) {
             <summary className="text-xs text-fg-tertiary cursor-pointer select-none list-none">
               Completed ({done.length})
             </summary>
-            <ul className="flex flex-col gap-1.5 mt-2">
+            <div className="flex justify-end mt-2">
+              <button onClick={() => setConfirmClearCompleted(true)} className="text-[11px] text-fg-quaternary hover:text-red-400 transition-colors">
+                Clear Completed
+              </button>
+            </div>
+            <ul className="flex flex-col gap-1.5 mt-1">
               {done.map(task => (
                 <CompletedTaskRow key={task.id} task={task} onToggle={handleToggle} onDelete={setConfirmDeleteId} />
               ))}
@@ -482,6 +499,15 @@ export default function PlannerView({ initialTasks }: Props) {
           description="This task will be permanently removed."
           onConfirm={confirmDelete}
           onCancel={() => setConfirmDeleteId(null)}
+        />
+      )}
+
+      {confirmClearCompleted && (
+        <ConfirmDialog
+          title="Clear all completed tasks?"
+          description={`${done.length} completed task${done.length === 1 ? '' : 's'} will be permanently removed.`}
+          onConfirm={confirmClearAllCompleted}
+          onCancel={() => setConfirmClearCompleted(false)}
         />
       )}
     </div>

@@ -5,6 +5,7 @@ append here whenever you deploy, same cadence as the version bump.
 
 ## 2026-09-01
 
+- Planner: added "Clear Completed" — bulk-deletes every completed task (UI + DB) after one confirm, instead of requiring one delete-and-confirm per task.
 - Planner: "Pending Tasks by Day" now shows the cumulative pending-task backlog by real calendar day (last 7 days), instead of a per-weekday-name histogram that reset every week and never showed actual dates.
 
 ## 2026-08-24

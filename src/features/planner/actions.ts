@@ -113,3 +113,20 @@ export async function deleteTask(id: string) {
   if (error) throw new Error(error.message)
   revalidatePath('/planner')
 }
+
+// Bulk "Clear Completed" — deletes every done task in one round trip rather
+// than requiring one confirm-and-delete per row (impractical once completed
+// count reaches the hundreds). Coding/Health/Learning's own linked rows
+// (coding_daily_questions/daily_workouts/resources.task_id) use `on delete
+// set null`, so this can't leave a dangling FK — those rows just lose their
+// task link, same as deleting one task at a time already does.
+export async function deleteCompletedTasks() {
+  const supabase = await createClient()
+  const { error } = await supabase
+    .from('tasks')
+    .delete()
+    .eq('done', true)
+
+  if (error) throw new Error(error.message)
+  revalidatePath('/planner')
+}
