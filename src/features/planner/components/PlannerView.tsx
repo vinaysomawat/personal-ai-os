@@ -11,6 +11,7 @@ import { useAIAdvisor, useAIAdvisorOpen } from '@/components/AIAdvisorProvider'
 import { addTask, toggleTask, deleteTask } from '../actions'
 import { getExecutiveSummaryData, type ExecutiveSummaryData } from '@/features/brain/advisor'
 import { logAdvisorUsage } from '@/lib/advisor-usage'
+import { daysAgoIST, toISTDateStr } from '@/lib/date'
 import type { Task, Priority, Recurrence } from '../types'
 
 function ExecutiveSummaryTrigger() {
@@ -119,8 +120,15 @@ const PRIORITY_CHIP: Record<Priority, string> = {
   low: 'bg-surface-2 text-fg-tertiary',
 }
 
-// Monday-first, matching the Claude Design source's Pending Tasks by Day chart.
-const WEEKDAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+// "Mon 18" — a short weekday+day-of-month label for Pending Tasks by Day's
+// x-axis. Parses the "YYYY-MM-DD" IST calendar-date string as UTC midnight
+// (not the local timezone) so the weekday/day-of-month read back exactly the
+// date daysAgoIST() produced, same trick todayISTLabel() uses in lib/date.ts.
+function dayLabel(dateStr: string): string {
+  const d = new Date(dateStr + 'T00:00:00Z')
+  const weekday = d.toLocaleDateString('en-US', { weekday: 'short', timeZone: 'UTC' })
+  return `${weekday} ${d.getUTCDate()}`
+}
 
 // A task's "relevant month" is its due_date's month if set, else the month
 // it was created in — so undated tasks implicitly belong to the month they
@@ -228,13 +236,21 @@ export default function PlannerView({ initialTasks }: Props) {
   }, {})
   const areaEntries = Object.entries(byArea).sort((a, b) => b[1] - a[1])
 
-  // Deterministic, client-side from the same `pending` list — no new query.
-  // Buckets by weekday CREATED, not due_date: almost no task ever gets a
-  // due_date (the web Add Task form has no due-date field; only the
-  // Telegram bot's add_task sets one), so grouping by due_date left this
-  // chart empty for virtually everyone. created_at is always populated.
-  const pendingByDayCounts = WEEKDAY_LABELS.map((_, i) =>
-    pending.filter(t => (new Date(t.created_at).getDay() + 6) % 7 === i).length
+  // Cumulative pending-task backlog by day (changed 2026-08-24, was a
+  // per-weekday-name histogram aggregated across all history — e.g. every
+  // Wednesday ever, reset each week). Deterministic, client-side from the
+  // same `pending` list — no new query. X-axis is the last 7 actual calendar
+  // days; each bar is the running total of CURRENTLY pending tasks created on
+  // or before that day. Not a true historical backlog reconstruction — tasks
+  // have no completed_at, so a task completed since day D can't be added
+  // back into that day's count — but the closest achievable proxy: how
+  // today's backlog actually built up over time by creation date. Buckets by
+  // created_at (not due_date): almost no task ever gets a due_date (the web
+  // Add Task form has no due-date field; only the Telegram bot's add_task
+  // sets one), so due_date would leave this chart empty for virtually everyone.
+  const last7Days = Array.from({ length: 7 }, (_, i) => daysAgoIST(6 - i))
+  const pendingByDayCounts = last7Days.map(day =>
+    pending.filter(t => toISTDateStr(t.created_at) <= day).length
   )
   const pendingByDayMax = Math.max(1, ...pendingByDayCounts)
 
@@ -436,12 +452,13 @@ export default function PlannerView({ initialTasks }: Props) {
 
       {/* Pending Tasks by Day — deterministic bar chart, added 2026-08-18
           per the Claude Design source, paired in the same right column as
-          By Area. Bucketed by created-at weekday (see pendingByDayCounts
-          above), not due_date. */}
+          By Area. Cumulative running total of currently-pending tasks by
+          creation date, last 7 calendar days (see pendingByDayCounts above),
+          not due_date. */}
       <Card title="Pending Tasks by Day">
         <div className="flex items-end gap-2" style={{ height: 100 }}>
           {pendingByDayCounts.map((count, i) => (
-            <div key={i} className="flex-1 flex flex-col items-center justify-end h-full gap-1">
+            <div key={last7Days[i]} className="flex-1 flex flex-col items-center justify-end h-full gap-1">
               <span className="text-[11px] font-bold text-fg-secondary">{count}</span>
               <div
                 className="w-full max-w-[32px] rounded-t-[4px] bg-accent"
@@ -451,8 +468,8 @@ export default function PlannerView({ initialTasks }: Props) {
           ))}
         </div>
         <div className="flex gap-2 mt-1.5">
-          {WEEKDAY_LABELS.map(label => (
-            <p key={label} className="flex-1 text-center text-[10px] text-fg-tertiary">{label}</p>
+          {last7Days.map(day => (
+            <p key={day} className="flex-1 text-center text-[10px] text-fg-tertiary">{dayLabel(day)}</p>
           ))}
         </div>
       </Card>

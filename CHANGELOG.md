@@ -3,6 +3,10 @@
 One line per shipped change, newest first. Sourced from commit messages —
 append here whenever you deploy, same cadence as the version bump.
 
+## 2026-09-01
+
+- Planner: "Pending Tasks by Day" now shows the cumulative pending-task backlog by real calendar day (last 7 days), instead of a per-weekday-name histogram that reset every week and never showed actual dates.
+
 ## 2026-08-24
 
 - Dashboard: fixed Evening Reflection disappearing at midnight — it now stays visible until 5am the next morning, and correctly reflects on yesterday's activity (not the just-started, nearly-empty new day) when viewed post-midnight.
