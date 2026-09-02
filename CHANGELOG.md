@@ -3,6 +3,10 @@
 One line per shipped change, newest first. Sourced from commit messages —
 append here whenever you deploy, same cadence as the version bump.
 
+## 2026-09-02
+
+- Fixed the Finance Telegram bot's "monthly summary" command silently failing for every 30-day month (April, June, September, November) and February — it hardcoded the query's upper date bound to the 31st, which isn't a valid date for those months, so Postgres rejected the whole query and the bot fell back to "No expenses in {month}."
+
 ## 2026-09-01
 
 - Planner: added "Clear Completed" — bulk-deletes every completed task (UI + DB) after one confirm, instead of requiring one delete-and-confirm per task.

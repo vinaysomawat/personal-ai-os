@@ -81,7 +81,14 @@ export async function execute(action: Record<string, unknown>, db: SupabaseClien
 
     case 'summary': {
       const m = (action.month as string) ?? month
-      const { data } = await db.from('expenses').select('amount, category').eq('user_id', userId).gte('date', `${m}-01`).lte('date', `${m}-31`)
+      // Exclusive upper bound at the 1st of the *next* month, not a hardcoded
+      // `-31` — that broke every 30-day month (Apr/Jun/Sep/Nov) and February,
+      // since e.g. "2026-09-31" isn't a valid date and Postgres rejects the
+      // whole query, silently producing "No expenses in {m}." instead of a
+      // real summary.
+      const [y, mo] = m.split('-').map(Number)
+      const nextMonth = mo === 12 ? `${y + 1}-01-01` : `${y}-${String(mo + 1).padStart(2, '0')}-01`
+      const { data } = await db.from('expenses').select('amount, category').eq('user_id', userId).gte('date', `${m}-01`).lt('date', nextMonth)
       if (!data?.length) return `No expenses in ${m}.`
       const byCategory: Record<string, number> = {}
       data.forEach(e => { byCategory[e.category] = (byCategory[e.category] ?? 0) + e.amount })
