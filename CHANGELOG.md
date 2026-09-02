@@ -5,6 +5,7 @@ append here whenever you deploy, same cadence as the version bump.
 
 ## 2026-09-02
 
+- Fixed the floating Quick Add button (+) permanently overlapping content at the true bottom of a page's scroll (e.g. Coding's "Recommended for You", Finance's "Just Added") — increased the shared page wrapper's bottom padding to clear the button's full fixed-position footprint on both mobile and desktop.
 - Finance: "Just Added" now stretches to match "By Category"'s height instead of sitting far shorter with dead space below it.
 - Fixed the Finance Telegram bot's "monthly summary" command silently failing for every 30-day month (April, June, September, November) and February — it hardcoded the query's upper date bound to the 31st, which isn't a valid date for those months, so Postgres rejected the whole query and the bot fell back to "No expenses in {month}."
 
