@@ -397,8 +397,11 @@ export default function FinanceView({ expenses, budgets, profile, loans, investm
 
       <PageTabs tabs={FINANCE_TABS} active={activeTab} onChange={setActiveTab} />
 
-      {/* By Category (left) + Just Added (right) — this month's actual spend. */}
-      {activeTab === 'expenses' && <div className="grid grid-cols-1 lg:grid-cols-2 gap-[var(--grid-gap)] items-start">
+      {/* By Category (left) + Just Added (right) — this month's actual spend.
+          No items-start here (unlike other card-pair rows) — Just Added
+          should stretch to match By Category's height, not size to its own
+          shorter content and leave dead space in the grid cell. */}
+      {activeTab === 'expenses' && <div className="grid grid-cols-1 lg:grid-cols-2 gap-[var(--grid-gap)]">
         <Card title="By Category" action={
           <button onClick={() => setModal('expense')} className="px-3.5 py-[7px] rounded-[7px] bg-accent text-white text-[12.5px] font-semibold hover:bg-accent/80 transition-colors whitespace-nowrap">
             + Add Expense
@@ -490,7 +493,7 @@ export default function FinanceView({ expenses, budgets, profile, loans, investm
           {localExpenses.length === 0 ? (
             <EmptyState icon={Receipt} message="No expenses this month" compact cta={{ label: 'Add', onClick: () => setModal('expense') }} />
           ) : (
-            <ul className="space-y-0.5 max-h-32 overflow-y-auto">
+            <ul className="space-y-0.5 flex-1 min-h-32 overflow-y-auto">
               {localExpenses.map(exp => (
                 <li key={exp.id} className="flex items-center gap-2.5 p-1 rounded-lg hover:bg-surface-2 transition-colors group">
                   <span className={`text-xs px-1.5 py-0.5 rounded-full font-medium shrink-0 ${CATEGORY_COLOR[exp.category]}`}>{exp.category}</span>

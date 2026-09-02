@@ -5,6 +5,7 @@ append here whenever you deploy, same cadence as the version bump.
 
 ## 2026-09-02
 
+- Finance: "Just Added" now stretches to match "By Category"'s height instead of sitting far shorter with dead space below it.
 - Fixed the Finance Telegram bot's "monthly summary" command silently failing for every 30-day month (April, June, September, November) and February — it hardcoded the query's upper date bound to the 31st, which isn't a valid date for those months, so Postgres rejected the whole query and the bot fell back to "No expenses in {month}."
 
 ## 2026-09-01
