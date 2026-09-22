@@ -18,16 +18,18 @@ export interface Resource {
   estimated_minutes: number | null
 }
 
-// AI-recommended resource — deliberately has no `url`. Suggested-resources.ts's
-// curated list is hand-verified (each URL checked live); an AI-generated URL
-// risks looking plausible while being fake. The UI opens the existing Add
-// Resource form pre-filled with this data instead of inserting it directly,
-// so a real URL always comes from the user, never the model.
+// AI-recommended resource. `url` is web-search-verified (see study-plan.ts's
+// recommendResources — the model must confirm a real page exists before
+// including it, never guess) rather than model-invented; still nullable
+// since search can genuinely turn up nothing. The UI opens the existing Add
+// Resource form pre-filled with this data (including the url, if found)
+// instead of inserting it directly, so it's always reviewable before saving.
 export interface RecommendedResource {
   title: string
   type: ResourceType
   category: string
   reason: string
+  url: string | null
 }
 
 // Graded multiple-choice quiz — same shape as Career's QuizQuestion, mirrored

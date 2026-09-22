@@ -98,12 +98,13 @@ export default function LearningView({ initialResources, initialQuizAttempts }: 
   const [addedSuggestionUrls, setAddedSuggestionUrls] = useState<Set<string>>(new Set())
   const [dismissedCuratedUrls, setDismissedCuratedUrls] = useState<Set<string>>(new Set())
 
-  // AI-recommended resources — no url (see RecommendedResource), so "+ Add"
-  // opens the Add Resource form pre-filled instead of inserting directly.
+  // AI-recommended resources — url is web-search-verified but may still be
+  // null (see RecommendedResource), so "+ Add" opens the Add Resource form
+  // pre-filled instead of inserting directly.
   const [aiSuggestions, setAiSuggestions] = useState<RecommendedResource[]>([])
   const [aiSuggestionsLoading, setAiSuggestionsLoading] = useState(false)
   const [handledAiTitles, setHandledAiTitles] = useState<Set<string>>(new Set())
-  const [prefill, setPrefill] = useState<{ title: string; type: ResourceType; category: string; notes: string } | null>(null)
+  const [prefill, setPrefill] = useState<{ title: string; type: ResourceType; category: string; notes: string; url: string | null } | null>(null)
 
   useEscapeKey(() => {
     if (showForm) setShowForm(false)
@@ -190,12 +191,13 @@ export default function LearningView({ initialResources, initialQuizAttempts }: 
     }
   }
 
-  // AI suggestions never carry a URL — open the Add Resource form pre-filled
-  // instead of inserting directly, so the user supplies (or skips) a real link.
-  // Only marked "handled" on actual submit (see the form below), not on open,
-  // so cancelling the modal leaves the suggestion available to add later.
+  // AI suggestions carry a web-search-verified URL when found (may still be
+  // null) — open the Add Resource form pre-filled so it's reviewable/editable
+  // before saving, rather than inserting directly. Only marked "handled" on
+  // actual submit (see the form below), not on open, so cancelling the modal
+  // leaves the suggestion available to add later.
   const handleAddAiSuggestion = (s: RecommendedResource) => {
-    setPrefill({ title: s.title, type: s.type, category: s.category, notes: s.reason })
+    setPrefill({ title: s.title, type: s.type, category: s.category, notes: s.reason, url: s.url })
     setShowForm(true)
   }
 
@@ -446,8 +448,8 @@ export default function LearningView({ initialResources, initialQuizAttempts }: 
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className={modalLabelClass}>URL{prefill && ' — AI-suggested, verify before pasting a link'}</label>
-                  <input name="url" type="url" placeholder="https://..." className={modalInputClass()} />
+                  <label className={modalLabelClass}>URL{prefill && (prefill.url ? ' — AI-found via web search, verify before saving' : ' — AI found no verified link, paste one if you have it')}</label>
+                  <input name="url" type="url" defaultValue={prefill?.url ?? ''} placeholder="https://..." className={modalInputClass()} />
                 </div>
                 <div>
                   <label className={modalLabelClass}>Est. time (min)</label>

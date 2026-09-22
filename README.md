@@ -197,6 +197,7 @@ Was a personal full-text knowledge base (`title`/`content`/`tags`/`summary`, two
 Each module is its own Telegram bot (own `TELEGRAM_BOT_TOKEN_*`), all pointed at one webhook (`src/app/api/telegram/[module]/route.ts` → `src/features/telegram/handler.ts`).
 
 **Processing pipeline:**
+
 1. Only messages from `TELEGRAM_ALLOWED_CHAT_ID` are accepted (single-user, single-chat system).
 2. A daily AI-call cap (`TELEGRAM_DAILY_AI_CAP`, default 300) counted from `telegram_logs` protects against runaway spend — once hit, the bot replies with a quota message and skips processing entirely for the rest of the day.
 3. **Voice messages** are transcribed first via Groq's `whisper-large-v3-turbo` (needs `GROQ_API_KEY`) before anything else happens.
@@ -206,6 +207,7 @@ Each module is its own Telegram bot (own `TELEGRAM_BOT_TOKEN_*`), all pointed at
 7. Every interaction (module, chat id, message, parsed action(s), reply) is logged to `telegram_logs`, non-fatal on logging failure.
 
 **Cross-cutting bot features:**
+
 - **Undo/amend**: every bot supports `undo_last` (deletes/reverts the most recent write for that module — task, expense, application, ad-hoc workout log, resource, or coding-question/reading completion); Finance additionally supports `amend_expense` (corrects just the amount on the most recent expense).
 - **Reminders**: Planner can `set_reminder`/`list_reminders`/`delete_reminder` (writes the `reminders` table used by Settings, §9).
 - **Inline buttons**: adding a task attaches a "✅ Mark Done" button; tapping it completes the task (and syncs Coding's daily question or a Learning resource if linked) without going through the AI layer at all. Every "add" action across 5 of the 7 bots — Planner, Career, Finance, Health, Learning (task, application, expense, loan, investment, ad-hoc workout log, learning resource) — also attaches an "↩️ Undo" button (`src/lib/telegram/buttons.ts`); Coding and Astrology don't attach one (Coding's `complete_question`/`undo_last` and Astrology's read-mostly command set have no equivalent "add" action to undo). Unlike the `undo_last` text command, which always targets the most-recently-created row, the button encodes the specific row's id in its `callback_data`, so tapping it later (after newer items were added) still undoes the correct one, not whatever's newest at tap time. An explicit table allowlist (`UNDOABLE_TABLES`) guards the generic `undo:<table>:<id>` callback handler in `handler.ts` against acting on an unexpected table.
@@ -214,7 +216,7 @@ Each module is its own Telegram bot (own `TELEGRAM_BOT_TOKEN_*`), all pointed at
 **Per-module natural-language capabilities:**
 
 | Bot | Example phrases | Actions |
-|---|---|---|
+| --- | --- | --- |
 | **Planner** | "add buy groceries high priority", "show pending tasks", "done with buy groceries", "delete buy groceries", "undo that", "how am I doing" (briefing), "how was my week" (digest), "how was my month" (monthly digest), "executive summary" (cross-module score + AI suggestions), "remind me to log weight every morning" | add/list/complete/delete/undo task, morning briefing, weekly/monthly digest, executive summary, reminder CRUD |
 | **Career** | "applied to Google as Frontend Engineer", "Google moved me to interview", "show all applications", "add note to Google: good culture fit", "pipeline summary", "am I ready for a staff role?", "undo that" | add/update-status/list/undo application, add note, status summary, free-form AI mentor Q&A |
 | **Finance** | "spent 500 on Swiggy food", "show today's expenses", "monthly summary", "set food budget 8000", "actually make that 400" (amend), "undo that", "net worth", "my salary is 120000", "add home loan 20L EMI 15000 180 months", "add investment Axis Bluechip invested 50000 current 65000", "can I afford a car?", *[receipt photo]* | expense add/list/undo/amend, monthly summary, set budget/salary, add loan/investment, net-worth snapshot, free-form AI advisor Q&A, receipt-photo expense capture |
@@ -231,7 +233,7 @@ Defined in `vercel.json`, all protected by `Authorization: Bearer $CRON_SECRET`,
 **Self-monitoring**: every job below calls `logCronRun(supabase, '<job-name>')` (`src/lib/cron-log.ts`) right after its auth check passes, writing a row to `cron_runs` — proof the route executed past `CRON_SECRET`, independent of whatever the rest of the job does. `getCronJobHealth()` (same file) reads that table and classifies each job `healthy`/`stale`/`never-seen` against its own cadence (26h for daily jobs, 8 days for the Sunday-only `weekly-digest`) — shared by two consumers: `cron-health-check` (below), which Telegram-alerts on any `stale` job so a repeat of the `CRON_SECRET` outage gets caught within a day instead of going undiagnosed, and Settings' System Health card (§9), which shows the same data passively. A job with **no history at all yet** (e.g. `weekly-digest` before its first Sunday since this table existed) is `never-seen`, not alarmed on — there's no prior "healthy" baseline for it to have gone stale from. **`EXPECTED_CRON_JOBS`** (same file) is the actual watch list both consumers read — kept current with `vercel.json`'s registered crons; a 2026-07-23 audit found it was missing `daily-journal`, `learning-tip`, and `cron-health-check` itself (which also didn't call `logCronRun` for its own run, making it invisible to the very monitoring system it implements) — both gaps are now fixed, so a silent failure in any of the 12 registered jobs is actually catchable (was 12 after the SIP-contribution cron was deleted alongside SIP tracking, 2026-08-10 — see the Investments entry above — up to 13 with `astrology-daily`, §13 — then back to 12 once `recurring-expenses` was removed with the rest of Recurring Expenses, 2026-08-20).
 
 | Job | Schedule (UTC / IST) | Sends via | What it does |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | `daily-briefing` | `0 3 * * *` (~8:30am IST) | Planner bot | Recomputes today's Life Score vs. yesterday's, has Claude write a <120-word morning message, appends any active morning Reminders. Always sends. Also appends **Automation Rules** (Phase 3 PRD) — deterministic "if X then suggest Y" checks, `computeAutomationRules()` in the route itself: (1) yesterday's logged calories ≥15% over the target `computeHealthPlan()` (Health's own daily-targets calculation, reused as-is) would have set for that day → suggests lighter meals today; (2) any application at `status = 'interview'` → suggests a lighter workout and extra revision time. A coarser stand-in for the PRD's literal "interview *tomorrow*" — there's no interview-date field anywhere in the schema (only pipeline `status`), so this fires for the whole time an application sits at that stage rather than one day before, by design (an ongoing state worth reinforcing daily, not stale data to suppress). Two of the PRD's four example rules ("salary credited → suggest SIP," "weekend free → recommend trekking") are left out — both need data no integration currently provides (a real salary-credit event, Calendar-derived free time). Also appends the **Risk Engine** (Phase 4 PRD) — `computeRiskEngine()`, forward-looking deterministic checks (no fabricated probability numbers; severity is a plain `high`/`medium`/`low` impact tier off real thresholds): (1) this month's spend pace projected to the month's end, flagged once projected overage is ≥5% of budget; (2) a protein-intake decline, last-3-days avg vs. the prior 3 days, flagged at ≥20% drop; (3) an open coding streak — `computeCodingStats()` (reused as-is from the Coding module) `currentStreak` > 0 with today's question still unsolved. Each risk includes a one-line suggested action. Also appends the **Opportunity Engine** (Phase 4 PRD) — `computeOpportunityEngine()`, the positive-signal counterpart to the Risk Engine: ≥3 active interview-stage applications → suggests batch-scheduling extra interview practice to capitalize on the momentum, distinct from Automation Rules' single-application "lighter workout" suggestion above. Only one of the PRD's four example opportunities is buildable without an integration — "free Saturday → book a trek" and "salary credited → invest" need Calendar/Gmail (same blockers as Phase 3), "three weeks without leave → take a break" needs leave-tracking that doesn't exist anywhere in the app. The AI paragraph is also persisted to `daily_briefings` for §1's Morning Brief, and `computeAutomationRules`/`computeRiskEngine`/`computeOpportunityEngine` were extracted into `src/features/brain/risk-opportunity-engine.ts` (from inline in this route) once the Dashboard needed to call the same checks. All the thresholds/ratios named above (5%/15%/25% budget tiers, 20% protein-decline, 7-day streak, 15% calorie overage, 3-application momentum) live as named constants in `src/lib/thresholds.ts` (consolidated 2026-08-20, previously inline magic numbers scattered across this file) — that's the one place to look to see or tune every signal's sensitivity. |
 | `daily-coding` | `5 3 * * *` (~8:35am IST) | Coding bot | Generates/fetches today's coding assignment; on a revision day, surfaces up to 3 incomplete past questions instead of going silent. Skipped if `coding_settings.telegram_notify = false`. Appends a "Tip of the day" from `coding_tips` (see `health-tip` below for the shared rotation mechanism). |
 | `daily-read` | `20 3 * * *` (~8:50am IST) | Learning bot | Generates/fetches today's daily read via `ensureDailyRead()` (curated pool first, AI fallback once exhausted, §6) and sends it. Route/cron-log job name kept as `daily-read`, not `trending-reading` (its pre-2026-08-10 name, back when this lived on the Coding page). |
@@ -257,6 +259,7 @@ Every AI call in the app funnels through one function: `askAI(task, prompt, syst
 **AI feature files** (`src/features/ai/`), all going through the gateway: `career-mentor.ts`, `finance-advisor.ts`, `health-report.ts` (includes `askHealthCoach`, the Health bot's free-form Q&A), `coding-mentor.ts` (the Coding bot's free-form Q&A — recent streak/solved-questions/readings as context), `study-plan.ts`, `weekly-digest.ts`, `recommendations.ts` (the generic recommendations widget behind Plan Coach, Code Mentor, and half of Health Coach/Study Coach — wired into Planner, Health, Learning, and Coding only; Career and Finance have a dedicated mentor/advisor instead), `executive-summary.ts` (Planner bot's "executive summary" action — composes `generateWeeklyDigest` + one consolidated `getModuleRecommendations` call spanning every module at once, rather than a separate AI call per module; no new Gateway task, both underlying calls already route through `weekly_digest`/`module_recommendations`).
 
 **Personal Brain** (`src/features/brain/`, Phase 2 PRD, cross-module rather than per-module): `context-builder.ts` reshapes `getDashboardData()`'s existing aggregate query into the PRD's stated context shape (no new queries beyond the two below); `calculations.ts` has `explainScore()` (deterministic, feeds Explain My Score above); `prompts.ts` + `advisor.ts` have `askBrain()` (the `brain_qa` task) and `askBrainDecision()` (the `brain_decision` task, strict-JSON structured output), feeding Ask Brain's Ask/Decide tabs above; `advisor.ts`'s `getWeeklyReflection()` is self-contained (creates its own supabase client + `auth.getUser()`, unlike the two above which take an already-built context prop) and feeds the Reflect tab; `getMonthlyReview(context)` takes the caller's `BrainContext` for its Career/Finance-total/Learning/Coding fields but is otherwise self-contained the same way, feeding the Monthly tab — see the Ask Brain entry above for what both do.
+
 - **Pattern Detection** (`signals.ts`) — deterministic-only checks (Product Principle 2; AI is never used to compute a pattern, only to narrate one elsewhere) run weekly from the `weekly-digest` cron, four so far (Phase 3 PRD's "Weekly Pattern Mining"): workout day-of-week concentration (≥40% of last 90 days' workouts on one weekday, min. 3); a weekend protein drop (weekend avg <75% of weekday avg, needs ≥4 weekday + ≥2 weekend logged days); coding time-of-day skew (≥65% of the last 60 days' solves in one half of the day, min. 6, using `toISTHour` on `coding_daily_questions.completed_at`); and a workout→same-day-coding correlation (coding completion rate on workout days is ≥20 points higher than on rest days, min. 4 days each side). (A fifth pattern, sleep→next-day-coding correlation, was removed 2026-08-13 along with the rest of Sleep tracking — see §5.) Three more of the PRDs' example patterns (overspend-after-salary, interview-performance-vs-sleep, workout-drop-during-travel) are explicitly left out because they need data no integration currently provides (a real salary-*credit* event, interview outcomes, travel/calendar detection — Calendar/Gmail/GitHub integrations aren't planned, see `PRDs/phase3.md`'s git history for why). Matches persist to `brain_patterns` (see Database) via `upsert(onConflict: user_id,pattern)`, incrementing `times_confirmed`/`last_seen` on repeat detection so patterns genuinely accumulate rather than reset each run. `context-builder.ts`'s `weeklyPatterns` only surfaces patterns confirmed more than once (`times_confirmed > 1`) and seen in the last 30 days, so a one-off fluke isn't presented as an established pattern. `monthlyPatterns` stays an empty placeholder — no monthly-cadence pattern job exists yet.
 - **Memory** — rather than a new store (Core Principle 1: the Brain never owns data), `career_profile`'s existing `current_role`/`current_company`/`target_role`/`current_salary` columns are read straight through into the context (the `career_profile` query in `getDashboardData()` was widened to select these, no new query). **Memory Evolution** (Phase 3 PRD) widened this further with Goals: `getDashboardData()` now also queries `financial_goals` (name, target/current amount, target date), threaded through as `BrainContext.finance.goals` and surfaced in Ask Brain's Ask/Decide context and Monthly Executive Review's — e.g. asking "what are my financial goals" correctly cites the real ₹ amounts and % progress, never invented ones. **Executive Memory** (Phase 4 PRD) added one more field the same way rather than inventing new speculative ones (investment philosophy, personality traits, etc. — none of the PRD's other example fields have a natural home or any feature that would actually consume them, so they were deliberately skipped): `career_profile`'s existing "Bio / Focus" free-text field (already editable on the Career page, previously never read by the Brain) is now included in `BrainContext.career.bio` and surfaced in `buildContextSummary` — e.g. asking "what's my career focus" now correctly reflects whatever the user actually wrote there.
 - **Goal Engine — removed entirely (2026-08-11).** Originally a Phase 4 PRD feature: cross-module goals for Career/Learning/Coding (`src/features/goals/`, a *separate* `goals` table from `financial_goals`, which kept its own UI throughout). Its UI (`GoalsCard.tsx` and the write actions `addGoal`/`updateGoalProgress`/`toggleGoalAchieved`/`deleteGoal`) was deleted 2026-08-10, leaving only read paths (`getGoals()`, `resolveAutoMetric()`, `checkGoalProgress()`, `crossModuleGoals` threading into Ask Brain) with no way to ever create a new goal — a personal-backlog audit flagged this as "silently half-alive" (no usable feature, just dead weight in every page load that touched it), and the decision was to rip out the remaining code rather than resurrect a minimal add-goal UI. Removed: the whole `src/features/goals/` directory, `checkGoalProgress`'s Today's Focus signal, `crossModuleGoals` from `BrainContext`/`getDashboardData()`/`buildContextSummary`, and the `goalsContext` parameter (and its prompt text) from `recommendQuizTopic`/`recommendCodingQuestions`. The `goals` table itself was dropped in a 2026-08-20 schema-debt cleanup migration, along with the other deliberately-orphaned schema mentioned throughout this doc (SIP columns, `health_profile`'s `target_weight_kg`/`goal_deadline`, `coding_quiz_attempts`, `resume_versions`, `trending_readings`) — see Database below.
@@ -537,6 +540,7 @@ compatibility/matching charts and Muhurta lookups remain explicitly out of scope
 ## Architecture
 
 **Thin page + feature view pattern:**
+
 - `src/app/[route]/page.tsx` — async server component, fetches data, passes to view
 - `src/features/[module]/components/[Module]View.tsx` — `'use client'` component, owns all interactivity
 - `src/features/[module]/actions.ts` — `'use server'` functions (CRUD via Supabase)
@@ -545,12 +549,14 @@ compatibility/matching charts and Muhurta lookups remain explicitly out of scope
 **Optimistic UI:** mutations use `useOptimistic` + `useTransition` so the UI updates instantly before the server confirms.
 
 **Supabase clients:**
+
 - `src/lib/supabase/server.ts` — server components and server actions (cookies-based, RLS-scoped to the logged-in user)
 - `src/lib/supabase/client.ts` — client components (browser)
 - `src/lib/supabase/service.ts` — service-role client (used by cron jobs and the Telegram webhook — bypasses RLS since those code paths run without a browser session)
 - `src/lib/supabase/middleware.ts` — session refresh + redirect logic, wired in root `src/middleware.ts` (matcher excludes `/api`, `_next/static`, `_next/image`, favicon, and image assets — so Telegram/cron webhooks are never gated by the browser auth check). Unauthenticated users on a page route are redirected to `/login`; authenticated users hitting `/login` are redirected to `/planner` (the authenticated landing page — distinct from `/dashboard`).
 
 **Loading / error states:**
+
 - `src/app/[route]/loading.tsx` — skeleton shown while the server fetches data
 - `src/app/[route]/error.tsx` — error boundary with a "Try again" reset button
 
@@ -567,7 +573,7 @@ Standard pattern: `user_id uuid references auth.users` + 4 RLS policies (select/
 **Schema-debt cleanup (2026-08-20):** this app previously had a policy of leaving orphaned tables/columns in place rather than migrating them away once a feature was removed — each individual call made sense at the time, but it accumulated into real cognitive load (every future reader had to re-learn which columns were dead). A single pass (`20260820b_schema_debt_cleanup.sql`, `20260820c_drop_interview_qa.sql`) dropped everything confirmed to have zero remaining code readers: the `goals`, `coding_quiz_attempts`, `resume_versions`, `trending_readings`, and `interview_qa` tables outright, plus `investments`' 4 SIP columns, `health_metrics.sleep_hours`/`water_ml`, and `health_profile.target_weight_kg`/`goal_deadline`. Two of these (`trending_readings`, `health_profile`'s two columns) still had live — if functionally pointless — reads/writes in `planner/actions.ts`, `telegram/handler.ts`, `health/actions.ts`, `health/types.ts`, and `HealthProfileForm.tsx`; those references were removed in the same change, before the drop. Going forward, the standing rule is: when a feature is fully removed, drop its schema in the same change rather than leaving it "for backward compatibility" — nothing in this single-user app's history has ever actually needed an orphaned column back.
 
 | Table | Key columns |
-|---|---|
+| --- | --- |
 | `tasks` | text, done, priority, area, due_date, recurrence |
 | `applications` | company, role, status, salary_range, location, url, notes, applied_at, resume_version_id, job_description, jd_analysis (jsonb) |
 | `career_profile` | current_role, current_company, current_salary, target_role, years_experience, bio (one row/user) |
@@ -644,6 +650,7 @@ This app is a single-user system — there's no way around some manual setup and
    Either way, then **lock down signups** in Supabase (Authentication → Sign In / Providers) — turn off the sign-up-enabled setting so `/login`'s "Sign up" button can no longer create new accounts.
 7. Copy your user's UUID from Supabase Dashboard → Authentication → Users, and add it to your Vercel project's environment variables as `SUPABASE_USER_ID`, then redeploy — cron jobs and the Telegram bots use this to know whose data to act on.
 8. *(Optional, for Telegram)* Create one bot per module you want via [@BotFather](https://t.me/BotFather), set the resulting `TELEGRAM_BOT_TOKEN_*` env vars, message any of your new bots once to learn your chat ID (e.g. via [@userinfobot](https://t.me/userinfobot)) and set `TELEGRAM_ALLOWED_CHAT_ID`, redeploy, then run:
+
    ```bash
    node scripts/setup-webhooks.mjs https://your-app.vercel.app
    ```
@@ -668,7 +675,7 @@ Everything below is extracted directly from `tailwind.config.js`, `globals.css`,
 **Color tokens** (`tailwind.config.js` + `globals.css` `.dark` block):
 
 | Token | Hex | Used for |
-|---|---|---|
+| --- | --- | --- |
 | `surface` (DEFAULT) | `#0f0f13` | page/app background |
 | `surface-1` | `#16161d` | card/panel background |
 | `surface-2` | `#1e1e2a` | input fields, hover backgrounds, inset chrome |
@@ -681,6 +688,7 @@ Everything below is extracted directly from `tailwind.config.js`, `globals.css`,
 Chart-specific CSS vars (`globals.css`): `--chart-1` `#7c6af7` (purple), `--chart-2` `#34d399` (green), `--chart-3` `#60a5fa` (blue), `--chart-4` `#f59e0b` (amber), `--chart-5` `#f87171` (red) — though in practice the recharts components below hardcode their own per-series hex values rather than reading these vars.
 
 **Semantic colors** (plain Tailwind palette, no custom tokens — used consistently across every module for the same meaning):
+
 - **Green** (`text-green-400`/`500`, `bg-green-500/15`) — positive/healthy/completed/gain/achieved/offer status
 - **Red** (`text-red-400`, `bg-red-500/15` or `/10`) — negative/over-budget/danger/rejected/missed/high-priority
 - **Amber** (`text-amber-400`, `bg-amber-500/15`) — warning/medium-priority/screening status/partial progress
@@ -703,6 +711,7 @@ Below `md:`, the same `TopNav` component additionally renders a fixed bottom bar
 **Modal shell** (used identically everywhere a modal appears — Add Application, Add Loan/Investment/Goal/Expense, Health Profile, Coding Settings, Outcome picker, New Reminder, quizzes): full-screen `bg-black/60` backdrop, centered panel `bg-surface-1 border border-surface-3 rounded-xl p-6` (`max-w-sm` for simple forms, `max-w-md`/`max-w-lg` for richer ones like quizzes), fade+zoom-in entrance, header row = title + `X` close, dismissible via Escape key or backdrop click.
 
 **Shared primitives**:
+
 - **Card** (`bg-surface-1 border border-surface-3 rounded-xl`, default `p-4` padding, usually overridden to `p-3.5`) — the base wrapper for nearly every widget on every page. Optional uppercase title row with a right-aligned `action` slot (a button, icon, or filter toggle).
 - **EmptyState** — centered icon (slate-700) + message (slate-600) + optional accent CTA button with a `Plus` icon; a `compact` variant reduces vertical padding for use inside an already-titled Card.
 - **StatCard** — centered big number (`text-2xl font-bold`) over a small label, used for all summary-stat rows (Planner's Pending/High Priority/Overdue/Completed, Learning's Total/In Progress/Completed/Streak, etc).
@@ -712,6 +721,7 @@ Below `md:`, the same `TopNav` component additionally renders a fixed bottom bar
 - **Route-level error state** (`error.tsx`, identical on every page): centered `AlertCircle` icon (red, 60% opacity) + "Something went wrong" heading + a "Try again" button.
 
 **Charts**: every chart in the app is `recharts`, always lazy-loaded via `next/dynamic({ ssr: false })` behind a pulsing placeholder block (never blocks initial page paint) — Dashboard's Life Score Trend, Health's Health Trend, Finance's Spending History (a bar chart + a category pie/legend). (Coding's Difficulty Progression chart was removed 2026-08-10, §7.) All colors/fonts/spacing are read from one shared config module, `src/lib/chart-theme.ts` (grid stroke, axis tick style, tooltip box class, and a 5-color chart palette on `--chart-1..5`), rather than repeated per component — built during a 2026-08-10 chart-fidelity pass against the design's actual chart markup (`audit/CHARTS-AUDIT.md` has the full per-property audit). Key specifics per chart, since the design turned out to specify real per-chart behavior rather than one shared recipe:
+
 - **Life Score Trend** — an `AreaChart` (line + `var(--accent-soft)` fill, not a bare line), `type="linear"` (straight segments, not smoothed), a **dynamic Y domain** (the series' own min/max with a small padding margin, not a fixed 0–100 scale, so a narrow score range still fills the chart height instead of flattening near the middle), 3 fixed `ReferenceLine`s at the domain's min/mid/max standing in for gridlines, and **persistent point dots in Weekly view only** (Monthly shows none) — matching the design's own `isTrendWeekly`-gated dot rendering exactly, not a hover-only `activeDot`.
 - **Spending History bar chart** — no gridlines, no axis line, an explicit `domain={[0, 'dataMax']}` (bars scale to the exact 12-month max, no recharts "nice number" headroom), all 12 month labels shown (not every-other).
 - **Spending History pie** — a **solid pie, no donut hole** (`innerRadius={0}`) and `paddingAngle={0}` (segments are contiguous, no gaps) — matches the design's literal `conic-gradient` circle. Category colors are a fixed 5-name lookup (`Housing`/`Bills`/`Transport`/`Food`/`Entertainment` → `--chart-1..5`, the design's own mapping) with every other category falling back to `var(--border-strong)`, not the old per-category rainbow of hardcoded hex.
@@ -729,7 +739,9 @@ The two ring/gauge visualizations (Dashboard's big Life Score ring, Health's Hea
 Exact current layout of every page, top to bottom, for design-tool consumption. Cross-reference the **Design System** section above for the color/component vocabulary used below, and the numbered module sections (§1–§9) above for what each element *does* — this section only covers what's visually *on screen*.
 
 ### Dashboard (`/dashboard`)
+
 Single column (`space-y-3`), most rows a two-up grid (`lg:grid-cols-2`) that stacks on mobile — matches `DashboardView.tsx`'s actual render order exactly:
+
 1. Header row: `Dashboard` page title (left) + status line (right, same row, no name) — `flex justify-between`, wraps stacked only on narrow viewports. Changed 2026-08-18 per the Claude Design source: `"{Weekday, Month Day} · {dashaLord}/{antardashaLord} dasha"` (the dasha segment links to `/astrology`, §13) once a birth chart exists, replacing the plain `"... · Good morning/afternoon/evening"` greeting it showed before; falls back to the greeting text if no chart exists yet. The standalone Astrology strip that used to render below Top Priority (see next line's prior wording) was removed the same day — its tithi/nakshatra detail was dropped from the Dashboard entirely (still lives on the Astrology page itself), only the dasha lords survived, folded into this header line.
 2. **Top Priority banner** (conditional) — one risk-tinted row (`bg-risk-soft border-risk-border`), the whole row itself is the click target (links to the relevant module — no separate "Open X →" button), single-line via `truncate` so it never wraps to a second line
 3. **Life Score card** + **Quick Stats** side by side (`lg:grid-cols-[340px_1fr]`) — the Life Score card is just the ring (click opens the "Explain My Score" modal) + a "Click ring to explain score" caption, nothing else in it; Quick Stats is its own separate 4-tile row (Coding Streak, Workout Streak, Budget Remaining, Workout Today — was 5 with Learning Streak until it was removed 2026-08-21 along with study-time logging, §6) filling the wide column next to it — there's no combined "hero" card bundling the ring with module-score rings
@@ -745,6 +757,7 @@ Two more pieces render app-wide from the root layout, not from `DashboardView.ts
 (The 6-tile Modules grid that used to render below Recent Bot Activity was removed 2026-08-12 — redundant with Quick Stats/Module Scores already surfacing per-module signal higher up the page.)
 
 ### Planner (`/planner`)
+
 1. Date label
 2. Stats row — 4 `StatCard`s: Pending, High Priority (red), Overdue (amber), Completed (green), `grid-cols-2 sm:grid-cols-4`
 3. Two-column row (`lg:grid-cols-5`, stacks on mobile): **Today's Tasks** (`lg:col-span-3`) + a right column (`lg:col-span-2`) stacking **By Area** and **Pending Tasks by Day**
@@ -755,7 +768,9 @@ Two more pieces render app-wide from the root layout, not from `DashboardView.ts
 5. **Executive Summary** — a pill trigger next to the page title (`◆ Executive Summary`), opening a full-height right-side **drawer** (`position: fixed`, dimming overlay) — same family as the `AIAdvisorProvider` drawer and Ask Brain, not a small dropdown (an earlier version was a top-right absolute dropdown with no overlay; the component's own comment documents the switch): weekly per-module scorecard bars, a reflection paragraph, this-month spend-by-category, and cross-module recommendations
 
 ### Career (`/career`)
+
 Header (title + active-applications/interview badges) and the Career Mentor advisor stay always visible. Below that, 3 sub-areas are tabbed (`PageTabs.tsx`, shared with Finance below), not stacked full-width — added 2026-08-20 per the density rule that a page with 5+ distinct sub-areas belongs in tabs, not one long scroll (Career was already cited as the canonical example for this rule; the actual page just hadn't been converted yet). **Job Alerts is deliberately not one of the tabs** (un-tabbed 2026-08-21) — it's a passive daily feed, not a section to toggle in/out of view, so it always renders as its own card directly below Applications regardless of which tab is active:
+
 1. **Applications** tab (default) — 5-button status filter row (counts + labels, color-coded per status) above a list card; each row is collapsible to reveal a JD preview, AI JD-analysis (required/missing skills, match-%, priority topics, company focus) and an on-demand Interview Guidance lookup (labeled "Company-specific" or "General guidance") — screening/interview-status rows start expanded, others collapsed
 2. **Job Alerts** — always-visible card directly below Applications (outside the tab system, see above), best-score first (added 2026-08-20, was newest-first): company · title · parsed salary (when found) · a "Top Fit" badge (score ≥70), a row of matched-skill tags below when any matched, short date, an external-link icon to the posting, and a "Track" button that opens Add Application pre-filled (or a green "✓ Applied" badge if that company's already tracked)
 3. **Interview Prep** tab — a recommended-topic banner (accent box) above a 10-tile topic grid (`grid-cols-2 sm:grid-cols-3 lg:grid-cols-5`), each tile showing a readiness badge (Not Started/Needs Work/Developing/Ready/Strong, color-coded) and last score
@@ -766,7 +781,9 @@ Header (title + active-applications/interview badges) and the Career Mentor advi
 (The Goals card was removed 2026-08-10 — Career was the last page rendering `GoalsCard`, so the whole component was deleted; the rest of the Cross-Module Goal Engine's code was removed 2026-08-11 too, see §12.)
 
 ### Finance (`/finance`)
+
 Header (title + Net Worth/3mo-avg-spend badges), the over-budget banner, and the 4 stat tiles stay always visible; the rest is tabbed (`PageTabs.tsx`, same shared component as Career above) — added 2026-08-20, replacing an arbitrary By-Category-paired-with-everything-else 2-column grid with 4 semantically grouped tabs:
+
 1. Header row — title + a "📊 3mo avg spend" chip
 2. Over-budget alert banner (conditional, red) — names the specific over-budget category and the exact overage amount, not just an aggregate figure
 3. Stat tiles — 4 cards (`grid-cols-2 sm:grid-cols-4`, no card title/heading above them): Monthly Salary (maskable), Portfolio (with gain/loss), Total Debt, Net Worth
@@ -778,7 +795,9 @@ Header (title + Net Worth/3mo-avg-spend badges), the over-budget banner, and the
 9. 4 shared-shell modals for adding a Loan/Investment/Goal/Expense, render regardless of active tab
 
 ### Health (`/health`)
+
 No Health Trend chart exists in the current code (no chart component anywhere in `src/features/health/components/`) — if this is wanted, it'd be new work, not a documentation gap. Actual render order:
+
 1. Header row — title + Health Score badge (conditional, `{overall}/100 · {tier}`) + a workout-status badge
 2. Health Profile setup banner (pre-profile only) — once a profile exists, editing moves to a link on the Health Score card instead
 3. **Today's Metrics** — 4 always-editable stat tiles (Weight/Calories/Protein/Steps), a top-level row on their own (not wrapped in a "Today's Metrics" card, and not paired with anything below), each with weekly-avg subtext and a "left of target" hint
@@ -788,6 +807,7 @@ No Health Trend chart exists in the current code (no chart component anywhere in
 7. **Health Coach** panel (Header-triggered): Recommendations tab + Weekly Report tab
 
 ### Learning (`/learning`)
+
 1. Header — title + in-progress badge (a study-streak badge sat alongside it until 2026-08-21, when study-time logging was removed entirely)
 2. Stats row — Total, In Progress, Completed (`grid-cols-3` — was a 4th "Streak" tile until 2026-08-21)
 3. **Weak Areas by Category** (conditional once ≥1 quiz exists), full-width — average quiz score per category, worst-first, tiered bar (green ≥75%, amber ≥50%, red below). (Paired side by side with a Study Calendar from 2026-08-21 until that same day's later removal of study-time logging — the Calendar and the pairing are both gone now, not just reverted to standalone.)
@@ -798,6 +818,7 @@ No Health Trend chart exists in the current code (no chart component anywhere in
 8. **Study Coach** panel (Header-triggered): Recommendations tab + Daily Plan tab
 
 ### Coding (`/coding`)
+
 1. Header — title + streak/assignment-mode badges
 2. Stats row — Streak, Solved, Completion rate, Assignment (+ a settings-gear popover: mode, questions/day, Telegram toggle)
 3. **Weak Areas** card (conditional) + **Contribution Calendar** side by side, Weak Areas at half width. When no weak-area data exists yet (needs ≥2-attempt topics), the Calendar takes the full row alone. The calendar has a one-line streak/active summary (`"🔥 {current} current · {best} best streak · {active%} active this month"`, recomputed per visible month), then a compact GitHub-style single-month grid of blank 16px colored squares (today ring, selectable-day detail line, dashed future days, colored-square legend) with prev/next nav.
@@ -810,17 +831,20 @@ No Health Trend chart exists in the current code (no chart component anywhere in
 (Difficulty Progression chart was removed from this page 2026-08-10 — see §7.)
 
 ### Settings (`/settings`)
+
 1. **Account** — one row: signed-in email on the left, "Export as JSON" + "Sign out" (both bordered text buttons) grouped on the right
 2. **AI Budget** + **System Health** side by side (`lg:grid-cols-2`) — AI Budget shows Today/This Month as progress bars (3-tier color: accent → warn past 70% → risk past 90%) plus a spend-by-module breakdown (added 2026-08-20) and a top-5 spend-by-feature breakdown; System Health has a header status badge ("All healthy" / "N stale") and lists all 13 cron jobs, sorted stale-first, each with a colored status dot (good/healthy, risk/stale, gray/never-run) and a relative last-run time (bold + risk-colored when stale)
 3. **Reminders** — a list of label + module + morning/evening, plain 🔔/🔕 emoji toggle (reflects active/inactive, not time-of-day), always-visible "✕" delete; "New Reminder" modal (label input, module select, two Morning/Evening toggle buttons) to add one
 
 ### Astrology (`/astrology`)
+
 Reached via the profile dropdown (not a top-level nav pill), plus the mobile "More" sheet.
 Matched against the Claude Design source's `Dashboard.dc.html` (project
 `040b5aee-a63a-4215-afee-fa1e00b56f95`) as of 2026-08-14. A small text-only EN/हिं pill button
 sits next to the page title (top-right, no icon) — persists to `localStorage`, translates all
 static chrome via `i18n/hi.ts`, and re-fetches every reading/characteristics/gochara state in
 the selected language (§13).
+
 1. **Birth Details** card — compact inline-editable field grid (Career Profile's density, not a
    standalone form), a pencil icon opens all fields together for editing (interdependent — the
    chart is a function of all of them at once, unlike Career's independent per-field saves);

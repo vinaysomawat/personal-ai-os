@@ -155,6 +155,15 @@ interface AskAIOptions {
   /** Image content is always unique — never cached, regardless of the task's configured TTL */
   image?: ImageInput
   /**
+   * Grants Claude the server-side web_search tool for this call, capped at
+   * this many searches — for tasks that need a real, verified URL rather
+   * than risking a fabricated one. Each search's result content counts as
+   * normal input tokens (often 10-50x a non-search call), so keep this as
+   * tight as the task's real need (e.g. 2 for "find one article's URL", not
+   * a generous default) — omit entirely to disable web search.
+   */
+  webSearchMaxUses?: number
+  /**
    * Per-call override of the task's configured cacheTTLSeconds — for the one
    * case in the app (astrology_reading) where the correct TTL genuinely
    * varies per call rather than being fixed per task (daily/monthly/yearly
@@ -220,7 +229,7 @@ export async function askAIWithMeta(task: AITask, prompt: string, system?: strin
   }
 
   try {
-    const { text, inputTokens, outputTokens } = await callClaude(prompt, system, config.model, opts.image)
+    const { text, inputTokens, outputTokens } = await callClaude(prompt, system, config.model, opts.image, opts.webSearchMaxUses)
     const cost = estimateCost(config.model, inputTokens, outputTokens)
     await logUsage(db, userId, task, config.model, inputTokens, outputTokens, cost, false)
     const generatedAt = now()
