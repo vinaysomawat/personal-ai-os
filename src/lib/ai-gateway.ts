@@ -118,14 +118,15 @@ const MONTHLY_BUDGET_USD = Number(process.env.AI_MONTHLY_BUDGET_USD ?? 50)
 
 // Telegram intent/vision parsing is what "the app" means for someone
 // actively texting a bot — a background cron task (a digest, a daily-read
-// pick) spending unevenly earlier in the day must never be able to fully
-// starve that. These tasks alone may spend up to the full daily budget;
-// every other task is checked against a lower ceiling that reserves this
-// fraction of the day's budget exclusively for interactive traffic. Without
-// this, one oversized non-interactive call earlier in the day silently
-// kills every Telegram bot until midnight, indistinguishable from a bug in
-// the bot itself (see the recommend_daily_read web-search incident this
-// guarded against — a single call over 80k input tokens).
+// pick) spending unevenly earlier in the month/day must never be able to
+// fully starve that. These tasks alone may spend up to the full daily *and*
+// monthly budget; every other task is checked against a lower ceiling on
+// both axes that reserves this fraction exclusively for interactive
+// traffic. Without this, one oversized non-interactive call earlier in the
+// day (or a heavy month of digests) silently kills every Telegram bot until
+// the ceiling resets, indistinguishable from a bug in the bot itself (see
+// the recommend_daily_read web-search incident this guarded against — a
+// single call over 80k input tokens).
 const INTERACTIVE_TASKS: ReadonlySet<AITask> = new Set(['telegram_intent', 'telegram_vision'])
 const INTERACTIVE_RESERVE_FRACTION = 0.3
 
@@ -168,15 +169,6 @@ interface AskAIOptions {
   /** Image content is always unique — never cached, regardless of the task's configured TTL */
   image?: ImageInput
   /**
-   * Grants Claude the server-side web_search tool for this call, capped at
-   * this many searches — for tasks that need a real, verified URL rather
-   * than risking a fabricated one. Each search's result content counts as
-   * normal input tokens (often 10-50x a non-search call), so keep this as
-   * tight as the task's real need (e.g. 2 for "find one article's URL", not
-   * a generous default) — omit entirely to disable web search.
-   */
-  webSearchMaxUses?: number
-  /**
    * Per-call override of the task's configured cacheTTLSeconds — for the one
    * case in the app (astrology_reading) where the correct TTL genuinely
    * varies per call rather than being fixed per task (daily/monthly/yearly
@@ -198,6 +190,11 @@ export interface AskAIResult {
    * that" apart from "AI budget is exhausted right now" (e.g. the Telegram
    * handler) should check this rather than pattern-matching on `text`. */
   budgetExhausted?: boolean
+  /** Which ceiling actually triggered `budgetExhausted` — absent when
+   * `budgetExhausted` is false/undefined. A caller showing a "resets at
+   * midnight" message needs to know this was the daily reserve and not the
+   * monthly ceiling (which resets on the 1st, not tonight). */
+  budgetScope?: 'daily' | 'monthly'
 }
 
 /**
@@ -239,17 +236,33 @@ export async function askAIWithMeta(task: AITask, prompt: string, system?: strin
 
   const todayStart = istMidnightUtc()
   const monthStart = istDateStrToUtcMidnight(todayIST().slice(0, 7) + '-01')
-  const [dailySpend, monthlySpend] = await Promise.all([
-    spendSince(db, userId, todayStart),
-    spendSince(db, userId, monthStart),
-  ])
-  const dailyLimit = INTERACTIVE_TASKS.has(task) ? DAILY_BUDGET_USD : DAILY_BUDGET_USD * (1 - INTERACTIVE_RESERVE_FRACTION)
-  if (dailySpend >= dailyLimit || monthlySpend >= MONTHLY_BUDGET_USD) {
-    return { text: config.fallback, generatedAt: now(), budgetExhausted: true }
+  // Fail-open on a spend-lookup error (matches this function's own contract,
+  // restated in the try/catch below, that no page or cron job should ever
+  // break because an AI-adjacent call failed) — a transient DB blip here
+  // shouldn't itself block every AI call in the app for the rest of the day.
+  let dailySpend = 0
+  let monthlySpend = 0
+  try {
+    ;[dailySpend, monthlySpend] = await Promise.all([
+      spendSince(db, userId, todayStart),
+      spendSince(db, userId, monthStart),
+    ])
+  } catch {
+    // Spend unknown — proceed as if nothing's been spent yet rather than
+    // throwing out of the gateway.
+  }
+  const isInteractive = INTERACTIVE_TASKS.has(task)
+  const dailyLimit = isInteractive ? DAILY_BUDGET_USD : DAILY_BUDGET_USD * (1 - INTERACTIVE_RESERVE_FRACTION)
+  const monthlyLimit = isInteractive ? MONTHLY_BUDGET_USD : MONTHLY_BUDGET_USD * (1 - INTERACTIVE_RESERVE_FRACTION)
+  if (dailySpend >= dailyLimit) {
+    return { text: config.fallback, generatedAt: now(), budgetExhausted: true, budgetScope: 'daily' }
+  }
+  if (monthlySpend >= monthlyLimit) {
+    return { text: config.fallback, generatedAt: now(), budgetExhausted: true, budgetScope: 'monthly' }
   }
 
   try {
-    const { text, inputTokens, outputTokens } = await callClaude(prompt, system, config.model, opts.image, opts.webSearchMaxUses)
+    const { text, inputTokens, outputTokens } = await callClaude(prompt, system, config.model, opts.image)
     const cost = estimateCost(config.model, inputTokens, outputTokens)
     await logUsage(db, userId, task, config.model, inputTokens, outputTokens, cost, false)
     const generatedAt = now()

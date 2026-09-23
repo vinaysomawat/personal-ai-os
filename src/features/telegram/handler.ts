@@ -215,6 +215,7 @@ export async function handleUpdate(moduleName: ModuleName, update: TelegramUpdat
 
   let actions: Record<string, unknown>[] = [{ action: 'help' }]
   let budgetExhausted = false
+  let budgetScope: 'daily' | 'monthly' | undefined
 
   try {
     const todayStr = todayIST()
@@ -223,6 +224,7 @@ export async function handleUpdate(moduleName: ModuleName, update: TelegramUpdat
       ? await askAIWithMeta('telegram_vision', text, `${(mod as { VISION_PROMPT?: string }).VISION_PROMPT}${dateInstruction}`, { userId, image })
       : await askAIWithMeta('telegram_intent', text, `${mod.SYSTEM_PROMPT}${dateInstruction}\n\nIf the message describes multiple distinct instructions (e.g. "workout 45 min, drank 2L, finished chapter 3"), return a JSON array of action objects instead of a single object — one per instruction, each in the exact shape defined above.`, { userId })
     budgetExhausted = result.budgetExhausted ?? false
+    budgetScope = result.budgetScope
     const parsed = extractActions(result.text)
     if (parsed.length > 0) actions = parsed
   } catch {
@@ -231,16 +233,21 @@ export async function handleUpdate(moduleName: ModuleName, update: TelegramUpdat
 
   // Distinguish "AI budget is exhausted for today" from "I didn't understand
   // that" — both used to fall back to the same {"action":"help"} shape,
-  // which made a budget cutoff look identical to a bot bug.
+  // which made a budget cutoff look identical to a bot bug. The monthly
+  // ceiling resets on the 1st, not tonight, so it needs its own wording —
+  // otherwise a monthly cutoff would falsely promise the bot is back by
+  // midnight.
   if (budgetExhausted) {
-    const reply = `⏸️ AI budget for today is used up — resets at midnight IST. This message wasn't processed.`
+    const reply = budgetScope === 'monthly'
+      ? `⏸️ AI budget for this month is used up — resets on the 1st. This message wasn't processed.`
+      : `⏸️ AI budget for today is used up — resets at midnight IST. This message wasn't processed.`
     await sendMessage(token, chatId, reply)
     try {
       await db.from('telegram_logs').insert({
         module: moduleName,
         telegram_chat_id: chatId,
         message: text,
-        action_taken: { action: 'budget_exhausted' },
+        action_taken: { action: 'budget_exhausted', scope: budgetScope ?? 'daily' },
         response: reply,
       })
     } catch {

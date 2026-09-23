@@ -18,9 +18,10 @@ export const isMarkedToday = (r: Pick<Resource, 'notes' | 'created_at'>) =>
 // (each article is only ever picked once, unlike the old trending/core.ts
 // rotation this replaces, which restarted and repeated once exhausted). Only
 // once every curated article is already in the resource list does this fall
-// back to an AI suggestion (recommendDailyRead — a self-reported URL, not
-// web-search-verified, see that function; null if the model isn't confident
-// one exists).
+// back to an AI suggestion (recommendDailyRead — title/category/reason only;
+// its self-reported url is discarded below rather than trusted, since this
+// pick gets no human review before reaching the user, unlike the curated
+// pool's real, hand-verified links above).
 // Idempotent per day: bails out if a daily-read-marked resource created
 // today already exists, so this is safe to call from both the page load and
 // the daily cron without double-adding.
@@ -47,7 +48,13 @@ export async function ensureDailyRead(supabase: SupabaseClient, userId: string, 
     const ai = await recommendDailyRead(resources)
     if (!ai || existingTitles.has(ai.title)) return null
     title = ai.title
-    url = ai.url
+    // Discard the model's self-reported url rather than trust it as a real
+    // link — unlike the curated pool above, this pick gets no human review
+    // before going out (auto-inserted here, then pushed verbatim by the
+    // daily-read cron/Telegram reply), so an unverified guess would reach
+    // the user presented as a confirmed link. null renders as "search for
+    // it" instead (see modules/learning.ts's today's-read reply).
+    url = null
     category = ai.category
     estimatedMinutes = ai.estimatedMinutes
     notes = `${DAILY_READ_NOTE_PREFIX} ${ai.reason}`
