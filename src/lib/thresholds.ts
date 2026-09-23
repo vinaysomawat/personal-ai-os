@@ -57,3 +57,11 @@ export const LIFE_SCORE_THRESHOLDS = {
   } as Record<string, number>,
   codingWeightedMultiplier: 3.2,
 } as const
+
+export const FINANCE_THRESHOLDS = {
+  // Finance page's over-budget banner ignores a category overage smaller
+  // than this fraction of its budget — e.g. an EMI that runs ₹420 over a
+  // ₹35,000 budget is rounding noise, not something to alarm on every month.
+  // The category row's own "Over" badge still shows it.
+  overBudgetBannerMinRatio: 0.02,
+} as const

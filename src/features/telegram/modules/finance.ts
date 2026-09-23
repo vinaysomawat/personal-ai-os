@@ -2,11 +2,12 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import type { ModuleReply } from '@/lib/telegram/types'
 import { undoButton } from '@/lib/telegram/buttons'
 import { todayIST, daysAgoIST } from '@/lib/date'
+import { loanOutstanding } from '@/features/finance/calculations'
 
 export const SYSTEM_PROMPT = `You are the Finance bot for Personal OS. Parse the user message and return ONLY a JSON action.
 
 Actions:
-{"action":"add_expense","amount":500,"category":"Food"|"Transport"|"Housing"|"Health"|"Shopping"|"Entertainment"|"Learning"|"Utilities"|"EMIs"|"Bills"|"Other","description":"what it was for","date":"YYYY-MM-DD"}
+{"action":"add_expense","amount":500,"category":"Food"|"Transport"|"Housing"|"Health"|"Shopping"|"Entertainment"|"Learning"|"Utilities"|"EMIs"|"Bills"|"Family"|"Travel"|"Other","description":"what it was for","date":"YYYY-MM-DD"}
 {"action":"list_expenses","period":"today"|"week"|"month"}
 {"action":"summary","month":"YYYY-MM"}
 {"action":"set_budget","category":"Food","amount":5000}
@@ -22,7 +23,10 @@ Actions:
 Rules:
 - amount is always a number (strip ₹, Rs, commas)
 - Default date: today
-- Default category: "Other"
+- Default category: "Other" — only when nothing else fits
+- Money given to relatives/family (e.g. "given to mummy", "pocket money", gifts or shagun to someone) → Family
+- Trips, hotels, flights, train/bus tickets for travel → Travel
+- Groceries, milk, eggs, fruit, vegetables, meat, eating out → Food
 - For "net worth" or "how much do I have" → net_worth
 - For "my salary is X" or "I earn X" → set_salary
 - For "add loan" / "I have an EMI of" → add_loan
@@ -31,10 +35,10 @@ Rules:
 - For "undo that", "delete that", "remove the last one", "oops ignore that" → undo_last`
 
 export const VISION_PROMPT = `You are the Finance bot for Personal OS, looking at a photo of a receipt or bill. Read the total amount and pick the best category. Return ONLY a JSON action:
-{"action":"add_expense","amount":<number>,"category":"Food"|"Transport"|"Housing"|"Health"|"Shopping"|"Entertainment"|"Learning"|"Utilities"|"EMIs"|"Bills"|"Other","description":"merchant or item name","date":"YYYY-MM-DD"}
+{"action":"add_expense","amount":<number>,"category":"Food"|"Transport"|"Housing"|"Health"|"Shopping"|"Entertainment"|"Learning"|"Utilities"|"EMIs"|"Bills"|"Family"|"Travel"|"Other","description":"merchant or item name","date":"YYYY-MM-DD"}
 Use today's date unless the receipt clearly shows a different one. If you cannot read a total amount, return {"action":"help"}.`
 
-const CE: Record<string, string> = { Food: '🍔', Transport: '🚗', Housing: '🏠', Health: '💊', Shopping: '🛍️', Entertainment: '🎬', Learning: '📚', Utilities: '💡', EMIs: '🏦', Bills: '🧾', Other: '📦' }
+const CE: Record<string, string> = { Food: '🍔', Transport: '🚗', Housing: '🏠', Health: '💊', Shopping: '🛍️', Entertainment: '🎬', Learning: '📚', Utilities: '💡', EMIs: '🏦', Bills: '🧾', Family: '👪', Travel: '✈️', Other: '📦' }
 
 export async function execute(action: Record<string, unknown>, db: SupabaseClient, userId: string): Promise<ModuleReply> {
   const today = todayIST()
@@ -132,17 +136,18 @@ export async function execute(action: Record<string, unknown>, db: SupabaseClien
     case 'net_worth': {
       const [profileRes, loansRes, investmentsRes, expensesRes] = await Promise.all([
         db.from('finance_profile').select('monthly_salary').eq('user_id', userId).single(),
-        db.from('loans').select('emi, remaining_months').eq('user_id', userId),
+        db.from('loans').select('emi, interest_rate, remaining_months').eq('user_id', userId),
         db.from('investments').select('invested_amount, current_value').eq('user_id', userId),
         db.from('expenses').select('amount').eq('user_id', userId).gte('date', daysAgoIST(90)),
       ])
       const portfolio = (investmentsRes.data ?? []).reduce((s, i) => s + Number(i.current_value), 0)
-      const debt = (loansRes.data ?? []).reduce((s, l) => s + Number(l.emi) * (l.remaining_months ?? 0), 0)
+      // Balance owed today, not emi × months (which adds all future interest).
+      const debt = (loansRes.data ?? []).reduce((s, l) => s + loanOutstanding(l), 0)
       const netWorth = portfolio - debt
       const salary = profileRes.data?.monthly_salary ?? 0
       const avgSpend = Math.round((expensesRes.data ?? []).reduce((s, e) => s + Number(e.amount), 0) / 3)
       const emis = (loansRes.data ?? []).reduce((s, l) => s + Number(l.emi), 0)
-      return `💼 *Net Worth Snapshot:*\n\nPortfolio: ₹${portfolio.toLocaleString('en-IN')}\nTotal debt: ₹${debt.toLocaleString('en-IN')}\n*Net Worth: ₹${netWorth.toLocaleString('en-IN')}*\n\n💸 Monthly: ₹${salary.toLocaleString('en-IN')} salary − ₹${emis.toLocaleString('en-IN')} EMIs − ₹${avgSpend.toLocaleString('en-IN')} avg spend = *₹${(salary - emis - avgSpend).toLocaleString('en-IN')} free*`
+      return `💼 *Net Worth Snapshot:*\n\nPortfolio: ₹${portfolio.toLocaleString('en-IN')}\nTotal debt: ₹${debt.toLocaleString('en-IN')}\n*Net Worth: ₹${netWorth.toLocaleString('en-IN')}*\n\n💸 Monthly: ₹${salary.toLocaleString('en-IN')} salary − ₹${avgSpend.toLocaleString('en-IN')} avg spend (incl. ₹${emis.toLocaleString('en-IN')} EMIs) = *₹${(salary - avgSpend).toLocaleString('en-IN')} free*`
     }
 
     case 'ask': {

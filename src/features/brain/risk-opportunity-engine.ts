@@ -3,6 +3,7 @@ import { daysAgoIST, todayIST } from '@/lib/date'
 import { computeHealthPlan } from '@/features/health/calculations'
 import { computeCodingStats } from '@/features/coding/daily-core'
 import type { HealthProfile, HealthMetric } from '@/features/health/types'
+import { projectMonthSpend } from '@/features/finance/calculations'
 import { RISK_THRESHOLDS, AUTOMATION_RULE_THRESHOLDS, OPPORTUNITY_THRESHOLDS } from '@/lib/thresholds'
 
 export interface Risk {
@@ -29,7 +30,7 @@ export const IMPACT_EMOJI: Record<Risk['impact'], string> = { high: '🔴', medi
 export async function computeRiskEngine(supabase: SupabaseClient, userId: string): Promise<Risk[]> {
   const today = todayIST()
   const [{ data: expenses }, { data: budgets }, { data: metrics }, { data: todayCoding }, codingStats] = await Promise.all([
-    supabase.from('expenses').select('amount').eq('user_id', userId).gte('date', today.slice(0, 7) + '-01'),
+    supabase.from('expenses').select('amount, category').eq('user_id', userId).gte('date', today.slice(0, 7) + '-01'),
     supabase.from('budgets').select('amount').eq('user_id', userId).eq('month', today.slice(0, 7)),
     supabase.from('health_metrics').select('date, protein_g').eq('user_id', userId).gte('date', daysAgoIST(RISK_THRESHOLDS.proteinDeclineLookbackDays)).not('protein_g', 'is', null),
     supabase.from('coding_daily_questions').select('completed').eq('user_id', userId).eq('assigned_date', today),
@@ -40,18 +41,16 @@ export async function computeRiskEngine(supabase: SupabaseClient, userId: string
 
   // Risk: on pace to exceed this month's budget.
   const monthBudget = (budgets ?? []).reduce((s, b) => s + Number(b.amount ?? 0), 0)
-  const monthSpend = (expenses ?? []).reduce((s, e) => s + Number(e.amount ?? 0), 0)
   if (monthBudget > 0) {
-    const [year, month, day] = today.split('-').map(Number)
-    const daysElapsed = day
-    const daysInMonth = new Date(Date.UTC(year, month, 0)).getUTCDate()
-    const projectedSpend = (monthSpend / daysElapsed) * daysInMonth
+    // Shared with the Finance page's pace strip so both report the same
+    // projection — a lump EMI counts once, not extrapolated per-day.
+    const { daysInMonth, projected: projectedSpend } = projectMonthSpend(expenses ?? [], today)
     const overBy = projectedSpend - monthBudget
     if (overBy / monthBudget >= RISK_THRESHOLDS.budgetOverageMinRatio) {
       const ratio = overBy / monthBudget
       risks.push({
         kind: 'budget_pace',
-        text: `At your current pace (₹${Math.round(monthSpend / daysElapsed).toLocaleString('en-IN')}/day), you're projected to spend ₹${Math.round(projectedSpend).toLocaleString('en-IN')} this month — ₹${Math.round(overBy).toLocaleString('en-IN')} over your ₹${Math.round(monthBudget).toLocaleString('en-IN')} budget.`,
+        text: `At your current pace (₹${Math.round(projectedSpend / daysInMonth).toLocaleString('en-IN')}/day), you're projected to spend ₹${Math.round(projectedSpend).toLocaleString('en-IN')} this month — ₹${Math.round(overBy).toLocaleString('en-IN')} over your ₹${Math.round(monthBudget).toLocaleString('en-IN')} budget.`,
         impact: ratio >= RISK_THRESHOLDS.budgetOverageHighImpactRatio ? 'high' : ratio >= RISK_THRESHOLDS.budgetOverageMediumImpactRatio ? 'medium' : 'low',
         action: 'Pull back discretionary spending for the rest of the month.',
       })

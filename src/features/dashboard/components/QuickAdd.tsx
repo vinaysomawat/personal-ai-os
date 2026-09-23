@@ -115,7 +115,7 @@ export default function QuickAdd() {
                 <div className="grid grid-cols-2 gap-2">
                   <input ref={inputRef} name="amount" type="number" step="0.01" required placeholder="Amount ₹" className="bg-surface-2 border border-surface-3 rounded-lg px-3 py-2.5 text-sm text-fg-primary placeholder-fg-quaternary outline-none focus:border-accent transition-colors" />
                   <select name="category" className="bg-surface-2 border border-surface-3 rounded-lg px-3 py-2.5 text-sm text-fg-secondary outline-none focus:border-accent">
-                    {['Food','Transport','Shopping','Health','Entertainment','Bills','Other'].map(c => <option key={c}>{c}</option>)}
+                    {['Food','Transport','Shopping','Health','Entertainment','Bills','Family','Travel','Other'].map(c => <option key={c}>{c}</option>)}
                   </select>
                 </div>
                 <input name="description" placeholder="Description (optional)" className="w-full bg-surface-2 border border-surface-3 rounded-lg px-3 py-2.5 text-sm text-fg-primary placeholder-fg-quaternary outline-none focus:border-accent transition-colors" />

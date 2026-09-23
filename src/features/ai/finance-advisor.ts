@@ -2,6 +2,7 @@
 
 import { askAI } from '@/lib/ai-gateway'
 import type { FinanceProfile, Loan, Investment, FinancialGoal } from '@/features/finance/types'
+import { loanOutstanding } from '@/features/finance/calculations'
 import type { PurchaseScenarioInput, PurchaseScenarioResult } from '@/features/finance/scenario-simulation'
 
 interface FinancialContext {
@@ -13,7 +14,7 @@ interface FinancialContext {
 }
 
 export async function askFinanceAdvisor(question: string, ctx: FinancialContext): Promise<string> {
-  const totalDebt = ctx.loans.reduce((s, l) => s + l.emi * (l.remaining_months ?? 0), 0)
+  const totalDebt = ctx.loans.reduce((s, l) => s + loanOutstanding(l), 0)
   const totalEMIs = ctx.loans.reduce((s, l) => s + l.emi, 0)
   const portfolio = ctx.investments.reduce((s, i) => s + i.current_value, 0)
   const invested = ctx.investments.reduce((s, i) => s + i.invested_amount, 0)
@@ -30,7 +31,7 @@ export async function askFinanceAdvisor(question: string, ctx: FinancialContext)
 - Free cash per month: ₹${freeCash.toLocaleString('en-IN')}
 - Investment portfolio: ₹${portfolio.toLocaleString('en-IN')} (invested ₹${invested.toLocaleString('en-IN')}, P&L: ₹${(portfolio - invested).toLocaleString('en-IN')})
 ${ctx.investments.map(i => `  • ${i.name} (${i.type}): invested ₹${i.invested_amount.toLocaleString('en-IN')}, current ₹${i.current_value.toLocaleString('en-IN')}`).join('\n')}
-- Total remaining debt: ₹${totalDebt.toLocaleString('en-IN')}
+- Outstanding loan principal: ₹${totalDebt.toLocaleString('en-IN')}
 - Financial goals: ${ctx.goals.map(g => `${g.name} (target ₹${g.target_amount.toLocaleString('en-IN')}, saved ₹${g.current_amount.toLocaleString('en-IN')}${g.target_date ? `, by ${g.target_date}` : ''})`).join('; ') || 'none set'}
 - Emergency fund target: ${ctx.profile?.emergency_fund_months ?? 6} months of expenses = ₹${((ctx.profile?.emergency_fund_months ?? 6) * ctx.avgMonthlyExpense).toLocaleString('en-IN')}
 

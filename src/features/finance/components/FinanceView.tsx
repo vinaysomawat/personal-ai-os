@@ -10,16 +10,18 @@ import PageTabs from '@/components/PageTabs'
 import { useAIAdvisor } from '@/components/AIAdvisorProvider'
 import { todayIST } from '@/lib/date'
 import {
-  addExpense, deleteExpense, upsertBudget,
+  addExpense, deleteExpense, upsertBudget, upsertBudgets,
   upsertProfile, addLoan, deleteLoan, updateLoanTerms,
   addInvestment, updateInvestmentValue, updateInvestmentAmount, deleteInvestment,
-  addGoal, updateGoalProgress, deleteGoal,
+  addGoal, updateGoalProgress, updateGoalTargetDate, deleteGoal,
 } from '../actions'
 import { askFinanceAdvisor } from '@/features/ai/finance-advisor'
 import ScenarioSimulator from './ScenarioSimulator'
 import SpendingHistory from './SpendingHistoryLazy'
 import PaymentCalendar from './PaymentCalendar'
 import { CATEGORIES, INVESTMENT_TYPES } from '../types'
+import { loanOutstanding, loanTotalPayable, loanPayoffMonth, goalMonthlyNeeded, projectMonthSpend, suggestBudgets, FIXED_MONTHLY_CATEGORIES } from '../calculations'
+import { FINANCE_THRESHOLDS } from '@/lib/thresholds'
 import type { Expense, Budget, FinanceProfile, Loan, Investment, FinancialGoal, InvestmentType, GoalPriority } from '../types'
 import type { PaymentCalendarDay } from '../actions'
 import { useEscapeKey } from '@/lib/use-escape-key'
@@ -33,6 +35,7 @@ const CATEGORY_COLOR: Record<string, string> = {
   Shopping: 'bg-pink-500/15 text-pink-400', Entertainment: 'bg-cyan-500/15 text-cyan-400',
   Learning: 'bg-good-soft text-green-400', Utilities: 'bg-warn-soft text-amber-400',
   EMIs: 'bg-risk-soft text-red-400', Bills: 'bg-indigo-500/15 text-indigo-400',
+  Family: 'bg-rose-500/15 text-rose-400', Travel: 'bg-teal-500/15 text-teal-400',
   Other: 'bg-surface-2 text-fg-secondary',
 }
 
@@ -121,8 +124,10 @@ export default function FinanceView({ expenses, budgets, profile, loans, investm
   const [editingBudget, setEditingBudget] = useState<string | null>(null)
   const [budgetInput, setBudgetInput] = useState('')
   const [editingGoalId, setEditingGoalId] = useState<string | null>(null)
+  const [editingGoalDateId, setEditingGoalDateId] = useState<string | null>(null)
   const [editInput, setEditInput] = useState('')
   const [expandedCategory, setExpandedCategory] = useState<string | null>(null)
+  const [showSuggest, setShowSuggest] = useState(false)
   const [pendingDelete, setPendingDelete] = useState<{ kind: 'loan' | 'investment' | 'goal' | 'expense'; id: string; label: string } | null>(null)
 
   // AI Advisor
@@ -140,7 +145,10 @@ export default function FinanceView({ expenses, budgets, profile, loans, investm
   const totalEMIs = localLoans.reduce((s, l) => s + Number(l.emi), 0)
   const portfolio = localInvestments.reduce((s, i) => s + Number(i.current_value), 0)
   const invested = localInvestments.reduce((s, i) => s + Number(i.invested_amount), 0)
-  const totalDebt = localLoans.reduce((s, l) => s + Number(l.emi) * (l.remaining_months ?? 0), 0)
+  // Balance owed today (amortized), not emi × months — that sum includes
+  // every future interest payment and overstated debt/understated net worth.
+  const totalDebt = localLoans.reduce((s, l) => s + loanOutstanding(l), 0)
+  const totalPayable = localLoans.reduce((s, l) => s + loanTotalPayable(l), 0)
   const netWorth = portfolio - totalDebt
   const totalSpent = localExpenses.reduce((s, e) => s + Number(e.amount), 0)
   const totalBudget = localBudgets.reduce((s, b) => s + Number(b.amount), 0)
@@ -150,28 +158,52 @@ export default function FinanceView({ expenses, budgets, profile, loans, investm
   // above), not folded into spend.
   const remaining = totalBudget - totalSpent
 
+  // Month pace — same projection the Risk Engine uses (lump EMIs counted
+  // once, everything else extrapolated per-day).
+  const pace = projectMonthSpend(localExpenses, todayIST())
+  const projectedSavingsPct = salary > 0 ? Math.round(((salary - pace.projected) / salary) * 100) : null
+  // Per-day room left excludes fixed (EMI) budget/spend, otherwise an unpaid
+  // EMI's budget would read as spendable daily money.
+  const isFixed = (cat: string) => FIXED_MONTHLY_CATEGORIES.includes(cat)
+  const variableBudget = localBudgets.filter(b => !isFixed(b.category)).reduce((s, b) => s + Number(b.amount), 0)
+  const variableSpent = localExpenses.filter(e => !isFixed(e.category)).reduce((s, e) => s + Number(e.amount), 0)
+  const perDayLeft = Math.max(0, variableBudget - variableSpent) / pace.daysLeft
+
   const byCategory = CATEGORIES.map(cat => {
     const spent = localExpenses.filter(e => e.category === cat).reduce((s, e) => s + Number(e.amount), 0)
     const budget = localBudgets.find(b => b.category === cat)?.amount ?? 0
     return { cat, spent, budget }
   }).filter(c => c.spent > 0 || c.budget > 0).sort((a, b) => b.spent - a.spent)
 
-  // Design's over-budget banner names the single (first, by list order)
-  // category that's over — not an aggregate "over budget overall" figure.
-  const overBudgetCategory = byCategory.find(c => c.budget > 0 && c.spent > c.budget) ?? null
+  // Every meaningfully over-budget category, worst overage first — a tiny
+  // overage (under FINANCE_THRESHOLDS.overBudgetBannerMinRatio of budget)
+  // is left to the row's own "Over" badge instead of a page-level alarm.
+  const overBudgetCategories = byCategory
+    .filter(c => c.budget > 0 && c.spent - c.budget >= c.budget * FINANCE_THRESHOLDS.overBudgetBannerMinRatio)
+    .map(c => ({ cat: c.cat, over: c.spent - c.budget }))
+    .sort((a, b) => b.over - a.over)
+
+  // 3-complete-month average per category vs. the current budget — only
+  // categories where the suggestion actually differs are offered.
+  const suggested = suggestBudgets(expenseHistory, month)
+  const budgetSuggestions = Object.entries(suggested)
+    .map(([cat, amount]) => ({ cat, amount, current: Number(localBudgets.find(b => b.category === cat)?.amount ?? 0) }))
+    .filter(r => r.amount !== r.current)
+    .sort((a, b) => b.amount - a.amount)
 
   const renderInvestmentItem = (inv: Investment) => {
     const gain = Number(inv.current_value) - Number(inv.invested_amount)
+    const gainPct = Number(inv.invested_amount) > 0 ? (gain / Number(inv.invested_amount)) * 100 : null
     return (
       <li key={inv.id} className="flex items-center gap-x-1.5 gap-y-1 flex-wrap text-[12.5px] text-fg-secondary group bg-surface-2 rounded-lg px-2.5 py-2">
-        <span>{inv.name} —</span>
+        <span><span className="font-semibold text-fg-primary">{inv.name}</span> —</span>
         <span className="flex items-center gap-1">
           <InlineEdit value={String(inv.current_value)} prefix="₹" textSize="text-[12.5px]" inputWidth="w-24" onSave={v => handleInvValueSave(inv.id, v)} /> current,
         </span>
         <span className="flex items-center gap-1">
           <InlineEdit value={String(inv.invested_amount)} prefix="₹" textSize="text-[12.5px]" inputWidth="w-24" onSave={v => handleInvAmountSave(inv.id, v)} /> invested
         </span>
-        <span className={gain >= 0 ? 'text-good' : 'text-risk'}>({gain >= 0 ? '+' : ''}₹{gain.toLocaleString('en-IN')})</span>
+        <span className={gain >= 0 ? 'text-good' : 'text-risk'}>({gain >= 0 ? '+' : '-'}₹{Math.abs(gain).toLocaleString('en-IN')}{gainPct !== null && ` · ${gain >= 0 ? '+' : ''}${gainPct.toFixed(1)}%`})</span>
         <button onClick={() => setPendingDelete({ kind: 'investment', id: inv.id, label: inv.name })} aria-label="Delete investment" className={deleteGlyphBtn}>✕</button>
       </li>
     )
@@ -240,6 +272,13 @@ export default function FinanceView({ expenses, budgets, profile, loans, investm
     setEditingGoalId(null)
   }
 
+  const handleGoalDateSave = (id: string, v: string) => {
+    const date = v || null
+    setLocalGoals(prev => prev.map(g => g.id === id ? { ...g, target_date: date } : g))
+    startTransition(() => updateGoalTargetDate(id, date))
+    setEditingGoalDateId(null)
+  }
+
   const handleDeleteGoal = (id: string) => {
     setLocalGoals(prev => prev.filter(g => g.id !== id))
     startTransition(() => deleteGoal(id))
@@ -265,6 +304,17 @@ export default function FinanceView({ expenses, budgets, profile, loans, investm
     setLocalBudgets(prev => prev.map(b => b.category === category ? { ...b, amount: 0 } : b))
     startTransition(() => upsertBudget(category, 0))
     setEditingBudget(null); setBudgetInput('')
+  }
+
+  const handleApplySuggestions = () => {
+    const rows = budgetSuggestions.map(r => ({ category: r.cat, amount: r.amount }))
+    setLocalBudgets(prev => {
+      const next = prev.map(b => { const r = rows.find(x => x.category === b.category); return r ? { ...b, amount: r.amount } : b })
+      const added = rows.filter(r => !prev.some(b => b.category === r.category)).map(r => ({ id: `temp-${r.category}`, user_id: '', category: r.category, amount: r.amount, month }))
+      return [...next, ...added]
+    })
+    startTransition(() => upsertBudgets(rows))
+    setShowSuggest(false)
   }
 
   const handleDeleteExpense = (id: string) => {
@@ -340,15 +390,23 @@ export default function FinanceView({ expenses, budgets, profile, loans, investm
       {advisorPortal}
       <div className="flex items-center gap-3 flex-wrap">
         <h1 className="text-[34px] font-bold tracking-[-0.05em] text-fg-primary">Finance</h1>
-        <span className="text-[11px] font-semibold bg-surface-2 rounded-full px-2.5 py-1 text-accent">💰 Net Worth {fmt(netWorth)}</span>
+        {projectedSavingsPct !== null && (
+          <span className={`text-[11px] font-semibold bg-surface-2 rounded-full px-2.5 py-1 ${projectedSavingsPct >= 0 ? 'text-good' : 'text-risk'}`}>
+            💰 {projectedSavingsPct >= 0 ? `On pace to save ${projectedSavingsPct}% of salary` : `On pace to overspend salary by ${-projectedSavingsPct}%`}
+          </span>
+        )}
         <span className="text-[11px] font-semibold bg-surface-2 rounded-full px-2.5 py-1 text-fg-secondary">📊 3mo avg spend {fmt(avgMonthlyExpense)}</span>
       </div>
 
       {/* Over-budget alert — names the specific over-budget category, matching
           the design's exact message format, not just an aggregate figure. */}
-      {overBudgetCategory && (
+      {overBudgetCategories.length > 0 && (
         <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-risk-soft border border-risk-border">
-          <p className="text-[13px] text-risk-strong">⚠ {overBudgetCategory.cat} is over budget by {fmt(overBudgetCategory.spent - overBudgetCategory.budget)} this month.</p>
+          <p className="text-[13px] text-risk-strong">
+            ⚠ {overBudgetCategories.length === 1
+              ? <>{overBudgetCategories[0].cat} is over budget by {fmt(overBudgetCategories[0].over)} this month.</>
+              : <>Over budget this month: {overBudgetCategories.slice(0, 3).map(c => `${c.cat} +${fmt(c.over)}`).join(' · ')}{overBudgetCategories.length > 3 && ` · +${overBudgetCategories.length - 3} more`}</>}
+          </p>
         </div>
       )}
 
@@ -387,7 +445,7 @@ export default function FinanceView({ expenses, budgets, profile, loans, investm
         <div className="bg-surface-1 border border-surface-3 rounded-2xl p-[var(--card-pad-sm)]">
           <p className="text-[11px] text-fg-tertiary uppercase mb-1">Total Debt</p>
           <p className="text-xl font-bold text-risk">{fmt(totalDebt)}</p>
-          <p className="text-[10.5px] text-fg-quaternary mt-1">{fmt(totalEMIs)}/mo EMI</p>
+          <p className="text-[10.5px] text-fg-quaternary mt-1">{fmt(totalEMIs)}/mo EMI · {fmt(totalPayable)} payable incl. interest</p>
         </div>
         <div className="bg-surface-1 border border-surface-3 rounded-2xl p-[var(--card-pad-sm)]">
           <p className="text-[11px] text-fg-tertiary uppercase mb-1">Net Worth</p>
@@ -407,20 +465,51 @@ export default function FinanceView({ expenses, budgets, profile, loans, investm
             + Add Expense
           </button>
         }>
-          <div className="flex gap-3 mb-3">
-            <div className="text-center">
-              <p className="text-lg font-bold text-risk">{fmt(totalSpent)}</p>
-              <p className="text-xs text-fg-quaternary">Spent</p>
+          <div className="grid grid-cols-3 sm:grid-cols-5 gap-x-3 gap-y-2 mb-2">
+            <div>
+              <p className="text-[15px] font-bold text-risk">{fmt(totalSpent)}</p>
+              <p className="text-[11px] text-fg-quaternary">Spent</p>
             </div>
-            <div className="text-center">
-              <p className="text-lg font-bold text-fg-secondary">{fmt(totalBudget)}</p>
-              <p className="text-xs text-fg-quaternary">Budget</p>
+            <div>
+              <p className="text-[15px] font-bold text-fg-secondary">{fmt(totalBudget)}</p>
+              <p className="text-[11px] text-fg-quaternary">Budget</p>
             </div>
-            <div className="text-center">
-              <p className={`text-lg font-bold ${remaining >= 0 ? 'text-good' : 'text-risk'}`}>{fmt(Math.abs(remaining))}</p>
-              <p className="text-xs text-fg-quaternary">{remaining >= 0 ? 'Left' : 'Over'}</p>
+            <div>
+              <p className={`text-[15px] font-bold ${remaining >= 0 ? 'text-good' : 'text-risk'}`}>{fmt(Math.abs(remaining))}</p>
+              <p className="text-[11px] text-fg-quaternary">{remaining >= 0 ? 'Left' : 'Over'}</p>
+            </div>
+            <div>
+              <p className={`text-[15px] font-bold ${totalBudget > 0 && pace.projected > totalBudget ? 'text-risk' : 'text-fg-secondary'}`}>{fmt(pace.projected)}</p>
+              <p className="text-[11px] text-fg-quaternary">Month-end pace</p>
+            </div>
+            <div title="Non-EMI budget left, spread over the rest of the month">
+              <p className="text-[15px] font-bold text-fg-secondary">{fmt(perDayLeft)}</p>
+              <p className="text-[11px] text-fg-quaternary">/day · {pace.daysLeft}d left</p>
             </div>
           </div>
+          {budgetSuggestions.length > 0 && (
+            <div className="mb-3">
+              <button onClick={() => setShowSuggest(v => !v)} className="text-[11.5px] text-accent hover:underline">
+                {showSuggest ? 'Hide budget suggestions' : `Suggest budgets from 3-mo avg (${budgetSuggestions.length})`}
+              </button>
+              {showSuggest && (
+                <div className="mt-1.5 rounded-lg bg-surface-2 p-2">
+                  <ul className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-0.5 text-[12px]">
+                    {budgetSuggestions.map(r => (
+                      <li key={r.cat} className="flex items-center justify-between gap-2">
+                        <span className="text-fg-secondary">{r.cat}</span>
+                        <span className="text-fg-tertiary whitespace-nowrap">{fmt(r.current)} → <span className={`font-semibold ${r.amount > r.current ? 'text-warn' : 'text-good'}`}>{fmt(r.amount)}</span></span>
+                      </li>
+                    ))}
+                  </ul>
+                  <div className="flex justify-end gap-2 mt-2">
+                    <button onClick={() => setShowSuggest(false)} className="px-3 py-1 rounded-lg bg-surface-1 text-fg-secondary text-xs">Cancel</button>
+                    <button onClick={handleApplySuggestions} className="px-3 py-1 rounded-lg bg-accent text-white text-xs font-semibold">Apply all</button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
           {byCategory.length === 0 ? (
             <EmptyState icon={Receipt} message="No expenses this month" compact />
           ) : (
@@ -518,8 +607,13 @@ export default function FinanceView({ expenses, budgets, profile, loans, investm
             <EmptyState icon={Landmark} message="No loans added" compact cta={{ label: 'Add loan', onClick: () => setModal('loan') }} />
           ) : (
             <ul className="flex flex-col gap-2">
-              {localLoans.map(loan => (
-                <li key={loan.id} className="flex items-center gap-x-1.5 gap-y-1 flex-wrap text-[12.5px] text-fg-secondary group">
+              {localLoans.map(loan => {
+                const owed = loanOutstanding(loan)
+                const repaidPct = Number(loan.principal) > 0 ? Math.min(100, Math.max(0, Math.round((1 - owed / Number(loan.principal)) * 100))) : null
+                const payoff = loanPayoffMonth(loan.remaining_months, todayIST())
+                return (
+                <li key={loan.id} className="group">
+                <div className="flex items-center gap-x-1.5 gap-y-1 flex-wrap text-[12.5px] text-fg-secondary">
                   <span>{loan.name} — EMI</span>
                   <InlineEdit value={String(loan.emi)} prefix="₹" textSize="text-[12.5px]" inputWidth="w-20" onSave={v => handleLoanEmiSave(loan.id, v)} />
                   <span>·</span>
@@ -527,8 +621,14 @@ export default function FinanceView({ expenses, budgets, profile, loans, investm
                   <span>·</span>
                   <InlineEdit value={loan.interest_rate !== null ? String(loan.interest_rate) : ''} prefix="" suffix="% p.a." placeholder="set rate" textSize="text-[12.5px]" inputWidth="w-14" onSave={v => handleLoanRateSave(loan.id, v)} />
                   <button onClick={() => setPendingDelete({ kind: 'loan', id: loan.id, label: loan.name })} aria-label="Delete loan" className={deleteGlyphBtn}>✕</button>
+                </div>
+                <p className="text-[11px] text-fg-quaternary mt-1">
+                  {fmt(owed)} owed{repaidPct !== null && ` · ${repaidPct}% of ${fmt(Number(loan.principal))} repaid`}{payoff && ` · ends ${payoff}`}
+                </p>
+                {repaidPct !== null && <div className="h-[4px] rounded-[3px] bg-border mt-1"><div className="h-full bg-good rounded-[3px]" style={{ width: `${repaidPct}%` }} /></div>}
                 </li>
-              ))}
+                )
+              })}
             </ul>
           )}
         </Card>
@@ -539,7 +639,7 @@ export default function FinanceView({ expenses, budgets, profile, loans, investm
           {localInvestments.length === 0 ? (
             <EmptyState icon={Target} message="No investments added" compact cta={{ label: 'Add', onClick: () => setModal('investment') }} />
           ) : (
-            <ul className="flex flex-col gap-2">{localInvestments.map(inv => renderInvestmentItem(inv))}</ul>
+            <ul className="flex flex-col gap-2">{[...localInvestments].sort((a, b) => Number(b.current_value) - Number(a.current_value)).map(inv => renderInvestmentItem(inv))}</ul>
           )}
         </Card>
 
@@ -560,7 +660,16 @@ export default function FinanceView({ expenses, budgets, profile, loans, investm
                           <p className="text-[12.5px] text-fg-secondary font-medium">{goal.name}</p>
                           <span className={`text-xs font-medium ${PRIORITY_COLOR[goal.priority as GoalPriority]}`}>{goal.priority}</span>
                         </div>
-                        {goal.target_date && <p className="text-xs text-fg-quaternary mt-0.5">Target: {goal.target_date}</p>}
+                        {editingGoalDateId === goal.id ? (
+                          <input type="date" defaultValue={goal.target_date ?? ''} autoFocus onBlur={e => handleGoalDateSave(goal.id, e.target.value)} onKeyDown={e => { if (e.key === 'Enter') handleGoalDateSave(goal.id, e.currentTarget.value); if (e.key === 'Escape') setEditingGoalDateId(null) }} className="mt-0.5 bg-surface-2 border border-accent rounded px-1.5 py-0.5 text-[11px] outline-none" />
+                        ) : (
+                          <button onClick={() => setEditingGoalDateId(goal.id)} className="text-[11px] text-fg-quaternary hover:text-fg-secondary mt-0.5 text-left">
+                            {goal.target_date ? (() => {
+                              const needed = goalMonthlyNeeded(goal, todayIST())
+                              return <>By {new Date(goal.target_date + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}{needed !== null && <> · <span className="text-fg-tertiary font-medium">{fmt(needed)}/mo needed</span></>}</>
+                            })() : '+ Set target date'}
+                          </button>
+                        )}
                       </div>
                       <div className="flex items-center gap-1">
                         {editingGoalId === goal.id ? (
@@ -738,9 +847,9 @@ export default function FinanceView({ expenses, budgets, profile, loans, investm
                   </div>
                   <div>
                     <label className={modalLabelClass}>Priority</label>
-                    <select name="priority" className={modalSelectClass}>
+                    <select name="priority" defaultValue="medium" className={modalSelectClass}>
                       <option value="high">High</option>
-                      <option value="medium" selected>Medium</option>
+                      <option value="medium">Medium</option>
                       <option value="low">Low</option>
                     </select>
                   </div>

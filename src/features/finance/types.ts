@@ -64,7 +64,7 @@ export interface FinancialGoal {
 
 export const CATEGORIES = [
   'Food', 'Transport', 'Housing', 'Health', 'Shopping',
-  'Entertainment', 'Learning', 'Utilities', 'EMIs', 'Bills', 'Other',
+  'Entertainment', 'Learning', 'Utilities', 'EMIs', 'Bills', 'Family', 'Travel', 'Other',
 ] as const
 
 export const INVESTMENT_TYPES: { value: InvestmentType; label: string }[] = [

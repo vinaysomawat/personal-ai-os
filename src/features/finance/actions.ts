@@ -240,6 +240,15 @@ export async function updateGoalProgress(id: string, currentAmount: number) {
   revalidatePath('/finance')
 }
 
+// Goals created without a target date had no way to get one short of
+// delete + re-add; the ₹/mo-needed figure depends on it.
+export async function updateGoalTargetDate(id: string, targetDate: string | null) {
+  const supabase = await createClient()
+  const { error } = await supabase.from('financial_goals').update({ target_date: targetDate }).eq('id', id)
+  if (error) throw new Error(error.message)
+  revalidatePath('/finance')
+}
+
 export async function deleteGoal(id: string) {
   const supabase = await createClient()
   const { error } = await supabase.from('financial_goals').delete().eq('id', id)
@@ -275,6 +284,19 @@ export async function upsertBudget(category: string, amount: number) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) throw new Error('Not authenticated')
   const { error } = await supabase.from('budgets').upsert({ user_id: user.id, category, amount, month: currentMonth() }, { onConflict: 'user_id,category,month' })
+  if (error) throw new Error(error.message)
+  revalidatePath('/finance')
+}
+
+// Batch form of upsertBudget — applying the By Category "Suggest" panel
+// writes every changed category in one round-trip rather than one each.
+export async function upsertBudgets(rows: { category: string; amount: number }[]) {
+  if (rows.length === 0) return
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) throw new Error('Not authenticated')
+  const month = currentMonth()
+  const { error } = await supabase.from('budgets').upsert(rows.map(r => ({ user_id: user.id, category: r.category, amount: r.amount, month })), { onConflict: 'user_id,category,month' })
   if (error) throw new Error(error.message)
   revalidatePath('/finance')
 }
