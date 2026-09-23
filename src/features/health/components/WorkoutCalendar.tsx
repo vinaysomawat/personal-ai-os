@@ -6,21 +6,25 @@ import type { WorkoutCalendarDay } from '../actions'
 
 const STATUS_BG: Record<WorkoutCalendarDay['status'], string> = {
   done: 'bg-good',
-  missed: 'bg-risk',
+  rest: 'bg-border',
   none: 'bg-border',
 }
 const STATUS_LABEL: Record<WorkoutCalendarDay['status'], string> = {
-  done: 'Workout logged', missed: 'Missed', none: 'No activity',
+  done: 'Workout logged', rest: 'Rest', none: 'No activity',
 }
 
 const WEEKDAYS = ['S', 'M', 'T', 'W', 'T', 'F', 'S']
 
-// Same GitHub-style heatmap as Coding's CodingCalendar.tsx — only
-// Done/Missed (no "Rest"), matching computeWorkoutCalendar's 2-status shape.
-// Layout restyled 2026-08-18 to match the Claude Design source: streak/
-// active-rate/status-count text sits in a left column beside the day-grid
-// (horizontal split), not stacked above it.
-export default function WorkoutCalendar({ days, title }: { days: WorkoutCalendarDay[]; title: string }) {
+// Same GitHub-style heatmap as Coding's CodingCalendar.tsx, but judged per
+// week, not per day: non-workout days are neutral "Rest", and each Sun–Sat
+// row ends with an x/N count against the profile's weekly plan (green once
+// met, red for a finished week that fell short). Layout restyled 2026-08-18
+// to match the Claude Design source: stats text sits in a left column beside
+// the day-grid (horizontal split), not stacked above it. The current streak
+// comes in from computeWorkoutStats so it matches the Daily Workout card.
+export default function WorkoutCalendar({ days, title, currentStreak, weeklyPlan }: {
+  days: WorkoutCalendarDay[]; title: string; currentStreak: number; weeklyPlan: number | null
+}) {
   const dayByDate = useMemo(() => new Map(days.map(d => [d.date, d])), [days])
   const minDate = useMemo(() => days.reduce((min, d) => (d.date < min ? d.date : min), days[0]?.date ?? ''), [days])
   const maxDate = useMemo(() => days.reduce((max, d) => (d.date > max ? d.date : max), days[0]?.date ?? ''), [days])
@@ -68,20 +72,26 @@ export default function WorkoutCalendar({ days, title }: { days: WorkoutCalendar
     if (c.status === 'done') { runningStreak++; bestStreak = Math.max(bestStreak, runningStreak) }
     else if (!c.isFuture) { runningStreak = 0 }
   }
-  let currentStreak = 0
-  for (let i = monthStatuses.length - 1; i >= 0; i--) {
-    const c = monthStatuses[i]
-    if (c.isFuture) continue
-    if (c.status === 'done') currentStreak++
-    else break
-  }
-  const trackedDays = monthStatuses.filter(c => !c.isFuture)
-  const activeDaysCount = trackedDays.filter(c => c.status === 'done').length
-  const activeRate = trackedDays.length > 0 ? Math.round((activeDaysCount / trackedDays.length) * 100) : 0
-  const monthCounts = trackedDays.reduce((acc, c) => {
-    acc[c.status] = (acc[c.status] ?? 0) + 1
-    return acc
-  }, {} as Partial<Record<WorkoutCalendarDay['status'], number>>)
+  const doneDays = monthStatuses.filter(c => c.status === 'done').length
+
+  // One entry per grid row (Sun–Sat). Counts span the full week, including
+  // days in the adjacent month, so a week straddling a month boundary is
+  // judged on all 7 days.
+  const weekCount = Math.ceil((leadingBlanks + daysInMonth) / 7)
+  const weeks = Array.from({ length: weekCount }, (_, r) => {
+    const dates = Array.from({ length: 7 }, (_, i) => {
+      const d = new Date(viewYear, viewMonth, 1 - leadingBlanks + r * 7 + i)
+      return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
+    })
+    const done = dates.filter(d => dayByDate.get(d)?.status === 'done').length
+    const finished = dates[6] < today
+    const started = dates[0] <= today
+    return { done, finished, started }
+  })
+  const finishedWeeks = weeks.filter(w => w.finished)
+  const weeksOnPlan = weeklyPlan ? finishedWeeks.filter(w => w.done >= weeklyPlan).length : 0
+  const weekColor = (w: typeof weeks[number]) =>
+    !weeklyPlan ? 'text-fg-tertiary' : w.done >= weeklyPlan ? 'text-good' : w.finished ? 'text-risk' : 'text-fg-tertiary'
 
   const selectedDay = selectedDate ? dayByDate.get(selectedDate) : null
 
@@ -104,11 +114,13 @@ export default function WorkoutCalendar({ days, title }: { days: WorkoutCalendar
 
       <div className="flex gap-4 flex-1 min-h-0">
         <div className="flex flex-col justify-start gap-2.5 flex-1 min-w-0">
-          <p className="text-[14px] font-semibold text-fg-primary leading-[1.4]">🔥 {currentStreak} current · {bestStreak} best streak</p>
-          <p className="text-[13px] text-fg-secondary leading-[1.4]">{activeRate}% active this month</p>
-          <p className="text-[13px] text-fg-secondary leading-[1.4]">
-            <span className="text-good font-semibold">{monthCounts.done ?? 0} done</span> · <span className="text-risk font-semibold">{monthCounts.missed ?? 0} missed</span> this month
-          </p>
+          <p className="text-[14px] font-semibold text-fg-primary leading-[1.4]">🔥 {currentStreak}d streak · {bestStreak} best this month</p>
+          {weeklyPlan && finishedWeeks.length > 0 && (
+            <p className="text-[13px] text-fg-secondary leading-[1.4]">
+              <span className={`font-semibold ${weeksOnPlan === finishedWeeks.length ? 'text-good' : 'text-fg-primary'}`}>{weeksOnPlan}/{finishedWeeks.length}</span> finished weeks on plan ({weeklyPlan}/wk)
+            </p>
+          )}
+          <p className="text-[13px] text-fg-secondary leading-[1.4]"><span className="text-good font-semibold">{doneDays}</span> workout days this month</p>
           {selectedDate && selectedDay && (
             <div className="bg-surface-2 rounded-[8px] px-3 py-2.5">
               <div className="flex items-center justify-between">
@@ -134,19 +146,20 @@ export default function WorkoutCalendar({ days, title }: { days: WorkoutCalendar
         </div>
 
         <div className="flex flex-col items-center justify-center gap-1 shrink-0 mx-auto">
-          <div className="grid gap-[4px] mb-[4px]" style={{ gridTemplateColumns: 'repeat(7, 20px)' }}>
+          <div className="grid gap-[4px] mb-[4px]" style={{ gridTemplateColumns: 'repeat(7, 20px) 26px' }}>
             {WEEKDAYS.map((w, i) => (
               <div key={i} className="text-center text-[9px] font-semibold text-fg-tertiary">{w}</div>
             ))}
+            <div className="text-center text-[9px] font-semibold text-fg-tertiary">Wk</div>
           </div>
-          <div className="grid gap-[4px]" style={{ gridTemplateColumns: 'repeat(7, 20px)' }}>
+          <div className="grid gap-[4px]" style={{ gridTemplateColumns: 'repeat(7, 20px) 26px' }}>
             {Array.from({ length: leadingBlanks }).map((_, i) => <div key={`blank-${i}`} style={{ width: 20, height: 20 }} />)}
-            {cells.map(({ date }) => {
+            {cells.flatMap(({ date }, idx) => {
               const isFuture = date > today
               const status = dayByDate.get(date)?.status ?? 'none'
               const isToday = date === today
               const isSelected = date === selectedDate
-              return (
+              const cell = (
                 <button
                   key={date}
                   title={isFuture ? '' : `${date}: ${STATUS_LABEL[status]}`}
@@ -158,6 +171,19 @@ export default function WorkoutCalendar({ days, title }: { days: WorkoutCalendar
                     ${isSelected ? 'ring-2 ring-fg-primary' : isToday ? 'ring-[1.5px] ring-accent' : ''}`}
                 />
               )
+              // After each Saturday (or the month's last day), close the row
+              // with that week's x/N count.
+              const pos = leadingBlanks + idx
+              const rowEnds = pos % 7 === 6 || idx === cells.length - 1
+              if (!rowEnds) return [cell]
+              const row = Math.floor(pos / 7)
+              const w = weeks[row]
+              const fillers = Array.from({ length: 6 - (pos % 7) }).map((_, i) => <div key={`tail-${i}`} style={{ width: 20, height: 20 }} />)
+              return [cell, ...fillers, (
+                <div key={`wk-${row}`} className={`h-5 flex items-center justify-center text-[10px] font-semibold tabular-nums ${weekColor(w)}`} title={weeklyPlan ? `${w.done} of ${weeklyPlan} planned workouts this week` : `${w.done} workouts this week`}>
+                  {w.started ? (weeklyPlan ? `${w.done}/${weeklyPlan}` : w.done) : ''}
+                </div>
+              )]
             })}
           </div>
         </div>
@@ -165,8 +191,8 @@ export default function WorkoutCalendar({ days, title }: { days: WorkoutCalendar
 
       <div className="flex items-center gap-3 pt-2.5 border-t border-surface-3 text-[10.5px] text-fg-tertiary flex-wrap justify-center">
         <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-[3px] bg-good inline-block" />Done</span>
-        <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-[3px] bg-risk inline-block" />Missed</span>
-        <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-[3px] bg-border inline-block" />None</span>
+        <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-[3px] bg-border inline-block" />Rest</span>
+        {weeklyPlan && <span>Wk = workouts vs {weeklyPlan}/wk plan</span>}
       </div>
     </div>
   )

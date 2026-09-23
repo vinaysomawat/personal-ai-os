@@ -24,15 +24,16 @@ const SUB_SCORES: { key: keyof Omit<HealthScoreBreakdown, 'overall'>; label: str
   { key: 'activity',    label: 'Activity',    color: 'var(--good)', weight: '0.4×' },
 ]
 
-export default function HealthScoreHero({ score, onEditProfile, notice }: { score: HealthScoreBreakdown; onEditProfile?: () => void; notice?: ReactNode }) {
+export default function HealthScoreHero({ score, onEditProfile, notice, notLoggedYet }: { score: HealthScoreBreakdown; onEditProfile?: () => void; notice?: ReactNode; notLoggedYet?: boolean }) {
   const deg = (score.overall / 100) * 360
 
-  const level =
+  // Nothing logged today yet — a neutral prompt, not a red "Getting Started".
+  const level = notLoggedYet ? 'Not logged yet today' :
     score.overall >= 85 ? 'Excellent' :
     score.overall >= 65 ? 'Good' :
     score.overall >= 40 ? 'Needs Work' : 'Getting Started'
 
-  const levelColor =
+  const levelColor = notLoggedYet ? 'text-fg-tertiary' :
     score.overall >= 65 ? 'text-green-400' :
     score.overall >= 40 ? 'text-amber-400' : 'text-red-400'
 

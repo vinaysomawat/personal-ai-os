@@ -1,5 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { todayIST, istMidnightUtc, toISTDateStr } from '@/lib/date'
+import { todayIST, istMidnightUtc } from '@/lib/date'
 
 type WorkoutStatus = 'pending' | 'in_progress' | 'completed' | 'skipped'
 
@@ -292,32 +292,33 @@ export interface WorkoutStats {
   recentCategories: string[]
 }
 
+// Read from the `workouts` log (every completed planner workout mirrors
+// into it, plus Telegram ad-hoc logs) — not `daily_workouts`, whose history
+// is pruned to the last HISTORY_LIMIT completions, which capped the old
+// "N completed" count at 7 forever and made this streak disagree with the
+// Workout Calendar (which already reads `workouts`). Shared by the Daily
+// Workout card, the Workout Calendar, and the Dashboard's Workout Streak so
+// all three show the same numbers.
 export async function computeWorkoutStats(supabase: SupabaseClient, userId: string): Promise<WorkoutStats> {
-  const { data } = await supabase
-    .from('daily_workouts')
-    .select('completed_at, workout:workout_library(category)')
-    .eq('user_id', userId)
-    .eq('status', 'completed')
-    .order('completed_at', { ascending: false })
-    .limit(HISTORY_LIMIT)
+  const [{ count }, { data }] = await Promise.all([
+    supabase.from('workouts').select('id', { count: 'exact', head: true }).eq('user_id', userId),
+    supabase.from('workouts').select('date, type').eq('user_id', userId).order('date', { ascending: false }).limit(400),
+  ])
+  const rows = (data ?? []) as { date: string; type: string }[]
+  const recentCategories = rows.slice(0, HISTORY_LIMIT).map(r => r.type).filter(Boolean)
 
-  const rows = (data ?? []) as unknown as { completed_at: string; workout: { category: string } }[]
-  const totalCompleted = rows.length
-  const recentCategories = rows.map(r => r.workout?.category).filter(Boolean)
-
-  // Streak: consecutive calendar days (walking back from today) with at
-  // least one completed workout. IST-based to match todayStr()/assigned_date
-  // above — otherwise a workout completed just after IST midnight (still
-  // "yesterday" in UTC until 5:30am) would silently break the streak.
-  const completedDates = new Set(rows.map(r => r.completed_at ? toISTDateStr(r.completed_at) : null).filter((d): d is string => d !== null))
+  // Streak: consecutive IST calendar days with ≥1 logged workout, walking
+  // back from today — today itself gets grace (an unlogged today doesn't
+  // break a streak that ran through yesterday).
+  const dates = new Set(rows.map(r => r.date))
   let currentStreakDays = 0
   const cursor = new Date(`${todayStr()}T00:00:00Z`)
   for (let i = 0; i < 3650; i++) {
     const d = cursor.toISOString().split('T')[0]
-    if (completedDates.has(d)) { currentStreakDays++; cursor.setUTCDate(cursor.getUTCDate() - 1) }
+    if (dates.has(d)) { currentStreakDays++; cursor.setUTCDate(cursor.getUTCDate() - 1) }
     else if (i === 0) { cursor.setUTCDate(cursor.getUTCDate() - 1) }
     else break
   }
 
-  return { totalCompleted, currentStreakDays, recentCategories }
+  return { totalCompleted: count ?? rows.length, currentStreakDays, recentCategories }
 }

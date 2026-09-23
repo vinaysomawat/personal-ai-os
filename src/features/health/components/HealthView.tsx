@@ -227,6 +227,17 @@ export default function HealthView({ initialMetrics, initialProfile, initialWork
     <HealthCoachContent isOpen={advisorOpen} context={healthContext} metrics={metrics} />
   ))
 
+  // Until something the score actually reads (calories, protein, steps, a
+  // workout — not weight) is logged today, the daily score is a meaningless
+  // 0 — show yesterday's score in the header instead of a red "0 · Getting
+  // Started". Yesterday's workouts come from the calendar (already fetched).
+  const loggedToday = workouts.length > 0 || (!!todayMetric && (todayMetric.calories !== null || todayMetric.protein_g !== null || todayMetric.steps !== null))
+  const yesterday = days[5]
+  const calendarWorkouts = calendar.filter(d => d.status === 'done').map(d => ({ date: d.date }) as Workout)
+  const yesterdayScore = !loggedToday && metrics.some(m => m.date === yesterday)
+    ? computeHealthPlan(profile, metrics, calendarWorkouts, yesterday)?.healthScore.overall ?? null
+    : null
+
   const healthScoreTier = healthScore
     ? (healthScore.overall >= 85 ? 'Excellent' : healthScore.overall >= 65 ? 'Good' : healthScore.overall >= 40 ? 'Needs Work' : 'Getting Started')
     : null
@@ -240,9 +251,11 @@ export default function HealthView({ initialMetrics, initialProfile, initialWork
       {advisorPortal}
       <div className="flex items-center gap-3 flex-wrap">
         <h1 className="text-[34px] font-bold tracking-[-0.05em] text-fg-primary">Health</h1>
-        {healthScore && (
+        {healthScore && (loggedToday ? (
           <span className={`text-[11px] font-semibold bg-surface-2 rounded-full px-2.5 py-1 ${healthScoreBadgeColor}`}>{healthScore.overall}/100 · {healthScoreTier}</span>
-        )}
+        ) : (
+          <span className="text-[11px] font-semibold bg-surface-2 rounded-full px-2.5 py-1 text-fg-secondary">{yesterdayScore !== null ? `${yesterdayScore}/100 yesterday · log today` : 'Nothing logged yet today'}</span>
+        ))}
         <span className="text-[11px] font-semibold bg-surface-2 rounded-full px-2.5 py-1 text-fg-secondary">{workoutStatusLabel}</span>
       </div>
 
@@ -292,6 +305,7 @@ export default function HealthView({ initialMetrics, initialProfile, initialWork
         {profile && dailyTargets && healthScore ? (
           <HealthScoreHero
             score={healthScore}
+            notLoggedYet={!loggedToday}
             onEditProfile={() => setShowProfileForm(true)}
             notice={activityMismatch && profile?.activity_level && (
               <div className="mt-3 pt-2.5 border-t border-surface-3 flex items-center justify-between gap-2 flex-wrap text-[11.5px]">
@@ -349,12 +363,12 @@ export default function HealthView({ initialMetrics, initialProfile, initialWork
             </div>
           </Card>
           <Card>
-            <WorkoutCalendar days={calendar} title="Workout Calendar" />
+            <WorkoutCalendar days={calendar} title="Workout Calendar" currentStreak={workoutStats.currentStreakDays} weeklyPlan={profile?.workout_days_per_week ?? null} />
           </Card>
         </div>
       ) : (
         <Card>
-          <WorkoutCalendar days={calendar} title="Workout Calendar" />
+          <WorkoutCalendar days={calendar} title="Workout Calendar" currentStreak={workoutStats.currentStreakDays} weeklyPlan={profile?.workout_days_per_week ?? null} />
         </Card>
       )}
     </div>

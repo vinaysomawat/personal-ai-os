@@ -64,21 +64,19 @@ interface CalendarDayWorkout {
 
 export interface WorkoutCalendarDay {
   date: string
-  status: 'done' | 'missed' | 'none'
+  status: 'done' | 'rest' | 'none'
   workouts: CalendarDayWorkout[]
 }
 
-// Same shape/pattern as Coding's computeCodingCalendar. Only Done/Missed —
-// no "Rest" status, since workouts
-// are logged ad-hoc with no assigned/expected day to compare against
-// (daily_workouts is "one active workout at a time," not "one per
-// calendar day," per workout-core.ts) and there's no per-user rest-day
-// schedule stored anywhere, so a real Rest/Missed distinction isn't
-// derivable from the data. The simple `workouts` table (not
-// `daily_workouts`) is the source of truth here — completing a
+// Same shape/pattern as Coding's computeCodingCalendar, but a past day
+// without a workout is "rest", not "missed" (changed 2026-09-24): the plan
+// is N workout days per week, so rest days are expected and a daily
+// done/missed framing painted every on-plan week red. Adherence is judged
+// per week instead (WorkoutCalendar's x/N column). The simple `workouts`
+// table (not `daily_workouts`) is the source of truth — completing a
 // daily_workouts row already mirrors into `workouts` (workout-core.ts's
-// markWorkoutComplete), so this reads one table, same as the Health Score
-// Activity sub-score does.
+// markWorkoutComplete), same table the Health Score and computeWorkoutStats
+// read.
 export async function computeWorkoutCalendar(supabase: Awaited<ReturnType<typeof createClient>>, userId: string, days = 182): Promise<WorkoutCalendarDay[]> {
   const since = daysAgoIST(days)
   const { data } = await supabase
@@ -100,7 +98,7 @@ export async function computeWorkoutCalendar(supabase: Awaited<ReturnType<typeof
   for (let i = 0; i < days; i++) {
     const d = daysAgoIST(i)
     const workouts = byDate.get(d) ?? []
-    const status: WorkoutCalendarDay['status'] = workouts.length > 0 ? 'done' : d < today ? 'missed' : 'none'
+    const status: WorkoutCalendarDay['status'] = workouts.length > 0 ? 'done' : d < today ? 'rest' : 'none'
     result.push({ date: d, status, workouts })
   }
   return result.reverse()
