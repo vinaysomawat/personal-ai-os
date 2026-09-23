@@ -5,16 +5,20 @@ import { Sparkles, Settings2 } from 'lucide-react'
 import Card from '@/components/Card'
 import ModuleRecommendations from '@/components/ModuleRecommendations'
 import { useAIAdvisor, useAIAdvisorOpen } from '@/components/AIAdvisorProvider'
-import { upsertTodayMetric } from '../actions'
+import { upsertTodayMetric, upsertHealthProfile, deleteFoodEntry } from '../actions'
 import { getHealthReport } from '@/features/ai/health-report'
-import { computeHealthPlan } from '../calculations'
+import { computeHealthPlan, suggestActivityLevel, computeWeightTrend } from '../calculations'
 import { daysAgoIST } from '@/lib/date'
 import HealthProfileForm from './HealthProfileForm'
 import HealthScoreHero from './HealthScoreHero'
 import DailyWorkoutCard from './DailyWorkoutCard'
 import WorkoutCalendar from './WorkoutCalendar'
+import WeightTrendCard from './WeightTrendCard'
+import TodaysFoodCard from './TodaysFoodCard'
 import { logAdvisorUsage } from '@/lib/advisor-usage'
+import { ACTIVITY_LEVELS } from '../types'
 import type { HealthMetric, MetricField, HealthProfile, Workout } from '../types'
+import type { FoodLogEntry } from '../food-log'
 import type { DailyWorkout, WorkoutStats } from '../workout-core'
 import type { WorkoutCalendarDay } from '../actions'
 
@@ -129,14 +133,19 @@ interface Props {
   workoutStats: WorkoutStats
   tip: string | null
   calendar: WorkoutCalendarDay[]
+  initialFoodLog: FoodLogEntry[]
 }
 
-export default function HealthView({ initialMetrics, initialProfile, initialWorkouts, initialDailyWorkout, workoutStats, tip, calendar }: Props) {
+// Window for the activity check and Workouts / Week tile.
+const ACTIVITY_WINDOW_DAYS = 28
+
+export default function HealthView({ initialMetrics, initialProfile, initialWorkouts, initialDailyWorkout, workoutStats, tip, calendar, initialFoodLog }: Props) {
   const workouts = initialWorkouts
   const [saving, setSaving] = useState<MetricField | null>(null)
   const [metrics, setMetrics] = useState<HealthMetric[]>(initialMetrics)
   const [profile, setProfile] = useState<HealthProfile | null>(initialProfile)
   const [showProfileForm, setShowProfileForm] = useState(false)
+  const [foodLog, setFoodLog] = useState<FoodLogEntry[]>(initialFoodLog)
 
   const days = getLast7Days()
   const today = days[6]
@@ -162,6 +171,45 @@ export default function HealthView({ initialMetrics, initialProfile, initialWork
   const healthPlan = computeHealthPlan(profile, metrics, workouts, today)
   const dailyTargets = healthPlan?.dailyTargets ?? null
   const healthScore = healthPlan?.healthScore ?? null
+
+  // Real activity over the last 4 weeks — workout days from the calendar
+  // (the `workouts` table), avg steps from logged days only. No new query.
+  const windowStart = daysAgoIST(ACTIVITY_WINDOW_DAYS - 1)
+  const workoutDays = calendar.filter(d => d.date >= windowStart && d.status === 'done').length
+  const workoutsPerWeek = Math.round((workoutDays / ACTIVITY_WINDOW_DAYS) * 7 * 10) / 10
+  const stepVals = metrics.filter(m => m.date >= windowStart && m.steps !== null).map(m => Number(m.steps))
+  const avgSteps = stepVals.length >= 7 ? Math.round(stepVals.reduce((s, v) => s + v, 0) / stepVals.length) : null
+  const suggestedLevel = suggestActivityLevel(workoutsPerWeek, avgSteps)
+  // Only nudge when the profile's level disagrees with the data and there's
+  // enough step data to trust it.
+  const activityMismatch = profile?.activity_level && avgSteps !== null && suggestedLevel !== profile.activity_level
+    ? { level: suggestedLevel, target: computeHealthPlan({ ...profile, activity_level: suggestedLevel }, metrics, workouts, today)?.dailyTargets.dailyCalorieTarget ?? null }
+    : null
+  const levelLabel = (l: string) => ACTIVITY_LEVELS.find(a => a.value === l)?.label.split(' (')[0] ?? l
+
+  const handleApplyActivityLevel = () => {
+    if (!profile || !activityMismatch) return
+    const next = { ...profile, activity_level: activityMismatch.level }
+    setProfile(next)
+    upsertHealthProfile({
+      age: next.age, gender: next.gender, height_cm: next.height_cm, activity_level: next.activity_level,
+      workout_days_per_week: next.workout_days_per_week, food_preference: next.food_preference,
+    })
+  }
+
+  const weightTrend = computeWeightTrend(metrics, dailyTargets?.normalBmiWeightKg ?? null)
+
+  // Removing an item also subtracts it from today's Calories/Protein tiles,
+  // mirroring what deleteFoodEntry does to health_metrics server-side.
+  const handleDeleteFood = (entry: FoodLogEntry) => {
+    setFoodLog(prev => prev.filter(f => f.id !== entry.id))
+    setMetrics(prev => prev.map(m => m.date === entry.date ? {
+      ...m,
+      calories: m.calories !== null ? Math.max(0, m.calories - Number(entry.calories)) : m.calories,
+      protein_g: m.protein_g !== null ? Math.max(0, m.protein_g - Number(entry.protein_g)) : m.protein_g,
+    } : m))
+    deleteFoodEntry(entry.id)
+  }
 
   const leftText = (field: MetricField): string | null => {
     if (!dailyTargets) return null
@@ -216,7 +264,7 @@ export default function HealthView({ initialMetrics, initialProfile, initialWork
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-[var(--grid-gap-sm)]">
         {METRICS.map(m => (
           <MetricCard
-            key={m.field}
+            key={`${m.field}-${todayMetric?.[m.field] ?? ''}`}
             {...m}
             todayValue={todayMetric?.[m.field] ?? null}
             weekAvg={weekAvg(m.field)}
@@ -242,7 +290,18 @@ export default function HealthView({ initialMetrics, initialProfile, initialWork
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-[var(--grid-gap)]">
         <DailyWorkoutCard initialWorkout={initialDailyWorkout} stats={workoutStats} />
         {profile && dailyTargets && healthScore ? (
-          <HealthScoreHero score={healthScore} onEditProfile={() => setShowProfileForm(true)} />
+          <HealthScoreHero
+            score={healthScore}
+            onEditProfile={() => setShowProfileForm(true)}
+            notice={activityMismatch && profile?.activity_level && (
+              <div className="mt-3 pt-2.5 border-t border-surface-3 flex items-center justify-between gap-2 flex-wrap text-[11.5px]">
+                <p className="text-fg-tertiary">
+                  Profile says <span className="text-fg-secondary font-medium">{levelLabel(profile.activity_level)}</span>; last 4 weeks look <span className="text-warn font-semibold">{levelLabel(activityMismatch.level)}</span> ({workoutsPerWeek} workouts/wk, ~{avgSteps?.toLocaleString('en-IN')} steps){activityMismatch.target !== null && <> → target <span className="text-fg-secondary font-medium">{activityMismatch.target} kcal</span></>}
+                </p>
+                <button onClick={handleApplyActivityLevel} className="shrink-0 px-2.5 py-1 rounded-[6px] bg-accent text-white text-[11.5px] font-semibold hover:bg-accent/80 transition-colors">Update</button>
+              </div>
+            )}
+          />
         ) : profile ? (
           <div className="bg-surface-1 border border-surface-3 rounded-2xl p-[var(--card-pad-lg)] flex items-center justify-between gap-3">
             <p className="text-xs text-fg-quaternary">Log today&apos;s weight to unlock your calorie targets and Health Score.</p>
@@ -260,9 +319,17 @@ export default function HealthView({ initialMetrics, initialProfile, initialWork
           <StatTile value={dailyTargets.bmi} label={`BMI (normal ≤24.9, ~${dailyTargets.normalBmiWeightKg}kg)`} />
           <StatTile value={`${dailyTargets.dailyCalorieTarget} kcal`} label="Calorie Target" />
           <StatTile value={`${dailyTargets.proteinTargetG}g`} label="Protein Target" />
-          <StatTile value={`${dailyTargets.carbsG}g / ${dailyTargets.fatG}g`} label="Carbs / Fat Target" />
+          <StatTile value={`${workoutsPerWeek}${profile?.workout_days_per_week ? ` / ${profile.workout_days_per_week}` : ''}`} label="Workouts / Week (4 wk)" />
         </div>
       )}
+
+      {/* Weight Trend + Today's Food — "is the plan working" (trend vs. plan
+          pace) next to today's per-item intake behind the Calories/Protein
+          tiles. */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-[var(--grid-gap)] items-start">
+        <WeightTrendCard trend={weightTrend} targetPaceKg={dailyTargets?.weeklyLossKg ?? null} normalBmiWeightKg={dailyTargets?.normalBmiWeightKg ?? null} />
+        <TodaysFoodCard entries={foodLog} onDelete={handleDeleteFood} />
+      </div>
 
       {/* Health Tip of the Day + Workout Calendar side by side, matching the
           design's shared calendar-widget pattern (same pairing as Coding's

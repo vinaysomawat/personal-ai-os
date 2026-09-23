@@ -1,9 +1,10 @@
 'use client'
 
 import { useState, useTransition } from 'react'
-import { Flame, Trophy, CheckCircle2, SkipForward, Clock, Zap, Dumbbell } from 'lucide-react'
+import { Flame, Trophy, CheckCircle2, SkipForward, Clock, Zap, Dumbbell, Shuffle } from 'lucide-react'
 import EmptyState from '@/components/EmptyState'
-import { completeWorkout, skipWorkout, getActiveOrGenerateWorkout } from '../daily-workout'
+import { completeWorkout, skipWorkout, swapWorkout, getActiveOrGenerateWorkout } from '../daily-workout'
+import { WORKOUT_CATEGORIES } from '../workout-core'
 import type { DailyWorkout, WorkoutStats } from '../workout-core'
 
 const STATUS_CONFIG: Record<string, { label: string; color: string }> = {
@@ -21,6 +22,7 @@ interface Props {
 export default function DailyWorkoutCard({ initialWorkout, stats }: Props) {
   const [workout, setWorkout] = useState(initialWorkout)
   const [showDetail, setShowDetail] = useState(false)
+  const [showChange, setShowChange] = useState(false)
   const [isPending, startTransition] = useTransition()
 
   if (!workout) {
@@ -47,6 +49,15 @@ export default function DailyWorkoutCard({ initialWorkout, stats }: Props) {
     startTransition(async () => {
       await skipWorkout(workout.id)
       setWorkout(await getActiveOrGenerateWorkout())
+    })
+  }
+
+  // Pick a different category for today without recording a skip.
+  const handleChange = (category: string) => {
+    setShowChange(false)
+    startTransition(async () => {
+      const swapped = await swapWorkout(workout.id, category)
+      if (swapped) setWorkout(swapped)
     })
   }
 
@@ -82,12 +93,30 @@ export default function DailyWorkoutCard({ initialWorkout, stats }: Props) {
             <button onClick={handleSkip} disabled={isPending} className="flex items-center gap-1.5 px-3.5 py-2 rounded-[7px] border border-border-strong text-fg-secondary text-[12.5px] hover:bg-surface-2 disabled:opacity-50 transition-colors">
               <SkipForward size={12} /> Skip
             </button>
+            <button onClick={() => setShowChange(v => !v)} disabled={isPending} aria-expanded={showChange} className={`flex items-center gap-1.5 px-3.5 py-2 rounded-[7px] border border-border-strong text-[12.5px] hover:bg-surface-2 disabled:opacity-50 transition-colors ${showChange ? 'text-accent' : 'text-fg-secondary'}`}>
+              <Shuffle size={12} /> Change
+            </button>
           </>
         )}
         <button onClick={() => setShowDetail(v => !v)} className="text-accent text-xs hover:text-accent-strong transition-colors py-2 ml-auto">
           {showDetail ? 'Hide full workout' : 'Show full workout'}
         </button>
       </div>
+
+      {showChange && !isDone && (
+        <div className="mt-2.5 flex flex-wrap gap-1.5">
+          {WORKOUT_CATEGORIES.map(c => (
+            <button
+              key={c}
+              onClick={() => handleChange(c)}
+              disabled={isPending}
+              className={`text-[11.5px] px-2.5 py-1 rounded-full border transition-colors disabled:opacity-50 ${c === w.category ? 'border-accent text-accent bg-accent/10' : 'border-border-strong text-fg-secondary hover:bg-surface-2'}`}
+            >
+              {c}
+            </button>
+          ))}
+        </div>
+      )}
 
       {showDetail && (
         <div className="mt-3.5 pt-3.5 border-t border-surface-3 space-y-4 text-sm">

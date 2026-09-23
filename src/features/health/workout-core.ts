@@ -65,6 +65,13 @@ const SPLIT_CYCLE: readonly (readonly string[])[] = [
 
 const todayStr = todayIST
 
+// Every category in workout_library (11 × 5 variations) — what the Daily
+// Workout card's "Change" picker offers.
+export const WORKOUT_CATEGORIES = [
+  'Chest & Triceps', 'Back & Biceps', 'Shoulders', 'Legs', 'Arms', 'Core & Abs',
+  'Full Body', 'HIIT', 'Cardio & Conditioning', 'Mobility & Recovery', 'Active Recovery',
+] as const
+
 // The single active workout — status pending or in_progress. Unlike the
 // coding daily-question pattern this is NOT date-scoped: "one active
 // workout at a time", not "one per day". A workout stays active across
@@ -234,6 +241,39 @@ export async function markWorkoutComplete(supabase: SupabaseClient, id: string):
   if (excess.length > 0) {
     await supabase.from('daily_workouts').delete().in('id', excess.map(r => r.id))
   }
+}
+
+// Swaps the active workout to a different category in place — same row,
+// same linked Planner task (renamed), no "skipped" row left behind.
+// Replaces the old skip-until-the-right-one-comes-up habit (usage showed
+// 45 of 53 assignments "skipped", mostly rerolls seconds apart). Since the
+// row keeps its created_at, the split cycle continues from the swapped-to
+// category, i.e. from what was actually done.
+export async function swapWorkoutCategory(supabase: SupabaseClient, id: string, category: string): Promise<DailyWorkout | null> {
+  const { data: row } = await supabase
+    .from('daily_workouts')
+    .select('user_id, workout_id, task_id, status')
+    .eq('id', id)
+    .single<{ user_id: string; workout_id: string; task_id: string | null; status: WorkoutStatus }>()
+  if (!row || (row.status !== 'pending' && row.status !== 'in_progress')) return null
+
+  const [{ data: pool }, recentCompleted] = await Promise.all([
+    supabase.from('workout_library').select('*').eq('category', category),
+    getRecentCompleted(supabase, row.user_id, HISTORY_LIMIT),
+  ])
+  const categoryPool = ((pool ?? []) as Workout[]).filter(w => w.id !== row.workout_id)
+  const recentIds = new Set(recentCompleted.map(h => h.workout_id))
+  let candidates = categoryPool.filter(w => !recentIds.has(w.id))
+  if (candidates.length === 0) candidates = categoryPool
+  const picked = candidates[Math.floor(Math.random() * candidates.length)]
+  if (!picked) return null
+
+  const { error } = await supabase.from('daily_workouts').update({ workout_id: picked.id }).eq('id', id)
+  if (error) throw new Error(error.message)
+  if (row.task_id) {
+    await supabase.from('tasks').update({ text: `Workout: ${picked.name}` }).eq('id', row.task_id)
+  }
+  return getActiveWorkout(supabase, row.user_id)
 }
 
 // Skipping removes the linked Planner task entirely (not "done" — it wasn't

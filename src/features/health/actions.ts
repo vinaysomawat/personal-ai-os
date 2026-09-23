@@ -4,6 +4,8 @@ import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { todayIST, daysAgoIST } from '@/lib/date'
 import { getDailyTip } from '@/lib/daily-tip'
+import { removeFoodLogEntry } from './food-log'
+import type { FoodLogEntry } from './food-log'
 import type { MetricField, ActivityLevel, Gender } from './types'
 
 // Same deterministic, idempotent-per-day pick the `health-tip` cron sends
@@ -137,5 +139,29 @@ export async function upsertHealthProfile(profile: {
     { onConflict: 'user_id' }
   )
   if (error) throw new Error(error.message)
+  revalidatePath('/health')
+}
+
+// Today's Telegram-logged food items (food_log has no other web surface) —
+// lets the per-item AI estimates behind today's Calories/Protein totals be
+// reviewed and corrected.
+export async function getTodaysFoodLog(): Promise<FoodLogEntry[]> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return []
+  const { data } = await supabase
+    .from('food_log')
+    .select('id, date, item, quantity, unit, calories, protein_g, created_at')
+    .eq('user_id', user.id)
+    .eq('date', todayIST())
+    .order('created_at', { ascending: true })
+  return (data ?? []) as FoodLogEntry[]
+}
+
+export async function deleteFoodEntry(id: string) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) throw new Error('Not authenticated')
+  await removeFoodLogEntry(supabase, id)
   revalidatePath('/health')
 }

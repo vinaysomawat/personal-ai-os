@@ -1,5 +1,6 @@
 'use client'
 
+import type { ReactNode } from 'react'
 import { Settings2 } from 'lucide-react'
 import type { HealthScoreBreakdown } from '../calculations'
 
@@ -23,7 +24,7 @@ const SUB_SCORES: { key: keyof Omit<HealthScoreBreakdown, 'overall'>; label: str
   { key: 'activity',    label: 'Activity',    color: 'var(--good)', weight: '0.4×' },
 ]
 
-export default function HealthScoreHero({ score, onEditProfile }: { score: HealthScoreBreakdown; onEditProfile?: () => void }) {
+export default function HealthScoreHero({ score, onEditProfile, notice }: { score: HealthScoreBreakdown; onEditProfile?: () => void; notice?: ReactNode }) {
   const deg = (score.overall / 100) * 360
 
   const level =
@@ -82,6 +83,7 @@ export default function HealthScoreHero({ score, onEditProfile }: { score: Healt
           </div>
         </div>
       </div>
+      {notice}
     </div>
   )
 }

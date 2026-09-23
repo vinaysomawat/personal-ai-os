@@ -188,3 +188,67 @@ export function computeHealthPlan(
 
   return { dailyTargets, healthScore }
 }
+
+const ACTIVITY_ORDER: ActivityLevel[] = ['sedentary', 'light', 'moderate', 'active', 'very_active']
+
+// What the last few weeks of real data say the activity level is, using the
+// same day-count bands the profile form's ACTIVITY_LEVELS labels describe
+// (light 1-3 days/week, moderate 3-5, active 6-7), bumped one level when
+// average logged steps are ≥10k. Deterministic — only ever shown as a
+// suggestion; the profile is never changed without the user confirming.
+export function suggestActivityLevel(workoutsPerWeek: number, avgSteps: number | null): ActivityLevel {
+  const base: ActivityLevel = workoutsPerWeek < 1 ? 'sedentary' : workoutsPerWeek < 3 ? 'light' : workoutsPerWeek < 5 ? 'moderate' : 'active'
+  if (avgSteps !== null && avgSteps >= 10000) return ACTIVITY_ORDER[Math.min(ACTIVITY_ORDER.length - 1, ACTIVITY_ORDER.indexOf(base) + 1)]
+  return base
+}
+
+export interface WeightTrend {
+  points: { date: string; weight: number }[]
+  latest: number
+  change: number
+  // Least-squares slope over the window, kg/week (negative = losing).
+  kgPerWeek: number
+  // Projected date to reach targetKg at the current rate; null if not
+  // trending toward it or already there.
+  etaDate: string | null
+}
+
+function dayNumber(date: string): number {
+  const [y, m, d] = date.split('-').map(Number)
+  return Date.UTC(y, m - 1, d) / 86400000
+}
+
+// Weight trend from whatever weigh-ins exist in the metrics window — a
+// regression slope rather than first-vs-last, so one noisy weigh-in at
+// either end doesn't swing the rate. Needs ≥3 weigh-ins spanning ≥7 days.
+export function computeWeightTrend(metrics: HealthMetric[], targetKg: number | null): WeightTrend | null {
+  const points = metrics
+    .filter(m => m.weight_kg !== null)
+    .map(m => ({ date: m.date, weight: Number(m.weight_kg) }))
+    .sort((a, b) => a.date.localeCompare(b.date))
+  if (points.length < 3) return null
+  const x0 = dayNumber(points[0].date)
+  const xs = points.map(p => dayNumber(p.date) - x0)
+  if (xs[xs.length - 1] < 7) return null
+  const n = points.length
+  const mx = xs.reduce((s, x) => s + x, 0) / n
+  const my = points.reduce((s, p) => s + p.weight, 0) / n
+  const sxx = xs.reduce((s, x) => s + (x - mx) ** 2, 0)
+  const sxy = xs.reduce((s, x, i) => s + (x - mx) * (points[i].weight - my), 0)
+  const slopePerDay = sxx > 0 ? sxy / sxx : 0
+  const latest = points[n - 1].weight
+
+  let etaDate: string | null = null
+  if (targetKg !== null && latest > targetKg && slopePerDay < 0) {
+    const days = Math.ceil((latest - targetKg) / -slopePerDay)
+    const d = new Date((dayNumber(points[n - 1].date) + days) * 86400000)
+    etaDate = d.toISOString().slice(0, 10)
+  }
+
+  return {
+    points, latest,
+    change: Math.round((latest - points[0].weight) * 10) / 10,
+    kgPerWeek: Math.round(slopePerDay * 7 * 100) / 100,
+    etaDate,
+  }
+}
