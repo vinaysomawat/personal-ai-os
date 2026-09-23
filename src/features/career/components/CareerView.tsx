@@ -130,6 +130,7 @@ export default function CareerView({ applications, profile, skills, quizAttempts
   const [activeTab, setActiveTab] = useState<CareerTab>('applications')
 
   const [localApps, setLocalApps] = useState(applications)
+  const activeAppCount = localApps.filter(a => a.status !== 'rejected').length
   const [localProfile, setLocalProfile] = useState(profile)
   const [localQuizAttempts, setLocalQuizAttempts] = useState(quizAttempts)
 
@@ -339,7 +340,8 @@ export default function CareerView({ applications, profile, skills, quizAttempts
       {advisorPortal}
       <div className="flex items-center gap-2.5 flex-wrap">
         <h1 className="text-[34px] font-bold tracking-[-0.05em] text-fg-primary">Career</h1>
-        <span className="text-[11px] font-semibold bg-surface-2 rounded-full px-2.5 py-1 text-fg-secondary">💼 {localApps.length} active applications</span>
+        {/* Rejected applications aren't active — this used to count every row. */}
+        <span className="text-[11px] font-semibold bg-surface-2 rounded-full px-2.5 py-1 text-fg-secondary">💼 {activeAppCount} active application{activeAppCount === 1 ? '' : 's'}</span>
         {counts.interview > 0 && (
           <span className="text-[11px] font-semibold bg-accent-soft rounded-full px-2.5 py-1 text-accent-strong">🎯 {counts.interview} at interview</span>
         )}

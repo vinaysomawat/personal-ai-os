@@ -1,7 +1,7 @@
 {
   "name": "personal-ai-os",
   "private": true,
-  "version": "1.0.77",
+  "version": "1.0.78",
   "scripts": {
     "dev": "next dev",
     "build": "next build",

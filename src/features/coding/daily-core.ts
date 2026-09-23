@@ -270,7 +270,9 @@ export function computeWeakAreas(history: DailyQuestion[], minSample = 2): WeakA
     }
   }
   return [...byTopic.entries()]
-    .filter(([, v]) => v.total >= minSample)
+    // A topic with zero struggles isn't a weak area — it used to be listed
+    // anyway ("0 of 2 struggled · 0%"), and fed the recommender/signals too.
+    .filter(([, v]) => v.total >= minSample && v.struggling > 0)
     .map(([topic, v]) => ({ topic, strugglingCount: v.struggling, total: v.total, struggleRate: Math.round((v.struggling / v.total) * 100) }))
     .sort((a, b) => b.struggleRate - a.struggleRate)
 }

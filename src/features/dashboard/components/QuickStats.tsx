@@ -24,7 +24,11 @@ export default function QuickStats({ codingStreak, codingQuestionPending, workou
   const stats = [
     { label: 'Coding Streak', value: `🔥 ${plural(codingStreak)}`, sub: codingQuestionPending ? "today still open" : "today solved", to: '/coding', color: 'text-fg-primary' },
     { label: 'Workout Streak', value: `🏋️ ${plural(workoutStreak)}`, sub: workoutDoneToday ? 'Logged today' : workoutCategory ? `${workoutCategory} today` : 'Not yet today', to: '/health', color: 'text-fg-primary' },
-    { label: 'Budget Remaining', value: `₹${Math.round(budgetRemaining).toLocaleString('en-IN')}`, sub: `of ₹${Math.round(budgetTotal).toLocaleString('en-IN')} this month`, to: '/finance', color: (budgetRemaining / budgetTotal) < 0.15 ? 'text-risk' : (budgetRemaining / budgetTotal) < 0.3 ? 'text-warn' : 'text-good' },
+    // Over budget reads "Over ₹X" rather than a "₹-X" with the sign after
+    // the currency symbol; no budget set shows a dash instead of NaN tiers.
+    budgetRemaining < 0
+      ? { label: 'Budget', value: `Over ₹${Math.round(-budgetRemaining).toLocaleString('en-IN')}`, sub: `of ₹${Math.round(budgetTotal).toLocaleString('en-IN')} this month`, to: '/finance', color: 'text-risk' }
+      : { label: 'Budget Remaining', value: budgetTotal > 0 ? `₹${Math.round(budgetRemaining).toLocaleString('en-IN')}` : '—', sub: budgetTotal > 0 ? `of ₹${Math.round(budgetTotal).toLocaleString('en-IN')} this month` : 'No budget set', to: '/finance', color: budgetTotal <= 0 ? 'text-fg-tertiary' : (budgetRemaining / budgetTotal) < 0.15 ? 'text-risk' : (budgetRemaining / budgetTotal) < 0.3 ? 'text-warn' : 'text-good' },
     { label: 'Workout Today', value: workoutDoneToday ? '✓ Done' : '○ Pending', sub: workoutDoneToday ? 'Logged' : 'Not yet', to: '/health', color: workoutDoneToday ? 'text-good' : 'text-warn' },
   ]
 

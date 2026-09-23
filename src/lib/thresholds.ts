@@ -65,3 +65,11 @@ export const FINANCE_THRESHOLDS = {
   // The category row's own "Over" badge still shows it.
   overBudgetBannerMinRatio: 0.02,
 } as const
+
+export const PLANNER_THRESHOLDS = {
+  // Auto-generated Planner tasks (daily coding picks, daily reads) still open
+  // after this many days are removed from Planner by the daily-coding cron —
+  // the question/resource itself stays pending in Practice Log/Resources.
+  // Without it, 4+ auto-tasks/day piled up to 100+ open tasks, all stale.
+  staleAutoTaskDays: 3,
+} as const
