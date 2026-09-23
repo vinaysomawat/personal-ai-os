@@ -116,6 +116,19 @@ function cacheKeyFor(model: string, system: string | undefined, prompt: string):
 const DAILY_BUDGET_USD = Number(process.env.AI_DAILY_BUDGET_USD ?? 3)
 const MONTHLY_BUDGET_USD = Number(process.env.AI_MONTHLY_BUDGET_USD ?? 50)
 
+// Telegram intent/vision parsing is what "the app" means for someone
+// actively texting a bot — a background cron task (a digest, a daily-read
+// pick) spending unevenly earlier in the day must never be able to fully
+// starve that. These tasks alone may spend up to the full daily budget;
+// every other task is checked against a lower ceiling that reserves this
+// fraction of the day's budget exclusively for interactive traffic. Without
+// this, one oversized non-interactive call earlier in the day silently
+// kills every Telegram bot until midnight, indistinguishable from a bug in
+// the bot itself (see the recommend_daily_read web-search incident this
+// guarded against — a single call over 80k input tokens).
+const INTERACTIVE_TASKS: ReadonlySet<AITask> = new Set(['telegram_intent', 'telegram_vision'])
+const INTERACTIVE_RESERVE_FRACTION = 0.3
+
 // A "use server" file can only export async functions — Settings reads the
 // ceilings through this rather than importing the constants directly.
 export async function getAiBudgetLimits() {
@@ -179,6 +192,12 @@ export interface AskAIResult {
    * a cache hit, or "now" on a fresh call. Lets a UI show "Updated 3 days
    * ago" on AI-derived content instead of leaving staleness invisible. */
   generatedAt: string
+  /** True when `text` is the task's fallback specifically because the
+   * daily/monthly spend ceiling was hit — as opposed to a missing userId or
+   * a live API error. Callers that need to tell a user "I didn't understand
+   * that" apart from "AI budget is exhausted right now" (e.g. the Telegram
+   * handler) should check this rather than pattern-matching on `text`. */
+  budgetExhausted?: boolean
 }
 
 /**
@@ -224,8 +243,9 @@ export async function askAIWithMeta(task: AITask, prompt: string, system?: strin
     spendSince(db, userId, todayStart),
     spendSince(db, userId, monthStart),
   ])
-  if (dailySpend >= DAILY_BUDGET_USD || monthlySpend >= MONTHLY_BUDGET_USD) {
-    return { text: config.fallback, generatedAt: now() }
+  const dailyLimit = INTERACTIVE_TASKS.has(task) ? DAILY_BUDGET_USD : DAILY_BUDGET_USD * (1 - INTERACTIVE_RESERVE_FRACTION)
+  if (dailySpend >= dailyLimit || monthlySpend >= MONTHLY_BUDGET_USD) {
+    return { text: config.fallback, generatedAt: now(), budgetExhausted: true }
   }
 
   try {

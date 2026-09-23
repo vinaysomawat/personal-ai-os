@@ -1,6 +1,6 @@
 import { createServiceClient } from '@/lib/supabase/service'
 import { sendMessage, answerCallbackQuery, editMessageReplyMarkup } from '@/lib/telegram/send'
-import { askAI } from '@/lib/ai-gateway'
+import { askAIWithMeta } from '@/lib/ai-gateway'
 import { transcribeVoice } from '@/lib/telegram/transcribe'
 import { downloadTelegramFile } from '@/lib/telegram/download'
 import { isUndoableTable, UNDO_LABEL } from '@/lib/telegram/buttons'
@@ -214,17 +214,39 @@ export async function handleUpdate(moduleName: ModuleName, update: TelegramUpdat
   }
 
   let actions: Record<string, unknown>[] = [{ action: 'help' }]
+  let budgetExhausted = false
 
   try {
     const todayStr = todayIST()
     const dateInstruction = `\n\nToday's actual date is ${todayStr} (YYYY-MM-DD). Always use this for "today", "now", or any relative date/default date — never guess or use a date from your training data.`
-    const raw = image
-      ? await askAI('telegram_vision', text, `${(mod as { VISION_PROMPT?: string }).VISION_PROMPT}${dateInstruction}`, { userId, image })
-      : await askAI('telegram_intent', text, `${mod.SYSTEM_PROMPT}${dateInstruction}\n\nIf the message describes multiple distinct instructions (e.g. "workout 45 min, drank 2L, finished chapter 3"), return a JSON array of action objects instead of a single object — one per instruction, each in the exact shape defined above.`, { userId })
-    const parsed = extractActions(raw)
+    const result = image
+      ? await askAIWithMeta('telegram_vision', text, `${(mod as { VISION_PROMPT?: string }).VISION_PROMPT}${dateInstruction}`, { userId, image })
+      : await askAIWithMeta('telegram_intent', text, `${mod.SYSTEM_PROMPT}${dateInstruction}\n\nIf the message describes multiple distinct instructions (e.g. "workout 45 min, drank 2L, finished chapter 3"), return a JSON array of action objects instead of a single object — one per instruction, each in the exact shape defined above.`, { userId })
+    budgetExhausted = result.budgetExhausted ?? false
+    const parsed = extractActions(result.text)
     if (parsed.length > 0) actions = parsed
   } catch {
     actions = [{ action: 'help' }]
+  }
+
+  // Distinguish "AI budget is exhausted for today" from "I didn't understand
+  // that" — both used to fall back to the same {"action":"help"} shape,
+  // which made a budget cutoff look identical to a bot bug.
+  if (budgetExhausted) {
+    const reply = `⏸️ AI budget for today is used up — resets at midnight IST. This message wasn't processed.`
+    await sendMessage(token, chatId, reply)
+    try {
+      await db.from('telegram_logs').insert({
+        module: moduleName,
+        telegram_chat_id: chatId,
+        message: text,
+        action_taken: { action: 'budget_exhausted' },
+        response: reply,
+      })
+    } catch {
+      // Non-fatal: log failure shouldn't affect user
+    }
+    return
   }
 
   const replyParts: string[] = []

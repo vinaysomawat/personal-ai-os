@@ -18,12 +18,14 @@ export interface Resource {
   estimated_minutes: number | null
 }
 
-// AI-recommended resource. `url` is web-search-verified (see study-plan.ts's
-// recommendResources — the model must confirm a real page exists before
-// including it, never guess) rather than model-invented; still nullable
-// since search can genuinely turn up nothing. The UI opens the existing Add
-// Resource form pre-filled with this data (including the url, if found)
-// instead of inserting it directly, so it's always reviewable before saving.
+// AI-recommended resource. `url` is the model's own self-reported best guess
+// (see study-plan.ts's recommendResources), not web-search-verified — that
+// was removed 2026-09-23 after a single search call on the same-shaped
+// recommendDailyRead pulled back 80k+ tokens of page content, enough alone
+// to exhaust a day's AI budget; still nullable when the model isn't
+// confident a URL exists. The UI opens the existing Add Resource form
+// pre-filled with this data (including the url, if given) instead of
+// inserting it directly, so it's always reviewable before saving.
 export interface RecommendedResource {
   title: string
   type: ResourceType

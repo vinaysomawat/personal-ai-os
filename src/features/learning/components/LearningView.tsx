@@ -98,9 +98,10 @@ export default function LearningView({ initialResources, initialQuizAttempts }: 
   const [addedSuggestionUrls, setAddedSuggestionUrls] = useState<Set<string>>(new Set())
   const [dismissedCuratedUrls, setDismissedCuratedUrls] = useState<Set<string>>(new Set())
 
-  // AI-recommended resources — url is web-search-verified but may still be
-  // null (see RecommendedResource), so "+ Add" opens the Add Resource form
-  // pre-filled instead of inserting directly.
+  // AI-recommended resources — url is the model's own self-reported best
+  // guess, not web-search-verified (see RecommendedResource), and may still
+  // be null, so "+ Add" opens the Add Resource form pre-filled instead of
+  // inserting directly.
   const [aiSuggestions, setAiSuggestions] = useState<RecommendedResource[]>([])
   const [aiSuggestionsLoading, setAiSuggestionsLoading] = useState(false)
   const [handledAiTitles, setHandledAiTitles] = useState<Set<string>>(new Set())
@@ -191,11 +192,11 @@ export default function LearningView({ initialResources, initialQuizAttempts }: 
     }
   }
 
-  // AI suggestions carry a web-search-verified URL when found (may still be
-  // null) — open the Add Resource form pre-filled so it's reviewable/editable
-  // before saving, rather than inserting directly. Only marked "handled" on
-  // actual submit (see the form below), not on open, so cancelling the modal
-  // leaves the suggestion available to add later.
+  // AI suggestions carry a self-reported URL, not web-search-verified (may
+  // still be null) — open the Add Resource form pre-filled so it's
+  // reviewable/editable before saving, rather than inserting directly. Only
+  // marked "handled" on actual submit (see the form below), not on open, so
+  // cancelling the modal leaves the suggestion available to add later.
   const handleAddAiSuggestion = (s: RecommendedResource) => {
     setPrefill({ title: s.title, type: s.type, category: s.category, notes: s.reason, url: s.url })
     setShowForm(true)
@@ -448,7 +449,7 @@ export default function LearningView({ initialResources, initialQuizAttempts }: 
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className={modalLabelClass}>URL{prefill && (prefill.url ? ' — AI-found via web search, verify before saving' : ' — AI found no verified link, paste one if you have it')}</label>
+                  <label className={modalLabelClass}>URL{prefill && (prefill.url ? ' — AI-suggested, verify before saving' : ' — AI wasn\'t confident of a link, paste one if you have it')}</label>
                   <input name="url" type="url" defaultValue={prefill?.url ?? ''} placeholder="https://..." className={modalInputClass()} />
                 </div>
                 <div>

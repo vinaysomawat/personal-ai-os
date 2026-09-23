@@ -18,8 +18,9 @@ export const isMarkedToday = (r: Pick<Resource, 'notes' | 'created_at'>) =>
 // (each article is only ever picked once, unlike the old trending/core.ts
 // rotation this replaces, which restarted and repeated once exhausted). Only
 // once every curated article is already in the resource list does this fall
-// back to an AI suggestion (recommendDailyRead — web-search-verified URL,
-// see that function; null if search genuinely found nothing).
+// back to an AI suggestion (recommendDailyRead — a self-reported URL, not
+// web-search-verified, see that function; null if the model isn't confident
+// one exists).
 // Idempotent per day: bails out if a daily-read-marked resource created
 // today already exists, so this is safe to call from both the page load and
 // the daily cron without double-adding.

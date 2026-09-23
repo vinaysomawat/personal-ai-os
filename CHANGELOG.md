@@ -3,6 +3,10 @@
 One line per shipped change, newest first. Sourced from commit messages —
 append here whenever you deploy, same cadence as the version bump.
 
+## 2026-09-23
+
+- Fixed every Telegram bot (Health included) silently falling back to its "help" cheat-sheet whenever the AI daily budget was exhausted — a background task (the daily-read recommender's web search) could spend the whole day's ceiling in one call, indistinguishable from the bot failing to understand a message. Removed web search from `recommendDailyRead`/`recommendResources` (a single call was seen pulling back 80k+ tokens, over the entire daily budget by itself), added a budget reserve so background/on-demand AI tasks can never fully starve interactive Telegram traffic, and gave a budget cutoff its own distinct bot reply instead of the generic help menu.
+
 ## 2026-09-02
 
 - Fixed the floating Quick Add button (+) permanently overlapping content at the true bottom of a page's scroll (e.g. Coding's "Recommended for You", Finance's "Just Added") — increased the shared page wrapper's bottom padding to clear the button's full fixed-position footprint on both mobile and desktop.

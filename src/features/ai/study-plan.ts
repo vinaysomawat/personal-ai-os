@@ -63,7 +63,7 @@ Recommend 5 learning resources he should study next. Base this on:
 
 Order them by priority — the most important one first, with the reason explaining why it matters right now (interview relevance, ecosystem shift, or gap in his current progress).
 
-For each one, use web search to find its real, live URL (official docs page, the book's real publisher/Amazon page, the actual course platform listing, the specific article's real URL) — confirm the page actually exists before including it. If you can't find a real URL for a given resource after searching, set "url" to null for that one rather than guessing or reusing a search-results-page URL.
+For each one, only include a "url" if you're confident it's the real, correct address (official docs page, the book's real publisher/Amazon page, the actual course platform listing, the specific article's real URL) — set "url" to null for that one rather than guessing.
 
 Return ONLY a JSON array in this exact format:
 [
@@ -73,7 +73,10 @@ Return ONLY a JSON array in this exact format:
 
 title should name a real, well-known resource (a specific book, a well-known course platform's course, a commonly-cited article/talk) by its actual name, not a generic placeholder.`
 
-  const raw = await askAI('recommend_resources', prompt, 'You are a sharp technical mentor who stays current on frontend interview trends and the JS ecosystem. Use web search to verify every URL you include actually exists — never guess or invent one. Return only valid JSON, no explanation, no markdown fences.', { webSearchMaxUses: 1 })
+  // No web search here — same reasoning as recommendDailyRead below (a
+  // single search call has been observed pulling back 80k+ tokens of page
+  // content, enough on its own to exhaust the whole day's AI budget).
+  const raw = await askAI('recommend_resources', prompt, 'You are a sharp technical mentor who stays current on frontend interview trends and the JS ecosystem. Never invent a fake URL — set url to null when unsure. Return only valid JSON, no explanation, no markdown fences.')
   try {
     const match = raw.match(/\[[\s\S]*\]/)
     return match ? JSON.parse(match[0]) : []
@@ -83,9 +86,12 @@ title should name a real, well-known resource (a specific book, a well-known cou
 }
 
 // Fallback for the daily-read pick once the curated pool (reading-articles.ts)
-// is exhausted for what's already in the resource list. Uses web search
-// (see callClaude's webSearch flag) to attach a real, verified URL rather
-// than guessing — falls back to null if search genuinely finds nothing.
+// is exhausted for what's already in the resource list. No web search here
+// (a single search call has been observed returning 80k+ tokens of page
+// content — enough on its own to blow the whole day's AI budget, starving
+// every other module including the Telegram bots) — the model names a real
+// piece from its training knowledge and we take its own word on the URL;
+// falls back to null when it isn't confident one exists.
 export async function recommendDailyRead(resources: Resource[]): Promise<{ title: string; category: string; reason: string; estimatedMinutes: number; url: string | null } | null> {
   const completedTitles = resources.filter(r => r.status === 'completed').map(r => r.title)
   const existingTitles = resources.map(r => r.title)
@@ -99,12 +105,12 @@ Suggest ONE real, well-known frontend/web-engineering article, guide, or blog po
 1. Must be a real, specific, well-known piece by its actual title (a specific blog post, official docs page, or well-cited article) — never invent a plausible-sounding title for something that doesn't exist.
 2. Should take roughly 30-60 minutes to read. If the best fit is genuinely longer, say so honestly in the reason and note it can be split across a couple of sessions — don't undersell its length to fit the window.
 3. Prefer something that fills a real gap versus what he's already read above, or is currently relevant to frontend interview trends/ecosystem shifts.
-4. Use web search to find its real, live URL and confirm the page actually exists before including it. If you can't find a real URL after searching, set "url" to null rather than guessing.
+4. Only include a URL if you're confident it's the real, correct address for that exact piece — set "url" to null rather than guessing at one.
 
 Return ONLY a JSON object in this exact format:
 {"title": "...", "category": "...", "reason": "...", "estimatedMinutes": 45, "url": "https://... or null"}`
 
-  const raw = await askAI('recommend_daily_read', prompt, 'You are a sharp technical mentor who stays current on frontend engineering writing. Use web search to verify every URL you include actually exists — never guess or invent one. Never invent a fake article title. Return only valid JSON, no explanation, no markdown fences.', { webSearchMaxUses: 1 })
+  const raw = await askAI('recommend_daily_read', prompt, 'You are a sharp technical mentor who stays current on frontend engineering writing. Never invent a fake article title or a guessed URL — set url to null when unsure. Return only valid JSON, no explanation, no markdown fences.')
   try {
     const parsed = JSON.parse(raw)
     return parsed.title ? { ...parsed, url: parsed.url ?? null } : null
