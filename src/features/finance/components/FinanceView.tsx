@@ -721,7 +721,7 @@ export default function FinanceView({ expenses, budgets, profile, loans, investm
                 const rate = parseFloat(fd.get('rate') as string) || null
                 const months = parseInt(fd.get('months') as string) || null
                 if (!name || !principal || !emi) return
-                const newLoan = { id: `temp-${Date.now()}`, user_id: '', name, principal, emi, interest_rate: rate, remaining_months: months, created_at: new Date().toISOString() }
+                const newLoan = { id: `temp-${Date.now()}`, user_id: '', name, principal, emi, interest_rate: rate, remaining_months: months, remaining_months_as_of: months !== null ? todayIST().slice(0, 7) + '-01' : null, created_at: new Date().toISOString() }
                 setLocalLoans(prev => [...prev, newLoan])
                 setModal(null)
                 await addLoan(name, principal, emi, rate, months)

@@ -32,6 +32,8 @@ export interface Loan {
   emi: number
   interest_rate: number | null
   remaining_months: number | null
+  // Month (1st) remaining_months was last set — see loanEffectiveRemainingMonths.
+  remaining_months_as_of: string | null
   created_at: string
 }
 

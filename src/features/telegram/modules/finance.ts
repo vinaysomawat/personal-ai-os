@@ -2,7 +2,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import type { ModuleReply } from '@/lib/telegram/types'
 import { undoButton } from '@/lib/telegram/buttons'
 import { todayIST, daysAgoIST } from '@/lib/date'
-import { loanOutstanding } from '@/features/finance/calculations'
+import { loanOutstanding, loanEffectiveRemainingMonths, monthStart } from '@/features/finance/calculations'
 
 export const SYSTEM_PROMPT = `You are the Finance bot for Personal OS. Parse the user message and return ONLY a JSON action.
 
@@ -115,7 +115,7 @@ export async function execute(action: Record<string, unknown>, db: SupabaseClien
     }
 
     case 'add_loan': {
-      const { data, error } = await db.from('loans').insert({ user_id: userId, name: action.name, principal: Number(action.principal), emi: Number(action.emi), interest_rate: action.rate ?? null, remaining_months: action.months ?? null }).select('id').single()
+      const { data, error } = await db.from('loans').insert({ user_id: userId, name: action.name, principal: Number(action.principal), emi: Number(action.emi), interest_rate: action.rate ?? null, remaining_months: action.months ?? null, remaining_months_as_of: action.months ? monthStart(today) : null }).select('id').single()
       if (error) return `❌ ${error.message}`
       return {
         text: `🏦 Added loan: *${action.name}*\nEMI: ₹${Number(action.emi).toLocaleString('en-IN')}/mo · ${action.months ?? '?'} months remaining`,
@@ -136,13 +136,13 @@ export async function execute(action: Record<string, unknown>, db: SupabaseClien
     case 'net_worth': {
       const [profileRes, loansRes, investmentsRes, expensesRes] = await Promise.all([
         db.from('finance_profile').select('monthly_salary').eq('user_id', userId).single(),
-        db.from('loans').select('emi, interest_rate, remaining_months').eq('user_id', userId),
+        db.from('loans').select('emi, interest_rate, remaining_months, remaining_months_as_of').eq('user_id', userId),
         db.from('investments').select('invested_amount, current_value').eq('user_id', userId),
         db.from('expenses').select('amount').eq('user_id', userId).gte('date', daysAgoIST(90)),
       ])
       const portfolio = (investmentsRes.data ?? []).reduce((s, i) => s + Number(i.current_value), 0)
       // Balance owed today, not emi × months (which adds all future interest).
-      const debt = (loansRes.data ?? []).reduce((s, l) => s + loanOutstanding(l), 0)
+      const debt = (loansRes.data ?? []).reduce((s, l) => s + loanOutstanding({ ...l, remaining_months: loanEffectiveRemainingMonths(l, today) }), 0)
       const netWorth = portfolio - debt
       const salary = profileRes.data?.monthly_salary ?? 0
       const avgSpend = Math.round((expensesRes.data ?? []).reduce((s, e) => s + Number(e.amount), 0) / 3)
@@ -163,7 +163,7 @@ export async function execute(action: Record<string, unknown>, db: SupabaseClien
       const emis = (loansRes.data ?? []).reduce((s, l) => s + Number(l.emi), 0)
       const portfolio = (investmentsRes.data ?? []).reduce((s, i) => s + Number(i.current_value), 0)
       const avgSpend = Math.round((expensesRes.data ?? []).reduce((s, e) => s + Number(e.amount), 0) / 3)
-      const context = `Vinay's finances: salary ₹${salary}/mo, EMIs ₹${emis}/mo, avg spend ₹${avgSpend}/mo, portfolio ₹${portfolio}, loans: ${(loansRes.data ?? []).map(l => `${l.name} ₹${l.emi}/mo ${l.remaining_months}mo left`).join('; ')}, goals: ${(goalsRes.data ?? []).map(g => `${g.name} target ₹${g.target_amount} saved ₹${g.current_amount}`).join('; ')}`
+      const context = `Vinay's finances: salary ₹${salary}/mo, EMIs ₹${emis}/mo, avg spend ₹${avgSpend}/mo, portfolio ₹${portfolio}, loans: ${(loansRes.data ?? []).map(l => `${l.name} ₹${l.emi}/mo ${loanEffectiveRemainingMonths(l, today)}mo left`).join('; ')}, goals: ${(goalsRes.data ?? []).map(g => `${g.name} target ₹${g.target_amount} saved ₹${g.current_amount}`).join('; ')}`
       const answer = await askAI('finance_advisor', `${context}\n\nQuestion: ${action.question}`, "You are Vinay's personal finance advisor. Give sharp, numbers-driven advice. Be direct. Under 150 words.", { userId })
       return `🤖 *Finance Advisor:*\n\n${answer}`
     }

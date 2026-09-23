@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { todayIST, daysAgoIST } from '@/lib/date'
 import { CATEGORIES } from './types'
+import { loanEffectiveRemainingMonths, monthStart } from './calculations'
 import type { InvestmentType, GoalPriority } from './types'
 
 function currentMonth() {
@@ -81,7 +82,7 @@ export async function getFinanceData() {
     expenses: expensesRes.data ?? [],
     budgets,
     profile: profileRes.data ?? null,
-    loans: loansRes.data ?? [],
+    loans: (loansRes.data ?? []).map(l => ({ ...l, remaining_months: loanEffectiveRemainingMonths(l, todayIST()) })),
     investments: investmentsRes.data ?? [],
     goals: goalsRes.data ?? [],
     salaryHistory: (salaryHistoryRes.data ?? []) as { amount: number; effective_date: string; note: string | null }[],
@@ -165,7 +166,7 @@ export async function addLoan(name: string, principal: number, emi: number, inte
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return
-  const { error } = await supabase.from('loans').insert({ user_id: user.id, name, principal, emi, interest_rate: interestRate, remaining_months: remainingMonths })
+  const { error } = await supabase.from('loans').insert({ user_id: user.id, name, principal, emi, interest_rate: interestRate, remaining_months: remainingMonths, remaining_months_as_of: remainingMonths !== null ? monthStart(todayIST()) : null })
   if (error) throw new Error(error.message)
   revalidatePath('/finance')
 }
@@ -181,10 +182,13 @@ export async function deleteLoan(id: string) {
 // and re-adding the loan.
 export async function updateLoanTerms(id: string, updates: { emi?: number; interestRate?: number | null; remainingMonths?: number | null }) {
   const supabase = await createClient()
-  const patch: Record<string, number | null> = {}
+  const patch: Record<string, number | string | null> = {}
   if (updates.emi !== undefined) patch.emi = updates.emi
   if (updates.interestRate !== undefined) patch.interest_rate = updates.interestRate
-  if (updates.remainingMonths !== undefined) patch.remaining_months = updates.remainingMonths
+  if (updates.remainingMonths !== undefined) {
+    patch.remaining_months = updates.remainingMonths
+    patch.remaining_months_as_of = updates.remainingMonths !== null ? monthStart(todayIST()) : null
+  }
   const { error } = await supabase.from('loans').update(patch).eq('id', id)
   if (error) throw new Error(error.message)
   revalidatePath('/finance')

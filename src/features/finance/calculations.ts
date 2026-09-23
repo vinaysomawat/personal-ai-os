@@ -3,6 +3,24 @@
 // surface reports the same debt/pace numbers. Deterministic only (Product
 // Principle 2).
 
+// remaining_months is stored as a snapshot plus the month it was set
+// (remaining_months_as_of); the live count is derived here at read time —
+// minus one per calendar month since — rather than rewritten by a cron, so
+// a missed job can't silently skip a month. Loads normalize loans through
+// this once, so everything downstream just reads remaining_months.
+export function loanEffectiveRemainingMonths(loan: { remaining_months: number | null; remaining_months_as_of: string | null }, today: string): number | null {
+  if (loan.remaining_months === null || !loan.remaining_months_as_of) return loan.remaining_months
+  const [ty, tm] = today.split('-').map(Number)
+  const [ay, am] = loan.remaining_months_as_of.split('-').map(Number)
+  const elapsed = Math.max(0, (ty - ay) * 12 + (tm - am))
+  return Math.max(0, loan.remaining_months - elapsed)
+}
+
+// The as_of value to store alongside any write of remaining_months.
+export function monthStart(today: string): string {
+  return `${today.slice(0, 7)}-01`
+}
+
 interface LoanTerms {
   emi: number
   interest_rate: number | null
@@ -90,9 +108,8 @@ export function suggestBudgets(history: { amount: number; category: string; date
 }
 
 // Calendar month the loan's last EMI falls in, counting remaining_months
-// forward from the current month. remaining_months is a manually-edited
-// snapshot (nothing decrements it monthly), so this is only as current as
-// the last edit.
+// (already the effective, auto-decremented count — see
+// loanEffectiveRemainingMonths) forward from the current month.
 export function loanPayoffMonth(remainingMonths: number | null, today: string): string | null {
   if (!remainingMonths || remainingMonths <= 0) return null
   const [y, m] = today.split('-').map(Number)
