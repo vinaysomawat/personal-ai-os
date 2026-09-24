@@ -1,7 +1,8 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { ModuleReply } from '@/lib/telegram/types'
 import { todayIST, nowISTHHMM } from '@/lib/date'
-import { UI_HI, PLANET_HI, YOGINI_HI, NAKSHATRA_HI, TITHI_HI, YOGA_HI, KARANA_HI, CHOGHADIYA_NAME_HI, PAKSHA_HI } from '@/features/astrology/i18n/hi'
+import { UI_HI, PLANET_HI, YOGINI_HI, YOGA_HI, KARANA_HI } from '@/features/astrology/i18n/hi'
+import { formatDailyReading, bulletizeProse, formatPanchangLines } from '@/features/astrology/telegram-format'
 
 // Read-mostly bot (astrology.md 3.5) — this module's data has no
 // logging/CRUD equivalent to expenses or tasks, so there's no add/undo
@@ -47,10 +48,14 @@ export async function execute(action: Record<string, unknown>, db: SupabaseClien
 
   switch (action.action) {
     case 'reading': {
-      const { getAstrologyReading } = await import('@/features/astrology/actions')
+      const { getAstrologyReading, getStructuredDailyReading } = await import('@/features/astrology/actions')
       const period = ((action.period as string) === 'monthly' || (action.period as string) === 'yearly') ? (action.period as 'monthly' | 'yearly') : 'daily'
-      const text = await getAstrologyReading(profile, period, 'hi')
-      return `🔮 *${UI_HI[PERIOD_READING_KEY[period]]}*\n\n${text}`
+      // Bullets, not paragraphs: daily uses the structured reading; monthly/
+      // yearly prose is split into ≤4 sentence bullets (same AI output/cache).
+      const body = period === 'daily'
+        ? formatDailyReading(await getStructuredDailyReading(profile, 'hi'))
+        : bulletizeProse(await getAstrologyReading(profile, period, 'hi'), 4)
+      return `🔮 *${UI_HI[PERIOD_READING_KEY[period]]}*\n\n${body}`
     }
     case 'current_dasha': {
       const { getCurrentDasha, getCurrentYogini } = await import('@/features/astrology/chart-calculations')
@@ -69,28 +74,19 @@ export async function execute(action: Record<string, unknown>, db: SupabaseClien
     }
     case 'panchang': {
       const { getTodaysPanchang } = await import('@/features/astrology/panchang-actions')
-      const { getCurrentChoghadiyaBlock } = await import('@/features/astrology/panchang')
       const panchang = await getTodaysPanchang(profile.birth_lat, profile.birth_lng, profile.birth_timezone)
       if (!panchang) return `🔮 आज का पंचांग नहीं निकाला जा सका।`
-      const tithi = TITHI_HI[panchang.tithi] ?? panchang.tithi
-      const paksha = PAKSHA_HI[panchang.paksha] ?? panchang.paksha
-      const nakshatra = NAKSHATRA_HI[panchang.nakshatra as keyof typeof NAKSHATRA_HI] ?? panchang.nakshatra
       const yoga = YOGA_HI[panchang.yoga] ?? panchang.yoga
       const karana = KARANA_HI[panchang.karana] ?? panchang.karana
-      let text = `🔮 *${UI_HI.panchang}*\n\n${UI_HI.tithi}: ${tithi} (${paksha} ${UI_HI.paksha})\n${UI_HI.nakshatraOfDay}: ${nakshatra}\n${UI_HI.yoga}: ${yoga} · ${UI_HI.karana}: ${karana}\n${UI_HI.sunrise}: ${panchang.sunrise} · ${UI_HI.sunset}: ${panchang.sunset}\n\n⚠️ ${UI_HI.rahuKalam}: ${panchang.rahu_kalam_start}–${panchang.rahu_kalam_end}\n⚠️ ${UI_HI.yamaganda}: ${panchang.yamaganda_start}–${panchang.yamaganda_end}\n⚠️ ${UI_HI.gulikaKalam}: ${panchang.gulika_kalam_start}–${panchang.gulika_kalam_end}`
-      const currentBlock = getCurrentChoghadiyaBlock(panchang.choghadiya ?? [], nowISTHHMM())
-      if (currentBlock) {
-        const emoji = currentBlock.type === 'good' ? '✅' : currentBlock.type === 'bad' ? '⚠️' : '➖'
-        const blockName = CHOGHADIYA_NAME_HI[currentBlock.name] ?? currentBlock.name
-        const typeLabel = currentBlock.type === 'good' ? UI_HI.choghadiyaGood : currentBlock.type === 'bad' ? UI_HI.choghadiyaBad : UI_HI.choghadiyaNeutral
-        text += `\n\n${emoji} ${UI_HI.choghadiyaNow}: ${blockName} (${typeLabel}) ${currentBlock.end} ${UI_HI.until}`
-      }
+      const text = `🔮 *${UI_HI.panchang}*\n\n${formatPanchangLines(panchang, nowISTHHMM(), true)}\n🧿 ${UI_HI.yoga}: ${yoga} · ${UI_HI.karana}: ${karana}`
       return text
     }
     case 'characteristics': {
       const { getAstrologyCharacteristics } = await import('@/features/astrology/actions')
-      const text = await getAstrologyCharacteristics(profile, 'hi')
-      return `🔮 *${UI_HI.characteristics}*\n\n${text}`
+      // Returns { text, generatedAt } — interpolating the object directly
+      // used to send "[object Object]".
+      const { text } = await getAstrologyCharacteristics(profile, 'hi')
+      return `🔮 *${UI_HI.characteristics}*\n\n${bulletizeProse(text, 5)}`
     }
     default:
       return `*ज्योतिष बॉट — मैं यह कर सकता हूँ:*\n• "today's reading"\n• "this month's reading"\n• "this year's reading"\n• "current dasha"\n• "today's panchang"\n• "my characteristics"`
