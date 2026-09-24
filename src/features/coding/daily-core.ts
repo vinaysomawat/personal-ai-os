@@ -1,5 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { todayIST, daysAgoIST } from '@/lib/date'
+import { todayIST, daysAgoIST, toISTDateStr } from '@/lib/date'
 
 type Difficulty = 'easy' | 'medium' | 'hard'
 
@@ -93,20 +93,50 @@ function pickQuestions(pool: CodingQuestion[], assignedIds: Set<string>, difficu
   return shuffled.slice(0, count)
 }
 
+// Daily picks are grouped into slots — system-design shares the algorithm
+// slot (it's the alternating-Saturday form of the hard algorithm pick).
+type Slot = 'algorithm' | 'quiz' | 'javascript-functions' | 'ui-coding'
+const SLOT_ORDER: Slot[] = ['algorithm', 'quiz', 'javascript-functions', 'ui-coding']
+function slotOf(category: QuestionCategory | undefined): Slot {
+  return category === 'system-design' || !category ? 'algorithm' : category
+}
+
+// The active question(s) per slot — carry-over, not "whatever was assigned
+// today" (changed 2026-09-24). For each slot, the most recent assignment
+// batch stays active until it's finished: shown while any of it is still
+// open, or if it was assigned or finished today. Older unfinished picks
+// aren't resurrected — they live in the Practice Log. This is what the
+// Today cards, Dashboard, Telegram, and every "today's question still
+// open?" check read, so an unfinished pick carries over instead of a new
+// one piling on top of it every day.
 export async function getTodayAssignmentRows(supabase: SupabaseClient, userId: string): Promise<DailyQuestion[]> {
+  const today = todayStr()
   const { data } = await supabase
     .from('coding_daily_questions')
     .select('*, question:coding_questions(*)')
     .eq('user_id', userId)
-    .eq('assigned_date', todayStr())
-  return (data ?? []) as unknown as DailyQuestion[]
+    .gte('assigned_date', daysAgoIST(90))
+    .order('assigned_date', { ascending: false })
+  const rows = (data ?? []) as unknown as DailyQuestion[]
+  const active: DailyQuestion[] = []
+  for (const slot of SLOT_ORDER) {
+    const inSlot = rows.filter(r => slotOf(r.question?.category) === slot)
+    if (inSlot.length === 0) continue
+    const batch = inSlot.filter(r => r.assigned_date === inSlot[0].assigned_date)
+    const keep = batch[0].assigned_date === today
+      || batch.some(r => !r.completed)
+      || batch.some(r => r.completed_at && toISTDateStr(r.completed_at) === today)
+    if (keep) active.push(...batch)
+  }
+  return active
 }
 
 export async function generateAssignmentForUser(supabase: SupabaseClient, userId: string): Promise<DailyQuestion[]> {
   const today = todayStr()
 
-  const existing = await getTodayAssignmentRows(supabase, userId)
-  if (existing.length > 0) return existing
+  // The per-day lock below doubles as "already generated today": at most one
+  // new pick per slot per day, and none for a slot whose last pick is still
+  // open (carry-over — see getTodayAssignmentRows).
 
   // The check above isn't atomic with the inserts below — concurrent /coding
   // page loads (browser prefetch on the nav link, a reload, dev-server
@@ -118,13 +148,18 @@ export async function generateAssignmentForUser(supabase: SupabaseClient, userId
   // back to polling for the winner's rows instead of generating their own.
   const { error: lockError } = await supabase.from('coding_daily_generation_locks').insert({ user_id: userId, assigned_date: today })
   if (lockError) {
-    for (let i = 0; i < 10; i++) {
-      const rows = await getTodayAssignmentRows(supabase, userId)
-      if (rows.length > 0) return rows
+    // Lost the race or already generated earlier today. If a concurrent
+    // winner is mid-insert, briefly wait for its rows to land.
+    let rows = await getTodayAssignmentRows(supabase, userId)
+    for (let i = 0; i < 5 && rows.length === 0; i++) {
       await new Promise(resolve => setTimeout(resolve, 300))
+      rows = await getTodayAssignmentRows(supabase, userId)
     }
-    return []
+    return rows
   }
+
+  const carried = await getTodayAssignmentRows(supabase, userId)
+  const openSlots = new Set(carried.filter(r => !r.completed).map(r => slotOf(r.question?.category)))
 
   const settings = await getSettings(supabase, userId)
   const weekday = new Date(`${today}T00:00:00Z`).getUTCDay()
@@ -137,7 +172,9 @@ export async function generateAssignmentForUser(supabase: SupabaseClient, userId
   const assignedIds = new Set((assignedRows ?? []).map(r => r.question_id as string))
 
   let picks: CodingQuestion[] = []
-  if (settings.mode === 'fixed') {
+  if (openSlots.has('algorithm')) {
+    // Carried over — no new algorithm pick until the open one is done.
+  } else if (settings.mode === 'fixed') {
     picks = pickQuestions(allQuestions, assignedIds, null, settings.fixed_count)
   } else {
     for (const difficulty of ROTATION[weekday]) {
@@ -156,7 +193,7 @@ export async function generateAssignmentForUser(supabase: SupabaseClient, userId
   // One quiz pick every day (all 7), independent of mode/rotation — replaces
   // the old hand-authored MCQ "Today's Quiz" with a real daily question from
   // the same link-out/self-report pattern algorithm questions already use.
-  const [quizPick] = pickQuestions(allQuestions, assignedIds, null, 1, 'quiz')
+  const [quizPick] = openSlots.has('quiz') ? [] : pickQuestions(allQuestions, assignedIds, null, 1, 'quiz')
   if (quizPick) {
     picks.push(quizPick)
     assignedIds.add(quizPick.id)
@@ -164,18 +201,18 @@ export async function generateAssignmentForUser(supabase: SupabaseClient, userId
 
   // One JS-functions pick and one UI-coding pick every day, same independent
   // "always one, regardless of mode/rotation" pattern as the quiz pick above.
-  const [jsFunctionsPick] = pickQuestions(allQuestions, assignedIds, null, 1, 'javascript-functions')
+  const [jsFunctionsPick] = openSlots.has('javascript-functions') ? [] : pickQuestions(allQuestions, assignedIds, null, 1, 'javascript-functions')
   if (jsFunctionsPick) {
     picks.push(jsFunctionsPick)
     assignedIds.add(jsFunctionsPick.id)
   }
-  const [uiCodingPick] = pickQuestions(allQuestions, assignedIds, null, 1, 'ui-coding')
+  const [uiCodingPick] = openSlots.has('ui-coding') ? [] : pickQuestions(allQuestions, assignedIds, null, 1, 'ui-coding')
   if (uiCodingPick) {
     picks.push(uiCodingPick)
     assignedIds.add(uiCodingPick.id)
   }
 
-  if (picks.length === 0) return []
+  if (picks.length === 0) return carried
 
   const created: DailyQuestion[] = []
   for (const q of picks) {
@@ -194,7 +231,40 @@ export async function generateAssignmentForUser(supabase: SupabaseClient, userId
     if (row) created.push(row as unknown as DailyQuestion)
   }
 
-  return created
+  return created.length > 0 ? getTodayAssignmentRows(supabase, userId) : carried
+}
+
+// "New question": swaps an unwanted open pick for a fresh one of the same
+// slot (and difficulty, for algorithm picks). The rejected pick was never
+// attempted, so its row and Planner task are removed outright rather than
+// left as a pending Practice Log entry.
+export async function swapCodingQuestion(supabase: SupabaseClient, userId: string, id: string): Promise<DailyQuestion[]> {
+  const { data: row } = await supabase
+    .from('coding_daily_questions')
+    .select('id, task_id, completed, question_id, question:coding_questions(category, difficulty)')
+    .eq('id', id).eq('user_id', userId)
+    .single()
+  const r = row as unknown as { id: string; task_id: string | null; completed: boolean; question_id: string; question: { category: QuestionCategory; difficulty: Difficulty } } | null
+  if (!r || r.completed) return getTodayAssignmentRows(supabase, userId)
+
+  const [{ data: pool }, { data: assignedRows }] = await Promise.all([
+    supabase.from('coding_questions').select('*'),
+    supabase.from('coding_daily_questions').select('question_id').eq('user_id', userId),
+  ])
+  const assignedIds = new Set((assignedRows ?? []).map(x => x.question_id as string))
+  const category = r.question.category
+  const [pick] = pickQuestions(((pool ?? []) as CodingQuestion[]).filter(q => q.id !== r.question_id), assignedIds, category === 'algorithm' ? r.question.difficulty : null, 1, category)
+  if (!pick) return getTodayAssignmentRows(supabase, userId)
+
+  await supabase.from('coding_daily_questions').delete().eq('id', r.id)
+  if (r.task_id) await supabase.from('tasks').delete().eq('id', r.task_id).eq('done', false)
+  const { data: task } = await supabase
+    .from('tasks')
+    .insert({ text: pick.category === 'quiz' ? `Answer today's quiz: ${pick.title}` : `Solve ${pick.title}`, priority: pick.difficulty === 'hard' ? 'high' : 'medium', area: 'Coding', user_id: userId, done: false })
+    .select('id')
+    .single()
+  await supabase.from('coding_daily_questions').insert({ user_id: userId, question_id: pick.id, assigned_date: todayStr(), task_id: task?.id ?? null })
+  return getTodayAssignmentRows(supabase, userId)
 }
 
 export interface CodingStats {
@@ -210,10 +280,10 @@ export interface CodingStats {
 export async function computeCodingStats(supabase: SupabaseClient, userId: string): Promise<CodingStats> {
   const { data } = await supabase
     .from('coding_daily_questions')
-    .select('assigned_date, completed, question:coding_questions(difficulty)')
+    .select('assigned_date, completed, completed_at, question:coding_questions(difficulty)')
     .eq('user_id', userId)
 
-  const rows = (data ?? []) as unknown as { assigned_date: string; completed: boolean; question: { difficulty: Difficulty } }[]
+  const rows = (data ?? []) as unknown as { assigned_date: string; completed: boolean; completed_at: string | null; question: { difficulty: Difficulty } }[]
 
   const totalSolved = rows.filter(r => r.completed).length
   const easySolved = rows.filter(r => r.completed && r.question?.difficulty === 'easy').length
@@ -221,8 +291,11 @@ export async function computeCodingStats(supabase: SupabaseClient, userId: strin
   const hardSolved = rows.filter(r => r.completed && r.question?.difficulty === 'hard').length
   const completionRate = rows.length ? Math.round((totalSolved / rows.length) * 100) : 0
 
-  // Streak: consecutive days (walking back from today) with at least one completed question
-  const completedDates = new Set(rows.filter(r => r.completed).map(r => r.assigned_date))
+  // Streak: consecutive days (walking back from today) you actually practiced
+  // — keyed on the IST completion date, not assigned_date (changed
+  // 2026-09-24): doing a carried-over pick today counts for today, and a
+  // bulk catch-up doesn't retroactively fill in old days.
+  const completedDates = new Set(rows.filter(r => r.completed).map(r => r.completed_at ? toISTDateStr(r.completed_at) : r.assigned_date))
   let currentStreak = 0
   const cursor = new Date(`${todayStr()}T00:00:00Z`)
   for (let i = 0; i < 3650; i++) {
@@ -305,7 +378,10 @@ interface CalendarDayQuestion {
 
 export interface CalendarDay {
   date: string
-  status: 'solved' | 'partial' | 'missed' | 'none'
+  // 'practiced' = at least one question completed that IST day. No
+  // "missed"/"partial" anymore (changed 2026-09-24): with carry-over there's
+  // no fixed per-day quota to miss, so the calendar shows practice, not debt.
+  status: 'practiced' | 'none'
   questions: CalendarDayQuestion[]
 }
 
@@ -313,36 +389,29 @@ export async function computeCodingCalendar(supabase: SupabaseClient, userId: st
   const since = daysAgoIST(days)
   const { data } = await supabase
     .from('coding_daily_questions')
-    .select('assigned_date, completed, question:coding_questions(title, difficulty)')
+    .select('completed_at, question:coding_questions(title, difficulty)')
     .eq('user_id', userId)
-    .gte('assigned_date', since)
+    .eq('completed', true)
+    .gte('completed_at', `${since}T00:00:00+05:30`)
 
   // PostgREST embeds a many-to-one relation (many daily_questions -> one
   // coding_questions row) as a single object, not an array — the Supabase
   // client's generated types disagree and infer an array here regardless,
   // so this cast goes through `unknown` to override that.
-  const rows = (data ?? []) as unknown as { assigned_date: string; completed: boolean; question: { title: string; difficulty: Difficulty } | null }[]
-  const byDate = new Map<string, { total: number; done: number; questions: CalendarDayQuestion[] }>()
+  const rows = (data ?? []) as unknown as { completed_at: string; question: { title: string; difficulty: Difficulty } | null }[]
+  const byDate = new Map<string, CalendarDayQuestion[]>()
   for (const r of rows) {
-    const entry = byDate.get(r.assigned_date) ?? { total: 0, done: 0, questions: [] }
-    entry.total++
-    if (r.completed) entry.done++
-    if (r.question) entry.questions.push({ title: r.question.title, difficulty: r.question.difficulty, completed: r.completed })
-    byDate.set(r.assigned_date, entry)
+    const d = toISTDateStr(r.completed_at)
+    const list = byDate.get(d) ?? []
+    if (r.question) list.push({ title: r.question.title, difficulty: r.question.difficulty, completed: true })
+    byDate.set(d, list)
   }
 
-  const today = todayStr()
   const result: CalendarDay[] = []
   for (let i = 0; i < days; i++) {
     const d = daysAgoIST(i)
-    const entry = byDate.get(d)
-    let status: CalendarDay['status'] = 'none'
-    if (entry) {
-      if (entry.done === entry.total) status = 'solved'
-      else if (entry.done > 0) status = 'partial'
-      else status = d < today ? 'missed' : 'none'
-    }
-    result.push({ date: d, status, questions: entry?.questions ?? [] })
+    const questions = byDate.get(d) ?? []
+    result.push({ date: d, status: questions.length > 0 ? 'practiced' : 'none', questions })
   }
   return result.reverse()
 }

@@ -1,10 +1,11 @@
 'use client'
 
 import { useState, useTransition } from 'react'
-import { ExternalLink, HelpCircle } from 'lucide-react'
+import { ExternalLink, HelpCircle, Shuffle } from 'lucide-react'
 import Card from '@/components/Card'
 import EmptyState from '@/components/EmptyState'
-import { markQuestionComplete } from '../daily'
+import { markQuestionComplete, swapQuestion } from '../daily'
+import { todayIST } from '@/lib/date'
 import OutcomeModal from './OutcomeModal'
 import type { DailyQuestion, Outcome } from '../daily-core'
 
@@ -12,6 +13,12 @@ const DIFFICULTY_COLOR: Record<string, string> = {
   easy: 'text-green-400',
   medium: 'text-amber-400',
   hard: 'text-red-400',
+}
+
+// "from Sep 22" for a pick carried over from an earlier day.
+function carriedFrom(assignedDate: string): string | null {
+  if (assignedDate >= todayIST()) return null
+  return new Date(assignedDate + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
 }
 
 // Replaces the old hand-authored MCQ "Today's Quiz" (todays-quiz.ts,
@@ -41,6 +48,15 @@ export default function TodaysPickCard({ title, pick }: { title: string; pick: D
   }
 
   const categoryLabel = item.question.topics?.[0] ?? item.question.category
+  const from = carriedFrom(item.assigned_date)
+
+  const handleSwap = () => {
+    const category = item.question.category
+    startTransition(async () => {
+      const rows = await swapQuestion(item.id)
+      setItem(rows.find(r => r.question.category === category) ?? item)
+    })
+  }
 
   return (
     <Card title={title} action={
@@ -49,7 +65,7 @@ export default function TodaysPickCard({ title, pick }: { title: string; pick: D
       </span>
     }>
       <div onClick={() => window.open(item.question.url, '_blank', 'noopener,noreferrer')} className="flex-1 flex flex-col cursor-pointer">
-        <p className="text-[11px] text-fg-tertiary uppercase tracking-[0.4px] mb-1.5">{categoryLabel}</p>
+        <p className="text-[11px] text-fg-tertiary uppercase tracking-[0.4px] mb-1.5">{categoryLabel}{from && <span className="normal-case tracking-normal text-warn"> · from {from}</span>}</p>
         <div className="flex items-start gap-1.5">
           <p className={`text-[14px] font-semibold flex-1 min-w-0 ${item.completed ? 'text-fg-tertiary line-through' : 'text-fg-primary'}`}>
             {item.question.title} <span className={`text-[11px] font-medium ${DIFFICULTY_COLOR[item.question.difficulty]}`}>{item.question.difficulty}</span>
@@ -60,10 +76,16 @@ export default function TodaysPickCard({ title, pick }: { title: string; pick: D
           </a>
         </div>
         {!item.completed && (
-          <button onClick={e => { e.stopPropagation(); setShowOutcome(true) }} disabled={isPending}
-            className="mt-auto w-full py-2 rounded-[7px] bg-good text-on-good text-[12.5px] font-semibold hover:opacity-90 disabled:opacity-50 transition-colors">
-            Mark Answered
-          </button>
+          <div className="mt-auto flex gap-1.5 pt-2">
+            <button onClick={e => { e.stopPropagation(); setShowOutcome(true) }} disabled={isPending}
+              className="flex-1 py-2 rounded-[7px] bg-good text-on-good text-[12.5px] font-semibold hover:opacity-90 disabled:opacity-50 transition-colors">
+              Mark Answered
+            </button>
+            <button onClick={e => { e.stopPropagation(); handleSwap() }} disabled={isPending} aria-label="New question" title="Swap for a new question"
+              className="shrink-0 px-2.5 rounded-[7px] border border-border-strong text-fg-secondary hover:bg-surface-2 disabled:opacity-50 transition-colors">
+              <Shuffle size={13} />
+            </button>
+          </div>
         )}
       </div>
       {showOutcome && (

@@ -5,15 +5,11 @@ import { todayIST } from '@/lib/date'
 import type { CalendarDay } from '../daily-core'
 
 const STATUS_BG: Record<CalendarDay['status'], string> = {
-  solved: 'bg-good',
-  partial: 'bg-warn',
-  missed: 'bg-risk',
+  practiced: 'bg-good',
   none: 'bg-border',
 }
-const STATUS_LABEL: Record<CalendarDay['status'], string> = {
-  solved: 'Solved', partial: 'Partially completed', missed: 'Missed', none: 'No activity',
-}
-const ACTIVE_STATUSES: CalendarDay['status'][] = ['solved', 'partial']
+// A practice day's green deepens with how many questions were completed.
+const practiceOpacity = (n: number) => (n >= 3 ? 1 : n === 2 ? 0.75 : 0.5)
 const DIFFICULTY_CHIP: Record<string, string> = {
   easy: 'bg-good-soft text-good',
   medium: 'bg-warn-soft text-warn',
@@ -34,7 +30,11 @@ const WEEKDAYS = ['S', 'M', 'T', 'W', 'T', 'F', 'S']
 // active-rate/status-count text sits in a left column beside the day-grid
 // (horizontal split), not stacked above it — same pattern applied to
 // Learning/Health/Finance's calendars for consistency.
-export default function CodingCalendar({ days, title }: { days: CalendarDay[]; title: string }) {
+// Shows practice (days with ≥1 completion, by completion date), not
+// per-day quota debt — no red "missed" (changed 2026-09-24, alongside
+// carry-over assignment). currentStreak comes from computeCodingStats so it
+// matches the page's Streak tile.
+export default function CodingCalendar({ days, title, currentStreak }: { days: CalendarDay[]; title: string; currentStreak: number }) {
   const dayByDate = useMemo(() => new Map(days.map(d => [d.date, d])), [days])
   const minDate = useMemo(() => days.reduce((min, d) => (d.date < min ? d.date : min), days[0]?.date ?? ''), [days])
   const maxDate = useMemo(() => days.reduce((max, d) => (d.date > max ? d.date : max), days[0]?.date ?? ''), [days])
@@ -76,29 +76,16 @@ export default function CodingCalendar({ days, title }: { days: CalendarDay[]; t
     if (viewMonth === 11) { setViewYear(y => y + 1); setViewMonth(0) } else { setViewMonth(m => m + 1) }
   }
 
-  // Current/best streak + active-day rate, scoped to the visible month —
-  // "active" means solved or partial. Future days are skipped without
-  // breaking a streak (not yet resolved either way).
-  const monthStatuses = cells.map(c => ({ date: c.date, status: dayByDate.get(c.date)?.status ?? 'none', isFuture: c.date > today }))
+  // Best streak + practice-day counts, scoped to the visible month.
+  const monthStatuses = cells.map(c => ({ date: c.date, day: dayByDate.get(c.date), isFuture: c.date > today }))
   let bestStreak = 0, runningStreak = 0
   for (const c of monthStatuses) {
-    if (ACTIVE_STATUSES.includes(c.status)) { runningStreak++; bestStreak = Math.max(bestStreak, runningStreak) }
+    if (c.day?.status === 'practiced') { runningStreak++; bestStreak = Math.max(bestStreak, runningStreak) }
     else if (!c.isFuture) { runningStreak = 0 }
   }
-  let currentStreak = 0
-  for (let i = monthStatuses.length - 1; i >= 0; i--) {
-    const c = monthStatuses[i]
-    if (c.isFuture) continue
-    if (ACTIVE_STATUSES.includes(c.status)) currentStreak++
-    else break
-  }
   const trackedDays = monthStatuses.filter(c => !c.isFuture)
-  const activeDaysCount = trackedDays.filter(c => ACTIVE_STATUSES.includes(c.status)).length
-  const activeRate = trackedDays.length > 0 ? Math.round((activeDaysCount / trackedDays.length) * 100) : 0
-  const monthCounts = trackedDays.reduce((acc, c) => {
-    acc[c.status] = (acc[c.status] ?? 0) + 1
-    return acc
-  }, {} as Partial<Record<CalendarDay['status'], number>>)
+  const practiceDays = trackedDays.filter(c => c.day?.status === 'practiced').length
+  const questionsDone = trackedDays.reduce((s, c) => s + (c.day?.questions.length ?? 0), 0)
 
   const selectedDay = selectedDate ? dayByDate.get(selectedDate) : null
 
@@ -121,18 +108,16 @@ export default function CodingCalendar({ days, title }: { days: CalendarDay[]; t
 
       <div className="flex gap-4 flex-1 min-h-0">
         <div className="flex flex-col justify-start gap-2.5 flex-1 min-w-0">
-          <p className="text-[14px] font-semibold text-fg-primary leading-[1.4]">🔥 {currentStreak} current · {bestStreak} best streak</p>
-          <p className="text-[13px] text-fg-secondary leading-[1.4]">{activeRate}% active this month</p>
-          <p className="text-[13px] text-fg-secondary leading-[1.4]">
-            <span className="text-good font-semibold">{monthCounts.solved ?? 0} solved</span> · <span className="text-warn font-semibold">{monthCounts.partial ?? 0} partial</span> · <span className="text-risk font-semibold">{monthCounts.missed ?? 0} missed</span> this month
-          </p>
+          <p className="text-[14px] font-semibold text-fg-primary leading-[1.4]">🔥 {currentStreak}d streak · {bestStreak} best this month</p>
+          <p className="text-[13px] text-fg-secondary leading-[1.4]"><span className="text-good font-semibold">{practiceDays}</span> practice days of {trackedDays.length} this month</p>
+          <p className="text-[13px] text-fg-secondary leading-[1.4]"><span className="text-good font-semibold">{questionsDone}</span> questions completed this month</p>
           {selectedDate && selectedDay && (
             <div className="bg-surface-2 rounded-[8px] px-3 py-2.5">
               <div className="flex items-center justify-between">
                 <p className="text-[11.5px] font-semibold text-fg-primary">
                   {monthLabel.split(' ')[0]} {Number(selectedDate.slice(-2))}
                 </p>
-                <p className="text-[11px] text-fg-tertiary">{STATUS_LABEL[selectedDay.status]}</p>
+                <p className="text-[11px] text-fg-tertiary">{selectedDay.questions.length > 0 ? `${selectedDay.questions.length} completed` : 'No practice'}</p>
               </div>
               {selectedDay.questions.length > 0 ? (
                 <ul className="flex flex-col gap-1 mt-1.5">
@@ -145,7 +130,7 @@ export default function CodingCalendar({ days, title }: { days: CalendarDay[]; t
                   ))}
                 </ul>
               ) : (
-                <p className="text-[11.5px] text-fg-quaternary mt-1">No question assigned this day.</p>
+                <p className="text-[11.5px] text-fg-quaternary mt-1">No questions completed this day.</p>
               )}
             </div>
           )}
@@ -161,16 +146,18 @@ export default function CodingCalendar({ days, title }: { days: CalendarDay[]; t
             {Array.from({ length: leadingBlanks }).map((_, i) => <div key={`blank-${i}`} style={{ width: 20, height: 20 }} />)}
             {cells.map(({ date }) => {
               const isFuture = date > today
-              const status = dayByDate.get(date)?.status ?? 'none'
+              const day = dayByDate.get(date)
+              const status = day?.status ?? 'none'
+              const count = day?.questions.length ?? 0
               const isToday = date === today
               const isSelected = date === selectedDate
               return (
                 <button
                   key={date}
-                  title={isFuture ? '' : `${date}: ${STATUS_LABEL[status]}`}
+                  title={isFuture ? '' : `${date}: ${count > 0 ? `${count} completed` : 'No practice'}`}
                   disabled={isFuture}
                   onClick={() => setSelectedDate(isSelected ? null : date)}
-                  style={{ width: 20, height: 20 }}
+                  style={{ width: 20, height: 20, ...(status === 'practiced' ? { opacity: practiceOpacity(count) } : {}) }}
                   className={`rounded-[4px] box-border transition-transform hover:scale-110
                     ${isFuture ? 'border border-dashed border-border cursor-default' : `${STATUS_BG[status]} cursor-pointer`}
                     ${isSelected ? 'ring-2 ring-fg-primary' : isToday ? 'ring-[1.5px] ring-accent' : ''}`}
@@ -182,10 +169,13 @@ export default function CodingCalendar({ days, title }: { days: CalendarDay[]; t
       </div>
 
       <div className="flex items-center gap-3 pt-2.5 border-t border-surface-3 text-[10.5px] text-fg-tertiary flex-wrap justify-center">
-        <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-[3px] bg-good inline-block" />Solved</span>
-        <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-[3px] bg-warn inline-block" />Partial</span>
-        <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-[3px] bg-risk inline-block" />Missed</span>
-        <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-[3px] bg-border inline-block" />None</span>
+        <span className="flex items-center gap-1">
+          <span className="w-2 h-2 rounded-[3px] bg-good inline-block opacity-50" />
+          <span className="w-2 h-2 rounded-[3px] bg-good inline-block opacity-75" />
+          <span className="w-2 h-2 rounded-[3px] bg-good inline-block" />
+          <span className="ml-0.5">Practiced (1 / 2 / 3+)</span>
+        </span>
+        <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-[3px] bg-border inline-block" />No practice</span>
       </div>
     </div>
   )

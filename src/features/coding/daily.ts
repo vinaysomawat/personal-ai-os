@@ -4,7 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { todayIST } from '@/lib/date'
 import {
-  generateAssignmentForUser, computeCodingStats, computeCodingCalendar,
+  generateAssignmentForUser, computeCodingStats, computeCodingCalendar, swapCodingQuestion,
 } from './daily-core'
 import type { CodingSettings, Outcome, CodingQuestion, DailyQuestion } from './daily-core'
 
@@ -13,6 +13,19 @@ export async function getTodayAssignment() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return []
   return generateAssignmentForUser(supabase, user.id)
+}
+
+// Swap an unwanted open pick for a fresh one of the same type; returns the
+// new active set.
+export async function swapQuestion(id: string): Promise<DailyQuestion[]> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) throw new Error('Not authenticated')
+  const rows = await swapCodingQuestion(supabase, user.id, id)
+  revalidatePath('/coding')
+  revalidatePath('/planner')
+  revalidatePath('/dashboard')
+  return rows
 }
 
 export async function markQuestionComplete(id: string, extra?: { timeSpentMinutes?: number; notes?: string; rating?: number; outcome?: Outcome }) {

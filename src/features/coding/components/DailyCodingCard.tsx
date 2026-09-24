@@ -1,10 +1,11 @@
 'use client'
 
 import { useState, useTransition } from 'react'
-import { ExternalLink, Moon } from 'lucide-react'
+import { ExternalLink, Moon, Shuffle } from 'lucide-react'
 import Card from '@/components/Card'
 import EmptyState from '@/components/EmptyState'
-import { markQuestionComplete } from '../daily'
+import { markQuestionComplete, swapQuestion } from '../daily'
+import { todayIST } from '@/lib/date'
 import OutcomeModal from './OutcomeModal'
 import type { DailyQuestion, Outcome } from '../daily-core'
 
@@ -16,6 +17,12 @@ const DIFFICULTY_COLOR: Record<string, string> = {
 
 interface Props {
   initialAssignment: DailyQuestion[]
+}
+
+// "from Sep 22" for a pick carried over from an earlier day.
+function carriedFrom(assignedDate: string): string | null {
+  if (assignedDate >= todayIST()) return null
+  return new Date(assignedDate + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
 }
 
 // Restyled 2026-08-18 to match the Claude Design source: each algorithm pick
@@ -38,17 +45,24 @@ export default function DailyCodingCard({ initialAssignment }: Props) {
     startTransition(async () => { await markQuestionComplete(id, outcome ? { outcome } : undefined) })
   }
 
+  const handleSwap = (id: string) => {
+    startTransition(async () => {
+      const rows = await swapQuestion(id)
+      setAssignment(rows.filter(r => r.question.category === 'algorithm' || r.question.category === 'system-design'))
+    })
+  }
+
   return (
     <>
       <Card title="Today&apos;s Algorithm Question">
         {assignment.length === 0 ? (
-          <EmptyState icon={Moon} message="No new questions today — revision day. Browse your history below." />
+          <EmptyState icon={Moon} message="No new question today — revision day. Browse your history below." />
         ) : (
           <div className="flex-1 flex flex-col gap-[var(--grid-gap-sm)]">
             {assignment.map(a => (
               <div key={a.id} onClick={() => window.open(a.question.url, '_blank', 'noopener,noreferrer')}
                 className="flex-1 flex flex-col cursor-pointer">
-                <p className="text-[11px] text-fg-tertiary uppercase tracking-[0.4px] mb-1.5">Algorithm</p>
+                <p className="text-[11px] text-fg-tertiary uppercase tracking-[0.4px] mb-1.5">{a.question.category === 'system-design' ? 'System Design' : 'Algorithm'}{carriedFrom(a.assigned_date) && <span className="normal-case tracking-normal text-warn"> · from {carriedFrom(a.assigned_date)}</span>}</p>
                 <div className="flex items-start gap-1.5">
                   <p className={`text-[14px] font-semibold flex-1 min-w-0 ${a.completed ? 'text-fg-tertiary line-through' : 'text-fg-primary'}`}>
                     {a.question.title} <span className={`text-[11px] font-medium ${DIFFICULTY_COLOR[a.question.difficulty]}`}>{a.question.difficulty}</span>
@@ -62,9 +76,15 @@ export default function DailyCodingCard({ initialAssignment }: Props) {
                   <p className="text-[12.5px] text-fg-tertiary mt-0.5 truncate">{a.question.topics.join(', ')}</p>
                 )}
                 {!a.completed && (
-                  <button onClick={e => { e.stopPropagation(); setOutcomeFor(a) }} disabled={isPending} className="mt-auto w-full py-2 rounded-[7px] bg-good text-on-good text-[12.5px] font-semibold hover:opacity-90 disabled:opacity-50 transition-colors">
-                    Mark Solved
-                  </button>
+                  <div className="mt-auto flex gap-1.5 pt-2">
+                    <button onClick={e => { e.stopPropagation(); setOutcomeFor(a) }} disabled={isPending} className="flex-1 py-2 rounded-[7px] bg-good text-on-good text-[12.5px] font-semibold hover:opacity-90 disabled:opacity-50 transition-colors">
+                      Mark Solved
+                    </button>
+                    <button onClick={e => { e.stopPropagation(); handleSwap(a.id) }} disabled={isPending} aria-label="New question" title="Swap for a new question"
+                      className="shrink-0 px-2.5 rounded-[7px] border border-border-strong text-fg-secondary hover:bg-surface-2 disabled:opacity-50 transition-colors">
+                      <Shuffle size={13} />
+                    </button>
+                  </div>
                 )}
               </div>
             ))}

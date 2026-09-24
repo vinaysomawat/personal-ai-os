@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { getTodayAssignmentRows } from '@/features/coding/daily-core'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { createServiceClient } from '@/lib/supabase/service'
 import { getReminderLines } from '@/lib/reminders'
@@ -63,13 +64,14 @@ export async function GET(req: Request) {
     supabase.from('tasks').select('text').eq('user_id', user.id).eq('done', false).eq('priority', 'high'),
     supabase.from('expenses').select('id').eq('user_id', user.id).eq('date', today).limit(1),
     computeStaleMetrics(supabase, user.id, today),
-    supabase.from('coding_daily_questions').select('completed').eq('user_id', user.id).eq('assigned_date', today),
+    // Active picks (carried-over included), not just rows assigned today.
+    getTodayAssignmentRows(supabase, user.id),
     getActiveWorkout(supabase, user.id),
   ])
 
   const highPriorityTasks = tasksRes.data ?? []
   const hasExpenseToday = (expensesRes.data ?? []).length > 0
-  const codingQuestions = codingRes.data ?? []
+  const codingQuestions = codingRes
   const streakAtRisk = codingQuestions.length > 0 && codingQuestions.some(q => !q.completed)
   const workoutPending = !!activeWorkout
 

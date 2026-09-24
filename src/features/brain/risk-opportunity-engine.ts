@@ -1,7 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { daysAgoIST, todayIST } from '@/lib/date'
 import { computeHealthPlan } from '@/features/health/calculations'
-import { computeCodingStats } from '@/features/coding/daily-core'
+import { computeCodingStats, getTodayAssignmentRows } from '@/features/coding/daily-core'
 import type { HealthProfile, HealthMetric } from '@/features/health/types'
 import { projectMonthSpend } from '@/features/finance/calculations'
 import { RISK_THRESHOLDS, AUTOMATION_RULE_THRESHOLDS, OPPORTUNITY_THRESHOLDS } from '@/lib/thresholds'
@@ -29,11 +29,12 @@ export const IMPACT_EMOJI: Record<Risk['impact'], string> = { high: '🔴', medi
 // left inline in the cron route once the Dashboard needed the same checks.
 export async function computeRiskEngine(supabase: SupabaseClient, userId: string): Promise<Risk[]> {
   const today = todayIST()
-  const [{ data: expenses }, { data: budgets }, { data: metrics }, { data: todayCoding }, codingStats] = await Promise.all([
+  const [{ data: expenses }, { data: budgets }, { data: metrics }, todayCoding, codingStats] = await Promise.all([
     supabase.from('expenses').select('amount, category').eq('user_id', userId).gte('date', today.slice(0, 7) + '-01'),
     supabase.from('budgets').select('amount').eq('user_id', userId).eq('month', today.slice(0, 7)),
     supabase.from('health_metrics').select('date, protein_g').eq('user_id', userId).gte('date', daysAgoIST(RISK_THRESHOLDS.proteinDeclineLookbackDays)).not('protein_g', 'is', null),
-    supabase.from('coding_daily_questions').select('completed').eq('user_id', userId).eq('assigned_date', today),
+    // Active picks (carried-over included), not just rows assigned today.
+    getTodayAssignmentRows(supabase, userId),
     computeCodingStats(supabase, userId),
   ])
 

@@ -32,7 +32,7 @@ export async function gatherTodayActivityLines(db: SupabaseClient, userId: strin
     codingRes, resourcesRes, metricRes,
     workoutsRes, expensesRes, quizRes, appsRes,
   ] = await Promise.all([
-    db.from('coding_daily_questions').select('completed').eq('user_id', userId).eq('assigned_date', today),
+    db.from('coding_daily_questions').select('completed').eq('user_id', userId).eq('completed', true).gte('completed_at', istMidnightUtc(daysAgo)).lt('completed_at', istMidnightUtc(daysAgo - 1)),
     db.from('resources').select('status, title, notes, created_at').eq('user_id', userId),
     db.from('health_metrics').select('weight_kg, calories, protein_g, steps').eq('user_id', userId).eq('date', today).maybeSingle(),
     db.from('workouts').select('type, duration_minutes').eq('user_id', userId).eq('date', today),

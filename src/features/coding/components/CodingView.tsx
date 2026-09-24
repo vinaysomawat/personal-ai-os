@@ -109,12 +109,12 @@ export default function CodingView({ dailyAssignment, codingStats, calendar, cod
             </div>
           </Card>
           <Card>
-            <CodingCalendar days={calendar} title="Contribution Calendar" />
+            <CodingCalendar days={calendar} title="Contribution Calendar" currentStreak={codingStats.currentStreak} />
           </Card>
         </div>
       ) : (
         <Card>
-          <CodingCalendar days={calendar} title="Contribution Calendar" />
+          <CodingCalendar days={calendar} title="Contribution Calendar" currentStreak={codingStats.currentStreak} />
         </Card>
       )}
 
