@@ -4,7 +4,7 @@ export default function PageTabs<T extends string>({ tabs, active, onChange }: {
   onChange: (key: T) => void
 }) {
   return (
-    <div className="flex items-center gap-1 border-b border-surface-3 overflow-x-auto">
+    <div className="flex items-center gap-1 border-b border-surface-3">
       {tabs.map(t => (
         <button
           key={t.key}
