@@ -21,6 +21,8 @@ import type { HealthMetric, MetricField, HealthProfile, Workout } from '../types
 import type { FoodLogEntry } from '../food-log'
 import type { DailyWorkout, WorkoutStats } from '../workout-core'
 import type { WorkoutCalendarDay } from '../actions'
+import PageHeader, { HeaderChip } from '@/components/PageHeader'
+import StatCard from '@/components/StatCard'
 
 const METRICS: { field: MetricField; label: string; unit: string; decimals?: number }[] = [
   { field: 'weight_kg',      label: 'Weight',   unit: 'kg',   decimals: 1 },
@@ -28,15 +30,6 @@ const METRICS: { field: MetricField; label: string; unit: string; decimals?: num
   { field: 'protein_g',      label: 'Protein',  unit: 'g' },
   { field: 'steps',          label: 'Steps',    unit: 'steps' },
 ]
-
-function StatTile({ value, label }: { value: string | number; label: string }) {
-  return (
-    <div className="bg-surface-1 border border-surface-3 rounded-2xl p-[var(--card-pad-sm)]">
-      <p className="text-[11px] text-fg-tertiary uppercase">{label}</p>
-      <p className="text-xl font-bold text-fg-primary mt-1">{value}</p>
-    </div>
-  )
-}
 
 function getLast7Days() {
   return Array.from({ length: 7 }, (_, i) => daysAgoIST(6 - i))
@@ -81,7 +74,7 @@ function MetricCard({ label, unit, decimals = 0, todayValue, weekAvg, onSave, sa
           disabled={saving}
           className="text-xl font-bold text-fg-primary bg-transparent outline-none w-full placeholder-fg-quaternary"
         />
-        <span className="text-xs text-fg-quaternary shrink-0">{unit}</span>
+        <span className="text-xs text-fg-tertiary shrink-0">{unit}</span>
       </div>
       <div className="flex items-center justify-between gap-1 mt-0.5">
         <span className="text-[11px] text-fg-tertiary shrink-0">7d avg {weekAvg !== null ? weekAvg.toFixed(decimals) : '—'}</span>
@@ -249,15 +242,14 @@ export default function HealthView({ initialMetrics, initialProfile, initialWork
   return (
     <div className="space-y-3">
       {advisorPortal}
-      <div className="flex items-center gap-3 flex-wrap">
-        <h1 className="text-[34px] font-bold tracking-[-0.05em] text-fg-primary">Health</h1>
+      <PageHeader title="Health" chips={<>
         {healthScore && (loggedToday ? (
-          <span className={`text-[11px] font-semibold bg-surface-2 rounded-full px-2.5 py-1 ${healthScoreBadgeColor}`}>{healthScore.overall}/100 · {healthScoreTier}</span>
+          <HeaderChip className={`bg-surface-2 ${healthScoreBadgeColor}`}>{healthScore.overall}/100 · {healthScoreTier}</HeaderChip>
         ) : (
-          <span className="text-[11px] font-semibold bg-surface-2 rounded-full px-2.5 py-1 text-fg-secondary">{yesterdayScore !== null ? `${yesterdayScore}/100 yesterday · log today` : 'Nothing logged yet today'}</span>
+          <HeaderChip>{yesterdayScore !== null ? `${yesterdayScore}/100 yesterday · log today` : 'Nothing logged yet today'}</HeaderChip>
         ))}
-        <span className="text-[11px] font-semibold bg-surface-2 rounded-full px-2.5 py-1 text-fg-secondary">{workoutStatusLabel}</span>
-      </div>
+        <HeaderChip>{workoutStatusLabel}</HeaderChip>
+      </>} />
 
       {/* Health profile setup — only shown before a profile exists; once it does, the edit link lives on the Health Score card */}
       {!profile && (
@@ -318,7 +310,7 @@ export default function HealthView({ initialMetrics, initialProfile, initialWork
           />
         ) : profile ? (
           <div className="bg-surface-1 border border-surface-3 rounded-2xl p-[var(--card-pad-lg)] flex items-center justify-between gap-3">
-            <p className="text-xs text-fg-quaternary">Log today&apos;s weight to unlock your calorie targets and Health Score.</p>
+            <p className="text-xs text-fg-tertiary">Log today&apos;s weight to unlock your calorie targets and Health Score.</p>
             <button onClick={() => setShowProfileForm(true)} className="shrink-0 flex items-center gap-1.5 px-2.5 py-1 rounded-[6px] border border-border-strong text-[11.5px] text-fg-secondary hover:bg-surface-2 transition-colors">
               <Settings2 size={11} /> Edit profile
             </button>
@@ -330,10 +322,10 @@ export default function HealthView({ initialMetrics, initialProfile, initialWork
           separate BMI/Calorie/Protein/Workouts-per-week group. */}
       {dailyTargets && (
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-[var(--grid-gap-sm)]">
-          <StatTile value={dailyTargets.bmi} label={`BMI (normal ≤24.9, ~${dailyTargets.normalBmiWeightKg}kg)`} />
-          <StatTile value={`${dailyTargets.dailyCalorieTarget} kcal`} label="Calorie Target" />
-          <StatTile value={`${dailyTargets.proteinTargetG}g`} label="Protein Target" />
-          <StatTile value={`${workoutsPerWeek}${profile?.workout_days_per_week ? ` / ${profile.workout_days_per_week}` : ''}`} label="Workouts / Week (4 wk)" />
+          <StatCard value={dailyTargets.bmi} label="BMI" sub={`normal ≤24.9 · ~${dailyTargets.normalBmiWeightKg}kg`} />
+          <StatCard value={`${dailyTargets.dailyCalorieTarget} kcal`} label="Calorie Target" sub={`${dailyTargets.carbsG}g carbs · ${dailyTargets.fatG}g fat`} />
+          <StatCard value={`${dailyTargets.proteinTargetG}g`} label="Protein Target" sub="2g/kg of normal-BMI weight" />
+          <StatCard value={`${workoutsPerWeek}${profile?.workout_days_per_week ? ` / ${profile.workout_days_per_week}` : ''}`} label="Workouts / Week" sub="actual vs plan · last 4 weeks" />
         </div>
       )}
 

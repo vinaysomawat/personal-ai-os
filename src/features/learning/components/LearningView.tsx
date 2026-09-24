@@ -21,6 +21,7 @@ import { useEscapeKey } from '@/lib/use-escape-key'
 import { useFormValidation } from '@/lib/use-form-validation'
 import FieldError from '@/components/FieldError'
 import type { Resource, ResourceStatus, ResourceType, RecommendedResource, QuizQuestion, ResourceQuizAttempt } from '../types'
+import PageHeader, { HeaderChip } from '@/components/PageHeader'
 
 const TYPE_ICON: Record<ResourceType, string> = {
   course: '🎓', book: '📚', video: '🎬', article: '📄', podcast: '🎙️',
@@ -248,14 +249,11 @@ export default function LearningView({ initialResources, initialQuizAttempts }: 
   return (
     <div className="space-y-3">
       {advisorPortal}
-      <div className="flex items-center gap-3 flex-wrap">
-        <h1 className="text-[34px] font-bold tracking-[-0.05em] text-fg-primary">Learning</h1>
-        {activeRead && (
-          <span className={`text-[11px] font-semibold bg-surface-2 rounded-full px-2.5 py-1 ${activeRead.status === 'completed' ? 'text-good' : 'text-fg-secondary'}`}>
-            📖 {activeRead.status === 'completed' ? "Today's read done" : isMarkedToday(activeRead) ? "Today's read pending" : 'Daily read carried over'}
-          </span>
-        )}
-      </div>
+      <PageHeader title="Learning" chips={activeRead && (
+        <HeaderChip tone={activeRead.status === 'completed' ? 'good' : 'default'}>
+          📖 {activeRead.status === 'completed' ? "Today's read done" : isMarkedToday(activeRead) ? "Today's read pending" : 'Daily read carried over'}
+        </HeaderChip>
+      )} />
       {/* Stats row */}
       <div className="grid grid-cols-3 gap-[var(--grid-gap-sm)]">
         <StatCard value={resources.length} label="Total" />
@@ -328,8 +326,8 @@ export default function LearningView({ initialResources, initialQuizAttempts }: 
                   <button onClick={() => setConfirmDeleteId(r.id)} aria-label="Delete resource" className="shrink-0 text-fg-quaternary hover:text-red-400 text-[11px] p-0.5 transition-colors">✕</button>
                 </div>
                 <div className="flex items-center gap-2 mt-1.5 pl-[26px]">
-                  <span className="text-xs text-fg-quaternary shrink-0">{r.category}</span>
-                  {r.estimated_minutes && <span className="text-xs text-fg-quaternary shrink-0">· ~{r.estimated_minutes} min</span>}
+                  <span className="text-xs text-fg-tertiary shrink-0">{r.category}</span>
+                  {r.estimated_minutes && <span className="text-xs text-fg-tertiary shrink-0">· ~{r.estimated_minutes} min</span>}
                 </div>
                 <div className="h-[5px] rounded-[3px] bg-border mt-2">
                   <div className="h-full rounded-[3px] bg-accent" style={{ width: `${r.status === 'completed' ? 100 : r.status === 'in-progress' ? r.progress : 0}%` }} />

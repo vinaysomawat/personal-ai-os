@@ -66,7 +66,7 @@ export default function ModuleRecommendations({ moduleLabel, context, isOpen }: 
           ))}
         </ul>
       ) : (
-        <p className="text-sm text-fg-quaternary">No recommendations right now — try again in a moment.</p>
+        <p className="text-sm text-fg-tertiary">No recommendations right now — try again in a moment.</p>
       )}
     </div>
   )

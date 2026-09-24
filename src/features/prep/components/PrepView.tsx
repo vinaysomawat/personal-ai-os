@@ -14,6 +14,8 @@ import { scheduleReview, intervalLabel } from '../srs'
 import { overallReadiness, weakestAreas } from '../readiness'
 import { togglePrepBlock, reviewFlashcard, addFlashcard, deleteFlashcard, saveStory, deleteStory, rehearseStory, type StoryInput } from '../actions'
 import { COMPETENCIES, REHEARSAL_PROMPTS, type CompetencyKey, type Flashcard, type PrepSession, type ReadinessCell, type ReviewGrade, type Story, type StoryRehearsal } from '../types'
+import PageHeader, { HeaderChip } from '@/components/PageHeader'
+import StatCard from '@/components/StatCard'
 
 export type PrepTab = 'today' | 'flashcards' | 'stories'
 const TABS: { key: PrepTab; label: string }[] = [
@@ -40,16 +42,6 @@ function tierFor(score: number | null): ReadinessTier {
   return score >= 80 ? 'strong' : score >= 60 ? 'ready' : score >= 40 ? 'developing' : 'needs_work'
 }
 
-function StatTile({ label, value, sub, valueClass = 'text-fg-primary' }: { label: string; value: string | number; sub?: string; valueClass?: string }) {
-  return (
-    <div className="bg-surface-1 border border-surface-3 rounded-2xl p-[var(--card-pad-sm)]">
-      <p className="text-[11px] text-fg-tertiary uppercase">{label}</p>
-      <p className={`text-xl font-bold mt-1 tabular-nums ${valueClass}`}>{value}</p>
-      {sub && <p className="text-[10.5px] text-fg-quaternary mt-0.5">{sub}</p>}
-    </div>
-  )
-}
-
 export default function PrepView(props: Props) {
   const [tab, setTab] = useState<PrepTab>(props.initialTab)
   const [session, setSession] = useState(props.session)
@@ -74,26 +66,23 @@ export default function PrepView(props: Props) {
 
   return (
     <div className="space-y-3">
-      <div className="flex items-center gap-3 flex-wrap">
-        <h1 className="text-[34px] font-bold tracking-[-0.05em] text-fg-primary">Prep</h1>
-        <span className="text-[11px] font-semibold bg-surface-2 rounded-full px-2.5 py-1 text-fg-secondary">🔥 {props.streak}-day prep streak</span>
-        {session && <span className="text-[11px] font-semibold bg-surface-2 rounded-full px-2.5 py-1 text-accent">🎯 {session.focus}</span>}
-      </div>
+      <PageHeader title="Prep" chips={<>
+        <HeaderChip>🔥 {props.streak}-day prep streak</HeaderChip>
+        {session && <HeaderChip tone="accent">🎯 {session.focus}</HeaderChip>}
+      </>} />
 
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-[var(--grid-gap-sm)]">
-        <StatTile label="Interview readiness" value={`${overall}%`} sub={`${props.readiness.filter(c => c.score === null).length} blind spots`} valueClass={overall >= 60 ? 'text-good' : overall >= 40 ? 'text-warn' : 'text-risk'} />
-        <StatTile label="Cards due" value={dueCards.length} sub={`${cards.length} total · ${reviewedToday} reviewed today`} />
-        <StatTile label="Story Bank" value={stories.length} sub={`${coveredCompetencies.size}/${COMPETENCIES.length} competencies covered`} />
-        <StatTile label="This week" value={`${props.sessionsLast7}/7`} sub="prep sessions completed" />
+        <StatCard label="Interview readiness" value={`${overall}%`} sub={`${props.readiness.filter(c => c.score === null).length} blind spots`} valueClassName={overall >= 60 ? 'text-good' : overall >= 40 ? 'text-warn' : 'text-risk'} />
+        <StatCard label="Cards due" value={dueCards.length} sub={`${cards.length} total · ${reviewedToday} reviewed today`} />
+        <StatCard label="Story Bank" value={stories.length} sub={`${coveredCompetencies.size}/${COMPETENCIES.length} competencies covered`} />
+        <StatCard label="This week" value={`${props.sessionsLast7}/7`} sub="prep sessions completed" />
       </div>
 
       <PageTabs tabs={TABS} active={tab} onChange={setTab} />
 
       {tab === 'today' && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-[var(--grid-gap)] items-start">
-          {/* !h-auto: Card's default h-full would stretch this to the taller
-              readiness card's height even with items-start. */}
-          <Card title="Today's Prep" className="!h-auto" action={<span className="text-[11px] text-fg-tertiary tabular-nums">{blocksDone}/{session?.blocks.length ?? 0} · ~{totalMinutes} min</span>}>
+          <Card title="Today's Prep" action={<span className="text-[11px] text-fg-tertiary tabular-nums">{blocksDone}/{session?.blocks.length ?? 0} · ~{totalMinutes} min</span>}>
             {!session ? (
               <EmptyState icon={Layers} message="Couldn't build today's session — try reloading." compact />
             ) : (
@@ -111,7 +100,7 @@ export default function PrepView(props: Props) {
                       <div className="flex-1 min-w-0">
                         <div className="flex items-baseline justify-between gap-2">
                           <p className={`text-[13px] font-semibold ${b.done ? 'text-fg-tertiary line-through' : 'text-fg-primary'}`}>{i + 1}. {b.label}</p>
-                          <span className="text-[11px] text-fg-quaternary tabular-nums shrink-0">{b.minutes} min</span>
+                          <span className="text-[11px] text-fg-tertiary tabular-nums shrink-0">{b.minutes} min</span>
                         </div>
                         <p className="text-[12px] text-fg-secondary mt-0.5">{b.detail}</p>
                       </div>
@@ -138,7 +127,7 @@ export default function PrepView(props: Props) {
                       <div className="flex items-center justify-between text-[12.5px] mb-1 gap-2">
                         <span className="font-medium text-fg-primary truncate">{c.label}</span>
                         <span className="text-[11px] text-fg-tertiary whitespace-nowrap">
-                          <span className="text-fg-quaternary hidden sm:inline">{c.basis} · </span><span className="font-semibold" style={{ color: c.score === null ? 'var(--text-tertiary)' : cfg.color }}>{c.score === null ? 'No data' : `${c.score}%`}</span>
+                          <span className="text-fg-tertiary hidden sm:inline">{c.basis} · </span><span className="font-semibold" style={{ color: c.score === null ? 'var(--text-tertiary)' : cfg.color }}>{c.score === null ? 'No data' : `${c.score}%`}</span>
                         </span>
                       </div>
                       <div className="h-[5px] rounded-[3px] bg-border">
@@ -215,7 +204,7 @@ function FlashcardsTab({ cards, dueCards, today, onReviewed, onSynced, onAdded, 
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-[var(--grid-gap)] items-start">
-      <Card title={ahead ? 'Reviewing ahead' : 'Review'} className="!h-auto" action={<span className="text-[11px] text-fg-tertiary tabular-nums">{queue.length} in queue</span>}>
+      <Card title={ahead ? 'Reviewing ahead' : 'Review'} action={<span className="text-[11px] text-fg-tertiary tabular-nums">{queue.length} in queue</span>}>
         {!current ? (
           <div className="text-center py-8">
             <p className="text-[22px] mb-1.5">✅</p>
@@ -234,7 +223,7 @@ function FlashcardsTab({ cards, dueCards, today, onReviewed, onSynced, onAdded, 
                   {GRADES.map(g => (
                     <button key={g.grade} onClick={() => grade(g.grade)} disabled={busy} className={`rounded-[8px] border py-2 text-[12.5px] font-semibold transition-colors disabled:opacity-50 ${g.cls}`}>
                       {g.label}
-                      <span className="block text-[10.5px] font-normal text-fg-quaternary">{intervalLabel(scheduleReview(current, g.grade, today).interval_days)}</span>
+                      <span className="block text-[10.5px] font-normal text-fg-tertiary">{intervalLabel(scheduleReview(current, g.grade, today).interval_days)}</span>
                     </button>
                   ))}
                 </div>
@@ -339,7 +328,7 @@ function StoriesTab({ stories, rehearsals, covered, onSaved, onDeleted, onRehear
       </Card>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-[var(--grid-gap)] items-start">
-        <Card title="Rehearse" className="!h-auto" action={<span className="text-[11px] text-fg-tertiary">AI feedback on your answer</span>}>
+        <Card title="Rehearse" action={<span className="text-[11px] text-fg-tertiary">AI feedback on your answer</span>}>
           <div className="flex items-start gap-2">
             <p className="flex-1 text-[14px] font-semibold text-fg-primary leading-snug">&ldquo;{prompt}&rdquo;</p>
             <button onClick={() => { setPromptIdx(i => i + 1); setCritique(null) }} aria-label="Another prompt" title="Another prompt" className="shrink-0 p-1.5 rounded-md border border-border-strong text-fg-secondary hover:bg-surface-2"><Shuffle size={13} /></button>
@@ -352,7 +341,7 @@ function StoriesTab({ stories, rehearsals, covered, onSaved, onDeleted, onRehear
           <textarea value={answer} onChange={e => setAnswer(e.target.value)} rows={7} placeholder="Answer as you would out loud — Situation, Task, your Actions, the Result (with numbers)."
             className="mt-2 w-full bg-surface-2 border border-surface-3 rounded-[8px] px-3 py-2 text-[13px] text-fg-primary outline-none focus:border-accent resize-y" />
           <div className="flex items-center justify-between mt-2 gap-2">
-            <span className="text-[11px] text-fg-quaternary tabular-nums">{answer.trim().split(/\s+/).filter(Boolean).length} words · aim for ~250</span>
+            <span className="text-[11px] text-fg-tertiary tabular-nums">{answer.trim().split(/\s+/).filter(Boolean).length} words · aim for ~250</span>
             <button onClick={submitRehearsal} disabled={busy || answer.trim().length < 40} className={`${modalSaveButtonClass} inline-flex items-center gap-1.5`}>
               <Sparkles size={13} /> {busy ? 'Reviewing…' : 'Get feedback'}
             </button>
@@ -365,7 +354,7 @@ function StoriesTab({ stories, rehearsals, covered, onSaved, onDeleted, onRehear
               <ul className="flex flex-col gap-1">
                 {rehearsals.slice(0, 5).map(r => (
                   <li key={r.id} className="text-[12px] text-fg-secondary truncate">
-                    <span className="text-fg-quaternary">{r.created_at.slice(5, 10)}</span> · {COMPETENCIES.find(c => c.key === r.competency)?.label ?? r.competency} — <span className="text-fg-tertiary">{r.critique?.split('\n')[0]}</span>
+                    <span className="text-fg-tertiary">{r.created_at.slice(5, 10)}</span> · {COMPETENCIES.find(c => c.key === r.competency)?.label ?? r.competency} — <span className="text-fg-tertiary">{r.critique?.split('\n')[0]}</span>
                   </li>
                 ))}
               </ul>
@@ -373,7 +362,7 @@ function StoriesTab({ stories, rehearsals, covered, onSaved, onDeleted, onRehear
           )}
         </Card>
 
-        <Card title={`Stories (${stories.length})`} className="!h-auto">
+        <Card title={`Stories (${stories.length})`}>
           {stories.length === 0 ? (
             <EmptyState icon={MessageSquareQuote} message="No stories yet — add 1–2 real examples per competency from your work." compact cta={{ label: 'Add story', onClick: () => setEditing({ id: null, input: EMPTY_STORY }) }} />
           ) : (
@@ -385,7 +374,7 @@ function StoriesTab({ stories, rehearsals, covered, onSaved, onDeleted, onRehear
                     <button onClick={() => setExpanded(open ? null : s.id)} className="w-full text-left">
                       <div className="flex items-center justify-between gap-2">
                         <p className="text-[13px] font-semibold text-fg-primary truncate">{s.title}</p>
-                        <span className="text-[11px] text-warn shrink-0" aria-label={`Strength ${s.strength ?? '-'} of 5`}>{'★'.repeat(s.strength ?? 0)}<span className="text-fg-quaternary">{'★'.repeat(5 - (s.strength ?? 0))}</span></span>
+                        <span className="text-[11px] text-warn shrink-0" aria-label={`Strength ${s.strength ?? '-'} of 5`}>{'★'.repeat(s.strength ?? 0)}<span className="text-fg-tertiary">{'★'.repeat(5 - (s.strength ?? 0))}</span></span>
                       </div>
                       <p className="text-[11px] text-fg-tertiary mt-0.5 truncate">{s.competencies.map(k => COMPETENCIES.find(c => c.key === k)?.label ?? k).join(' · ') || 'No competency tagged'}</p>
                     </button>
@@ -457,7 +446,7 @@ function StoryModal({ initial, isNew, onClose, onSave }: { initial: StoryInput; 
           <label className={modalLabelClass}>Strength (how interview-ready is it?)</label>
           <div className="flex gap-1">
             {[1, 2, 3, 4, 5].map(n => (
-              <button type="button" key={n} onClick={() => set('strength', n)} aria-label={`${n} of 5`} className={`text-[20px] leading-none ${n <= (s.strength ?? 0) ? 'text-warn' : 'text-fg-quaternary'}`}>★</button>
+              <button type="button" key={n} onClick={() => set('strength', n)} aria-label={`${n} of 5`} className={`text-[20px] leading-none ${n <= (s.strength ?? 0) ? 'text-warn' : 'text-fg-tertiary'}`}>★</button>
             ))}
           </div>
         </div>

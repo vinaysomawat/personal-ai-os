@@ -77,7 +77,7 @@ export default async function LoginPage({
           </form>
         </div>
 
-        <footer className="text-center mt-8 text-xs text-fg-quaternary">
+        <footer className="text-center mt-8 text-xs text-fg-tertiary">
           Made by Vinay, using Claude
         </footer>
       </div>

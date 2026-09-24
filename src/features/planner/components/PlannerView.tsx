@@ -13,6 +13,7 @@ import { getExecutiveSummaryData, type ExecutiveSummaryData } from '@/features/b
 import { logAdvisorUsage } from '@/lib/advisor-usage'
 import { daysAgoIST, toISTDateStr } from '@/lib/date'
 import type { Task, Priority, Recurrence } from '../types'
+import PageHeader, { HeaderChip } from '@/components/PageHeader'
 
 function ExecutiveSummaryTrigger() {
   const [open, setOpen] = useState(false)
@@ -326,16 +327,10 @@ export default function PlannerView({ initialTasks }: Props) {
   return (
     <div className="space-y-3">
       {advisorPortal}
-      <div className="flex items-center justify-between flex-wrap gap-2.5">
-        <div className="flex items-center gap-3 flex-wrap">
-          <h1 className="text-[34px] font-bold tracking-[-0.05em] text-fg-primary">Planner</h1>
-          <span className="text-[11px] font-semibold bg-surface-2 rounded-full px-2.5 py-1 text-fg-secondary">📋 {pending.length} pending</span>
-          {overdue > 0 && (
-            <span className="text-[11px] font-semibold bg-risk-soft rounded-full px-2.5 py-1 text-risk">🔴 {overdue} overdue</span>
-          )}
-        </div>
-        <ExecutiveSummaryTrigger />
-      </div>
+      <PageHeader title="Planner" action={<ExecutiveSummaryTrigger />} chips={<>
+        <HeaderChip>📋 {pending.length} pending</HeaderChip>
+        {overdue > 0 && <HeaderChip tone="risk">🔴 {overdue} overdue</HeaderChip>}
+      </>} />
 
       {/* Stats row — clickable filter tiles, except Completed (display-only) */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-[var(--grid-gap-sm)]">

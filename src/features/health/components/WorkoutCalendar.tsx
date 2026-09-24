@@ -139,7 +139,7 @@ export default function WorkoutCalendar({ days, title, currentStreak, weeklyPlan
                   ))}
                 </ul>
               ) : (
-                <p className="text-[11.5px] text-fg-quaternary mt-1">No workout logged this day.</p>
+                <p className="text-[11.5px] text-fg-tertiary mt-1">No workout logged this day.</p>
               )}
             </div>
           )}

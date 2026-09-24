@@ -69,7 +69,7 @@ export default function SelfHostPage() {
           </Link>
         </div>
 
-        <footer className="text-center mt-8 text-xs text-fg-quaternary">
+        <footer className="text-center mt-8 text-xs text-fg-tertiary">
           Made by Vinay, using Claude
         </footer>
       </div>

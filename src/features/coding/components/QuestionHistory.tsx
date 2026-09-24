@@ -73,7 +73,7 @@ export default function QuestionHistory({ initialHistory }: Props) {
             <li key={h.id} className="flex items-center gap-2.5 bg-surface-2 rounded-[10px] px-3.5 py-2.5 group">
               <span className={`text-[10px] font-bold uppercase px-1.5 py-0.5 rounded-[5px] shrink-0 ${DIFFICULTY_CHIP[h.question.difficulty]}`}>{h.question.difficulty}</span>
               <span className="flex-1 min-w-0 text-[12.5px] text-fg-secondary truncate">{h.question.title}</span>
-              <span className="text-xs text-fg-quaternary shrink-0">{h.assigned_date}</span>
+              <span className="text-xs text-fg-tertiary shrink-0">{h.assigned_date}</span>
               <button onClick={() => !h.completed && setOutcomeFor(h)} disabled={h.completed} aria-label="Mark question complete"
                 className={`p-1.5 -m-1.5 shrink-0 transition-colors ${h.completed ? 'text-green-500' : 'text-fg-quaternary hover:text-green-400'}`}>
                 {h.completed ? <CheckCircle2 size={14} /> : <Circle size={14} />}

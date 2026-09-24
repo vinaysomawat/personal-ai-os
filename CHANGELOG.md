@@ -5,6 +5,7 @@ append here whenever you deploy, same cadence as the version bump.
 
 ## 2026-09-24
 
+- UI v2.2a: Dashboard loads ~1s faster (score-history query batched, score write deferred until after the response); every page has its own layout-matched loading skeleton; one shared page header and one stat-tile style (matching the design) across all pages, with extra detail lines on Finance/Coding/Health tiles; cards no longer stretch into empty space; informational text moved to a readable-contrast color; Settings shows "Astrology Daily" instead of a raw job id.
 - Astrology on Telegram: crisp bullet layout for the daily push and every bot reply (1-line gist, ≤3 favorable / ≤2 avoid bullets, 1-line mood; panchang one line per item), with tighter AI prompts (shared with the web page) for short sentences. Fixed "my characteristics" replying "[object Object]".
 - **v2.0 — new Prep module** (`/prep`, `ROADMAP-v2.md`): Today's Prep (one sequenced ~50-min daily session with a weekday focus rotation), a 12-area Interview Readiness matrix for senior/lead frontend loops, Flashcards with spaced repetition (auto-created from every wrong quiz answer — 35 on first load), and a Story Bank for behavioral/leadership STAR stories with AI feedback on rehearsed answers. Prep is in the top nav and replaces Planner in the mobile bottom bar.
 - Career: topic quiz expanded from 10 to 18 topics (Accessibility, Testing, Web Security, CSS Architecture, State Management, Design Systems, Micro-frontends, Build Tooling added).

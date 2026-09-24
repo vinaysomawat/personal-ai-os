@@ -132,7 +132,7 @@ export default function DailyWorkoutCard({ initialWorkout, stats }: Props) {
             <div className="overflow-x-auto">
               <table className="w-full text-xs">
                 <thead>
-                  <tr className="text-fg-quaternary text-left">
+                  <tr className="text-fg-tertiary text-left">
                     <th className="py-1 pr-2 font-medium">Exercise</th>
                     <th className="py-1 px-2 font-medium">Sets</th>
                     <th className="py-1 px-2 font-medium">Reps</th>
@@ -143,7 +143,7 @@ export default function DailyWorkoutCard({ initialWorkout, stats }: Props) {
                 <tbody>
                   {w.exercises.map((ex, i) => (
                     <tr key={i} className="border-t border-surface-3">
-                      <td className="py-1.5 pr-2 text-fg-secondary">{ex.name}<p className="text-fg-quaternary">{ex.notes}</p></td>
+                      <td className="py-1.5 pr-2 text-fg-secondary">{ex.name}<p className="text-fg-tertiary">{ex.notes}</p></td>
                       <td className="py-1.5 px-2 text-fg-secondary">{ex.sets}</td>
                       <td className="py-1.5 px-2 text-fg-secondary">{ex.reps}</td>
                       <td className="py-1.5 px-2 text-fg-secondary">{ex.rest}</td>

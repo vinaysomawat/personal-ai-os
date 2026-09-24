@@ -13,6 +13,7 @@ import type { Reminder, ReminderSlot } from '../types'
 import type { CronJobHealth } from '@/lib/cron-log'
 import { useEscapeKey } from '@/lib/use-escape-key'
 import { TASK_LABEL } from '@/lib/ai-task-modules'
+import PageHeader from '@/components/PageHeader'
 
 const MODULE_LABEL: Record<string, string> = {
   planner: 'Planner', career: 'Career', finance: 'Finance', health: 'Health',
@@ -24,7 +25,11 @@ const JOB_LABEL: Record<string, string> = {
   'daily-read': 'Daily Read', 'evening-checkin': 'Evening Check-in',
   'monthly-digest': 'Monthly Digest', 'weekly-digest': 'Weekly Digest', 'health-tip': 'Health Tip', 'job-alerts': 'Job Alerts',
   'daily-journal': 'Daily Journal', 'learning-tip': 'Learning Tip', 'cron-health-check': 'Cron Health Check',
+  'astrology-daily': 'Astrology Daily',
 }
+// Title-cased fallback so a job added to EXPECTED_CRON_JOBS without a label
+// here still reads like the others instead of a raw kebab-case id.
+const jobLabel = (job: string): string => JOB_LABEL[job] ?? job.split('-').map(w => w[0].toUpperCase() + w.slice(1)).join(' ')
 
 const STATUS_ORDER: Record<CronJobHealth['status'], number> = { stale: 0, 'never-seen': 1, healthy: 2 }
 
@@ -143,7 +148,7 @@ export default function SettingsView({ email, initialReminders, aiBudget, system
 
   return (
     <div className="space-y-3">
-      <h1 className="text-[34px] font-bold tracking-[-0.05em] text-fg-primary">Settings</h1>
+      <PageHeader title="Settings" />
       <Card title="Account">
         <div className="flex items-center justify-between gap-3">
           <p className="text-[13px] text-fg-secondary">{email ?? 'Not signed in'}</p>
@@ -158,7 +163,7 @@ export default function SettingsView({ email, initialReminders, aiBudget, system
             </form>
           </div>
         </div>
-        <p className="text-xs text-fg-quaternary mt-2.5">Signed in via Supabase. Export downloads a single JSON file — tasks, applications, expenses, loans, investments, health metrics, resources, and more.</p>
+        <p className="text-xs text-fg-tertiary mt-2.5">Signed in via Supabase. Export downloads a single JSON file — tasks, applications, expenses, loans, investments, health metrics, resources, and more.</p>
       </Card>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-[var(--grid-gap)] items-start">
@@ -176,7 +181,7 @@ export default function SettingsView({ email, initialReminders, aiBudget, system
                 <div className={`h-full rounded-[4px] transition-all ${barColor(monthlyPct)}`} style={{ width: `${monthlyPct}%` }} />
               </div>
             </div>
-            <p className="text-xs text-fg-quaternary">Ceilings are set via environment variables (AI_DAILY_BUDGET_USD / AI_MONTHLY_BUDGET_USD) — once hit, AI features fall back to a friendly message instead of erroring.</p>
+            <p className="text-xs text-fg-tertiary">Ceilings are set via environment variables (AI_DAILY_BUDGET_USD / AI_MONTHLY_BUDGET_USD) — once hit, AI features fall back to a friendly message instead of erroring.</p>
             {aiBudget.spendByModule.length > 0 && (
               <div className="pt-1 border-t border-surface-3">
                 <p className="text-[11px] font-bold text-fg-tertiary uppercase tracking-[0.4px] mb-2 mt-3">Spend by module</p>
@@ -211,12 +216,12 @@ export default function SettingsView({ email, initialReminders, aiBudget, system
             {staleCount > 0 ? `${staleCount} stale` : 'All healthy'}
           </span>
         }>
-          <p className="text-xs text-fg-quaternary mb-3">Scheduled jobs (Vercel Cron) — last confirmed run, and whether it&apos;s within its expected cadence.</p>
+          <p className="text-xs text-fg-tertiary mb-3">Scheduled jobs (Vercel Cron) — last confirmed run, and whether it&apos;s within its expected cadence.</p>
           <ul className="space-y-[9px]">
             {sortedHealth.map(h => (
               <li key={h.job} className="flex items-center gap-3">
                 <span className={`w-2 h-2 rounded-full shrink-0 ${h.status === 'healthy' ? 'bg-good' : h.status === 'stale' ? 'bg-risk' : 'bg-fg-quaternary'}`} />
-                <span className="flex-1 text-[12.5px] text-fg-primary">{JOB_LABEL[h.job] ?? h.job}</span>
+                <span className="flex-1 text-[12.5px] text-fg-primary">{jobLabel(h.job)}</span>
                 <span className={`text-[12.5px] shrink-0 ${h.status === 'stale' ? 'text-risk font-semibold' : 'text-fg-tertiary font-normal'}`}>
                   {h.lastRun ? fmtRelativeTime(h.lastRun) : 'never run yet'}
                 </span>
@@ -231,7 +236,7 @@ export default function SettingsView({ email, initialReminders, aiBudget, system
           + New Reminder
         </button>
       }>
-        <p className="text-xs text-fg-quaternary mb-3">Delivered via Telegram at the morning briefing (~8:30am IST) or evening check-in (~8pm IST).</p>
+        <p className="text-xs text-fg-tertiary mb-3">Delivered via Telegram at the morning briefing (~8:30am IST) or evening check-in (~8pm IST).</p>
         {reminders.length === 0 ? (
           <div className="text-center py-5">
             <div className="text-xl mb-1.5">🔔</div>
@@ -244,7 +249,7 @@ export default function SettingsView({ email, initialReminders, aiBudget, system
                 <button onClick={() => handleToggle(r.id, !r.active)} aria-label={r.active ? 'Deactivate' : 'Activate'} title={r.active ? 'Deactivate' : 'Activate'} className="shrink-0 text-[15px] leading-none">
                   {r.active ? '🔔' : '🔕'}
                 </button>
-                <span className={`flex-1 ${r.active ? 'text-fg-primary' : 'text-fg-quaternary'}`}>{r.label}</span>
+                <span className={`flex-1 ${r.active ? 'text-fg-primary' : 'text-fg-tertiary'}`}>{r.label}</span>
                 <span className="text-fg-tertiary text-xs whitespace-nowrap">{MODULE_LABEL[r.module] ?? r.module} · {r.slot === 'morning' ? 'Morning' : 'Evening'}</span>
                 <button onClick={() => setConfirmDeleteId(r.id)} aria-label="Delete reminder" className="shrink-0 text-fg-quaternary hover:text-risk transition-colors text-xs leading-none p-0.5">
                   ✕

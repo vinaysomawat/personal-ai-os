@@ -125,12 +125,12 @@ export default function CodingCalendar({ days, title, currentStreak }: { days: C
                     <li key={i} className="flex items-center gap-1.5 text-[11.5px]">
                       <span className={`text-[9px] font-bold uppercase px-1.5 py-0.5 rounded-[4px] shrink-0 ${DIFFICULTY_CHIP[q.difficulty]}`}>{q.difficulty}</span>
                       <span className={`flex-1 min-w-0 truncate ${q.completed ? 'text-fg-secondary' : 'text-fg-tertiary'}`}>{q.title}</span>
-                      <span className={q.completed ? 'text-good' : 'text-fg-quaternary'}>{q.completed ? '✓' : '○'}</span>
+                      <span className={q.completed ? 'text-good' : 'text-fg-tertiary'}>{q.completed ? '✓' : '○'}</span>
                     </li>
                   ))}
                 </ul>
               ) : (
-                <p className="text-[11.5px] text-fg-quaternary mt-1">No questions completed this day.</p>
+                <p className="text-[11.5px] text-fg-tertiary mt-1">No questions completed this day.</p>
               )}
             </div>
           )}

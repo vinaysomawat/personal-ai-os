@@ -11,6 +11,8 @@ import QuestionHistory from './QuestionHistory'
 import RecommendedQuestions from './RecommendedQuestions'
 import TodaysPickCard from './TodaysPickCard'
 import { computeWeakAreas, type DailyQuestion, type CodingStats, type CalendarDay, type CodingSettings } from '../daily-core'
+import PageHeader, { HeaderChip } from '@/components/PageHeader'
+import StatCard from '@/components/StatCard'
 
 interface Props {
   dailyAssignment: DailyQuestion[]
@@ -55,29 +57,19 @@ export default function CodingView({ dailyAssignment, codingStats, calendar, cod
   return (
     <div className="space-y-3">
       {advisorPortal}
-      <div className="flex items-center gap-3 flex-wrap">
-        <h1 className="text-[34px] font-bold tracking-[-0.05em] text-fg-primary">Coding</h1>
-        <span className="text-[11px] font-semibold bg-surface-2 rounded-full px-2.5 py-1 text-fg-secondary">🔥 {codingStats.currentStreak}-day streak</span>
-        <span className="text-[11px] font-semibold bg-surface-2 rounded-full px-2.5 py-1 text-fg-secondary">{MODE_LABEL[codingSettings.mode](codingSettings.fixed_count)}</span>
-      </div>
+      <PageHeader title="Coding" chips={<>
+        <HeaderChip>🔥 {codingStats.currentStreak}-day streak</HeaderChip>
+        <HeaderChip>{MODE_LABEL[codingSettings.mode](codingSettings.fixed_count)}</HeaderChip>
+      </>} />
 
       {/* Streak/Solved/Completion/Assignment — persistent top-level stats,
           matching the design; previously Streak/Solved lived only as small
           chips inside DailyCodingCard's header, and Assignment mode was
           never shown on the page at all (only inside the settings modal). */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-[var(--grid-gap-sm)]">
-        <div className="bg-surface-1 border border-surface-3 rounded-2xl p-[var(--card-pad-sm)]">
-          <p className="text-[11px] text-fg-tertiary uppercase">Streak</p>
-          <p className="text-xl font-bold text-fg-primary mt-1">🔥 {codingStats.currentStreak} days</p>
-        </div>
-        <div className="bg-surface-1 border border-surface-3 rounded-2xl p-[var(--card-pad-sm)]">
-          <p className="text-[11px] text-fg-tertiary uppercase">Solved</p>
-          <p className="text-xl font-bold text-fg-primary mt-1">{codingStats.totalSolved}</p>
-        </div>
-        <div className="bg-surface-1 border border-surface-3 rounded-2xl p-[var(--card-pad-sm)]">
-          <p className="text-[11px] text-fg-tertiary uppercase">Completion rate</p>
-          <p className="text-xl font-bold text-fg-primary mt-1">{codingStats.completionRate}%</p>
-        </div>
+        <StatCard label="Streak" value={`🔥 ${codingStats.currentStreak} days`} sub={`best ${codingStats.longestStreak} days`} />
+        <StatCard label="Solved" value={codingStats.totalSolved} sub={`${codingStats.easySolved} easy · ${codingStats.mediumSolved} med · ${codingStats.hardSolved} hard`} />
+        <StatCard label="Completion rate" value={`${codingStats.completionRate}%`} sub="of all assigned picks" />
         <div className="bg-surface-1 border border-surface-3 rounded-2xl p-[var(--card-pad-sm)] flex items-center justify-between gap-2">
           <div className="min-w-0">
             <p className="text-[11px] text-fg-tertiary uppercase">Assignment</p>

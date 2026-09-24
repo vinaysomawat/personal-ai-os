@@ -69,3 +69,50 @@ export function ModuleLoading({ statsCols = 3, listRows = 5, cards = 1 }: { stat
     </div>
   )
 }
+
+// Per-page loading layout (UI v2.2a, 2026-09-24) — each route's
+// loading.tsx describes its real grid (stat tiles, tabs, card rows with
+// approximate heights) so content lands where the skeleton was instead of
+// jumping from one generic shape. Tiles/cards reuse the real card chrome.
+interface SkeletonRow { cols?: string; heights: number[] }
+
+export function PageSkeleton({ chips = 1, banner = false, stats, statsCols, tabs, rows }: {
+  chips?: number; banner?: boolean; stats?: number; statsCols?: string; tabs?: number; rows: SkeletonRow[]
+}) {
+  return (
+    <div className="space-y-3" aria-busy="true" aria-label="Loading">
+      <div className="flex items-center gap-2.5">
+        <Skeleton className="h-9 w-40" />
+        {Array.from({ length: chips }).map((_, i) => <Skeleton key={i} className="h-6 w-28 rounded-full" />)}
+      </div>
+      {banner && <Skeleton className="h-10 w-full rounded-xl" />}
+      {stats && (
+        <div className={`grid gap-[var(--grid-gap-sm)] ${statsCols ?? 'grid-cols-2 sm:grid-cols-4'}`}>
+          {Array.from({ length: stats }).map((_, i) => (
+            <div key={i} className="bg-surface-1 border border-surface-3 rounded-2xl p-[var(--card-pad-sm)] space-y-2">
+              <Skeleton className="h-3 w-20" />
+              <Skeleton className="h-6 w-16" />
+            </div>
+          ))}
+        </div>
+      )}
+      {tabs && (
+        <div className="flex gap-4 border-b border-surface-3 pb-2">
+          {Array.from({ length: tabs }).map((_, i) => <Skeleton key={i} className="h-4 w-20" />)}
+        </div>
+      )}
+      {rows.map((row, r) => (
+        <div key={r} className={`grid grid-cols-1 gap-[var(--grid-gap)] items-start ${row.cols ?? ''}`}>
+          {row.heights.map((h, i) => (
+            <div key={i} className="bg-surface-1 border border-surface-3 rounded-[18px] p-[var(--card-pad-lg)] space-y-3 overflow-hidden" style={{ height: h }}>
+              <Skeleton className="h-4 w-32" />
+              {Array.from({ length: Math.max(1, Math.floor((h - 60) / 34)) }).map((_, j) => (
+                <Skeleton key={j} className="h-3" style={{ width: `${55 + ((i + j) % 3) * 15}%` }} />
+              ))}
+            </div>
+          ))}
+        </div>
+      ))}
+    </div>
+  )
+}

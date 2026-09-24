@@ -1,5 +1,6 @@
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
+import PageHeader from '@/components/PageHeader'
 
 interface ChangelogSection {
   heading: string
@@ -33,7 +34,7 @@ export default function ChangelogPage() {
 
   return (
     <div className="space-y-3">
-      <h1 className="text-[34px] font-bold tracking-[-0.05em] text-fg-primary">Changelog</h1>
+      <PageHeader title="Changelog" />
       <div className="bg-surface-1 border border-surface-3 rounded-2xl p-[var(--card-pad-lg)] space-y-6">
         {sections.map(section => (
           <div key={section.heading}>
@@ -42,7 +43,7 @@ export default function ChangelogPage() {
               <ul className="space-y-1.5">
                 {section.items.map((item, i) => (
                   <li key={i} className="text-[13px] text-fg-secondary leading-relaxed flex gap-2">
-                    <span className="text-fg-quaternary shrink-0">•</span>
+                    <span className="text-fg-tertiary shrink-0">•</span>
                     <span>{item}</span>
                   </li>
                 ))}

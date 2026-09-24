@@ -22,6 +22,7 @@ import { DIFFICULTY_CONFIG, QUIZ_TOPICS, READINESS_CONFIG } from '../types'
 import { useEscapeKey } from '@/lib/use-escape-key'
 import { useFormValidation } from '@/lib/use-form-validation'
 import FieldError from '@/components/FieldError'
+import PageHeader, { HeaderChip } from '@/components/PageHeader'
 
 const STATUS_CONFIG: Record<AppStatus, { label: string; color: string }> = {
   applied:   { label: 'Applied',   color: 'text-fg-tertiary' },
@@ -77,7 +78,7 @@ function ProfileField({ label, value, onSave, type = 'text', placeholder, masked
         )}
       </div>
       <button onClick={() => { setInput(value); setEditing(true) }} className="text-left w-full">
-        <p className={`text-[13.5px] font-medium flex items-center gap-1 ${value ? 'text-fg-primary' : 'text-fg-quaternary'}`}>
+        <p className={`text-[13.5px] font-medium flex items-center gap-1 ${value ? 'text-fg-primary' : 'text-fg-tertiary'}`}>
           {value || `Set ${label.toLowerCase()}`}
           <Pencil size={9} className="opacity-0 group-hover:opacity-40 transition-opacity shrink-0" />
         </p>
@@ -92,7 +93,7 @@ function ProfileField({ label, value, onSave, type = 'text', placeholder, masked
           onKeyDown={e => { if (e.key === 'Enter') { onSave(input); setEditing(false) } if (e.key === 'Escape') setEditing(false) }}
           autoFocus className="flex-1 bg-surface-2 border border-accent rounded px-2 py-1 text-[13.5px] text-fg-primary outline-none" />
         <button onClick={() => { onSave(input); setEditing(false) }} aria-label="Save" className="p-1.5 -m-1.5 text-green-400 shrink-0"><Check size={12} /></button>
-        <button onClick={() => setEditing(false)} aria-label="Cancel edit" className="p-1.5 -m-1.5 text-fg-quaternary shrink-0"><X size={12} /></button>
+        <button onClick={() => setEditing(false)} aria-label="Cancel edit" className="p-1.5 -m-1.5 text-fg-tertiary shrink-0"><X size={12} /></button>
       </div>
     </div>
   )
@@ -338,14 +339,11 @@ export default function CareerView({ applications, profile, skills, quizAttempts
   return (
     <div className="space-y-3">
       {advisorPortal}
-      <div className="flex items-center gap-2.5 flex-wrap">
-        <h1 className="text-[34px] font-bold tracking-[-0.05em] text-fg-primary">Career</h1>
+      <PageHeader title="Career" chips={<>
         {/* Rejected applications aren't active — this used to count every row. */}
-        <span className="text-[11px] font-semibold bg-surface-2 rounded-full px-2.5 py-1 text-fg-secondary">💼 {activeAppCount} active application{activeAppCount === 1 ? '' : 's'}</span>
-        {counts.interview > 0 && (
-          <span className="text-[11px] font-semibold bg-accent-soft rounded-full px-2.5 py-1 text-accent-strong">🎯 {counts.interview} at interview</span>
-        )}
-      </div>
+        <HeaderChip>💼 {activeAppCount} active application{activeAppCount === 1 ? '' : 's'}</HeaderChip>
+        {counts.interview > 0 && <HeaderChip tone="accentSoft">🎯 {counts.interview} at interview</HeaderChip>}
+      </>} />
 
       <PageTabs tabs={CAREER_TABS} active={activeTab} onChange={setActiveTab} />
 
@@ -403,7 +401,7 @@ export default function CareerView({ applications, profile, skills, quizAttempts
                     </div>
                     <div className="flex items-center gap-1.5 shrink-0">
                       {isAnalyzing ? (
-                        <span className="text-[10px] text-fg-quaternary italic whitespace-nowrap">Analyzing...</span>
+                        <span className="text-[10px] text-fg-tertiary italic whitespace-nowrap">Analyzing...</span>
                       ) : app.jd_analysis ? (
                         <span className={`text-[11px] font-bold px-2 py-[3px] rounded-[6px] bg-surface-2 ${matchTextColor(app.jd_analysis.matchPercentage)}`}>{app.jd_analysis.matchPercentage}%</span>
                       ) : null}
@@ -424,7 +422,7 @@ export default function CareerView({ applications, profile, skills, quizAttempts
                     )}
                   </div>
                   {(app.location || app.salary_range) && (
-                    <div className="ml-[14px] mt-1.5 flex items-center gap-2 flex-wrap text-[11px] text-fg-quaternary">
+                    <div className="ml-[14px] mt-1.5 flex items-center gap-2 flex-wrap text-[11px] text-fg-tertiary">
                       {app.location && <span>{app.location}</span>}
                       {app.salary_range && <span>{app.salary_range}</span>}
                     </div>
@@ -450,7 +448,7 @@ export default function CareerView({ applications, profile, skills, quizAttempts
                             <div>
                               <p className="text-[11px] font-bold text-fg-tertiary uppercase tracking-[0.4px] mb-1">⚠️ Missing Skills</p>
                               {app.jd_analysis.missingSkills.length === 0 ? (
-                                <p className="text-xs text-fg-quaternary italic">None identified</p>
+                                <p className="text-xs text-fg-tertiary italic">None identified</p>
                               ) : (
                                 <div className="flex flex-wrap gap-1">
                                   {app.jd_analysis.missingSkills.map(s => <span key={s} className="text-[10.5px] font-semibold px-2 py-[3px] rounded-[5px] bg-risk-soft text-risk">{s}</span>)}
@@ -471,7 +469,7 @@ export default function CareerView({ applications, profile, skills, quizAttempts
                         </>
                       ) : app.job_description ? (
                         <div className="flex items-center gap-3">
-                          <p className="text-sm text-fg-quaternary italic flex-1">Analysis unavailable — AI budget may have been reached.</p>
+                          <p className="text-sm text-fg-tertiary italic flex-1">Analysis unavailable — AI budget may have been reached.</p>
                           <button onClick={() => handleAnalyzeJD(app.id, app.job_description!)} className="shrink-0 text-xs px-2 py-1 rounded-lg border border-surface-3 text-fg-secondary hover:text-accent hover:border-accent/40 transition-colors">
                             Retry analysis
                           </button>
@@ -500,10 +498,10 @@ export default function CareerView({ applications, profile, skills, quizAttempts
                               </span>
                               <p className="text-sm text-fg-secondary leading-relaxed">{companyInsights[app.company]!.interviewTrends}</p>
                               <p className="text-sm text-fg-secondary leading-relaxed">{companyInsights[app.company]!.hiringPatterns}</p>
-                              <p className="text-[10.5px] text-fg-quaternary">Updated {formatDistanceToNow(new Date(companyInsights[app.company]!.generatedAt), { addSuffix: true })}</p>
+                              <p className="text-[10.5px] text-fg-tertiary">Updated {formatDistanceToNow(new Date(companyInsights[app.company]!.generatedAt), { addSuffix: true })}</p>
                             </div>
                           ) : (
-                            <p className="text-sm text-fg-quaternary italic">Unavailable — AI budget may have been reached.</p>
+                            <p className="text-sm text-fg-tertiary italic">Unavailable — AI budget may have been reached.</p>
                           )
                         ) : (
                           <button onClick={() => handleLoadCompanyInsights(app.company, app.role)}
@@ -582,7 +580,7 @@ export default function CareerView({ applications, profile, skills, quizAttempts
             <span className="shrink-0">🎯</span>
             <div className="flex-1 min-w-0">
               <p className="text-[12.5px] text-fg-secondary">Recommended: <span className="font-bold text-fg-primary">{recommendedTopic.topic}</span> — {recommendedTopic.reason}</p>
-              <p className="text-[10.5px] text-fg-quaternary mt-0.5">Updated {formatDistanceToNow(new Date(recommendedTopic.generatedAt), { addSuffix: true })}</p>
+              <p className="text-[10.5px] text-fg-tertiary mt-0.5">Updated {formatDistanceToNow(new Date(recommendedTopic.generatedAt), { addSuffix: true })}</p>
             </div>
             <button onClick={() => handleOpenQuiz(recommendedTopic.topic)} className="shrink-0 text-xs px-3 py-1.5 rounded-lg bg-accent text-white font-medium hover:bg-accent/80 transition-colors">
               Start Quiz

@@ -12,6 +12,7 @@ import KundliChart from './KundliChart'
 import { UI_HI } from '../i18n/hi'
 import type { Lang } from '../i18n/hi'
 import type { AstrologyProfile, DailyReading, ReadingPeriod } from '../types'
+import PageHeader from '@/components/PageHeader'
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 function formatDate(iso: string): string {
@@ -209,11 +210,7 @@ export default function AstrologyView({ initialProfile }: { initialProfile: Astr
 
   return (
     <div className="space-y-3">
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <h1 className="text-[34px] font-bold tracking-[-0.05em] text-fg-primary">Astrology</h1>
-          <p className="text-xs text-fg-tertiary mt-0.5">{t('subtitle', "Vedic horoscope · natal chart · dasha timeline")}</p>
-        </div>
+      <PageHeader title="Astrology" subtitle={t('subtitle', "Vedic horoscope · natal chart · dasha timeline")} action={
         <button
           onClick={toggleLang}
           aria-label={lang === 'en' ? 'Switch to Hindi' : 'Switch to English'}
@@ -221,7 +218,7 @@ export default function AstrologyView({ initialProfile }: { initialProfile: Astr
         >
           {lang === 'en' ? 'हिं' : 'EN'}
         </button>
-      </div>
+      } />
 
       <BirthDetailsCard profile={profile} onSaved={handleSaved} t={t} />
 
@@ -249,7 +246,7 @@ export default function AstrologyView({ initialProfile }: { initialProfile: Astr
                   {t('characteristics', 'Your Characteristics')}
                 </summary>
                 <p className="text-[12.5px] leading-[1.6] text-fg-secondary mt-2.5">{characteristics.text}</p>
-                <p className="text-[10.5px] text-fg-quaternary mt-1.5">Updated {formatDistanceToNow(new Date(characteristics.generatedAt), { addSuffix: true })}</p>
+                <p className="text-[10.5px] text-fg-tertiary mt-1.5">Updated {formatDistanceToNow(new Date(characteristics.generatedAt), { addSuffix: true })}</p>
               </details>
             </Card>
           )}

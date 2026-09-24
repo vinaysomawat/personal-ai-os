@@ -11,7 +11,7 @@ export default function Error({ error, reset }: { error: Error; reset: () => voi
       <AlertCircle size={32} className="text-red-400 opacity-60" />
       <div className="text-center max-w-sm">
         <p className="text-sm font-medium text-fg-secondary">Something went wrong</p>
-        <p className="text-xs text-fg-quaternary mt-1">This page hit an unexpected error. Try again — if it keeps happening, check the browser console for details.</p>
+        <p className="text-xs text-fg-tertiary mt-1">This page hit an unexpected error. Try again — if it keeps happening, check the browser console for details.</p>
       </div>
       <button
         onClick={reset}

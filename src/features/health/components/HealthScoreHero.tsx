@@ -76,7 +76,7 @@ export default function HealthScoreHero({ score, onEditProfile, notice, notLogge
                         this explains *why* the sub-score is what it is (CLAUDE.md's
                         "every page should answer what happened, why, and what to do
                         next"). */}
-                    <p className="text-[10.5px] text-fg-quaternary truncate max-w-[140px]" title={s.reason}>{s.reason}</p>
+                    <p className="text-[10.5px] text-fg-tertiary truncate max-w-[140px]" title={s.reason}>{s.reason}</p>
                   </div>
                 </div>
               )

@@ -1,6 +1,8 @@
 'use server'
 
+import { after } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/service'
 import { todayIST, daysAgoIST, istMidnightUtc, istDateStrToUtcMidnight, toISTDateStr } from '@/lib/date'
 import { getTodayAssignmentRows, getStaleRevisionCount } from '@/features/coding/daily-core'
 import { getActiveWorkout, computeWorkoutStats } from '@/features/health/workout-core'
@@ -119,6 +121,7 @@ export async function getDashboardData() {
     recentPatterns, financialGoalsRes, codingHistoryForWeakAreas,
     workoutStats, astrologyProfileRes, panchangTodayRes, topJobAlertsRes,
     healthProfileRes, healthMetricsHistoryRes, allApplicationsRes, jobAlerts30dRes,
+    { data: historyData },
   ] = await Promise.all([
     supabase.from('tasks').select('id, text, done, priority, due_date').eq('user_id', user.id).eq('done', false).order('created_at', { ascending: false }).limit(5),
     supabase.from('applications').select('id, company, role, status, applied_at').eq('user_id', user.id).order('created_at', { ascending: false }).limit(5),
@@ -161,6 +164,12 @@ export async function getDashboardData() {
     // in the last 30 days, not just the 5 most recently added applications.
     supabase.from('applications').select('company').eq('user_id', user.id),
     supabase.from('job_alerts_seen').select('company').eq('user_id', user.id).gte('created_at', istMidnightUtc(30)),
+    // Life-score history for the v2 blend below — independent of every
+    // other query, so it runs in this same batch (was a separate sequential
+    // round-trip after it, ~600ms).
+    supabase.from('life_score_logs')
+      .select('date, life_score, health_score, finance_score, career_score, learning_score, projects_score')
+      .eq('user_id', user.id).gte('date', daysAgoIST(30)).order('date', { ascending: true }),
   ])
 
   const pendingTasks = tasksRes.data ?? []
@@ -315,11 +324,6 @@ export async function getDashboardData() {
   // would make tomorrow's weekly average partly an average of an average,
   // compounding every day into an un-moveable number. All blending happens
   // here, at read time, from that pure history.
-  const since = daysAgoIST(30)
-  const { data: historyData } = await supabase.from('life_score_logs')
-    .select('date, life_score, health_score, finance_score, career_score, learning_score, projects_score')
-    .eq('user_id', user.id).gte('date', since).order('date', { ascending: true })
-
   const priorHistory = (historyData ?? []).map(r => ({
     date: r.date as string, life: r.life_score as number,
     health: r.health_score as number, finance: r.finance_score as number,
@@ -398,12 +402,19 @@ export async function getDashboardData() {
   // life_score (the one figure that's fine to store already-blended, since
   // nothing ever averages life_score itself back into a future computation —
   // only the per-module raw scores feed the weekly averages above).
-  await supabase.from('life_score_logs').upsert({
-    user_id: user.id, date: today,
-    health_score: healthScore, finance_score: financeScore,
-    career_score: careerScore, learning_score: learningScore,
-    projects_score: projectsScore, life_score: lifeScore,
-  }, { onConflict: 'user_id,date' })
+  // Written after the response is sent (next/server's after()) — the page
+  // never reads this write back, and awaiting it held up every Dashboard
+  // render by ~500ms. Service client since the request's cookie scope is
+  // gone by then; the row is still scoped explicitly to this user.
+  const userId = user.id
+  after(async () => {
+    await createServiceClient().from('life_score_logs').upsert({
+      user_id: userId, date: today,
+      health_score: healthScore, finance_score: financeScore,
+      career_score: careerScore, learning_score: learningScore,
+      projects_score: projectsScore, life_score: lifeScore,
+    }, { onConflict: 'user_id,date' })
+  })
 
   const scoreHistory = [
     ...priorHistory.filter(r => r.date !== today),

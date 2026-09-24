@@ -52,9 +52,9 @@ export default function BotActivityCard({ botActivity, aiBudget }: {
     }>
       {!botActivity || botActivity.length === 0 ? (
         <div className="text-center py-8 space-y-2">
-          <Bot size={24} className="mx-auto text-fg-quaternary" />
-          <p className="text-sm text-fg-quaternary">No bot activity yet</p>
-          <p className="text-xs text-fg-quaternary">Send a message to any Telegram bot and it will appear here</p>
+          <Bot size={24} className="mx-auto text-fg-tertiary" />
+          <p className="text-sm text-fg-tertiary">No bot activity yet</p>
+          <p className="text-xs text-fg-tertiary">Send a message to any Telegram bot and it will appear here</p>
         </div>
       ) : (
         <>
@@ -68,7 +68,7 @@ export default function BotActivityCard({ botActivity, aiBudget }: {
                   <span className="shrink-0 w-5">{meta.emoji}</span>
                   <span className={`shrink-0 w-[78px] truncate font-medium ${meta.color}`}>{meta.label}</span>
                   <span className="flex-1 min-w-0 truncate text-fg-secondary">
-                    &quot;{entry.message}&quot;{firstLine && <><span className="text-fg-quaternary"> → </span>{firstLine}</>}
+                    &quot;{entry.message}&quot;{firstLine && <><span className="text-fg-tertiary"> → </span>{firstLine}</>}
                   </span>
                   <span className="shrink-0 text-border-strong">{timeAgo}</span>
                 </li>

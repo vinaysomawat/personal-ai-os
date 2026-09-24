@@ -107,7 +107,7 @@ export default function PaymentCalendar({ days, title }: { days: PaymentCalendar
                   ))}
                 </ul>
               ) : (
-                <p className="text-[11.5px] text-fg-quaternary mt-1">No expenses logged this day.</p>
+                <p className="text-[11.5px] text-fg-tertiary mt-1">No expenses logged this day.</p>
               )}
             </div>
           )}

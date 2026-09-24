@@ -28,6 +28,8 @@ import { useEscapeKey } from '@/lib/use-escape-key'
 import { useFormValidation } from '@/lib/use-form-validation'
 import FieldError from '@/components/FieldError'
 import { logAdvisorUsage } from '@/lib/advisor-usage'
+import PageHeader, { HeaderChip } from '@/components/PageHeader'
+import StatCard from '@/components/StatCard'
 
 const CATEGORY_COLOR: Record<string, string> = {
   Food: 'bg-orange-500/15 text-orange-400', Transport: 'bg-blue-500/15 text-blue-400',
@@ -354,7 +356,7 @@ export default function FinanceView({ expenses, budgets, profile, loans, investm
 
       {advisorTab === 'ask' ? (
         <>
-          <div className="flex gap-2 flex-wrap text-xs text-fg-quaternary">
+          <div className="flex gap-2 flex-wrap text-xs text-fg-tertiary">
             {['Can I afford a car?', 'Should I prepay my loan?', 'How much should I invest?', 'When can I retire?'].map(q => (
               <button key={q} onClick={() => setAiQuestion(q)} className="px-2 py-1 rounded-lg bg-surface-2 hover:bg-surface-3 hover:text-fg-secondary transition-colors">{q}</button>
             ))}
@@ -388,15 +390,14 @@ export default function FinanceView({ expenses, budgets, profile, loans, investm
   return (
     <div className="space-y-3">
       {advisorPortal}
-      <div className="flex items-center gap-3 flex-wrap">
-        <h1 className="text-[34px] font-bold tracking-[-0.05em] text-fg-primary">Finance</h1>
+      <PageHeader title="Finance" chips={<>
         {projectedSavingsPct !== null && (
-          <span className={`text-[11px] font-semibold bg-surface-2 rounded-full px-2.5 py-1 ${projectedSavingsPct >= 0 ? 'text-good' : 'text-risk'}`}>
+          <HeaderChip tone={projectedSavingsPct >= 0 ? 'good' : 'risk'}>
             💰 {projectedSavingsPct >= 0 ? `On pace to save ${projectedSavingsPct}% of salary` : `On pace to overspend salary by ${-projectedSavingsPct}%`}
-          </span>
+          </HeaderChip>
         )}
-        <span className="text-[11px] font-semibold bg-surface-2 rounded-full px-2.5 py-1 text-fg-secondary">📊 3mo avg spend {fmt(avgMonthlyExpense)}</span>
-      </div>
+        <HeaderChip>📊 3mo avg spend {fmt(avgMonthlyExpense)}</HeaderChip>
+      </>} />
 
       {/* Over-budget alert — names the specific over-budget category, matching
           the design's exact message format, not just an aggregate figure. */}
@@ -431,26 +432,14 @@ export default function FinanceView({ expenses, budgets, profile, loans, investm
             )}
           </div>
           {lastRaise && (
-            <p className="text-[10.5px] text-fg-quaternary mt-1">
+            <p className="text-[10.5px] text-fg-tertiary mt-1">
               Last raised {new Date(lastRaise.effective_date + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
             </p>
           )}
         </div>
-        <div className="bg-surface-1 border border-surface-3 rounded-2xl p-[var(--card-pad-sm)]">
-          <p className="text-[11px] text-fg-tertiary uppercase mb-1">Portfolio</p>
-          <p className="text-xl font-bold text-fg-primary">
-            {fmt(portfolio)} <span className={`text-xs ${portfolio >= invested ? 'text-good' : 'text-risk'}`}>({portfolio >= invested ? '+' : '-'}{fmt(Math.abs(portfolio - invested))})</span>
-          </p>
-        </div>
-        <div className="bg-surface-1 border border-surface-3 rounded-2xl p-[var(--card-pad-sm)]">
-          <p className="text-[11px] text-fg-tertiary uppercase mb-1">Total Debt</p>
-          <p className="text-xl font-bold text-risk">{fmt(totalDebt)}</p>
-          <p className="text-[10.5px] text-fg-quaternary mt-1">{fmt(totalEMIs)}/mo EMI · {fmt(totalPayable)} payable incl. interest</p>
-        </div>
-        <div className="bg-surface-1 border border-surface-3 rounded-2xl p-[var(--card-pad-sm)]">
-          <p className="text-[11px] text-fg-tertiary uppercase mb-1">Net Worth</p>
-          <p className={`text-xl font-bold ${netWorth >= 0 ? 'text-accent' : 'text-risk'}`}>{fmt(netWorth)}</p>
-        </div>
+        <StatCard label="Portfolio" value={fmt(portfolio)} sub={<span className={portfolio >= invested ? 'text-good' : 'text-risk'}>{portfolio >= invested ? '+' : '-'}{fmt(Math.abs(portfolio - invested))} vs invested</span>} />
+        <StatCard label="Total Debt" value={fmt(totalDebt)} valueClassName="text-risk" sub={`${fmt(totalEMIs)}/mo EMI · ${fmt(totalPayable)} payable incl. interest`} />
+        <StatCard label="Net Worth" value={fmt(netWorth)} valueClassName={netWorth >= 0 ? 'text-accent' : 'text-risk'} sub="portfolio − outstanding debt" />
       </div>
 
       <PageTabs tabs={FINANCE_TABS} active={activeTab} onChange={setActiveTab} />
@@ -468,23 +457,23 @@ export default function FinanceView({ expenses, budgets, profile, loans, investm
           <div className="grid grid-cols-3 sm:grid-cols-5 gap-x-3 gap-y-2 mb-2">
             <div>
               <p className="text-[15px] font-bold text-risk">{fmt(totalSpent)}</p>
-              <p className="text-[11px] text-fg-quaternary">Spent</p>
+              <p className="text-[11px] text-fg-tertiary">Spent</p>
             </div>
             <div>
               <p className="text-[15px] font-bold text-fg-secondary">{fmt(totalBudget)}</p>
-              <p className="text-[11px] text-fg-quaternary">Budget</p>
+              <p className="text-[11px] text-fg-tertiary">Budget</p>
             </div>
             <div>
               <p className={`text-[15px] font-bold ${remaining >= 0 ? 'text-good' : 'text-risk'}`}>{fmt(Math.abs(remaining))}</p>
-              <p className="text-[11px] text-fg-quaternary">{remaining >= 0 ? 'Left' : 'Over'}</p>
+              <p className="text-[11px] text-fg-tertiary">{remaining >= 0 ? 'Left' : 'Over'}</p>
             </div>
             <div>
               <p className={`text-[15px] font-bold ${totalBudget > 0 && pace.projected > totalBudget ? 'text-risk' : 'text-fg-secondary'}`}>{fmt(pace.projected)}</p>
-              <p className="text-[11px] text-fg-quaternary">Month-end pace</p>
+              <p className="text-[11px] text-fg-tertiary">Month-end pace</p>
             </div>
             <div title="Non-EMI budget left, spread over the rest of the month">
               <p className="text-[15px] font-bold text-fg-secondary">{fmt(perDayLeft)}</p>
-              <p className="text-[11px] text-fg-quaternary">/day · {pace.daysLeft}d left</p>
+              <p className="text-[11px] text-fg-tertiary">/day · {pace.daysLeft}d left</p>
             </div>
           </div>
           {budgetSuggestions.length > 0 && (
@@ -558,10 +547,10 @@ export default function FinanceView({ expenses, budgets, profile, loans, investm
                     {isOpen && (
                       <ul className="mt-1.5 ml-1 pl-2 border-l border-surface-3 space-y-0.5">
                         {catExpenses.length === 0 ? (
-                          <li className="text-xs text-fg-quaternary py-1">No expenses logged in this category</li>
+                          <li className="text-xs text-fg-tertiary py-1">No expenses logged in this category</li>
                         ) : catExpenses.map(exp => (
                           <li key={exp.id} className="flex items-center gap-2 py-1 group">
-                            <span className="text-xs text-fg-quaternary shrink-0">{exp.date}</span>
+                            <span className="text-xs text-fg-tertiary shrink-0">{exp.date}</span>
                             {exp.description && <span className="text-xs text-fg-tertiary truncate flex-1">{exp.description}</span>}
                             <span className="text-xs text-fg-secondary font-medium shrink-0 ml-auto">{fmt(Number(exp.amount))}</span>
                             <button onClick={() => setPendingDelete({ kind: 'expense', id: exp.id, label: exp.description || exp.category })} aria-label="Delete expense" className={deleteGlyphBtn}>✕</button>
@@ -586,7 +575,7 @@ export default function FinanceView({ expenses, budgets, profile, loans, investm
               {localExpenses.map(exp => (
                 <li key={exp.id} className="flex items-center gap-2.5 p-1 rounded-lg hover:bg-surface-2 transition-colors group">
                   <span className={`text-xs px-1.5 py-0.5 rounded-full font-medium shrink-0 ${CATEGORY_COLOR[exp.category]}`}>{exp.category}</span>
-                  <span className="text-xs text-fg-quaternary shrink-0">{exp.date}</span>
+                  <span className="text-xs text-fg-tertiary shrink-0">{exp.date}</span>
                   {exp.description && <span className="text-xs text-fg-secondary truncate flex-1">{exp.description}</span>}
                   <span className="text-xs text-fg-secondary font-medium shrink-0 ml-auto">{fmt(Number(exp.amount))}</span>
                   <button onClick={() => setPendingDelete({ kind: 'expense', id: exp.id, label: exp.description || exp.category })} aria-label="Delete expense" className={deleteGlyphBtn}>✕</button>
@@ -622,7 +611,7 @@ export default function FinanceView({ expenses, budgets, profile, loans, investm
                   <InlineEdit value={loan.interest_rate !== null ? String(loan.interest_rate) : ''} prefix="" suffix="% p.a." placeholder="set rate" textSize="text-[12.5px]" inputWidth="w-14" onSave={v => handleLoanRateSave(loan.id, v)} />
                   <button onClick={() => setPendingDelete({ kind: 'loan', id: loan.id, label: loan.name })} aria-label="Delete loan" className={deleteGlyphBtn}>✕</button>
                 </div>
-                <p className="text-[11px] text-fg-quaternary mt-1">
+                <p className="text-[11px] text-fg-tertiary mt-1">
                   {fmt(owed)} owed{repaidPct !== null && ` · ${repaidPct}% of ${fmt(Number(loan.principal))} repaid`}{payoff && ` · ends ${payoff}`}
                 </p>
                 {repaidPct !== null && <div className="h-[4px] rounded-[3px] bg-border mt-1"><div className="h-full bg-good rounded-[3px]" style={{ width: `${repaidPct}%` }} /></div>}

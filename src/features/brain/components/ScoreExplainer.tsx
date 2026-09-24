@@ -51,7 +51,7 @@ export default function ScoreExplainer({ score, result }: { score: number; resul
                         )}
                       </div>
                       <span className="text-fg-tertiary text-[11px]">{m.today} today · {m.weeklyAvg} this week avg → {m.blended}</span>
-                      <span className="text-fg-quaternary text-[10.5px] truncate">{m.tip}</span>
+                      <span className="text-fg-tertiary text-[10.5px] truncate">{m.tip}</span>
                     </div>
                   </li>
                 )

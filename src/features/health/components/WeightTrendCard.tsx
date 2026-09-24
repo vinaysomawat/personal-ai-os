@@ -26,7 +26,7 @@ export default function WeightTrendCard({ trend, targetPaceKg, normalBmiWeightKg
     return (
       <div className="bg-surface-1 border border-surface-3 rounded-2xl p-[var(--card-pad-md)]">
         <p className="text-[13px] font-bold text-fg-primary mb-1">Weight Trend</p>
-        <p className="text-xs text-fg-quaternary">Log weight on at least 3 days across a week to see your trend.</p>
+        <p className="text-xs text-fg-tertiary">Log weight on at least 3 days across a week to see your trend.</p>
       </div>
     )
   }

@@ -17,13 +17,13 @@ export default function TodaysFoodCard({ entries, onDelete }: { entries: FoodLog
         {entries.length > 0 && <p className="text-[11px] text-fg-tertiary tabular-nums">{entries.length} items · <span className="text-fg-primary font-semibold">{totalKcal} kcal · {totalProtein}g protein</span></p>}
       </div>
       {entries.length === 0 ? (
-        <p className="text-xs text-fg-quaternary">Nothing logged yet today — send what you ate to the Health bot (e.g. &quot;2 rotis with dal&quot;).</p>
+        <p className="text-xs text-fg-tertiary">Nothing logged yet today — send what you ate to the Health bot (e.g. &quot;2 rotis with dal&quot;).</p>
       ) : (
         <ul className="max-h-56 overflow-y-auto -mx-1">
           {entries.map(e => (
             <li key={e.id} className="flex items-center gap-2 px-1 py-1 rounded-md hover:bg-surface-2 text-[12px]">
               <span className="text-fg-secondary truncate flex-1 min-w-0">
-                {e.item}{e.quantity ? <span className="text-fg-quaternary"> · {e.quantity}{e.unit ? ` ${e.unit}` : ''}</span> : null}
+                {e.item}{e.quantity ? <span className="text-fg-tertiary"> · {e.quantity}{e.unit ? ` ${e.unit}` : ''}</span> : null}
               </span>
               <span className="text-fg-tertiary tabular-nums shrink-0">{e.calories} kcal</span>
               <span className="text-fg-tertiary tabular-nums shrink-0 w-10 text-right">{e.protein_g}g</span>

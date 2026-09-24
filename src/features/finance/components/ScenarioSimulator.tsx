@@ -74,7 +74,7 @@ export default function ScenarioSimulator({ profile, goals, avgMonthlyExpense }:
             className="mt-1 w-full bg-surface-2 border border-surface-3 rounded-lg px-3 py-2 text-sm text-fg-primary placeholder-fg-quaternary outline-none focus:border-accent transition-colors" />
         </label>
       </div>
-      {Number(totalCost) > 0 && <p className="text-xs text-fg-quaternary">Financed: ₹{financed.toLocaleString('en-IN')}</p>}
+      {Number(totalCost) > 0 && <p className="text-xs text-fg-tertiary">Financed: ₹{financed.toLocaleString('en-IN')}</p>}
 
       <button onClick={handleSimulate} disabled={!canSimulate} className="w-full px-4 py-2 rounded-lg bg-accent text-white text-sm font-medium hover:bg-accent/80 disabled:opacity-50 transition-colors">
         Simulate →

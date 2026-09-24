@@ -138,7 +138,7 @@ export default function SpendingHistory({ expenseHistory, currentMonth }: { expe
       </div>
 
       {categoryBreakdown.length === 0 ? (
-        <p className="text-sm text-fg-quaternary text-center py-6">No expenses logged this month</p>
+        <p className="text-sm text-fg-tertiary text-center py-6">No expenses logged this month</p>
       ) : (
         <div className="flex items-center gap-6 flex-wrap">
           <div className="w-32 h-32 shrink-0">

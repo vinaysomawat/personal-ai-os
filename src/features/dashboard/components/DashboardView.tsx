@@ -18,6 +18,7 @@ import type { getDashboardData } from '../actions'
 import type { ExecutiveData } from '@/features/brain/executive-actions'
 import LifeScoreTrend from './LifeScoreTrendLazy'
 import { todayISTLabel, istHour } from '@/lib/date'
+import PageHeader from '@/components/PageHeader'
 
 type DashboardData = Awaited<ReturnType<typeof getDashboardData>>
 
@@ -59,8 +60,7 @@ export default function DashboardView({ data, executive }: { data: DashboardData
       {/* Page title now lives inline in the page body (design refresh) instead
           of the removed shared Header component — TopNav's title slot is a
           transitional fallback for pages that haven't made this move yet. */}
-      <div className="flex items-end justify-between flex-wrap gap-1">
-        <h1 className="text-[34px] font-bold tracking-[-0.05em] text-fg-primary">Dashboard</h1>
+      <PageHeader title="Dashboard" action={<>
         {/* Dasha info replaces the plain greeting here (2026-08-18, per the
             Claude Design source) — the standalone Astrology strip that used
             to render below Top Priority was removed from the design in
@@ -70,7 +70,7 @@ export default function DashboardView({ data, executive }: { data: DashboardData
         <p className="text-[13px] text-fg-tertiary">
           {today} · {data.astrology ? <Link href="/astrology" className="hover:text-accent transition-colors">{data.astrology.dashaLord} / {data.astrology.antardashaLord} dasha</Link> : greeting}
         </p>
-      </div>
+      </>} />
 
       {/* Top priority — the single highest-ranked Needs Attention item,
           surfaced here so the most important action doesn't require
