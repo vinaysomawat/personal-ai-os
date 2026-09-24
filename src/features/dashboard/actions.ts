@@ -1,7 +1,7 @@
 'use server'
 
 import { createClient } from '@/lib/supabase/server'
-import { todayIST, daysAgoIST, istMidnightUtc, istDateStrToUtcMidnight } from '@/lib/date'
+import { todayIST, daysAgoIST, istMidnightUtc, istDateStrToUtcMidnight, toISTDateStr } from '@/lib/date'
 import { getTodayAssignmentRows, getStaleRevisionCount } from '@/features/coding/daily-core'
 import { getActiveWorkout, computeWorkoutStats } from '@/features/health/workout-core'
 import { computeHealthPlan } from '@/features/health/calculations'
@@ -26,6 +26,9 @@ import { LIFE_SCORE_THRESHOLDS } from '@/lib/thresholds'
 type ModuleBreakdown = { today: number; weeklyAvg: number; blended: number; delta: number | null }
 
 export interface TopAction {
+  // The originating Signal's id (e.g. 'finance.over_budget') — lets
+  // buildPriorityItems drop a signal that a risk already covers.
+  id?: string
   emoji: string
   text: string
   href: string
@@ -70,7 +73,7 @@ function computeTopActions(input: TopActionInput): TopAction[] {
     checkHighValueJobAlert(topJobAlert),
   ].filter((s): s is Signal => s !== null)
 
-  return rankSignals(signals, 5).map(s => ({ emoji: s.emoji, text: s.message, href: s.href }))
+  return rankSignals(signals, 5).map(s => ({ id: s.id, emoji: s.emoji, text: s.message, href: s.href }))
 }
 
 export async function getDashboardData() {
@@ -122,7 +125,7 @@ export async function getDashboardData() {
     supabase.from('workouts').select('id').eq('user_id', user.id).eq('date', today),
     supabase.from('expenses').select('amount, date').eq('user_id', user.id).gte('date', monthStart),
     supabase.from('budgets').select('amount').eq('user_id', user.id).eq('month', today.slice(0, 7)),
-    supabase.from('resources').select('id, status, notes, created_at').eq('user_id', user.id),
+    supabase.from('resources').select('id, status, notes, created_at, completed_at').eq('user_id', user.id),
     supabase.from('telegram_logs').select('module, message, response, created_at').order('created_at', { ascending: false }).limit(50),
     supabase.from('health_metrics').select('*').eq('user_id', user.id).eq('date', today).single(),
     supabase.from('career_profile').select('current_role, target_role, current_company, current_salary, bio').eq('user_id', user.id).single(),
@@ -174,7 +177,6 @@ export async function getDashboardData() {
   const monthSpend = expenses.reduce((s, e) => s + (e.amount ?? 0), 0)
   const monthBudget = budgets.reduce((s, b) => s + (b.amount ?? 0), 0)
   const learningInProgress = resources.filter(r => r.status === 'in-progress').length
-  const learningCompleted = resources.filter(r => r.status === 'completed').length
 
   // --- Scores (Life Score v2, 2026-08-23) ---
   // Each of these is today's fresh "daily raw" score — the quality-aware
@@ -238,23 +240,27 @@ export async function getDashboardData() {
     (jobAlertTracked30d ? 20 : 0)
   )
 
-  // Learning: completed / total (in-progress counts as half) — unchanged.
-  // A "recency" component (studied in the last N days) was considered but
-  // dropped: study-time logging was removed entirely 2026-08-21, and Resource
-  // has no other "touched recently" timestamp to build one from.
-  const learningScore = resources.length > 0
-    ? Math.min(100, Math.round(((learningCompleted + learningInProgress * 0.5) / resources.length) * 100))
-    : 0
+  // Learning: resources completed in the last 30 days (by completed_at,
+  // added 2026-09-24) against a target — was completed/total, a backlog
+  // ratio that moved when unread items were deleted rather than when
+  // anything was actually read.
+  const learningCompleted30d = resources.filter(r => r.status === 'completed' && r.completed_at && r.completed_at >= istMidnightUtc(30)).length
+  const learningScore = Math.min(100, Math.round((learningCompleted30d / LIFE_SCORE_THRESHOLDS.learningCompletionsTarget) * 100))
 
   // Coding: weighted by category over the last 30 days instead of a flat
   // count — algorithm and system-design questions take meaningfully longer
   // than a quiz/JS-function/UI-coding pick, so they're worth more. Reuses
   // codingHistoryForWeakAreas (already fetched for Weak Areas) — no new query.
+  // Both halves key on completed_at (when the work was done), not
+  // assigned_date — a bulk catch-up of old picks used to count as recent.
   const codingSolved30d = codingSolved30dRes.count ?? 0
-  const codingWeighted30d = codingHistoryForWeakAreas
-    .filter(r => r.completed && r.assigned_date >= since30)
+  const codingCompleted30d = codingHistoryForWeakAreas.filter(r => r.completed && r.completed_at && r.completed_at >= istMidnightUtc(30))
+  const codingWeighted30d = codingCompleted30d
     .reduce((sum, r) => sum + (LIFE_SCORE_THRESHOLDS.codingCategoryWeight[r.question.category] ?? 1.0), 0)
-  const projectsScore = Math.min(100, Math.round(codingWeighted30d * LIFE_SCORE_THRESHOLDS.codingWeightedMultiplier))
+  const codingPracticeDays30d = new Set(codingCompleted30d.map(r => toISTDateStr(r.completed_at!))).size
+  const codingVolume = Math.min(100, Math.round(codingWeighted30d * LIFE_SCORE_THRESHOLDS.codingWeightedMultiplier))
+  const codingConsistency = Math.min(100, Math.round((codingPracticeDays30d / LIFE_SCORE_THRESHOLDS.codingPracticeDaysTarget) * 100))
+  const projectsScore = Math.round(codingVolume * 0.5 + codingConsistency * 0.5)
 
   // --- Score tips ---
   // Deterministic, no AI call — each tip names the single highest-point-value
@@ -289,19 +295,17 @@ export async function getDashboardData() {
   const topCareerDeficit = careerDeficits.reduce((a, b) => (b[0] > a[0] ? b : a))
   const careerTip = topCareerDeficit[0] > 0 ? topCareerDeficit[1] : 'Career basics maxed — check the AI Mentor for what\'s next'
 
-  const learningTip = resources.length === 0
-    ? 'Add a learning resource to start tracking progress'
-    : learningInProgress > 0
-      ? 'Finish an in-progress resource for the biggest jump'
-      : learningCompleted < resources.length
-        ? 'Start one of your queued resources to begin earning credit'
-        : 'All resources completed — add a new one to keep growing this score'
+  const learningTip = learningCompleted30d >= LIFE_SCORE_THRESHOLDS.learningCompletionsTarget
+    ? 'Maxed out — steady reading habit'
+    : `${learningCompleted30d} of ${LIFE_SCORE_THRESHOLDS.learningCompletionsTarget} completions in 30 days — finish today's read`
 
   const projectsTip = codingWeighted30d === 0
     ? 'No coding questions solved in the last 30 days — start today\'s question'
-    : projectsScore < 100
-      ? 'Keep solving daily — algorithm and system-design questions count for more toward this score'
-      : 'Maxed out — consistent practice'
+    : codingConsistency < codingVolume
+      ? `${codingPracticeDays30d} practice days in 30 — a little most days beats batching`
+      : projectsScore < 100
+        ? 'Keep solving — algorithm and system-design questions count for more'
+        : 'Maxed out — consistent practice'
 
   const scoreTips = { health: healthTip, finance: financeTip, career: careerTip, learning: learningTip, projects: projectsTip }
 
@@ -431,20 +435,9 @@ export async function getDashboardData() {
     tasksDueToday: tasksDueTodayRes.data ?? [],
     metricsLoggedToday,
     workoutStatus,
-    // Algorithm/system-design rows only — quiz, JS Function, and UI Coding
-    // are each their own checklist item below (same 4-way split CodingView
-    // uses for its cards), not folded into one "solve the coding question"
-    // check via .every() like this used to do.
-    codingToday: codingTodayRows.filter(r => !['quiz', 'javascript-functions', 'ui-coding'].includes(r.question.category)),
+    codingPicks: codingTodayRows.map(r => ({ completed: r.completed, completedToday: !!r.completed_at && toISTDateStr(r.completed_at) === today })),
     dailyRead: todayDailyReadStatus,
     expenseLoggedToday,
-    // Today's Quiz is now a real coding_daily_questions pick (category:
-    // 'quiz'), not the old separate coding_quiz_attempts table — same
-    // pipeline codingTodayRows already reads for codingQuestionPending
-    // above, so this is a free derived check, not a new query.
-    codingQuizDone: codingTodayRows.some(r => r.question.category === 'quiz' && r.completed),
-    codingJsFunctionPick: codingTodayRows.find(r => r.question.category === 'javascript-functions') ?? null,
-    codingUiCodingPick: codingTodayRows.find(r => r.question.category === 'ui-coding') ?? null,
   })
 
   const codingWeakAreas = computeWeakAreas(codingHistoryForWeakAreas)

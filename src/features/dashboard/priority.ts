@@ -10,10 +10,21 @@ export type PriorityItem =
 // (item 0 of the same list) so both agree on the exact same ranking —
 // risks lead, then Today's Focus signals, then opportunities — rather than
 // two components independently reimplementing the same ordering.
+// A risk and a Today's Focus signal can describe the same problem (budget
+// pace vs. "over budget by ₹X", an open coding streak vs. "today's question
+// is still open") — the signal is dropped when its risk is present, so one
+// issue doesn't take two of Needs Attention's three slots.
+const SIGNALS_COVERED_BY_RISK: Record<Risk['kind'], string[]> = {
+  budget_pace: ['finance.over_budget', 'finance.near_budget'],
+  coding_streak: ['coding.question_pending'],
+  protein_decline: [],
+}
+
 export function buildPriorityItems(risks: Risk[], topActions: TopAction[], opportunities: Opportunity[]): PriorityItem[] {
+  const covered = new Set(risks.flatMap(r => SIGNALS_COVERED_BY_RISK[r.kind] ?? []))
   return [
     ...risks.map((r): PriorityItem => ({ type: 'risk', ...r })),
-    ...topActions.map((a): PriorityItem => ({ type: 'signal', ...a })),
+    ...topActions.filter(a => !a.id || !covered.has(a.id)).map((a): PriorityItem => ({ type: 'signal', emoji: a.emoji, text: a.text, href: a.href })),
     ...opportunities.map((o): PriorityItem => ({ type: 'opportunity', ...o })),
   ]
 }

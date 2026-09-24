@@ -22,12 +22,11 @@ export interface TodayProgressInput {
   tasksDueToday: { id: string; text: string; done: boolean }[]
   metricsLoggedToday: boolean
   workoutStatus: 'completed' | 'pending' | 'none'
-  codingToday: { completed: boolean }[]
+  // Every active coding pick (all slots, carried-over included), with
+  // whether it was completed today (IST).
+  codingPicks: { completed: boolean; completedToday: boolean }[]
   dailyRead: { completed: boolean } | null
   expenseLoggedToday: boolean
-  codingQuizDone: boolean
-  codingJsFunctionPick: { completed: boolean } | null
-  codingUiCodingPick: { completed: boolean } | null
 }
 
 export function computeTodayProgress(input: TodayProgressInput): TodayProgress {
@@ -43,18 +42,13 @@ export function computeTodayProgress(input: TodayProgressInput): TodayProgress {
     items.push({ key: 'workout', label: "Complete today's workout", done: input.workoutStatus === 'completed', href: '/health' })
   }
 
-  if (input.codingToday.length > 0) {
-    items.push({ key: 'coding', label: "Solve today's algorithm question", done: input.codingToday.every(q => q.completed), href: '/coding' })
-  }
-
-  items.push({ key: 'coding-quiz', label: "Complete Today's Quiz", done: input.codingQuizDone, href: '/coding' })
-
-  if (input.codingJsFunctionPick) {
-    items.push({ key: 'coding-js-function', label: "Complete today's JS Function", done: input.codingJsFunctionPick.completed, href: '/coding' })
-  }
-
-  if (input.codingUiCodingPick) {
-    items.push({ key: 'coding-ui-coding', label: "Complete today's UI Coding", done: input.codingUiCodingPick.completed, href: '/coding' })
+  // One coding item, not one per pick (was 4 of ~8 items — algorithm,
+  // quiz, JS function, UI coding — so coding alone decided the mission).
+  // Done once any pick is finished today: consistency over volume, same as
+  // the Coding sub-score and streak.
+  if (input.codingPicks.length > 0) {
+    const doneCount = input.codingPicks.filter(p => p.completed).length
+    items.push({ key: 'coding', label: `Coding practice — finish 1 of today's picks (${doneCount}/${input.codingPicks.length} done)`, done: input.codingPicks.some(p => p.completedToday), href: '/coding' })
   }
 
   if (input.dailyRead) {

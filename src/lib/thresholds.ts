@@ -56,6 +56,13 @@ export const LIFE_SCORE_THRESHOLDS = {
     'ui-coding': 0.6,
   } as Record<string, number>,
   codingWeightedMultiplier: 3.2,
+  // Coding sub-score = volume × 0.5 + consistency × 0.5 (2026-09-24).
+  // Consistency = distinct practice days in the last 30 ÷ this target — so
+  // batching 37 questions in one sitting can't max the score on its own.
+  codingPracticeDaysTarget: 20,
+  // Learning sub-score = resources completed in the last 30 days (by
+  // completed_at) ÷ this target — a habit signal, not a backlog ratio.
+  learningCompletionsTarget: 20,
 } as const
 
 export const FINANCE_THRESHOLDS = {

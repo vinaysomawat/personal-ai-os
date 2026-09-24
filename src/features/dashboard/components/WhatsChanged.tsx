@@ -23,7 +23,10 @@ export default function WhatsChanged({ items }: { items: ChangeItem[] }) {
   }
 
   return (
-    <Card title="What's Changed">
+    // !h-auto: Card defaults to h-full, which fills the grid row even with
+    // items-start — What's Changed should size to its few lines, not stretch
+    // to Morning Brief's height (design has this row at align-items: start).
+    <Card title="What's Changed" className="!h-auto">
       <ul className="space-y-0.5">
         {items.map((item, i) => (
           <li key={i}>

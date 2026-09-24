@@ -29,13 +29,17 @@ export default function DashboardView({ data, executive }: { data: DashboardData
   const hour = istHour()
   const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening'
 
+  // Ring color reflects how the score is doing (the design's intent — its
+  // mock colors track each mock score), not a fixed per-module identity: a
+  // fixed red Coding ring read as failing even at 92.
+  const tierColor = (score: number) => score >= 70 ? 'var(--good)' : score >= 45 ? 'var(--warn)' : 'var(--risk)'
   const moduleScores = [
-    { label: 'Health',   score: scores.health,            color: 'var(--good)',   to: '/health',   tip: scoreTips.health },
-    { label: 'Finance',  score: scores.finance,           color: 'var(--warn)',   to: '/finance',  tip: scoreTips.finance },
-    { label: 'Career',   score: scores.career,            color: 'var(--accent)', to: '/career',   tip: scoreTips.career },
-    { label: 'Learning', score: scores.learning,          color: 'var(--good)',   to: '/learning', tip: scoreTips.learning },
-    { label: 'Coding',   score: scores.projects ?? 0,     color: 'var(--risk)',   to: '/coding',   tip: scoreTips.projects },
-  ]
+    { label: 'Health',   score: scores.health,        to: '/health',   tip: scoreTips.health },
+    { label: 'Finance',  score: scores.finance,       to: '/finance',  tip: scoreTips.finance },
+    { label: 'Career',   score: scores.career,        to: '/career',   tip: scoreTips.career },
+    { label: 'Learning', score: scores.learning,      to: '/learning', tip: scoreTips.learning },
+    { label: 'Coding',   score: scores.projects ?? 0, to: '/coding',   tip: scoreTips.projects },
+  ].map(m => ({ ...m, color: tierColor(m.score) }))
 
   // Top-priority banner — same ranked list NeedsAttention renders (risks,
   // then Today's Focus signals, then opportunities), just item 0 surfaced

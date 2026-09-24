@@ -46,14 +46,14 @@ export async function execute(action: Record<string, unknown>, db: SupabaseClien
       if (!r) return `❌ No resource matching "${action.search}"`
       const progress = Math.min(100, Math.max(0, Number(action.progress)))
       const status = progress >= 100 ? 'completed' : progress > 0 ? 'in-progress' : 'not-started'
-      await db.from('resources').update({ progress, status }).eq('id', r.id)
+      await db.from('resources').update({ progress, status, completed_at: status === 'completed' ? new Date().toISOString() : null }).eq('id', r.id)
       return `📈 *${r.title}*: ${progress}% ${progress >= 100 ? '✅ Complete!' : ''}`
     }
     case 'complete': {
       const { data } = await db.from('resources').select('id, title').eq('user_id', userId).ilike('title', `%${action.search}%`).limit(1)
       const r = data?.[0]
       if (!r) return `❌ No resource matching "${action.search}"`
-      await db.from('resources').update({ progress: 100, status: 'completed' }).eq('id', r.id)
+      await db.from('resources').update({ progress: 100, status: 'completed', completed_at: new Date().toISOString() }).eq('id', r.id)
       return `🎉 Completed: *${r.title}*!`
     }
     case 'list_resources': {
@@ -86,7 +86,7 @@ export async function execute(action: Record<string, unknown>, db: SupabaseClien
       const r = data?.[0]
       if (!r) return `❌ No daily read assigned yet — try "today's reading" first.`
       if (r.status === 'completed') return `Already marked *${r.title}* as read! 🎉`
-      await db.from('resources').update({ status: 'completed', progress: 100 }).eq('id', r.id)
+      await db.from('resources').update({ status: 'completed', progress: 100, completed_at: new Date().toISOString() }).eq('id', r.id)
       return `🎉 Nice — marked *${r.title}* as read.`
     }
     case 'quiz': {

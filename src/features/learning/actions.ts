@@ -117,7 +117,11 @@ export async function addResource(formData: FormData) {
 
 export async function updateResource(id: string, updates: { status?: ResourceStatus; progress?: number; notes?: string }) {
   const supabase = await createClient()
-  const { error } = await supabase.from('resources').update(updates).eq('id', id)
+  // completed_at feeds the Life Score's Learning sub-score (completions in
+  // the last 30 days) — stamped on entering 'completed', cleared on leaving.
+  const patch = updates.status === undefined ? updates
+    : { ...updates, completed_at: updates.status === 'completed' ? new Date().toISOString() : null }
+  const { error } = await supabase.from('resources').update(patch).eq('id', id)
   if (error) throw new Error(error.message)
 
   if (updates.status !== undefined) {

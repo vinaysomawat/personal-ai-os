@@ -15,6 +15,8 @@ export interface Resource {
   // Linked Planner task ("Read: {title}") — null for resources added before
   // this sync existed; not backfilled.
   task_id: string | null
+  // Set on entering 'completed', null otherwise (2026-09-24 migration).
+  completed_at?: string | null
   estimated_minutes: number | null
 }
 

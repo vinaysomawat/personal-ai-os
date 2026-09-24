@@ -74,9 +74,9 @@ export async function toggleTask(id: string, done: boolean) {
   // Same sync for Learning resources — task_id links a resource to its
   // auto-created "Read: {title}" task (see learning/actions.ts's addResource)
   if (done) {
-    await supabase.from('resources').update({ status: 'completed', progress: 100 }).eq('task_id', id)
+    await supabase.from('resources').update({ status: 'completed', progress: 100, completed_at: new Date().toISOString() }).eq('task_id', id)
   } else {
-    await supabase.from('resources').update({ status: 'in-progress' }).eq('task_id', id).eq('status', 'completed')
+    await supabase.from('resources').update({ status: 'in-progress', completed_at: null }).eq('task_id', id).eq('status', 'completed')
   }
 
   // Same sync for the Daily Workout Planner — status is an enum here (not a
