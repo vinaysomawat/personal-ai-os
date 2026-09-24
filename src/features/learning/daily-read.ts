@@ -13,6 +13,19 @@ const MAX_PREFERRED_MINUTES = 60
 export const isMarkedToday = (r: Pick<Resource, 'notes' | 'created_at'>) =>
   !!r.notes?.startsWith(DAILY_READ_NOTE_PREFIX) && toISTDateStr(r.created_at) === todayIST()
 
+export const isDailyRead = (r: Pick<Resource, 'notes'>) => !!r.notes?.startsWith(DAILY_READ_NOTE_PREFIX)
+
+// The current daily read — carry-over, not strictly "created today"
+// (changed 2026-09-24): the most recent daily-read resource, while it's
+// still unread or was picked today. An unread pick stays the active one
+// (badge, top of list, Dashboard's Daily Mission item, protected from the
+// stale-task cleanup) instead of a new article landing on top of it daily.
+export function getActiveDailyRead<T extends Pick<Resource, 'notes' | 'created_at' | 'status'>>(resources: T[]): T | null {
+  const latest = resources.filter(isDailyRead).sort((a, b) => b.created_at.localeCompare(a.created_at))[0]
+  if (!latest) return null
+  return latest.status !== 'completed' || toISTDateStr(latest.created_at) === todayIST() ? latest : null
+}
+
 // Deterministic-first daily pick (Product Principle 2): the curated pool
 // (reading-articles.ts) is used first — real, hand-verified URLs, no repeats
 // (each article is only ever picked once, unlike the old trending/core.ts
@@ -26,8 +39,10 @@ export const isMarkedToday = (r: Pick<Resource, 'notes' | 'created_at'>) =>
 // today already exists, so this is safe to call from both the page load and
 // the daily cron without double-adding.
 export async function ensureDailyRead(supabase: SupabaseClient, userId: string, resources: Resource[]): Promise<Resource | null> {
-  const alreadyPicked = resources.some(isMarkedToday)
-  if (alreadyPicked) return null
+  // Picked today already, or the previous pick is still unread (carry-over
+  // — added after a usage audit: 1 of 20 September reads done while a new
+  // one landed every day, leaving 19 unread).
+  if (getActiveDailyRead(resources)) return null
 
   const existingUrls = new Set(resources.map(r => r.url).filter(Boolean))
   const existingTitles = new Set(resources.map(r => r.title))

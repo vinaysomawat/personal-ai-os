@@ -15,7 +15,7 @@ import { checkQuestionPending, checkStaleRevision, checkCodingWeakArea } from '@
 import { computeWeakAreas, type WeakArea } from '@/features/coding/daily-core'
 import { getInsightsHistory } from '@/features/coding/daily'
 import { checkWorkoutPending, checkNoMetricsToday } from '@/features/health/signals'
-import { isMarkedToday } from '@/features/learning/daily-read'
+import { getActiveDailyRead } from '@/features/learning/daily-read'
 import { computeTodayProgress } from './daily-progress'
 import { getRecentPatterns, type RecentPattern } from '@/features/brain/signals'
 import type { ScoreModule } from '@/features/brain/types'
@@ -167,7 +167,7 @@ export async function getDashboardData() {
   const budgets = budgetsRes.data ?? []
   const resources = resourcesRes.data ?? []
   const todayMetric = healthMetricRes.data ?? null
-  const todayDailyRead = resources.find(isMarkedToday)
+  const todayDailyRead = getActiveDailyRead(resources)
   const todayDailyReadStatus = todayDailyRead ? { completed: todayDailyRead.status === 'completed' } : null
 
   const activeApps = applications.filter(a => ['applied', 'screening', 'interview'].includes(a.status)).length

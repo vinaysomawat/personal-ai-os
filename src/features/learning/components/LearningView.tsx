@@ -14,7 +14,8 @@ import { useAIAdvisor, useAIAdvisorOpen } from '@/components/AIAdvisorProvider'
 import { addResource, updateResource, deleteResource, saveResourceQuizAttempt } from '../actions'
 import { getDailyStudyPlan, generateResourceQuiz, recommendResources } from '@/features/ai/study-plan'
 import { gradeQuiz, computeCategoryWeakAreas } from '../quiz-calculations'
-import { isMarkedToday } from '../daily-read'
+import { getActiveDailyRead, isDailyRead, isMarkedToday } from '../daily-read'
+import { todayIST, toISTDateStr } from '@/lib/date'
 import { SUGGESTED_RESOURCES } from '../suggested-resources'
 import { useEscapeKey } from '@/lib/use-escape-key'
 import { useFormValidation } from '@/lib/use-form-validation'
@@ -66,9 +67,11 @@ function StudyCoachContent({ isOpen, context, resources }: { isOpen: boolean; co
   )
 }
 
-// Mandatory quiz (marking a resource "Completed" requires taking one) plus
-// voluntary quizzing at any time — same session shape either way, just
-// gated by `completesOnFinish`.
+// Voluntary graded quiz ("Quiz me"). Was mandatory for marking a resource
+// Completed until 2026-09-24 — but completions from Planner/Telegram never
+// went through it (47 completions vs 9 quizzes), so the gate only added
+// friction on the web; completed-but-unquizzed rows get an accent nudge
+// instead.
 interface QuizSession {
   resource: Resource
   stage: 'generating' | 'taking' | 'results'
@@ -76,7 +79,6 @@ interface QuizSession {
   answers: number[]
   score: number
   weakAreas: string[]
-  completesOnFinish: boolean
 }
 
 interface Props {
@@ -114,7 +116,14 @@ export default function LearningView({ initialResources, initialQuizAttempts }: 
   const { invalidFields, validate, clear, onFieldInput } = useFormValidation()
   useEffect(() => { clear(); if (!showForm) setPrefill(null) }, [showForm, clear])
 
-  const isTodaysRead = isMarkedToday
+  // Carry-over: the active daily read may be from an earlier day if still
+  // unread (see getActiveDailyRead).
+  const activeRead = getActiveDailyRead(resources)
+  const isTodaysRead = (r: Resource) => r.id === activeRead?.id
+  const quizzedIds = new Set(quizAttempts.map(a => a.resource_id))
+  const thisMonth = todayIST().slice(0, 7)
+  const monthReads = resources.filter(r => isDailyRead(r) && toISTDateStr(r.created_at).startsWith(thisMonth))
+  const monthReadsDone = monthReads.filter(r => r.status === 'completed').length
 
   const filtered = (filter === 'all' ? resources
     : resources.filter(r => r.status === filter)
@@ -137,14 +146,7 @@ export default function LearningView({ initialResources, initialQuizAttempts }: 
     startTransition(() => updateResource(id, { status, ...(status === 'completed' ? { progress: 100 } : {}) }))
   }
 
-  // Marking a resource "Completed" is gated on taking its quiz — the status
-  // select doesn't persist 'completed' directly, it opens the mandatory quiz
-  // instead, and handleSubmitQuiz is what actually flips the status once
-  // it's graded. Every other status change still applies immediately.
-  const handleStatusChange = (resource: Resource, status: ResourceStatus) => {
-    if (status === 'completed') { handleQuiz(resource, true); return }
-    handleStatus(resource.id, status)
-  }
+  const handleStatusChange = (resource: Resource, status: ResourceStatus) => handleStatus(resource.id, status)
 
   const handleProgress = (id: string, progress: number) => {
     setResources(prev => prev.map(r => r.id === id ? { ...r, progress } : r))
@@ -204,8 +206,8 @@ export default function LearningView({ initialResources, initialQuizAttempts }: 
 
   const handleDismissAiSuggestion = (title: string) => setHandledAiTitles(prev => new Set(prev).add(title))
 
-  const handleQuiz = async (resource: Resource, completesOnFinish = false) => {
-    setQuiz({ resource, stage: 'generating', questions: [], answers: [], score: 0, weakAreas: [], completesOnFinish })
+  const handleQuiz = async (resource: Resource) => {
+    setQuiz({ resource, stage: 'generating', questions: [], answers: [], score: 0, weakAreas: [] })
     const questions = await generateResourceQuiz(resource.title, resource.category, resource.type, resource.notes)
     if (questions.length === 0) { setQuiz(null); return }
     setQuiz(q => q ? { ...q, stage: 'taking', questions, answers: new Array(questions.length).fill(-1) } : q)
@@ -232,8 +234,6 @@ export default function LearningView({ initialResources, initialQuizAttempts }: 
     }
     setQuizAttempts(prev => [newAttempt, ...prev])
     await saveResourceQuizAttempt(quiz.resource.id, quiz.resource.title, quiz.resource.category, quiz.questions, quiz.answers, score, weakAreas)
-
-    if (quiz.completesOnFinish) handleStatus(quiz.resource.id, 'completed')
   }
 
   const handleCloseQuiz = () => setQuiz(null)
@@ -250,17 +250,22 @@ export default function LearningView({ initialResources, initialQuizAttempts }: 
       {advisorPortal}
       <div className="flex items-center gap-3 flex-wrap">
         <h1 className="text-[34px] font-bold tracking-[-0.05em] text-fg-primary">Learning</h1>
-        <span className="text-[11px] font-semibold bg-surface-2 rounded-full px-2.5 py-1 text-fg-secondary">📖 {counts['in-progress']} in progress</span>
+        {activeRead && (
+          <span className={`text-[11px] font-semibold bg-surface-2 rounded-full px-2.5 py-1 ${activeRead.status === 'completed' ? 'text-good' : 'text-fg-secondary'}`}>
+            📖 {activeRead.status === 'completed' ? "Today's read done" : isMarkedToday(activeRead) ? "Today's read pending" : 'Daily read carried over'}
+          </span>
+        )}
       </div>
       {/* Stats row */}
       <div className="grid grid-cols-3 gap-[var(--grid-gap-sm)]">
         <StatCard value={resources.length} label="Total" />
-        <StatCard value={counts['in-progress']} label="In progress" valueClassName="text-amber-400" />
+        {/* Was "In progress" — always 0 in practice (resources go straight
+            from not-started to completed), replaced 2026-09-24. */}
+        <StatCard value={`${monthReadsDone} / ${monthReads.length}`} label="Daily reads this month" valueClassName={monthReads.length > 0 && monthReadsDone / monthReads.length >= 0.7 ? 'text-green-400' : 'text-amber-400'} />
         <StatCard value={counts['completed']} label="Completed" valueClassName="text-green-400" />
       </div>
 
-      {/* Weak areas by category — from quiz scores (quiz is mandatory to mark
-          a resource Completed, so this fills in as real data accrues). */}
+      {/* Weak areas by category — from voluntary "Quiz me" scores. */}
       {weakAreasByCategory.length > 0 && (
         <Card title="Weak Areas by Category">
           <p className="text-[11px] text-fg-tertiary mb-3">Average quiz score per category, worst first</p>
@@ -307,15 +312,17 @@ export default function LearningView({ initialResources, initialQuizAttempts }: 
               <li key={r.id} className={`rounded-[10px] px-3.5 py-3 ${todaysRead ? 'bg-accent-soft border border-accent-border' : 'bg-surface-2'}`}>
                 <div className="flex items-center gap-2">
                   <span className="text-base shrink-0">{TYPE_ICON[r.type]}</span>
-                  {todaysRead && <span className="text-[10px] font-bold uppercase px-1.5 py-0.5 rounded-[5px] bg-accent text-white shrink-0 whitespace-nowrap">📖 Today&apos;s Read</span>}
+                  {todaysRead && <span className="text-[10px] font-bold uppercase px-1.5 py-0.5 rounded-[5px] bg-accent text-white shrink-0 whitespace-nowrap">📖 {isMarkedToday(r) ? 'Today\'s Read' : `Daily Read · from ${new Date(toISTDateStr(r.created_at) + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`}</span>}
                   <span className="text-[13px] font-semibold text-fg-primary flex-1 min-w-0 truncate">{r.title}</span>
                   {r.url && <a href={r.url} target="_blank" rel="noopener noreferrer" className="text-fg-quaternary hover:text-accent transition-colors shrink-0"><ExternalLink size={11} /></a>}
                   <select value={r.status} onChange={e => handleStatusChange(r, e.target.value as ResourceStatus)}
                     className="text-[11px] px-2 py-0.5 rounded-[6px] border border-border-strong outline-none cursor-pointer font-semibold bg-transparent shrink-0"
                     style={{ color: r.status === 'completed' ? 'var(--good)' : r.status === 'in-progress' ? 'var(--accent)' : 'var(--text-tertiary)' }}>
-                    {STATUSES.map(s => <option key={s} value={s}>{s === 'completed' ? 'Completed (quiz)' : STATUS_CONFIG[s].label}</option>)}
+                    {STATUSES.map(s => <option key={s} value={s}>{STATUS_CONFIG[s].label}</option>)}
                   </select>
-                  <button onClick={() => handleQuiz(r)} className="shrink-0 text-[11px] px-2 py-0.5 rounded-[6px] border border-border-strong text-fg-secondary hover:bg-surface-3 transition-colors">
+                  {/* Completed but never quizzed → accent nudge to lock it in. */}
+                  <button onClick={() => handleQuiz(r)} title={r.status === 'completed' && !quizzedIds.has(r.id) ? 'Quiz yourself to lock it in' : undefined}
+                    className={`shrink-0 text-[11px] px-2 py-0.5 rounded-[6px] border transition-colors ${r.status === 'completed' && !quizzedIds.has(r.id) ? 'border-accent text-accent bg-accent-soft hover:bg-accent/20' : 'border-border-strong text-fg-secondary hover:bg-surface-3'}`}>
                     Quiz me
                   </button>
                   <button onClick={() => setConfirmDeleteId(r.id)} aria-label="Delete resource" className="shrink-0 text-fg-quaternary hover:text-red-400 text-[11px] p-0.5 transition-colors">✕</button>
@@ -469,16 +476,9 @@ export default function LearningView({ initialResources, initialQuizAttempts }: 
         </Modal>
       )}
 
-      {/* Quiz modal — graded multiple-choice. Mandatory (completesOnFinish)
-          when triggered by picking "Completed"; voluntary otherwise via
-          "Quiz me". Either way, closing before submitting leaves the
-          resource's status untouched — "mandatory" just means completion
-          never happens without a submitted attempt. */}
+      {/* Quiz modal — graded multiple-choice, voluntary via "Quiz me". */}
       {quiz && (
         <Modal title={`${quiz.resource.title} Quiz`} onClose={handleCloseQuiz} maxWidthClass="max-w-[520px]">
-            {quiz.completesOnFinish && quiz.stage !== 'results' && (
-              <p className="text-[11.5px] text-accent-strong bg-accent-soft rounded-[8px] px-[11px] py-2 mb-3.5">Marking this Completed requires passing this quiz first.</p>
-            )}
 
             {quiz.stage === 'generating' && (
               <div className="space-y-2 py-4">{[90, 70, 85, 60, 75].map((w, i) => <div key={i} className="h-3 rounded bg-surface-2 animate-pulse" style={{ width: `${w}%` }} />)}</div>
@@ -525,7 +525,6 @@ export default function LearningView({ initialResources, initialQuizAttempts }: 
                   <div className="text-center mb-[18px]">
                     <p className="text-[34px] font-bold" style={{ color: scoreColor }}>{percent}%</p>
                     <p className="text-[12.5px] text-fg-tertiary mt-0.5">{quiz.score} of {quiz.questions.length} correct · {quiz.resource.category}</p>
-                    {quiz.completesOnFinish && <p className="text-[11.5px] font-semibold mt-1.5 text-good">✓ Marked Completed</p>}
                   </div>
                   <p className="text-[11px] font-bold text-fg-tertiary uppercase tracking-[0.4px] mb-2">Review</p>
                   <div className="flex flex-col gap-2.5 mb-4">
