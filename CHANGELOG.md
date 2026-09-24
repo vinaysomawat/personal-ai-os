@@ -3,6 +3,18 @@
 One line per shipped change, newest first. Sourced from commit messages —
 append here whenever you deploy, same cadence as the version bump.
 
+## 2026-09-24
+
+- **v2.0 — new Prep module** (`/prep`, `ROADMAP-v2.md`): Today's Prep (one sequenced ~50-min daily session with a weekday focus rotation), a 12-area Interview Readiness matrix for senior/lead frontend loops, Flashcards with spaced repetition (auto-created from every wrong quiz answer — 35 on first load), and a Story Bank for behavioral/leadership STAR stories with AI feedback on rehearsed answers. Prep is in the top nav and replaces Planner in the mobile bottom bar.
+- Career: topic quiz expanded from 10 to 18 topics (Accessibility, Testing, Web Security, CSS Architecture, State Management, Design Systems, Micro-frontends, Build Tooling added).
+- Learning: added verified links for the 9 resources that had none.
+- Dashboard: Coding score now blends volume with consistency (practice days), Learning score counts completions in the last 30 days (new `resources.completed_at`), Needs Attention no longer repeats the budget, module rings colored by score, one "Coding practice" Daily Mission item.
+- Learning: an unread daily read carries over instead of a new one piling up; "Daily reads this month" tile; the completion quiz is optional (nudge instead of gate).
+- Coding: unfinished picks carry over (one open pick per type) with a swap button; streak and calendar count days you actually practiced.
+- Cross-module: stale auto-generated Planner tasks (3+ days) are cleaned up daily; Weak Areas no longer lists topics with zero struggles; Career no longer counts rejected applications as active; budget tile reads "Over ₹X".
+- Health: workout "Change" picker, activity-level check, Weight Trend card, Today's Food list, Workouts/Week tile, one shared workout streak, week-based workout calendar, no red 0 each morning.
+- Finance: debt shown as outstanding principal (net worth corrected), month-end pace, budget suggestions, Family/Travel categories, loan months auto-decrement, portfolio details.
+
 ## 2026-09-23
 
 - Fixed every Telegram bot (Health included) silently falling back to its "help" cheat-sheet whenever the AI daily budget was exhausted — a background task (the daily-read recommender's web search) could spend the whole day's ceiling in one call, indistinguishable from the bot failing to understand a message. Removed web search entirely from the AI gateway (`recommendDailyRead`/`recommendResources` were the only callers; a single call was seen pulling back 80k+ tokens, over the entire daily budget by itself), added a budget reserve on both the daily *and* monthly ceilings so background/on-demand AI tasks can never fully starve interactive Telegram traffic, and gave a budget cutoff its own distinct bot reply (worded correctly for whichever ceiling actually tripped) instead of the generic help menu. Also: the daily-read AI-fallback pick no longer surfaces a model-guessed URL as if it were a real link (it has no review step before reaching the user, unlike the Learning page's AI-suggested-resources flow), and a transient DB error while checking AI spend now fails open instead of breaking the calling page/bot.

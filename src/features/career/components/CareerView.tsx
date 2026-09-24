@@ -589,7 +589,7 @@ export default function CareerView({ applications, profile, skills, quizAttempts
             </button>
           </div>
         )}
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
           {QUIZ_TOPICS.map(topic => {
             const { tier, avgPercent } = computeReadiness(localQuizAttempts, topic)
             const lastAttempt = localQuizAttempts.filter(a => a.topic === topic).sort((a, b) => b.created_at.localeCompare(a.created_at))[0]

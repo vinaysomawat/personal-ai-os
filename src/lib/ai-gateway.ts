@@ -37,6 +37,7 @@ export type AITask =
   | 'estimate_food_nutrition'
   | 'astrology_reading'
   | 'astrology_characteristics'
+  | 'story_critique'
 
 interface TaskConfig {
   model: string
@@ -94,6 +95,9 @@ const TASK_CONFIG: Record<AITask, TaskConfig> = {
   // without that override.
   astrology_reading:      { model: SONNET_MODEL, cacheTTLSeconds: SIX_HOURS, fallback: 'Reading unavailable right now — AI budget reached for today.' },
   astrology_characteristics: { model: SONNET_MODEL, cacheTTLSeconds: ONE_YEAR, fallback: 'Characteristics unavailable right now — AI budget reached for today.' },
+  // Prep's Story Bank rehearsal critique — reviewing a typed answer, every
+  // prompt unique, so never cached.
+  story_critique:         { model: SONNET_MODEL, cacheTTLSeconds: null,       fallback: BUDGET_FALLBACK },
 }
 
 // Static per-model pricing, USD per 1M tokens (Sonnet 4.6 / Haiku 4.5).

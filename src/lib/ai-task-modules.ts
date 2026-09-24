@@ -11,7 +11,7 @@ import type { AITask } from './ai-gateway'
 // parsing/vision run for every bot; module_recommendations is one generic
 // component reused across 5+ pages, so the task name alone can't say which
 // page triggered a given call).
-export type AITaskModule = 'planner' | 'career' | 'finance' | 'health' | 'learning' | 'coding' | 'astrology' | 'brain' | 'shared'
+export type AITaskModule = 'planner' | 'career' | 'finance' | 'health' | 'learning' | 'coding' | 'astrology' | 'brain' | 'prep' | 'shared'
 
 export const TASK_MODULE: Record<AITask, AITaskModule> = {
   telegram_intent: 'shared',
@@ -36,6 +36,7 @@ export const TASK_MODULE: Record<AITask, AITaskModule> = {
   recommend_coding_questions: 'coding',
   astrology_reading: 'astrology',
   astrology_characteristics: 'astrology',
+  story_critique: 'prep',
   daily_briefing: 'brain',
   weekly_digest: 'brain',
   monthly_digest: 'brain',
@@ -49,7 +50,7 @@ export const TASK_MODULE: Record<AITask, AITaskModule> = {
 
 export const TASK_MODULE_LABEL: Record<AITaskModule, string> = {
   planner: 'Planner', career: 'Career', finance: 'Finance', health: 'Health',
-  learning: 'Learning', coding: 'Coding', astrology: 'Astrology', brain: 'Personal Brain',
+  learning: 'Learning', coding: 'Coding', astrology: 'Astrology', brain: 'Personal Brain', prep: 'Prep',
   shared: 'Shared / cross-module',
 }
 
@@ -80,6 +81,7 @@ export const TASK_LABEL: Record<AITask, string> = {
   recommend_coding_questions: 'Coding question recommendations',
   astrology_reading: 'Astrology reading',
   astrology_characteristics: 'Astrology characteristics',
+  story_critique: 'Story rehearsal feedback',
   daily_briefing: 'Daily briefing',
   weekly_digest: 'Weekly digest',
   monthly_digest: 'Monthly digest',

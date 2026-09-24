@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { useRouter, usePathname } from 'next/navigation'
 import {
   LayoutDashboard, CalendarDays, Briefcase, DollarSign, HeartPulse,
-  BookOpen, Code2, Sun, Moon, ChevronDown, MoreHorizontal,
+  BookOpen, Code2, Sun, Moon, ChevronDown, MoreHorizontal, Target,
 } from 'lucide-react'
 import { useTheme } from './ThemeProvider'
 import { useAIAdvisorTrigger } from './AIAdvisorProvider'
@@ -19,6 +19,8 @@ import pkg from '../../package.json'
 // (mystical/lifestyle) from the productivity modules the top row is for.
 const MODULES = [
   { label: 'Dashboard', to: '/dashboard', icon: LayoutDashboard },
+  // v2.0: Prep — the daily interview-prep session hub (ROADMAP-v2.md).
+  { label: 'Prep', to: '/prep', icon: Target },
   { label: 'Planner', to: '/planner', icon: CalendarDays },
   { label: 'Career', to: '/career', icon: Briefcase },
   { label: 'Finance', to: '/finance', icon: DollarSign },
@@ -31,12 +33,13 @@ const MODULES = [
 // modules get a permanent slot; everything else lives behind "More".
 const MOBILE_PRIMARY = [
   { label: 'Home', to: '/dashboard', icon: '⌂' },
-  { label: 'Planner', to: '/planner', icon: '📋' },
+  { label: 'Prep', to: '/prep', icon: '🎯' },
   { label: 'Health', to: '/health', icon: '🏋️' },
   { label: 'Finance', to: '/finance', icon: '💰' },
 ]
 
 const MOBILE_MORE = [
+  { label: 'Planner', to: '/planner', icon: '📋' },
   { label: 'Career', to: '/career', icon: '💼' },
   { label: 'Learning', to: '/learning', icon: '📚' },
   { label: 'Coding', to: '/coding', icon: '💻' },

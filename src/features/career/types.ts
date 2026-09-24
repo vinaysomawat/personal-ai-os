@@ -78,7 +78,16 @@ export const DIFFICULTY_CONFIG: Record<Difficulty, { label: string; color: strin
   hard:   { label: 'Hard',   color: 'bg-risk-soft text-red-400' },
 }
 
-export const QUIZ_TOPICS = ['JavaScript', 'React', 'TypeScript', 'Next.js', 'HTML/CSS', 'Browser Internals', 'Performance', 'System Design', 'Node.js', 'APIs'] as const
+// Expanded 2026-09-24 (v2.0) from 10 to the senior/lead frontend interview
+// surface — Accessibility, Testing, Security, CSS architecture, state
+// management, design systems, build tooling, and micro-frontends are staples
+// of senior UI loops that the original list didn't cover.
+export const QUIZ_TOPICS = [
+  'JavaScript', 'TypeScript', 'React', 'Next.js', 'HTML/CSS', 'CSS Architecture',
+  'Browser Internals', 'Performance', 'Accessibility', 'Testing', 'Web Security',
+  'State Management', 'Design Systems', 'System Design', 'Micro-frontends',
+  'Build Tooling', 'Node.js', 'APIs',
+] as const
 
 export interface QuizQuestion {
   question: string
