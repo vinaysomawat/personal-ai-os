@@ -97,15 +97,17 @@ const TASK_CONFIG: Record<AITask, TaskConfig> = {
   // without that override.
   astrology_reading:      { model: SONNET_MODEL, cacheTTLSeconds: SIX_HOURS, fallback: 'Reading unavailable right now — AI budget reached for today.' },
   astrology_characteristics: { model: SONNET_MODEL, cacheTTLSeconds: ONE_YEAR, fallback: 'Characteristics unavailable right now — AI budget reached for today.' },
+  // Prep feedback tasks below run on Haiku (2026-10-03): the user keeps the
+  // daily AI budget at ~$0.17, and Haiku is ~3x cheaper per critique.
   // Prep's Story Bank rehearsal critique — reviewing a typed answer, every
   // prompt unique, so never cached.
-  story_critique:         { model: SONNET_MODEL, cacheTTLSeconds: null,       fallback: BUDGET_FALLBACK },
+  story_critique:         { model: HAIKU_MODEL,  cacheTTLSeconds: null,       fallback: BUDGET_FALLBACK },
   // Prep Question Bank's AI-native section — interviewer feedback on a typed
   // answer; every prompt unique, so never cached.
-  ai_native_critique:     { model: SONNET_MODEL, cacheTTLSeconds: null,       fallback: BUDGET_FALLBACK },
+  ai_native_critique:     { model: HAIKU_MODEL,  cacheTTLSeconds: null,       fallback: BUDGET_FALLBACK },
   // Same, for the other linkless Question Bank questions (behavioral/fit,
   // and Prep-added theory, UI coding and system design) — uncached.
-  answer_critique:        { model: SONNET_MODEL, cacheTTLSeconds: null,       fallback: BUDGET_FALLBACK },
+  answer_critique:        { model: HAIKU_MODEL,  cacheTTLSeconds: null,       fallback: BUDGET_FALLBACK },
 }
 
 // Static per-model pricing, USD per 1M tokens (Sonnet 4.6 / Haiku 4.5).
