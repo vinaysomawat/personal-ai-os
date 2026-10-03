@@ -188,7 +188,7 @@ Design process: new screens (Prep, Drills, Story Bank, Lead Journal, Flashcards)
 | 3 | **Theory sprint**: in-app active recall over the bank; partial/missed → flashcards | M | ✅ built |
 | 3b | **AI-native section**: 115 questions (76 from the Apollo JD reference + 39 additions: building AI features, prompting, agents, security, leading adoption, LLM basics, scenarios), seeded order, AI interviewer feedback, readiness row | M | ✅ built |
 | 4 | Fill thin pools: system design 20→40, UI coding 59→79, theory +41 (TypeScript, a11y, React 19/RSC/Next.js, security gaps), new Behavioral Q&A category (25, incl. layoff/salary/closing), Story Bank prompts 20→50; linkless questions answered in-app with key points + AI feedback | M | ✅ built |
-| 5 | System Design Drills (§3.1) | L | |
+| 5 | ~~System Design Drills (§3.1)~~ — dropped 2026-10-03 at the user's call; system design stays a free-text answer in the Question Bank | L | ✗ dropped |
 | 6 | Mock Interview mode (§3.5) | L | |
 | 7 | Story-writing sprint: 8 stories in 2 days (Story Bank had 0) | S | |
 | 8 | Application pipeline: funnel, 5/day target, 7-day follow-up nudge on Telegram, referral contact | M | |
