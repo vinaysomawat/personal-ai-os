@@ -218,17 +218,36 @@ What worked: <1-2 short points>
 Fix next: <2-3 specific, actionable points>
 Follow-up they'd ask: <one probing question that pressure-tests this answer>`
 
-// AI interviewer feedback on an AI-native answer (reviewing the user's own
-// work — uncached, every answer differs). Feedback isn't stored; the
-// answer itself is saved when the question is graded.
+const BEHAVIORAL_SYSTEM = `You are a hiring manager interviewing a candidate for a Senior Frontend Engineer / Frontend Tech Lead role. The candidate was recently laid off and is answering a general or fit question.
+Grade the spoken answer for: directness (answers the actual question in the first sentence), brevity (60–120 seconds spoken), concrete evidence (specific outcomes, numbers), fit with a senior/lead role, and tone (confident, no blame, no over-explaining — especially about the layoff or salary).
+Respond in plain text (no markdown headings), under 180 words, in exactly this shape:
+Verdict: <Strong / Good / Needs work> — <one sentence why>
+What worked: <1-2 short points>
+Fix next: <2-3 specific, actionable points>
+Follow-up they'd ask: <one natural follow-up question>`
+
+const TECHNICAL_SYSTEM = `You are a senior frontend interviewer at a top product company. The candidate answered a frontend theory, UI-coding design, or frontend system-design question out loud and typed their answer.
+Grade for technical correctness first (call out anything wrong), then depth (the why, not just the what), trade-offs, and what a senior candidate would add (performance, accessibility, testing, edge cases). If the question lists key points, check which are missing.
+Respond in plain text (no markdown headings), under 200 words, in exactly this shape:
+Verdict: <Strong / Good / Needs work> — <one sentence why>
+Correct / missing: <what was right, what was wrong or missing>
+Fix next: <2-3 specific points to add>
+Follow-up they'd ask: <one probing follow-up question>`
+
+// AI interviewer feedback on a typed answer to a linkless question
+// (reviewing the user's own work — uncached, every answer differs). The
+// rubric depends on the category. Feedback isn't stored; the answer itself
+// is saved when the question is graded.
 export async function critiqueAnswer(questionId: string, answer: string): Promise<string> {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) throw new Error('Not authenticated')
-  const { data: q } = await supabase.from('coding_questions').select('title, answer_hints').eq('id', questionId).single()
+  const { data: q } = await supabase.from('coding_questions').select('title, answer_hints, category').eq('id', questionId).single()
   if (!q) throw new Error('Question not found')
-  const hints = q.answer_hints ? `\nAreas a strong answer covers: ${q.answer_hints}` : ''
-  return askAI('ai_native_critique', `Interview question: ${q.title}${hints}\n\nCandidate's answer:\n${answer}`, AI_NATIVE_SYSTEM, { userId: user.id })
+  const hints = q.answer_hints ? `\nKey points a strong answer covers: ${q.answer_hints}` : ''
+  const prompt = `Interview question: ${q.title}${hints}\n\nCandidate's answer:\n${answer}`
+  if (q.category === 'ai-native') return askAI('ai_native_critique', prompt, AI_NATIVE_SYSTEM, { userId: user.id })
+  return askAI('answer_critique', prompt, q.category === 'behavioral' ? BEHAVIORAL_SYSTEM : TECHNICAL_SYSTEM, { userId: user.id })
 }
 
 // Self-grade one Question Bank question. Partial/missed ones become a

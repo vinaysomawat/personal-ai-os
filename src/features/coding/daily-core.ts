@@ -165,9 +165,10 @@ export async function generateAssignmentForUser(supabase: SupabaseClient, userId
   const weekday = new Date(`${today}T00:00:00Z`).getUTCDay()
 
   const [{ data: pool }, { data: assignedRows }] = await Promise.all([
-    // AI-native questions are Prep-only (verbal); excluding them also keeps
-    // this under PostgREST's 1,000-row response cap.
-    supabase.from('coding_questions').select('*').neq('category', 'ai-native'),
+    // Linkless questions (AI-native, behavioral, Prep additions) are
+    // Prep-only — every Coding surface opens question.url. Excluding them
+    // also keeps this under PostgREST's 1,000-row response cap.
+    supabase.from('coding_questions').select('*').not('url', 'is', null),
     supabase.from('coding_daily_questions').select('question_id').eq('user_id', userId),
   ])
   const allQuestions = (pool ?? []) as CodingQuestion[]
@@ -250,7 +251,7 @@ export async function swapCodingQuestion(supabase: SupabaseClient, userId: strin
   if (!r || r.completed) return getTodayAssignmentRows(supabase, userId)
 
   const [{ data: pool }, { data: assignedRows }] = await Promise.all([
-    supabase.from('coding_questions').select('*').neq('category', 'ai-native'),
+    supabase.from('coding_questions').select('*').not('url', 'is', null),
     supabase.from('coding_daily_questions').select('question_id').eq('user_id', userId),
   ])
   const assignedIds = new Set((assignedRows ?? []).map(x => x.question_id as string))

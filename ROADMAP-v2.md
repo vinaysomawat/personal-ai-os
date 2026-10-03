@@ -187,7 +187,7 @@ Design process: new screens (Prep, Drills, Story Bank, Lead Journal, Flashcards)
 | 2 | **Question coverage tracker**: unseen / confident / partial / missed per question; coverage % per category; projected coverage by target | M | ✅ built |
 | 3 | **Theory sprint**: in-app active recall over the bank; partial/missed → flashcards | M | ✅ built |
 | 3b | **AI-native section**: 115 questions (76 from the Apollo JD reference + 39 additions: building AI features, prompting, agents, security, leading adoption, LLM basics, scenarios), seeded order, AI interviewer feedback, readiness row | M | ✅ built |
-| 4 | Fill thin pools: system design 20→~40, UI coding 59→~80, theory gaps (TS 1 question, a11y, security), behavioral prompts 20→~60 incl. layoff questions (why looking, tell me about yourself, gap, salary) | M | next |
+| 4 | Fill thin pools: system design 20→40, UI coding 59→79, theory +41 (TypeScript, a11y, React 19/RSC/Next.js, security gaps), new Behavioral Q&A category (25, incl. layoff/salary/closing), Story Bank prompts 20→50; linkless questions answered in-app with key points + AI feedback | M | ✅ built |
 | 5 | System Design Drills (§3.1) | L | |
 | 6 | Mock Interview mode (§3.5) | L | |
 | 7 | Story-writing sprint: 8 stories in 2 days (Story Bank had 0) | S | |
@@ -198,4 +198,4 @@ Design process: new screens (Prep, Drills, Story Bank, Lead Journal, Flashcards)
 
 **Paused:** v2.2 UI quality (U1–U9), Lead Journal (except promote-to-story), Health/Finance expansion, Astrology.
 
-**Capacity reality at 10 h/day × 13 days:** theory 283/283 (20/day), AI-native 115/115 (9/day), JS functions ~52/196 (4/day), UI coding ~26/59 (2/day), system design 13/20 (1/day), algorithms ~13/347 (1/day) — exactly 600 min with flashcards, behavioral and applications. Full coverage is only realistic for theory; the coding pools are covered by priority (unseen medium-difficulty first).
+**Capacity reality at 10 h/day × 13 days:** theory 324/324 (24/day), AI-native 115/115 (9/day), Behavioral Q&A 25/25 (2/day), JS functions ~39/196 (3/day), UI coding ~42/79 (2/day), system design ~15/40 (1/day), algorithms ~13/347 (1/day) — ~590 min with flashcards, STAR stories and applications. Full coverage is only realistic for theory; the coding pools are covered by priority (unseen medium-difficulty first).

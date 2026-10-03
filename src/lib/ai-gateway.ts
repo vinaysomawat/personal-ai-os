@@ -39,6 +39,7 @@ export type AITask =
   | 'astrology_characteristics'
   | 'story_critique'
   | 'ai_native_critique'
+  | 'answer_critique'
 
 interface TaskConfig {
   model: string
@@ -102,6 +103,9 @@ const TASK_CONFIG: Record<AITask, TaskConfig> = {
   // Prep Question Bank's AI-native section — interviewer feedback on a typed
   // answer; every prompt unique, so never cached.
   ai_native_critique:     { model: SONNET_MODEL, cacheTTLSeconds: null,       fallback: BUDGET_FALLBACK },
+  // Same, for the other linkless Question Bank questions (behavioral/fit,
+  // and Prep-added theory, UI coding and system design) — uncached.
+  answer_critique:        { model: SONNET_MODEL, cacheTTLSeconds: null,       fallback: BUDGET_FALLBACK },
 }
 
 // Static per-model pricing, USD per 1M tokens (Sonnet 4.6 / Haiku 4.5).

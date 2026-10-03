@@ -37,6 +37,14 @@ function buildQueue(bank: BankQuestion[], category: string, topic: string, skipp
 const PLACEHOLDER: Record<string, string> = {
   quiz: 'Answer out loud first, then jot the key points (optional — saved on the flashcard if you miss it)',
   'ai-native': 'Answer from real experience: the tool, the task, what the AI got wrong or right, and how YOU verified it. Saved with your grade.',
+  behavioral: 'Say it out loud first (60–120 s), then type it. Lead with the direct answer; no blame. Saved with your grade.',
+}
+// Linkless (Prep-added) questions are answered in the app: a typed answer,
+// the key points on request, and AI interviewer feedback.
+const VERBAL_PLACEHOLDER: Record<string, string> = {
+  quiz: 'Answer out loud, then type it — the why, not just the what. Saved with your grade.',
+  'ui-coding': 'Build it in your editor, then summarize: component API, state, keyboard + ARIA, edge cases, trade-offs.',
+  'system-design': 'Outline it (Requirements → Architecture → Data model → Interface → Optimizations), then paste or summarize here.',
 }
 
 export function QuestionsTab({ bank: initialBank, coverage, category: categoryParam, onCategoryChange, today, onGraded }: {
@@ -75,6 +83,7 @@ export function QuestionsTab({ bank: initialBank, coverage, category: categoryPa
   const setAnswer = (text: string) => { if (current) setDraft({ id: current.id, text }) }
   const resetCard = () => { setDraft(null); setOpened(false); setShowHints(false) }
   const currentFeedback = current && feedback?.id === current.id ? feedback.text : null
+  const verbal = !!current && !current.url
 
   const getFeedback = () => {
     if (!current || answer.trim().length < 40) return
@@ -139,8 +148,8 @@ export function QuestionsTab({ bank: initialBank, coverage, category: categoryPa
               {current.status ? `Review · last ${current.status}` : 'New'} · {current.difficulty}{current.topics.length ? ` · ${current.topics.join(', ')}` : ''}
             </p>
             <p className="text-[15px] font-semibold text-fg-primary leading-snug">{current.title}</p>
-            <textarea value={answer} onChange={e => setAnswer(e.target.value)} rows={category === 'ai-native' ? 7 : category === 'quiz' ? 4 : 3}
-              placeholder={PLACEHOLDER[category] ?? 'Approach / complexity / trade-offs (optional)'}
+            <textarea value={answer} onChange={e => setAnswer(e.target.value)} rows={verbal ? 7 : category === 'quiz' ? 4 : 3}
+              placeholder={PLACEHOLDER[category] ?? (verbal ? VERBAL_PLACEHOLDER[category] : null) ?? 'Approach / complexity / trade-offs (optional)'}
               className="mt-3 w-full bg-surface-2 border border-surface-3 rounded-[8px] px-3 py-2 text-[13px] text-fg-primary outline-none focus:border-accent resize-y" />
             <div className="flex items-center justify-between gap-2 mt-2">
               {current.url ? (
@@ -148,16 +157,16 @@ export function QuestionsTab({ bank: initialBank, coverage, category: categoryPa
                   className="text-[12px] text-accent hover:underline inline-flex items-center gap-1">
                   {category === 'quiz' ? 'Check the answer' : 'Open the problem'} <ExternalLink size={11} />
                 </a>
-              ) : category === 'ai-native' ? (
+              ) : verbal ? (
                 <span className="text-[11px] text-fg-tertiary tabular-nums">{answer.trim().split(/\s+/).filter(Boolean).length} words · aim for ~200</span>
               ) : <span />}
               <button onClick={() => { resetCard(); setSkipped(prev => [...prev.filter(x => x !== current.id), current.id]) }} className="text-[11.5px] text-fg-tertiary hover:text-fg-secondary">Skip for now</button>
             </div>
-            {category === 'ai-native' && (
+            {verbal && (
               <div className="mt-2">
                 <div className="flex items-center justify-between gap-2">
                   {current.answer_hints ? (
-                    <button onClick={() => setShowHints(v => !v)} className="text-[11.5px] text-accent hover:underline">{showHints ? 'Hide' : 'Show'} expected areas</button>
+                    <button onClick={() => setShowHints(v => !v)} className="text-[11.5px] text-accent hover:underline">{showHints ? 'Hide' : 'Show'} {category === 'quiz' ? 'key points' : category === 'ui-coding' ? 'requirements' : 'expected areas'}</button>
                   ) : <span />}
                   <button onClick={getFeedback} disabled={reviewing || answer.trim().length < 40} className={`${modalSaveButtonClass} inline-flex items-center gap-1.5 !py-[7px]`}>
                     <Sparkles size={13} /> {reviewing ? 'Reviewing…' : 'Get feedback'}
