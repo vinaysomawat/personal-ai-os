@@ -10,9 +10,10 @@ import { getActiveDailyRead } from '@/features/learning/daily-read'
 import type { QuizAttempt, QuizQuestion } from '@/features/career/types'
 import { scheduleReview } from './srs'
 import { buildPrepPlan } from './plan'
+import { BANK_CATEGORIES, buildHuntPlan, computeQuotas, daysLeft, type BankCategory, type CategoryCoverage } from './hunt'
 import { computeReadinessMatrix, weakestAreas, type CodingHistoryRow } from './readiness'
 import { COMPETENCIES, READINESS_AREAS } from './types'
-import type { Flashcard, PrepBlock, PrepSession, ReviewGrade, Story, StoryRehearsal } from './types'
+import type { BankQuestion, Flashcard, PrepBlock, PrepSession, PrepSettings, QuestionStatus, ReviewGrade, Story, StoryRehearsal } from './types'
 
 // Every wrong answer from a graded quiz (Career topic quiz, Learning
 // resource quiz) becomes a flashcard — the question, the correct option,
@@ -72,6 +73,10 @@ export async function getPrepData() {
     supabase.from('resources').select('id, title, notes, created_at, status').eq('user_id', user.id),
     supabase.from('prep_sessions').select('*').eq('user_id', user.id).gte('date', daysAgoIST(60)).order('date', { ascending: false }),
   ])
+  const [settings, bank] = await Promise.all([getPrepSettings(supabase, user.id), getQuestionBank(supabase, user.id)])
+  const days = settings.target_date ? daysLeft(today, settings.target_date) : null
+  const coverage = bankCoverage(bank, today)
+  const quotas = days !== null ? computeQuotas(coverage, settings.hours_per_day, days) : null
 
   const flashcards = (cardsRes.data ?? []) as Flashcard[]
   const stories = (storiesRes.data ?? []) as Story[]
@@ -89,7 +94,10 @@ export async function getPrepData() {
     const covered = new Set(stories.filter(s => (s.strength ?? 3) >= 3).flatMap(s => s.competencies))
     const uncovered = COMPETENCIES.find(c => !covered.has(c.key))
     const activeRead = getActiveDailyRead((resourcesRes.data ?? []) as { title: string; notes: string | null; created_at: string; status: 'not-started' | 'in-progress' | 'completed' }[])
-    const plan = buildPrepPlan(today, {
+    const plan = quotas && days !== null ? buildHuntPlan({
+      hoursPerDay: settings.hours_per_day, days, quotas,
+      dueCards: dueCards.length, uncoveredCompetency: uncovered?.label ?? null,
+    }) : buildPrepPlan(today, {
       dueCards: dueCards.length,
       totalCards: flashcards.length,
       weakestTopic: weakQuizArea ? { area: weakQuizArea.label, topic: (weakQuizArea.quizTopics as readonly string[])[0] } : null,
@@ -119,7 +127,116 @@ export async function getPrepData() {
     stories,
     rehearsals: (rehearsalsRes.data ?? []) as StoryRehearsal[],
     readiness,
+    settings,
+    daysLeft: days,
+    coverage: quotas ?? coverage,
+    bank,
   }
+}
+
+async function getPrepSettings(supabase: SupabaseClient, userId: string): Promise<PrepSettings> {
+  const { data } = await supabase.from('prep_settings').select('target_date, hours_per_day').eq('user_id', userId).maybeSingle()
+  return { target_date: data?.target_date ?? null, hours_per_day: data?.hours_per_day ?? 8 }
+}
+
+// Coding pick outcome → the same self-grade scale the Question Bank uses, so
+// questions already practiced in the Coding module count as covered.
+const OUTCOME_STATUS: Record<string, QuestionStatus> = { solved: 'confident', solved_with_help: 'partial', struggled: 'missed' }
+
+async function getQuestionBank(supabase: SupabaseClient, userId: string): Promise<BankQuestion[]> {
+  const [{ data: questions }, { data: progress }, { data: coding }] = await Promise.all([
+    supabase.from('coding_questions').select('id, title, difficulty, url, category, topics').range(0, 1999),
+    supabase.from('question_progress').select('question_id, status, last_seen_at').eq('user_id', userId),
+    supabase.from('coding_daily_questions').select('question_id, outcome, completed_at').eq('user_id', userId).eq('completed', true),
+  ])
+  const seen = new Map<string, { status: QuestionStatus; last_seen_at: string }>()
+  for (const c of coding ?? []) {
+    if (!c.completed_at) continue
+    const prev = seen.get(c.question_id)
+    if (prev && prev.last_seen_at >= c.completed_at) continue
+    seen.set(c.question_id, { status: OUTCOME_STATUS[c.outcome ?? ''] ?? 'partial', last_seen_at: c.completed_at })
+  }
+  // An explicit Question Bank grade wins over a derived one when it's newer.
+  for (const p of progress ?? []) {
+    const prev = seen.get(p.question_id)
+    if (!prev || p.last_seen_at >= prev.last_seen_at) seen.set(p.question_id, { status: p.status as QuestionStatus, last_seen_at: p.last_seen_at })
+  }
+  return (questions ?? []).map(q => ({
+    ...q, topics: q.topics ?? [],
+    status: seen.get(q.id)?.status ?? null,
+    last_seen_at: seen.get(q.id)?.last_seen_at ?? null,
+  }))
+}
+
+function bankCoverage(bank: BankQuestion[], today: string): CategoryCoverage[] {
+  return BANK_CATEGORIES.map(cat => {
+    const qs = bank.filter(q => q.category === cat.key)
+    return {
+      key: cat.key, label: cat.label, total: qs.length,
+      seen: qs.filter(q => q.status).length,
+      confident: qs.filter(q => q.status === 'confident').length,
+      review: qs.filter(q => q.status === 'partial' || q.status === 'missed').length,
+      doneToday: qs.filter(q => q.last_seen_at && toISTDateStr(q.last_seen_at) === today).length,
+    }
+  })
+}
+
+// Turning Job Hunt Mode on/off (or changing hours) rebuilds today's plan.
+export async function savePrepSettings(targetDate: string | null, hoursPerDay: number) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) throw new Error('Not authenticated')
+  const hours = Math.min(14, Math.max(1, Math.round(hoursPerDay)))
+  const { error } = await supabase.from('prep_settings')
+    .upsert({ user_id: user.id, target_date: targetDate, hours_per_day: hours, updated_at: new Date().toISOString() }, { onConflict: 'user_id' })
+  if (error) throw new Error(error.message)
+  await supabase.from('prep_sessions').delete().eq('user_id', user.id).eq('date', todayIST())
+  revalidatePath('/prep')
+  revalidatePath('/dashboard')
+}
+
+// Self-grade one Question Bank question. Partial/missed ones become a
+// flashcard (front = question, back = your answer + reference link), and the
+// matching Job Hunt block auto-completes once today's quota is met.
+export async function gradeQuestion(questionId: string, status: QuestionStatus, answer: string | null): Promise<PrepSession | null> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) throw new Error('Not authenticated')
+  const today = todayIST()
+  const now = new Date().toISOString()
+
+  const [{ data: q }, { data: prev }] = await Promise.all([
+    supabase.from('coding_questions').select('id, title, url, category, topics').eq('id', questionId).single(),
+    supabase.from('question_progress').select('attempts').eq('user_id', user.id).eq('question_id', questionId).maybeSingle(),
+  ])
+  if (!q) throw new Error('Question not found')
+  const { error } = await supabase.from('question_progress').upsert({
+    user_id: user.id, question_id: questionId, status,
+    attempts: (prev?.attempts ?? 0) + 1, last_answer: answer || null, last_seen_at: now,
+  }, { onConflict: 'user_id,question_id' })
+  if (error) throw new Error(error.message)
+
+  if (status !== 'confident') {
+    const back = [answer ? `Your answer: ${answer}` : null, q.url ? `Reference: ${q.url}` : null].filter(Boolean).join('\n\n') || 'Look this one up again.'
+    await supabase.from('flashcards').upsert({
+      user_id: user.id, source: 'question_bank', source_ref: `question_bank:${questionId}`,
+      front: q.title, back, topic: q.topics?.[0] ?? null, due_date: today,
+    }, { onConflict: 'user_id,source_ref', ignoreDuplicates: true })
+  }
+
+  // Today's graded count in this category, vs the block's quota (its label
+  // ends in "× N").
+  const { data: cat } = await supabase.from('question_progress')
+    .select('question_id, coding_questions!inner(category)').eq('user_id', user.id)
+    .eq('coding_questions.category', q.category).gte('last_seen_at', istMidnightUtc())
+  const doneToday = cat?.length ?? 0
+  const session = await updateBlocks(supabase, user.id, today, blocks => blocks.map(b => {
+    if (b.key !== `bank:${q.category as BankCategory}`) return b
+    const quota = Number(b.label.match(/× (\d+)$/)?.[1] ?? 0)
+    return quota > 0 && doneToday >= quota ? { ...b, done: true } : b
+  }))
+  revalidatePath('/prep')
+  return session
 }
 
 async function updateBlocks(supabase: SupabaseClient, userId: string, date: string, fn: (blocks: PrepBlock[]) => PrepBlock[]): Promise<PrepSession | null> {
@@ -133,7 +250,7 @@ async function updateBlocks(supabase: SupabaseClient, userId: string, date: stri
   return (updated as PrepSession | null) ?? null
 }
 
-export async function togglePrepBlock(key: PrepBlock['key']): Promise<PrepSession | null> {
+export async function togglePrepBlock(key: string): Promise<PrepSession | null> {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) throw new Error('Not authenticated')

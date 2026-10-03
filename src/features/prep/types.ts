@@ -1,4 +1,4 @@
-export type FlashcardSource = 'career_quiz' | 'learning_quiz' | 'manual'
+export type FlashcardSource = 'career_quiz' | 'learning_quiz' | 'manual' | 'question_bank'
 
 export interface Flashcard {
   id: string
@@ -46,12 +46,34 @@ export interface StoryRehearsal {
 }
 
 export interface PrepBlock {
-  key: 'warmup' | 'main' | 'concept' | 'lead'
+  // 'warmup' | 'main' | 'concept' | 'lead' in a normal session; Job Hunt
+  // Mode adds 'bank:<category>' blocks and 'applications'.
+  key: string
   label: string
   detail: string
   minutes: number
   href: string
   done: boolean
+}
+
+export interface PrepSettings {
+  target_date: string | null
+  hours_per_day: number
+}
+
+export type QuestionStatus = 'confident' | 'partial' | 'missed'
+
+// A coding_questions row plus the user's latest self-grade (from the
+// Question Bank, or derived from a completed Coding pick's outcome).
+export interface BankQuestion {
+  id: string
+  title: string
+  difficulty: string
+  url: string | null
+  category: string
+  topics: string[]
+  status: QuestionStatus | null
+  last_seen_at: string | null
 }
 
 export interface PrepSession {

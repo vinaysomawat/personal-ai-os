@@ -2,7 +2,7 @@
 
 **Goal of v2:** turn Personal OS from a set of trackers into the system that gets you a **Tech Lead (UI) / Senior Frontend** offer and builds the habits of a good UI tech lead — while the app itself becomes a portfolio-grade example of senior UI engineering you can talk about in interviews.
 
-Status (2026-09-24): **v2.0 built** — expanded quiz topics, Learning missing links, Flashcards (§3.4), Story Bank (§3.2), Today's Prep (§2.1), Interview Readiness matrix (§2.2), in the new Prep module (README §14). v2.1+ not started. Sizes: **S** ≤ half a day · **M** 1–2 days · **L** 3–5 days.
+Status (2026-10-03): **v2.1 Job Hunt Mode in progress** (§9) — Job Hunt Mode + Question Bank coverage/sprint built. Earlier (2026-09-24): **v2.0 built** — expanded quiz topics, Learning missing links, Flashcards (§3.4), Story Bank (§3.2), Today's Prep (§2.1), Interview Readiness matrix (§2.2), in the new Prep module (README §14). v2.1+ not started. Sizes: **S** ≤ half a day · **M** 1–2 days · **L** 3–5 days.
 
 ---
 
@@ -174,3 +174,27 @@ Design process: new screens (Prep, Drills, Story Bank, Lead Journal, Flashcards)
 2. Which v2.0 items to start with (recommended order: quiz topics + missing links → Flashcards → Story Bank → Today's Prep → Readiness matrix).
 3. Design-first in Claude Design for new screens, or build a first version from the existing design language and sync the design after?
 4. Target interview window (e.g. "ready by Dec 2026") — lets Today's Prep ramp intensity and the readiness matrix show a countdown.
+
+---
+
+## 9. v2.1 — Job Hunt Mode (re-plan, 2026-10-03)
+
+**Context:** laid off on 2026-10-03. Target: interview-ready by **2026-10-15** (12 days), **10 hours/day**. Prep now competes with nothing, so the app should fill a full day, track coverage of the existing ~905-question bank, and push the job pipeline, not just a 45-min daily session. Supersedes §6's v2.1 ordering.
+
+| # | Item | Size | Status |
+|---|---|---|---|
+| 1 | **Job Hunt Mode**: target date + hours/day → full-day Today's Prep with per-category quotas, D-N countdown | S–M | ✅ built |
+| 2 | **Question coverage tracker**: unseen / confident / partial / missed per question; coverage % per category; projected coverage by target | M | ✅ built |
+| 3 | **Theory sprint**: in-app active recall over the bank; partial/missed → flashcards | M | ✅ built |
+| 4 | Fill thin pools: system design 20→~40, UI coding 59→~80, theory gaps (TS 1 question, a11y, security), behavioral prompts 20→~60 incl. layoff questions (why looking, tell me about yourself, gap, salary) | M | next |
+| 5 | System Design Drills (§3.1) | L | |
+| 6 | Mock Interview mode (§3.5) | L | |
+| 7 | Story-writing sprint: 8 stories in 2 days (Story Bank had 0) | S | |
+| 8 | Application pipeline: funnel, 5/day target, 7-day follow-up nudge on Telegram, referral contact | M | |
+| 9 | Company prep kit (§2.3) + interview-date cram plan | M | |
+| 10 | Interview debrief: log questions you were asked → bank + flashcards | S | |
+| 11 | Finance runway card (savings ÷ monthly burn) | S | |
+
+**Paused:** v2.2 UI quality (U1–U9), Lead Journal (except promote-to-story), Health/Finance expansion, Astrology.
+
+**Capacity reality at 10 h/day × 12 days:** theory 283/283 (24/day), JS functions ~48/196 (4/day), UI coding ~24/59 (2/day), system design 12/20 (1/day), algorithms ~24/347 (2/day). Full coverage is only realistic for theory; the coding pools are covered by priority (unseen medium-difficulty first).

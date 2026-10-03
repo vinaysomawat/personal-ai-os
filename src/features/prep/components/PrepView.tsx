@@ -13,19 +13,23 @@ import { useEscapeKey } from '@/lib/use-escape-key'
 import { scheduleReview, intervalLabel } from '../srs'
 import { overallReadiness, weakestAreas } from '../readiness'
 import { togglePrepBlock, reviewFlashcard, addFlashcard, deleteFlashcard, saveStory, deleteStory, rehearseStory, type StoryInput } from '../actions'
-import { COMPETENCIES, REHEARSAL_PROMPTS, type CompetencyKey, type Flashcard, type PrepSession, type ReadinessCell, type ReviewGrade, type Story, type StoryRehearsal } from '../types'
+import { COMPETENCIES, REHEARSAL_PROMPTS, type BankQuestion, type CompetencyKey, type Flashcard, type PrepSession, type PrepSettings, type ReadinessCell, type ReviewGrade, type Story, type StoryRehearsal } from '../types'
+import type { CategoryCoverage, CategoryQuota } from '../hunt'
+import { HuntModeCard, QuestionsTab } from './QuestionsTab'
 import PageHeader, { HeaderChip } from '@/components/PageHeader'
 import StatCard from '@/components/StatCard'
 
-export type PrepTab = 'today' | 'flashcards' | 'stories'
+export type PrepTab = 'today' | 'questions' | 'flashcards' | 'stories'
 const TABS: { key: PrepTab; label: string }[] = [
   { key: 'today', label: 'Today' },
+  { key: 'questions', label: 'Questions' },
   { key: 'flashcards', label: 'Flashcards' },
   { key: 'stories', label: 'Story Bank' },
 ]
 
 interface Props {
   initialTab: PrepTab
+  initialCategory: string | null
   today: string
   session: PrepSession | null
   streak: number
@@ -35,6 +39,10 @@ interface Props {
   stories: Story[]
   rehearsals: StoryRehearsal[]
   readiness: ReadinessCell[]
+  settings: PrepSettings
+  daysLeft: number | null
+  coverage: (CategoryCoverage | CategoryQuota)[]
+  bank: BankQuestion[]
 }
 
 function tierFor(score: number | null): ReadinessTier {
@@ -44,6 +52,7 @@ function tierFor(score: number | null): ReadinessTier {
 
 export default function PrepView(props: Props) {
   const [tab, setTab] = useState<PrepTab>(props.initialTab)
+  const [bankCategory, setBankCategory] = useState(props.initialCategory)
   const [session, setSession] = useState(props.session)
   const [cards, setCards] = useState(props.flashcards)
   const [reviewedToday, setReviewedToday] = useState(props.reviewedToday)
@@ -56,7 +65,7 @@ export default function PrepView(props: Props) {
   const weakest = weakestAreas(props.readiness)
   const coveredCompetencies = new Set(stories.filter(s => (s.strength ?? 3) >= 3).flatMap(s => s.competencies))
 
-  const handleToggle = (key: 'warmup' | 'main' | 'concept' | 'lead') => {
+  const handleToggle = (key: string) => {
     setSession(prev => prev ? { ...prev, blocks: prev.blocks.map(b => b.key === key ? { ...b, done: !b.done } : b) } : prev)
     startTransition(async () => { const s = await togglePrepBlock(key); if (s) setSession(s) })
   }
@@ -69,6 +78,7 @@ export default function PrepView(props: Props) {
       <PageHeader title="Prep" chips={<>
         <HeaderChip>🔥 {props.streak}-day prep streak</HeaderChip>
         {session && <HeaderChip tone="accent">🎯 {session.focus}</HeaderChip>}
+        {props.daysLeft !== null && <HeaderChip>📅 Interview-ready by {props.settings.target_date}</HeaderChip>}
       </>} />
 
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-[var(--grid-gap-sm)]">
@@ -79,6 +89,8 @@ export default function PrepView(props: Props) {
       </div>
 
       <PageTabs tabs={TABS} active={tab} onChange={setTab} />
+
+      {tab === 'today' && <HuntModeCard settings={props.settings} daysLeft={props.daysLeft} coverage={props.coverage} />}
 
       {tab === 'today' && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-[var(--grid-gap)] items-start">
@@ -104,7 +116,7 @@ export default function PrepView(props: Props) {
                         </div>
                         <p className="text-[12px] text-fg-secondary mt-0.5">{b.detail}</p>
                       </div>
-                      <Link href={b.href} onClick={e => { if (b.href.startsWith('/prep?tab=')) { e.preventDefault(); setTab(b.href.split('=')[1] as PrepTab) } }}
+                      <Link href={b.href} onClick={e => { if (b.href.startsWith('/prep?')) { e.preventDefault(); const p = new URLSearchParams(b.href.split('?')[1]); setTab(p.get('tab') as PrepTab); if (p.get('cat')) setBankCategory(p.get('cat')) } }}
                         className="shrink-0 text-[11.5px] text-accent hover:underline mt-0.5 whitespace-nowrap">Open →</Link>
                     </li>
                   ))}
@@ -141,6 +153,11 @@ export default function PrepView(props: Props) {
           </Card>
         </div>
       )}
+
+      {/* Kept mounted so grades made here survive switching tabs. */}
+      <div hidden={tab !== 'questions'}>
+        <QuestionsTab bank={props.bank} coverage={props.coverage} category={bankCategory} onCategoryChange={setBankCategory} today={props.today} onGraded={s => { if (s) setSession(s) }} />
+      </div>
 
       {tab === 'flashcards' && (
         <FlashcardsTab
