@@ -6,14 +6,17 @@ import type { PrepBlock } from './types'
 // quota is the smaller of "what fits in that time" and "what's needed to
 // cover the remaining questions by the target date".
 
-export type BankCategory = 'quiz' | 'javascript-functions' | 'ui-coding' | 'system-design' | 'algorithm'
+export type BankCategory = 'quiz' | 'ai-native' | 'javascript-functions' | 'ui-coding' | 'system-design' | 'algorithm'
 
 export const BANK_CATEGORIES: { key: BankCategory; label: string; share: number; minutesPerQ: number }[] = [
-  { key: 'quiz', label: 'Theory', share: 0.20, minutesPerQ: 4 },
-  { key: 'javascript-functions', label: 'JS functions', share: 0.20, minutesPerQ: 25 },
+  { key: 'quiz', label: 'Theory', share: 0.15, minutesPerQ: 4 },
+  // Answer from real experience + AI interviewer feedback (Apollo JD bar).
+  { key: 'ai-native', label: 'AI-native', share: 0.15, minutesPerQ: 10 },
+  { key: 'javascript-functions', label: 'JS functions', share: 0.17, minutesPerQ: 25 },
   { key: 'ui-coding', label: 'UI coding', share: 0.15, minutesPerQ: 45 },
-  { key: 'system-design', label: 'System design', share: 0.10, minutesPerQ: 60 },
-  { key: 'algorithm', label: 'Algorithms', share: 0.10, minutesPerQ: 30 },
+  { key: 'system-design', label: 'System design', share: 0.08, minutesPerQ: 60 },
+  // Lowest-signal pool for a senior FE loop — gave half its time to AI-native.
+  { key: 'algorithm', label: 'Algorithms', share: 0.05, minutesPerQ: 30 },
 ]
 // Remaining 25% of the day: flashcards 5%, behavioral 8%, applications 12%.
 const FLASHCARD_SHARE = 0.05
@@ -80,6 +83,8 @@ export function buildHuntPlan(ctx: {
       key: `bank:${q.key}`, label: `${cat.label} × ${q.quota}`, minutes: q.minutes,
       detail: q.key === 'quiz'
         ? `Answer ${q.quota} theory questions out loud, then check — misses become flashcards`
+        : q.key === 'ai-native'
+        ? `Answer ${q.quota} AI-native questions from real experience, get interviewer feedback, tighten the answer`
         : `Solve ${q.quota} unseen ${cat.label.toLowerCase()} question${q.quota === 1 ? '' : 's'}, then grade yourself honestly`,
       href: `/prep?tab=questions&cat=${q.key}`, done: q.doneToday >= q.quota,
     })

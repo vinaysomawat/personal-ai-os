@@ -27,7 +27,7 @@ export async function getCodingRecommendations(): Promise<CodingRecommendationsR
 
   const [history, { data: pool }, { data: completedRows }, company] = await Promise.all([
     getInsightsHistory(),
-    supabase.from('coding_questions').select('*'),
+    supabase.from('coding_questions').select('*').neq('category', 'ai-native'),
     supabase.from('coding_daily_questions').select('question_id').eq('user_id', user.id).eq('completed', true),
     getActiveCompanyPriorityTopics(),
   ])

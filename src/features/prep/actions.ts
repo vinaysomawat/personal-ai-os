@@ -81,7 +81,7 @@ export async function getPrepData() {
   const flashcards = (cardsRes.data ?? []) as Flashcard[]
   const stories = (storiesRes.data ?? []) as Story[]
   const quizAttempts = (quizRes.data ?? []) as QuizAttempt[]
-  const readiness = computeReadinessMatrix(quizAttempts, (codingRes.data ?? []) as unknown as CodingHistoryRow[], stories)
+  const readiness = computeReadinessMatrix(quizAttempts, (codingRes.data ?? []) as unknown as CodingHistoryRow[], stories, coverage.find(c => c.key === 'ai-native') ?? null)
   const dueCards = flashcards.filter(c => c.due_date <= today)
 
   let sessions = (sessionsRes.data ?? []) as PrepSession[]
@@ -143,13 +143,27 @@ async function getPrepSettings(supabase: SupabaseClient, userId: string): Promis
 // questions already practiced in the Coding module count as covered.
 const OUTCOME_STATUS: Record<string, QuestionStatus> = { solved: 'confident', solved_with_help: 'partial', struggled: 'missed' }
 
+// PostgREST caps a response at 1,000 rows, and the bank is past that —
+// page through it so no category gets silently truncated.
+async function fetchAllQuestions(supabase: SupabaseClient) {
+  const PAGE = 1000
+  const rows: { id: string; title: string; difficulty: string; url: string | null; category: string; topics: string[] | null; sort_order: number | null; answer_hints: string | null }[] = []
+  for (let from = 0; ; from += PAGE) {
+    const { data, error } = await supabase.from('coding_questions')
+      .select('id, title, difficulty, url, category, topics, sort_order, answer_hints').order('id').range(from, from + PAGE - 1)
+    if (error) throw new Error(error.message)
+    rows.push(...(data ?? []))
+    if (!data || data.length < PAGE) return rows
+  }
+}
+
 async function getQuestionBank(supabase: SupabaseClient, userId: string): Promise<BankQuestion[]> {
-  const [{ data: questions }, { data: progress }, { data: coding }] = await Promise.all([
-    supabase.from('coding_questions').select('id, title, difficulty, url, category, topics').range(0, 1999),
-    supabase.from('question_progress').select('question_id, status, last_seen_at').eq('user_id', userId),
+  const [questions, { data: progress }, { data: coding }] = await Promise.all([
+    fetchAllQuestions(supabase),
+    supabase.from('question_progress').select('question_id, status, last_seen_at, last_answer').eq('user_id', userId),
     supabase.from('coding_daily_questions').select('question_id, outcome, completed_at').eq('user_id', userId).eq('completed', true),
   ])
-  const seen = new Map<string, { status: QuestionStatus; last_seen_at: string }>()
+  const seen = new Map<string, { status: QuestionStatus; last_seen_at: string; last_answer?: string | null }>()
   for (const c of coding ?? []) {
     if (!c.completed_at) continue
     const prev = seen.get(c.question_id)
@@ -159,12 +173,13 @@ async function getQuestionBank(supabase: SupabaseClient, userId: string): Promis
   // An explicit Question Bank grade wins over a derived one when it's newer.
   for (const p of progress ?? []) {
     const prev = seen.get(p.question_id)
-    if (!prev || p.last_seen_at >= prev.last_seen_at) seen.set(p.question_id, { status: p.status as QuestionStatus, last_seen_at: p.last_seen_at })
+    if (!prev || p.last_seen_at >= prev.last_seen_at) seen.set(p.question_id, { status: p.status as QuestionStatus, last_seen_at: p.last_seen_at, last_answer: p.last_answer })
   }
-  return (questions ?? []).map(q => ({
+  return questions.map(q => ({
     ...q, topics: q.topics ?? [],
     status: seen.get(q.id)?.status ?? null,
     last_seen_at: seen.get(q.id)?.last_seen_at ?? null,
+    last_answer: seen.get(q.id)?.last_answer ?? null,
   }))
 }
 
@@ -193,6 +208,27 @@ export async function savePrepSettings(targetDate: string | null, hoursPerDay: n
   await supabase.from('prep_sessions').delete().eq('user_id', user.id).eq('date', todayIST())
   revalidatePath('/prep')
   revalidatePath('/dashboard')
+}
+
+const AI_NATIVE_SYSTEM = `You are a senior engineer interviewing a candidate for a Senior Frontend Engineer role at an AI-native company. The company's bar: engineers don't merely use AI for speed — they form their own hypotheses, pressure-test AI output, catch and explain AI mistakes, verify with evidence (tests, profiling, reading the code, reproducing), and take full ownership of final quality.
+Grade one spoken answer against that bar. Reward: a concrete real example (tool, task, what went wrong or right), the candidate's own judgment leading rather than following the AI, explicit verification steps, trade-offs, and honest limits of AI. Penalize: generic "AI makes me faster" claims, no specific example, blind trust, vague verification ("I check it"), buzzwords.
+Respond in plain text (no markdown headings), under 200 words, in exactly this shape:
+Verdict: <Strong / Good / Needs work> — <one sentence why>
+What worked: <1-2 short points>
+Fix next: <2-3 specific, actionable points>
+Follow-up they'd ask: <one probing question that pressure-tests this answer>`
+
+// AI interviewer feedback on an AI-native answer (reviewing the user's own
+// work — uncached, every answer differs). Feedback isn't stored; the
+// answer itself is saved when the question is graded.
+export async function critiqueAnswer(questionId: string, answer: string): Promise<string> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) throw new Error('Not authenticated')
+  const { data: q } = await supabase.from('coding_questions').select('title, answer_hints').eq('id', questionId).single()
+  if (!q) throw new Error('Question not found')
+  const hints = q.answer_hints ? `\nAreas a strong answer covers: ${q.answer_hints}` : ''
+  return askAI('ai_native_critique', `Interview question: ${q.title}${hints}\n\nCandidate's answer:\n${answer}`, AI_NATIVE_SYSTEM, { userId: user.id })
 }
 
 // Self-grade one Question Bank question. Partial/missed ones become a

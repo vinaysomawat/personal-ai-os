@@ -186,6 +186,7 @@ Design process: new screens (Prep, Drills, Story Bank, Lead Journal, Flashcards)
 | 1 | **Job Hunt Mode**: target date + hours/day → full-day Today's Prep with per-category quotas, D-N countdown | S–M | ✅ built |
 | 2 | **Question coverage tracker**: unseen / confident / partial / missed per question; coverage % per category; projected coverage by target | M | ✅ built |
 | 3 | **Theory sprint**: in-app active recall over the bank; partial/missed → flashcards | M | ✅ built |
+| 3b | **AI-native section**: 115 questions (76 from the Apollo JD reference + 39 additions: building AI features, prompting, agents, security, leading adoption, LLM basics, scenarios), seeded order, AI interviewer feedback, readiness row | M | ✅ built |
 | 4 | Fill thin pools: system design 20→~40, UI coding 59→~80, theory gaps (TS 1 question, a11y, security), behavioral prompts 20→~60 incl. layoff questions (why looking, tell me about yourself, gap, salary) | M | next |
 | 5 | System Design Drills (§3.1) | L | |
 | 6 | Mock Interview mode (§3.5) | L | |
@@ -197,4 +198,4 @@ Design process: new screens (Prep, Drills, Story Bank, Lead Journal, Flashcards)
 
 **Paused:** v2.2 UI quality (U1–U9), Lead Journal (except promote-to-story), Health/Finance expansion, Astrology.
 
-**Capacity reality at 10 h/day × 12 days:** theory 283/283 (24/day), JS functions ~48/196 (4/day), UI coding ~24/59 (2/day), system design 12/20 (1/day), algorithms ~24/347 (2/day). Full coverage is only realistic for theory; the coding pools are covered by priority (unseen medium-difficulty first).
+**Capacity reality at 10 h/day × 13 days:** theory 283/283 (20/day), AI-native 115/115 (9/day), JS functions ~52/196 (4/day), UI coding ~26/59 (2/day), system design 13/20 (1/day), algorithms ~13/347 (1/day) — exactly 600 min with flashcards, behavioral and applications. Full coverage is only realistic for theory; the coding pools are covered by priority (unseen medium-difficulty first).

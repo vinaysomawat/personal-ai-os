@@ -74,6 +74,11 @@ export interface BankQuestion {
   topics: string[]
   status: QuestionStatus | null
   last_seen_at: string | null
+  last_answer: string | null
+  // Explicit practice order (AI-native section); null = difficulty order.
+  sort_order: number | null
+  // Expected areas an answer should cover (AI-native scenarios).
+  answer_hints: string | null
 }
 
 export interface PrepSession {
@@ -160,6 +165,7 @@ export const READINESS_AREAS = [
   { key: 'testing', label: 'Testing', quizTopics: ['Testing'], codingTopics: ['Testing'], href: '/career' },
   { key: 'browser', label: 'Browser, network & security', quizTopics: ['Browser Internals', 'Web Security', 'APIs'], codingTopics: ['DOM & Browser APIs', 'Networking & APIs'], href: '/career' },
   { key: 'sysdesign', label: 'Frontend system design', quizTopics: ['System Design', 'Micro-frontends', 'Design Systems'], codingTopics: ['System Design'], href: '/career' },
+  { key: 'ainative', label: 'AI-native engineering', quizTopics: [], codingTopics: [], href: '/prep?tab=questions&cat=ai-native' },
   { key: 'uicoding', label: 'UI coding', quizTopics: [], codingTopics: ['UI Components'], href: '/coding' },
   { key: 'behavioral', label: 'Behavioral', quizTopics: [], codingTopics: [], href: '/prep?tab=stories' },
   { key: 'leadership', label: 'Leadership', quizTopics: [], codingTopics: [], href: '/prep?tab=stories' },

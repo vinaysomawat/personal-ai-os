@@ -2,10 +2,10 @@
 
 import { useMemo, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { ExternalLink, Target } from 'lucide-react'
+import { ExternalLink, Sparkles, Target } from 'lucide-react'
 import Card from '@/components/Card'
 import { modalInputClass, modalSaveButtonClass, modalCancelButtonClass } from '@/components/Modal'
-import { gradeQuestion, savePrepSettings } from '../actions'
+import { critiqueAnswer, gradeQuestion, savePrepSettings } from '../actions'
 import { BANK_CATEGORIES, type BankCategory, type CategoryCoverage, type CategoryQuota } from '../hunt'
 import type { BankQuestion, PrepSession, PrepSettings, QuestionStatus } from '../types'
 
@@ -19,13 +19,24 @@ const GRADES: { status: QuestionStatus; label: string; hint: string; cls: string
 
 const isQuota = (c: CategoryCoverage | CategoryQuota): c is CategoryQuota => 'quota' in c
 
-// Unseen first (coverage is the goal before the target date), medium →
-// easy → hard; then questions graded partial/missed, oldest first.
-function buildQueue(bank: BankQuestion[], category: string, topic: string): BankQuestion[] {
+// Unseen first (coverage is the goal before the target date) — in the
+// question's explicit sort_order when it has one (AI-native), else medium →
+// easy → hard; then questions graded partial/missed, oldest first. Skipped
+// questions go to the back for this visit.
+function buildQueue(bank: BankQuestion[], category: string, topic: string, skipped: string[]): BankQuestion[] {
   const qs = bank.filter(q => q.category === category && (!topic || q.topics.includes(topic)))
-  const unseen = qs.filter(q => !q.status).sort((a, b) => (DIFFICULTY_ORDER[a.difficulty] ?? 1) - (DIFFICULTY_ORDER[b.difficulty] ?? 1) || a.title.localeCompare(b.title))
+  const unseen = qs.filter(q => !q.status).sort((a, b) =>
+    (a.sort_order ?? Infinity) - (b.sort_order ?? Infinity) ||
+    (DIFFICULTY_ORDER[a.difficulty] ?? 1) - (DIFFICULTY_ORDER[b.difficulty] ?? 1) || a.title.localeCompare(b.title))
   const review = qs.filter(q => q.status === 'partial' || q.status === 'missed').sort((a, b) => (a.last_seen_at ?? '').localeCompare(b.last_seen_at ?? ''))
-  return [...unseen, ...review]
+  const queue = [...unseen, ...review]
+  const skip = (q: BankQuestion) => skipped.indexOf(q.id)
+  return [...queue.filter(q => skip(q) < 0), ...queue.filter(q => skip(q) >= 0).sort((a, b) => skip(a) - skip(b))]
+}
+
+const PLACEHOLDER: Record<string, string> = {
+  quiz: 'Answer out loud first, then jot the key points (optional — saved on the flashcard if you miss it)',
+  'ai-native': 'Answer from real experience: the tool, the task, what the AI got wrong or right, and how YOU verified it. Saved with your grade.',
 }
 
 export function QuestionsTab({ bank: initialBank, coverage, category: categoryParam, onCategoryChange, today, onGraded }: {
@@ -41,9 +52,15 @@ export function QuestionsTab({ bank: initialBank, coverage, category: categoryPa
   const category: BankCategory = BANK_CATEGORIES.some(c => c.key === categoryParam) ? categoryParam as BankCategory : 'quiz'
   const setCategory = onCategoryChange
   const [topic, setTopic] = useState('')
-  const [answer, setAnswer] = useState('')
+  // Draft is per question so a review question starts from your last saved
+  // answer (the AI-native answers are meant to be refined, not retyped).
+  const [draft, setDraft] = useState<{ id: string; text: string } | null>(null)
   const [opened, setOpened] = useState(false)
+  const [skipped, setSkipped] = useState<string[]>([])
+  const [feedback, setFeedback] = useState<{ id: string; text: string } | null>(null)
+  const [showHints, setShowHints] = useState(false)
   const [, startTransition] = useTransition()
+  const [reviewing, startReview] = useTransition()
 
   const topics = useMemo(() => {
     const counts = new Map<string, number>()
@@ -52,8 +69,19 @@ export function QuestionsTab({ bank: initialBank, coverage, category: categoryPa
   }, [bank, category])
   // A topic picked under another category doesn't apply here.
   const activeTopic = topics.some(([t]) => t === topic) ? topic : ''
-  const queue = useMemo(() => buildQueue(bank, category, activeTopic), [bank, category, activeTopic])
+  const queue = useMemo(() => buildQueue(bank, category, activeTopic, skipped), [bank, category, activeTopic, skipped])
   const current = queue[0] ?? null
+  const answer = current && draft?.id === current.id ? draft.text : (current?.last_answer ?? '')
+  const setAnswer = (text: string) => { if (current) setDraft({ id: current.id, text }) }
+  const resetCard = () => { setDraft(null); setOpened(false); setShowHints(false) }
+  const currentFeedback = current && feedback?.id === current.id ? feedback.text : null
+
+  const getFeedback = () => {
+    if (!current || answer.trim().length < 40) return
+    const id = current.id
+    const text = answer.trim()
+    startReview(async () => setFeedback({ id, text: await critiqueAnswer(id, text) }))
+  }
 
   const stats = (key: string) => {
     const qs = bank.filter(q => q.category === key)
@@ -70,10 +98,9 @@ export function QuestionsTab({ bank: initialBank, coverage, category: categoryPa
     if (!current) return
     const id = current.id
     const text = answer.trim() || null
-    setBank(prev => prev.map(q => q.id === id ? { ...q, status, last_seen_at: new Date().toISOString() } : q))
+    setBank(prev => prev.map(q => q.id === id ? { ...q, status, last_seen_at: new Date().toISOString(), last_answer: text ?? q.last_answer } : q))
     setDoneToday(prev => ({ ...prev, [category]: (prev[category] ?? 0) + 1 }))
-    setAnswer('')
-    setOpened(false)
+    resetCard()
     startTransition(async () => onGraded(await gradeQuestion(id, status, text)))
   }
 
@@ -88,14 +115,14 @@ export function QuestionsTab({ bank: initialBank, coverage, category: categoryPa
             const cq = quotaFor(c.key)
             const met = cq && cq.quota > 0 && (doneToday[c.key] ?? 0) >= cq.quota
             return (
-              <button key={c.key} onClick={() => { setCategory(c.key); setTopic(''); setOpened(false); setAnswer('') }} aria-pressed={category === c.key}
+              <button key={c.key} onClick={() => { setCategory(c.key); setTopic(''); resetCard() }} aria-pressed={category === c.key}
                 className={`text-[11.5px] px-2.5 py-1 rounded-full border transition-colors ${category === c.key ? 'bg-accent-soft border-accent text-accent' : met ? 'bg-good-soft border-good/40 text-good' : 'border-border-strong text-fg-secondary hover:bg-surface-2'}`}>
                 {met ? '✓ ' : ''}{c.label}{cq ? ` · ${doneToday[c.key] ?? 0}/${cq.quota}` : ''}
               </button>
             )
           })}
         </div>
-        <select value={activeTopic} onChange={e => { setTopic(e.target.value); setOpened(false) }} aria-label="Topic"
+        <select value={activeTopic} onChange={e => { setTopic(e.target.value); resetCard() }} aria-label="Topic"
           className="w-full bg-surface-2 border border-surface-3 rounded-[8px] px-2.5 py-1.5 text-[12.5px] text-fg-primary outline-none mb-3">
           <option value="">All topics</option>
           {topics.map(([t, n]) => <option key={t} value={t}>{t} ({n})</option>)}
@@ -112,8 +139,8 @@ export function QuestionsTab({ bank: initialBank, coverage, category: categoryPa
               {current.status ? `Review · last ${current.status}` : 'New'} · {current.difficulty}{current.topics.length ? ` · ${current.topics.join(', ')}` : ''}
             </p>
             <p className="text-[15px] font-semibold text-fg-primary leading-snug">{current.title}</p>
-            <textarea value={answer} onChange={e => setAnswer(e.target.value)} rows={category === 'quiz' ? 4 : 3}
-              placeholder={category === 'quiz' ? 'Answer out loud first, then jot the key points (optional — saved on the flashcard if you miss it)' : 'Approach / complexity / trade-offs (optional)'}
+            <textarea value={answer} onChange={e => setAnswer(e.target.value)} rows={category === 'ai-native' ? 7 : category === 'quiz' ? 4 : 3}
+              placeholder={PLACEHOLDER[category] ?? 'Approach / complexity / trade-offs (optional)'}
               className="mt-3 w-full bg-surface-2 border border-surface-3 rounded-[8px] px-3 py-2 text-[13px] text-fg-primary outline-none focus:border-accent resize-y" />
             <div className="flex items-center justify-between gap-2 mt-2">
               {current.url ? (
@@ -121,9 +148,26 @@ export function QuestionsTab({ bank: initialBank, coverage, category: categoryPa
                   className="text-[12px] text-accent hover:underline inline-flex items-center gap-1">
                   {category === 'quiz' ? 'Check the answer' : 'Open the problem'} <ExternalLink size={11} />
                 </a>
+              ) : category === 'ai-native' ? (
+                <span className="text-[11px] text-fg-tertiary tabular-nums">{answer.trim().split(/\s+/).filter(Boolean).length} words · aim for ~200</span>
               ) : <span />}
-              <button onClick={() => { setOpened(false); setAnswer(''); setBank(prev => [...prev.filter(x => x.id !== current.id), current]) }} className="text-[11.5px] text-fg-tertiary hover:text-fg-secondary">Skip for now</button>
+              <button onClick={() => { resetCard(); setSkipped(prev => [...prev.filter(x => x !== current.id), current.id]) }} className="text-[11.5px] text-fg-tertiary hover:text-fg-secondary">Skip for now</button>
             </div>
+            {category === 'ai-native' && (
+              <div className="mt-2">
+                <div className="flex items-center justify-between gap-2">
+                  {current.answer_hints ? (
+                    <button onClick={() => setShowHints(v => !v)} className="text-[11.5px] text-accent hover:underline">{showHints ? 'Hide' : 'Show'} expected areas</button>
+                  ) : <span />}
+                  <button onClick={getFeedback} disabled={reviewing || answer.trim().length < 40} className={`${modalSaveButtonClass} inline-flex items-center gap-1.5 !py-[7px]`}>
+                    <Sparkles size={13} /> {reviewing ? 'Reviewing…' : 'Get feedback'}
+                  </button>
+                </div>
+                {showHints && current.answer_hints && <p className="text-[12px] text-fg-secondary mt-1.5">Cover: {current.answer_hints}</p>}
+                {reviewing && <div className="space-y-2 mt-3">{[90, 70, 80].map((w, i) => <div key={i} className="h-3 rounded bg-surface-2 animate-pulse" style={{ width: `${w}%` }} />)}</div>}
+                {currentFeedback && !reviewing && <p className="mt-3 text-[13px] text-fg-secondary whitespace-pre-wrap leading-relaxed border-l-2 border-accent/40 pl-3">{currentFeedback}</p>}
+              </div>
+            )}
             <div className={`grid grid-cols-3 gap-2 mt-3 ${opened || category !== 'quiz' ? '' : 'opacity-80'}`}>
               {GRADES.map(g => (
                 <button key={g.status} onClick={() => grade(g.status)} className={`rounded-[8px] border py-2 text-[12.5px] font-semibold transition-colors ${g.cls}`}>

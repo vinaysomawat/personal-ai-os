@@ -38,6 +38,7 @@ export type AITask =
   | 'astrology_reading'
   | 'astrology_characteristics'
   | 'story_critique'
+  | 'ai_native_critique'
 
 interface TaskConfig {
   model: string
@@ -98,6 +99,9 @@ const TASK_CONFIG: Record<AITask, TaskConfig> = {
   // Prep's Story Bank rehearsal critique — reviewing a typed answer, every
   // prompt unique, so never cached.
   story_critique:         { model: SONNET_MODEL, cacheTTLSeconds: null,       fallback: BUDGET_FALLBACK },
+  // Prep Question Bank's AI-native section — interviewer feedback on a typed
+  // answer; every prompt unique, so never cached.
+  ai_native_critique:     { model: SONNET_MODEL, cacheTTLSeconds: null,       fallback: BUDGET_FALLBACK },
 }
 
 // Static per-model pricing, USD per 1M tokens (Sonnet 4.6 / Haiku 4.5).
