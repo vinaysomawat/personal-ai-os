@@ -60,8 +60,7 @@ export async function GET(req: Request) {
   const user = users?.users?.[0]
   if (!user) return NextResponse.json({ error: 'No user' }, { status: 404 })
 
-  const [tasksRes, expensesRes, staleMetrics, codingRes, activeWorkout] = await Promise.all([
-    supabase.from('tasks').select('text').eq('user_id', user.id).eq('done', false).eq('priority', 'high'),
+  const [expensesRes, staleMetrics, codingRes, activeWorkout] = await Promise.all([
     supabase.from('expenses').select('id').eq('user_id', user.id).eq('date', today).limit(1),
     computeStaleMetrics(supabase, user.id, today),
     // Active picks (carried-over included), not just rows assigned today.
@@ -69,14 +68,13 @@ export async function GET(req: Request) {
     getActiveWorkout(supabase, user.id),
   ])
 
-  const highPriorityTasks = tasksRes.data ?? []
   const hasExpenseToday = (expensesRes.data ?? []).length > 0
   const codingQuestions = codingRes
   const streakAtRisk = codingQuestions.length > 0 && codingQuestions.some(q => !q.completed)
   const workoutPending = !!activeWorkout
 
   const reminders = await getReminderLines(supabase, user.id, 'evening')
-  const nothingPending = highPriorityTasks.length === 0 && hasExpenseToday && staleMetrics.length === 0 && !streakAtRisk && !workoutPending
+  const nothingPending = hasExpenseToday && staleMetrics.length === 0 && !streakAtRisk && !workoutPending
 
   if (nothingPending && !reminders) {
     return NextResponse.json({ ok: true, sent: false, reason: 'Everything already logged today' })
@@ -89,9 +87,6 @@ export async function GET(req: Request) {
   if (workoutPending) {
     lines.push(`🏋️ *Today's workout is still open* — ${activeWorkout!.workout.name} (${activeWorkout!.workout.duration_minutes} min)`)
   }
-  if (highPriorityTasks.length > 0) {
-    lines.push(`🔴 *High-priority tasks pending:*\n${highPriorityTasks.map(t => `• ${t.text}`).join('\n')}`)
-  }
   if (!hasExpenseToday) {
     lines.push(`💸 *No expenses logged today* — spent anything?`)
   }
@@ -101,5 +96,5 @@ export async function GET(req: Request) {
 
   await sendMessage(BOT_TOKEN, Number(CHAT_ID), `🌙 *Evening Check-in*\n\n${lines.join('\n\n')}${reminders}\n\n_Log these whenever you get a moment — I'll stop asking once everything's in._`)
 
-  return NextResponse.json({ ok: true, sent: true, highPriorityTasks: highPriorityTasks.length, hasExpenseToday, staleMetrics, streakAtRisk, workoutPending })
+  return NextResponse.json({ ok: true, sent: true, hasExpenseToday, staleMetrics, streakAtRisk, workoutPending })
 }

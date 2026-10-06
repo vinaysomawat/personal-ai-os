@@ -1,8 +1,8 @@
 'use client'
 
-import { useMemo, useState, useTransition } from 'react'
+import { useState, useTransition } from 'react'
 import Link from 'next/link'
-import { Check, Layers, MessageSquareQuote, Plus, Shuffle, Sparkles, Trash2 } from 'lucide-react'
+import { Check, Layers, MessageSquareQuote, Plus, Shuffle, Sparkles } from 'lucide-react'
 import Card from '@/components/Card'
 import PageTabs from '@/components/PageTabs'
 import EmptyState from '@/components/EmptyState'
@@ -10,32 +10,34 @@ import ConfirmDialog from '@/components/ConfirmDialog'
 import Modal, { modalLabelClass, modalInputClass, modalCancelButtonClass, modalSaveButtonClass } from '@/components/Modal'
 import { READINESS_CONFIG, type ReadinessTier } from '@/features/career/types'
 import { useEscapeKey } from '@/lib/use-escape-key'
-import { scheduleReview, intervalLabel } from '../srs'
+import { daysAgoIST, toISTDateStr } from '@/lib/date'
+import { formatOf, type MockRound } from '../mock'
 import { overallReadiness, weakestAreas } from '../readiness'
-import { togglePrepBlock, reviewFlashcard, addFlashcard, deleteFlashcard, saveStory, deleteStory, rehearseStory, type StoryInput } from '../actions'
-import { COMPETENCIES, REHEARSAL_PROMPTS, type BankQuestion, type CompetencyKey, type Flashcard, type PrepSession, type PrepSettings, type ReadinessCell, type ReviewGrade, type Story, type StoryRehearsal } from '../types'
+import { togglePrepBlock, saveStory, deleteStory, rehearseStory, type StoryInput } from '../actions'
+import { COMPETENCIES, REHEARSAL_PROMPTS, type BankQuestion, type CompetencyKey, type PrepSession, type PrepSettings, type ReadinessCell, type Story, type StoryRehearsal } from '../types'
 import type { CategoryCoverage, CategoryQuota } from '../hunt'
 import { HuntModeCard, QuestionsTab } from './QuestionsTab'
+import { MockTab } from './MockTab'
 import PageHeader, { HeaderChip } from '@/components/PageHeader'
 import StatCard from '@/components/StatCard'
 
-export type PrepTab = 'today' | 'questions' | 'flashcards' | 'stories'
+export type PrepTab = 'today' | 'questions' | 'mock' | 'stories'
 const TABS: { key: PrepTab; label: string }[] = [
   { key: 'today', label: 'Today' },
   { key: 'questions', label: 'Questions' },
-  { key: 'flashcards', label: 'Flashcards' },
+  { key: 'mock', label: 'Mock Round' },
   { key: 'stories', label: 'Story Bank' },
 ]
 
 interface Props {
   initialTab: PrepTab
   initialCategory: string | null
+  initialFormat: string | null
   today: string
   session: PrepSession | null
   streak: number
   sessionsLast7: number
-  flashcards: Flashcard[]
-  reviewedToday: number
+  mockRounds: MockRound[]
   stories: Story[]
   rehearsals: StoryRehearsal[]
   readiness: ReadinessCell[]
@@ -54,13 +56,15 @@ export default function PrepView(props: Props) {
   const [tab, setTab] = useState<PrepTab>(props.initialTab)
   const [bankCategory, setBankCategory] = useState(props.initialCategory)
   const [session, setSession] = useState(props.session)
-  const [cards, setCards] = useState(props.flashcards)
-  const [reviewedToday, setReviewedToday] = useState(props.reviewedToday)
+  const [mockFormat, setMockFormat] = useState(props.initialFormat)
+  const [bank, setBank] = useState(props.bank)
+  const [rounds, setRounds] = useState(props.mockRounds)
   const [stories, setStories] = useState(props.stories)
   const [rehearsals, setRehearsals] = useState(props.rehearsals)
   const [, startTransition] = useTransition()
 
-  const dueCards = useMemo(() => cards.filter(c => c.due_date <= props.today), [cards, props.today])
+  const lastRound = rounds[0] ?? null
+  const roundsThisWeek = rounds.filter(r => toISTDateStr(r.created_at) >= daysAgoIST(6)).length
   const overall = overallReadiness(props.readiness)
   const weakest = weakestAreas(props.readiness)
   const coveredCompetencies = new Set(stories.filter(s => (s.strength ?? 3) >= 3).flatMap(s => s.competencies))
@@ -83,7 +87,7 @@ export default function PrepView(props: Props) {
 
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-[var(--grid-gap-sm)]">
         <StatCard label="Interview readiness" value={`${overall}%`} sub={`${props.readiness.filter(c => c.score === null).length} blind spots`} valueClassName={overall >= 60 ? 'text-good' : overall >= 40 ? 'text-warn' : 'text-risk'} />
-        <StatCard label="Cards due" value={dueCards.length} sub={`${cards.length} total · ${reviewedToday} reviewed today`} />
+        <StatCard label="Mock rounds" value={roundsThisWeek} sub={lastRound ? `this week · last ${formatOf(lastRound.format).label} ${toISTDateStr(lastRound.created_at).slice(5)}` : 'this week · none yet'} />
         <StatCard label="Story Bank" value={stories.length} sub={`${coveredCompetencies.size}/${COMPETENCIES.length} competencies covered`} />
         <StatCard label="This week" value={`${props.sessionsLast7}/7`} sub="prep sessions completed" />
       </div>
@@ -116,7 +120,7 @@ export default function PrepView(props: Props) {
                         </div>
                         <p className="text-[12px] text-fg-secondary mt-0.5">{b.detail}</p>
                       </div>
-                      <Link href={b.href} onClick={e => { if (b.href.startsWith('/prep?')) { e.preventDefault(); const p = new URLSearchParams(b.href.split('?')[1]); setTab(p.get('tab') as PrepTab); if (p.get('cat')) setBankCategory(p.get('cat')) } }}
+                      <Link href={b.href} onClick={e => { if (b.href.startsWith('/prep?')) { e.preventDefault(); const p = new URLSearchParams(b.href.split('?')[1]); setTab(p.get('tab') as PrepTab); if (p.get('cat')) setBankCategory(p.get('cat')); if (p.get('format')) setMockFormat(p.get('format')) } }}
                         className="shrink-0 text-[11.5px] text-accent hover:underline mt-0.5 whitespace-nowrap">Open →</Link>
                     </li>
                   ))}
@@ -154,18 +158,23 @@ export default function PrepView(props: Props) {
         </div>
       )}
 
-      {/* Kept mounted so grades made here survive switching tabs. */}
+      {/* Kept mounted so answers made here survive switching tabs. */}
       <div hidden={tab !== 'questions'}>
-        <QuestionsTab bank={props.bank} coverage={props.coverage} category={bankCategory} onCategoryChange={setBankCategory} today={props.today} onGraded={s => { if (s) setSession(s) }} />
+        <QuestionsTab bank={bank} setBank={setBank} coverage={props.coverage} category={bankCategory} onCategoryChange={setBankCategory} today={props.today} onGraded={s => { if (s) setSession(s) }} />
       </div>
 
-      {tab === 'flashcards' && (
-        <FlashcardsTab
-          cards={cards} dueCards={dueCards} today={props.today}
-          onReviewed={card => { setCards(prev => prev.map(c => c.id === card.id ? card : c)); setReviewedToday(n => n + 1) }}
-          onSynced={(card, s) => { setCards(prev => prev.map(c => c.id === card.id ? card : c)); if (s) setSession(s) }}
-          onAdded={card => setCards(prev => [card, ...prev])}
-          onDeleted={id => setCards(prev => prev.filter(c => c.id !== id))}
+      {tab === 'mock' && (
+        <MockTab
+          bank={bank} readiness={props.readiness} covered={coveredCompetencies} rounds={rounds} today={props.today}
+          format={mockFormat} onFormatChange={setMockFormat}
+          onSaved={(round, s) => {
+            setRounds(prev => [round, ...prev])
+            const now = round.created_at
+            const answered = new Map(round.items.filter(i => i.question_id && !i.skipped).map(i => [i.question_id!, i]))
+            setBank(prev => prev.map(q => { const it = answered.get(q.id); return it ? { ...q, last_seen_at: now, last_answer: it.answer.trim() || q.last_answer } : q }))
+            if (s) setSession(s)
+          }}
+          onRehearsed={r => setRehearsals(prev => [r, ...prev])}
         />
       )}
 
@@ -176,112 +185,6 @@ export default function PrepView(props: Props) {
           onDeleted={id => setStories(prev => prev.filter(s => s.id !== id))}
           onRehearsed={r => setRehearsals(prev => [r, ...prev])}
         />
-      )}
-    </div>
-  )
-}
-
-// ---------------- Flashcards ----------------
-
-const GRADES: { grade: ReviewGrade; label: string; cls: string }[] = [
-  { grade: 'again', label: 'Again', cls: 'border-risk-border text-risk hover:bg-risk-soft' },
-  { grade: 'hard', label: 'Hard', cls: 'border-border-strong text-warn hover:bg-warn-soft' },
-  { grade: 'good', label: 'Good', cls: 'border-border-strong text-good hover:bg-good-soft' },
-  { grade: 'easy', label: 'Easy', cls: 'border-border-strong text-accent hover:bg-accent-soft' },
-]
-
-function FlashcardsTab({ cards, dueCards, today, onReviewed, onSynced, onAdded, onDeleted }: {
-  cards: Flashcard[]; dueCards: Flashcard[]; today: string
-  // onReviewed: optimistic (counts the review); onSynced: server result only.
-  onReviewed: (card: Flashcard) => void
-  onSynced: (card: Flashcard, session: PrepSession | null) => void
-  onAdded: (card: Flashcard) => void
-  onDeleted: (id: string) => void
-}) {
-  const [revealed, setRevealed] = useState(false)
-  const [ahead, setAhead] = useState(false)
-  const [busy, startTransition] = useTransition()
-  const [form, setForm] = useState({ front: '', back: '', topic: '' })
-  const [confirmDelete, setConfirmDelete] = useState<string | null>(null)
-
-  // Queue: due cards first; "Review ahead" pulls the next upcoming ones.
-  const queue = ahead ? [...cards].sort((a, b) => a.due_date.localeCompare(b.due_date)) : dueCards
-  const current = queue[0] ?? null
-  const nextDue = [...cards].filter(c => c.due_date > today).sort((a, b) => a.due_date.localeCompare(b.due_date))[0]?.due_date
-
-  const grade = (g: ReviewGrade) => {
-    if (!current) return
-    const optimistic = { ...current, ...scheduleReview(current, g, today), last_reviewed_at: new Date().toISOString() }
-    setRevealed(false)
-    onReviewed(optimistic)
-    startTransition(async () => { const { card, session } = await reviewFlashcard(current.id, g); onSynced(card, session) })
-  }
-
-  const byTopic = Object.entries(cards.reduce<Record<string, number>>((acc, c) => { const t = c.topic ?? 'General'; acc[t] = (acc[t] ?? 0) + 1; return acc }, {})).sort((a, b) => b[1] - a[1])
-
-  return (
-    <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-[var(--grid-gap)] items-start">
-      <Card title={ahead ? 'Reviewing ahead' : 'Review'} action={<span className="text-[11px] text-fg-tertiary tabular-nums">{queue.length} in queue</span>}>
-        {!current ? (
-          <div className="text-center py-8">
-            <p className="text-[22px] mb-1.5">✅</p>
-            <p className="text-[13px] text-fg-secondary">{cards.length === 0 ? 'No cards yet — missed quiz questions become cards automatically.' : 'All caught up.'}</p>
-            {nextDue && <p className="text-[11.5px] text-fg-tertiary mt-1">Next card due {nextDue}</p>}
-            {cards.length > 0 && <button onClick={() => setAhead(true)} className="mt-3 text-[12px] text-accent hover:underline">Review ahead</button>}
-          </div>
-        ) : (
-          <div>
-            <p className="text-[10.5px] font-bold uppercase tracking-[0.4px] text-fg-tertiary mb-2">{current.topic ?? 'General'} · {current.source === 'manual' ? 'your card' : current.source === 'career_quiz' ? 'missed in a topic quiz' : 'missed in a resource quiz'}</p>
-            <p className="text-[15px] font-semibold text-fg-primary leading-snug">{current.front}</p>
-            {revealed ? (
-              <>
-                <p className="text-[13px] text-fg-secondary whitespace-pre-wrap mt-3 pt-3 border-t border-surface-3 leading-relaxed">{current.back}</p>
-                <div className="grid grid-cols-4 gap-2 mt-4">
-                  {GRADES.map(g => (
-                    <button key={g.grade} onClick={() => grade(g.grade)} disabled={busy} className={`rounded-[8px] border py-2 text-[12.5px] font-semibold transition-colors disabled:opacity-50 ${g.cls}`}>
-                      {g.label}
-                      <span className="block text-[10.5px] font-normal text-fg-tertiary">{intervalLabel(scheduleReview(current, g.grade, today).interval_days)}</span>
-                    </button>
-                  ))}
-                </div>
-              </>
-            ) : (
-              <button onClick={() => setRevealed(true)} className="mt-4 w-full py-2.5 rounded-[8px] bg-accent text-white text-[13px] font-semibold hover:bg-accent/90 transition-colors">Show answer</button>
-            )}
-            <button onClick={() => setConfirmDelete(current.id)} className="mt-3 text-[11px] text-fg-quaternary hover:text-risk inline-flex items-center gap-1"><Trash2 size={11} /> Delete card</button>
-          </div>
-        )}
-      </Card>
-
-      <div className="flex flex-col gap-[var(--grid-gap)]">
-        <Card title="Add a card">
-          <form className="flex flex-col gap-2" onSubmit={e => {
-            e.preventDefault()
-            if (!form.front.trim() || !form.back.trim()) return
-            const { front, back, topic } = form
-            setForm({ front: '', back: '', topic })
-            startTransition(async () => onAdded(await addFlashcard(front.trim(), back.trim(), topic.trim() || null)))
-          }}>
-            <textarea value={form.front} onChange={e => setForm(f => ({ ...f, front: e.target.value }))} placeholder="Question (e.g. What triggers a React re-render?)" rows={2} className={modalInputClass()} />
-            <textarea value={form.back} onChange={e => setForm(f => ({ ...f, back: e.target.value }))} placeholder="Answer" rows={3} className={modalInputClass()} />
-            <div className="flex gap-2">
-              <input value={form.topic} onChange={e => setForm(f => ({ ...f, topic: e.target.value }))} placeholder="Topic (optional)" className={modalInputClass()} />
-              <button type="submit" disabled={busy || !form.front.trim() || !form.back.trim()} className={modalSaveButtonClass}>Add</button>
-            </div>
-          </form>
-        </Card>
-        {byTopic.length > 0 && (
-          <Card title="By topic">
-            <ul className="flex flex-col gap-1 text-[12.5px]">
-              {byTopic.map(([t, n]) => <li key={t} className="flex justify-between"><span className="text-fg-secondary">{t}</span><span className="text-fg-tertiary tabular-nums">{n}</span></li>)}
-            </ul>
-          </Card>
-        )}
-      </div>
-
-      {confirmDelete && (
-        <ConfirmDialog title="Delete card?" description="This flashcard will be permanently removed." onCancel={() => setConfirmDelete(null)}
-          onConfirm={() => { const id = confirmDelete; setConfirmDelete(null); setRevealed(false); onDeleted(id); startTransition(() => deleteFlashcard(id)) }} />
       )}
     </div>
   )

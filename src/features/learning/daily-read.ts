@@ -75,17 +75,11 @@ export async function ensureDailyRead(supabase: SupabaseClient, userId: string, 
     notes = `${DAILY_READ_NOTE_PREFIX} ${ai.reason}`
   }
 
-  const { data: task } = await supabase
-    .from('tasks')
-    .insert({ text: `Read: ${title}`, priority: 'low', area: 'Learning', user_id: userId, done: false })
-    .select('id')
-    .single()
-
   const { data: row } = await supabase
     .from('resources')
     .insert({
       user_id: userId, title, type: 'article', url, category, estimated_minutes: estimatedMinutes,
-      status: 'not-started', progress: 0, notes, task_id: task?.id ?? null,
+      status: 'not-started', progress: 0, notes,
     })
     .select('*')
     .single()

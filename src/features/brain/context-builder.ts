@@ -18,7 +18,6 @@ export function buildBrainContext(data: DashboardData): BrainContext {
   return {
     today: todayIST(),
     lifeScore: data.scores.life,
-    planner: { pendingTaskCount: data.stats.pendingTaskCount },
     career: {
       activeApplications: data.stats.activeApplications,
       currentRole: data.careerMemory.currentRole,

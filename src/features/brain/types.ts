@@ -86,7 +86,6 @@ export interface MonthlyReview {
 export interface BrainContext {
   today: string
   lifeScore: number
-  planner: { pendingTaskCount: number }
   career: {
     activeApplications: number
     // "Memory" (Phase 2 PRD) — read straight from career_profile, the Brain

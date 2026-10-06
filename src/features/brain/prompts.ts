@@ -1,6 +1,6 @@
 import type { BrainContext, WeeklyReflectionContext, MonthlyReviewContext } from './types'
 
-export const BRAIN_SYSTEM_PROMPT = `You are Vinay's personal Brain — a single assistant that understands his whole life across Planner, Career, Finance, Health, Learning, and Coding, and helps him make decisions.
+export const BRAIN_SYSTEM_PROMPT = `You are Vinay's personal Brain — a single assistant that understands his whole life across Career, Finance, Health, Learning, Coding and interview prep, and helps him make decisions.
 
 Rules:
 - Answer directly and specifically using only the context provided below. Never invent numbers, events, or facts that aren't in the context.
@@ -16,7 +16,6 @@ export function buildContextSummary(ctx: BrainContext): string {
   const lines = [
     `Today: ${ctx.today}`,
     `Life Score: ${ctx.lifeScore}/100`,
-    `Planner: ${ctx.planner.pendingTaskCount} pending tasks`,
     `Career: ${ctx.career.activeApplications} active applications${ctx.career.currentRole ? `, currently ${ctx.career.currentRole}${ctx.career.currentCompany ? ` at ${ctx.career.currentCompany}` : ''}` : ''}${ctx.career.targetRole ? `, targeting ${ctx.career.targetRole}` : ''}${ctx.career.currentSalary ? `, current salary ₹${Math.round(ctx.career.currentSalary).toLocaleString('en-IN')}` : ''}${ctx.career.bio ? `. Bio/focus: ${ctx.career.bio}` : ''}`,
     `Finance: ₹${Math.round(ctx.finance.monthSpend)} spent of ₹${Math.round(ctx.finance.monthBudget)} budget this month`,
     `Health: ${ctx.health.workoutsToday} workout(s) today${ctx.health.todayMetric ? '' : ', no metrics logged today'}`,

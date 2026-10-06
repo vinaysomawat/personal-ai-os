@@ -34,7 +34,6 @@ export async function execute(action: Record<string, unknown>, db: SupabaseClien
       if (!match) return `❌ No question matching "${action.search}" in today's assignment.`
       if (match.completed) return `Already marked *${match.question.title}* as done! 🎉`
       await db.from('coding_daily_questions').update({ completed: true, completed_at: new Date().toISOString() }).eq('id', match.id)
-      if (match.task_id) await db.from('tasks').update({ done: true }).eq('id', match.task_id)
       return `🎉 Nice work! Marked *${match.question.title}* as solved.`
     }
     case 'ask': {

@@ -11,7 +11,7 @@ import type { AITask } from './ai-gateway'
 // parsing/vision run for every bot; module_recommendations is one generic
 // component reused across 5+ pages, so the task name alone can't say which
 // page triggered a given call).
-export type AITaskModule = 'planner' | 'career' | 'finance' | 'health' | 'learning' | 'coding' | 'astrology' | 'brain' | 'prep' | 'shared'
+export type AITaskModule = 'career' | 'finance' | 'health' | 'learning' | 'coding' | 'astrology' | 'brain' | 'prep' | 'shared'
 
 export const TASK_MODULE: Record<AITask, AITaskModule> = {
   telegram_intent: 'shared',
@@ -51,7 +51,7 @@ export const TASK_MODULE: Record<AITask, AITaskModule> = {
 }
 
 export const TASK_MODULE_LABEL: Record<AITaskModule, string> = {
-  planner: 'Planner', career: 'Career', finance: 'Finance', health: 'Health',
+  career: 'Career', finance: 'Finance', health: 'Health',
   learning: 'Learning', coding: 'Coding', astrology: 'Astrology', brain: 'Personal Brain', prep: 'Prep',
   shared: 'Shared / cross-module',
 }

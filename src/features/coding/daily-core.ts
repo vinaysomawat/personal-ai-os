@@ -12,7 +12,7 @@ export type Outcome = 'solved' | 'solved_with_help' | 'struggled'
 // this same pool/table rather than a separate one per format (quiz.md's
 // generalized-practice scope) — all are link-out only (title/url/difficulty,
 // same shape as an algorithm question), so the existing daily-assignment/
-// streak/Planner-sync/weak-area/Life-Score machinery already works for them
+// streak/weak-area/Life-Score machinery already works for them
 // with zero changes beyond this field.
 export type QuestionCategory = 'algorithm' | 'quiz' | 'system-design' | 'javascript-functions' | 'ui-coding'
 
@@ -39,7 +39,6 @@ export interface DailyQuestion {
   needs_revision: boolean
   revision_count: number
   outcome: Outcome | null
-  task_id: string | null
   question: CodingQuestion
 }
 
@@ -141,7 +140,7 @@ export async function generateAssignmentForUser(supabase: SupabaseClient, userId
   // The check above isn't atomic with the inserts below — concurrent /coding
   // page loads (browser prefetch on the nav link, a reload, dev-server
   // hot-reload) can each pass it before the first request's inserts land,
-  // each generating its own duplicate set of picks + Planner tasks (observed
+  // each generating its own duplicate set of picks (observed
   // in production 2026-08-18: 6 overlapping calls created 12 duplicate rows).
   // `coding_daily_generation_locks` has a unique(user_id, assigned_date) key,
   // so only one concurrent caller can win this insert; everyone else falls
@@ -219,15 +218,9 @@ export async function generateAssignmentForUser(supabase: SupabaseClient, userId
 
   const created: DailyQuestion[] = []
   for (const q of picks) {
-    const { data: task } = await supabase
-      .from('tasks')
-      .insert({ text: q.category === 'quiz' ? `Answer today's quiz: ${q.title}` : `Solve ${q.title}`, priority: q.difficulty === 'hard' ? 'high' : 'medium', area: 'Coding', user_id: userId, done: false })
-      .select('id')
-      .single()
-
     const { data: row } = await supabase
       .from('coding_daily_questions')
-      .insert({ user_id: userId, question_id: q.id, assigned_date: today, task_id: task?.id ?? null })
+      .insert({ user_id: userId, question_id: q.id, assigned_date: today })
       .select('*, question:coding_questions(*)')
       .single()
 
@@ -239,15 +232,15 @@ export async function generateAssignmentForUser(supabase: SupabaseClient, userId
 
 // "New question": swaps an unwanted open pick for a fresh one of the same
 // slot (and difficulty, for algorithm picks). The rejected pick was never
-// attempted, so its row and Planner task are removed outright rather than
+// attempted, so its row is removed outright rather than
 // left as a pending Practice Log entry.
 export async function swapCodingQuestion(supabase: SupabaseClient, userId: string, id: string): Promise<DailyQuestion[]> {
   const { data: row } = await supabase
     .from('coding_daily_questions')
-    .select('id, task_id, completed, question_id, question:coding_questions(category, difficulty)')
+    .select('id, completed, question_id, question:coding_questions(category, difficulty)')
     .eq('id', id).eq('user_id', userId)
     .single()
-  const r = row as unknown as { id: string; task_id: string | null; completed: boolean; question_id: string; question: { category: QuestionCategory; difficulty: Difficulty } } | null
+  const r = row as unknown as { id: string; completed: boolean; question_id: string; question: { category: QuestionCategory; difficulty: Difficulty } } | null
   if (!r || r.completed) return getTodayAssignmentRows(supabase, userId)
 
   const [{ data: pool }, { data: assignedRows }] = await Promise.all([
@@ -260,13 +253,7 @@ export async function swapCodingQuestion(supabase: SupabaseClient, userId: strin
   if (!pick) return getTodayAssignmentRows(supabase, userId)
 
   await supabase.from('coding_daily_questions').delete().eq('id', r.id)
-  if (r.task_id) await supabase.from('tasks').delete().eq('id', r.task_id).eq('done', false)
-  const { data: task } = await supabase
-    .from('tasks')
-    .insert({ text: pick.category === 'quiz' ? `Answer today's quiz: ${pick.title}` : `Solve ${pick.title}`, priority: pick.difficulty === 'hard' ? 'high' : 'medium', area: 'Coding', user_id: userId, done: false })
-    .select('id')
-    .single()
-  await supabase.from('coding_daily_questions').insert({ user_id: userId, question_id: pick.id, assigned_date: todayStr(), task_id: task?.id ?? null })
+  await supabase.from('coding_daily_questions').insert({ user_id: userId, question_id: pick.id, assigned_date: todayStr() })
   return getTodayAssignmentRows(supabase, userId)
 }
 

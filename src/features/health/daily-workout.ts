@@ -19,7 +19,6 @@ export async function completeWorkout(id: string) {
   if (!user) throw new Error('Not authenticated')
   await markWorkoutComplete(supabase, id)
   revalidatePath('/health')
-  revalidatePath('/planner')
   revalidatePath('/dashboard')
 }
 
@@ -29,7 +28,6 @@ export async function skipWorkout(id: string) {
   if (!user) throw new Error('Not authenticated')
   await markWorkoutSkipped(supabase, id)
   revalidatePath('/health')
-  revalidatePath('/planner')
   revalidatePath('/dashboard')
 }
 
@@ -39,7 +37,6 @@ export async function swapWorkout(id: string, category: string) {
   if (!user) throw new Error('Not authenticated')
   const result = await swapWorkoutCategory(supabase, id, category)
   revalidatePath('/health')
-  revalidatePath('/planner')
   return result
 }
 

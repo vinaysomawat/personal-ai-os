@@ -5,7 +5,7 @@ import type { InlineButton } from './types'
 // (TELEGRAM_ALLOWED_CHAT_ID), so a malformed callback_data can't attempt an
 // arbitrary table delete.
 const UNDOABLE_TABLES = [
-  'tasks', 'applications', 'expenses', 'loans', 'investments',
+  'applications', 'expenses', 'loans', 'investments',
   'workouts', 'resources', 'food_log',
 ] as const
 export type UndoableTable = typeof UNDOABLE_TABLES[number]
@@ -23,7 +23,6 @@ export function isUndoableTable(t: string): t is UndoableTable {
 
 // Human-readable label for the "🗑️ Undone: X" confirmation toast.
 export const UNDO_LABEL: Record<UndoableTable, (row: Record<string, unknown>) => string> = {
-  tasks: r => String(r.text ?? 'task'),
   applications: r => String(r.company ?? 'application'),
   expenses: r => String(r.description ?? r.category ?? 'expense'),
   loans: r => String(r.name ?? 'loan'),

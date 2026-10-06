@@ -17,9 +17,7 @@ Rules:
 // Shared by Daily Auto Journal (Phase 3 PRD) and Evening Reflection (Phase 5
 // PRD) — both narrate "today's itemized activity," just at different times
 // of day and with a different closing line. Deliberately scoped to what's
-// reliably timestamped: tasks.done has no completed_at (only coding's/the
-// daily-read resource's synced rows do), so plain Planner task completions
-// aren't included — see README.
+// reliably timestamped.
 //
 // `daysAgo` (default 0 = today) lets Evening Reflection reuse this for
 // "yesterday" when viewed between midnight and 5am IST — see evening-

@@ -69,7 +69,7 @@ function StudyCoachContent({ isOpen, context, resources }: { isOpen: boolean; co
 }
 
 // Voluntary graded quiz ("Quiz me"). Was mandatory for marking a resource
-// Completed until 2026-09-24 — but completions from Planner/Telegram never
+// Completed until 2026-09-24 — but completions from Telegram (and the old Planner) never
 // went through it (47 completions vs 9 quizzes), so the gate only added
 // friction on the web; completed-but-unquizzed rows get an accent nudge
 // instead.
@@ -170,7 +170,7 @@ export default function LearningView({ initialResources, initialQuizAttempts }: 
     setAddedSuggestionUrls(prev => new Set(prev).add(s.url))
     const optimistic: Resource = {
       id: `temp-${Date.now()}`, user_id: '', title: s.title, type: s.type, url: s.url,
-      category: s.category, status: 'not-started', progress: 0, notes: s.notes, created_at: new Date().toISOString(), task_id: null,
+      category: s.category, status: 'not-started', progress: 0, notes: s.notes, created_at: new Date().toISOString(),
       estimated_minutes: null,
     }
     setResources(prev => [optimistic, ...prev])
@@ -427,7 +427,7 @@ export default function LearningView({ initialResources, initialQuizAttempts }: 
                 title: fd.get('title') as string, type: fd.get('type') as ResourceType,
                 url: fd.get('url') as string || null, category: fd.get('category') as string || 'General',
                 status: 'not-started', progress: 0, notes: fd.get('notes') as string || null,
-                created_at: new Date().toISOString(), task_id: null,
+                created_at: new Date().toISOString(),
                 estimated_minutes: estMinutes ? parseInt(estMinutes, 10) : null,
               }
               setResources(prev => [newR, ...prev])

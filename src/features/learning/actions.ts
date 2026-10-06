@@ -67,15 +67,12 @@ export async function getLearningData() {
   }
 }
 
-// Shared by the pending-queue top-up — adds
-// resources with no linked Planner task (unlike a user-initiated addResource,
-// these are silent background inserts, not something the user needs a task
-// reminder for).
+// Shared by the pending-queue top-up — silent background inserts.
 async function insertResources(supabase: Awaited<ReturnType<typeof createClient>>, userId: string, items: ResourceInsert[]): Promise<Resource[]> {
   const { data, error } = await supabase.from('resources').insert(
     items.map(item => ({
       user_id: userId, title: item.title, type: item.type, url: item.url, category: item.category,
-      status: 'not-started', progress: 0, notes: item.notes, task_id: null,
+      status: 'not-started', progress: 0, notes: item.notes,
     }))
   ).select('*')
   if (error) return []
@@ -89,14 +86,6 @@ export async function addResource(formData: FormData) {
 
   const title = formData.get('title') as string
 
-  // Two-way sync with Planner, same pattern as Coding's daily question:
-  // insert the task first, then link the resource to it.
-  const { data: task } = await supabase
-    .from('tasks')
-    .insert({ text: `Read: ${title}`, priority: 'low', area: 'Learning', user_id: user.id, done: false })
-    .select('id')
-    .single()
-
   const estimatedMinutes = formData.get('estimated_minutes') as string
   const { error } = await supabase.from('resources').insert({
     user_id: user.id,
@@ -107,12 +96,10 @@ export async function addResource(formData: FormData) {
     status: 'not-started',
     progress: 0,
     notes: formData.get('notes') as string || null,
-    task_id: task?.id ?? null,
     estimated_minutes: estimatedMinutes ? parseInt(estimatedMinutes, 10) : null,
   })
   if (error) throw new Error(error.message)
   revalidatePath('/learning')
-  revalidatePath('/planner')
 }
 
 export async function updateResource(id: string, updates: { status?: ResourceStatus; progress?: number; notes?: string }) {
@@ -124,31 +111,16 @@ export async function updateResource(id: string, updates: { status?: ResourceSta
   const { error } = await supabase.from('resources').update(patch).eq('id', id)
   if (error) throw new Error(error.message)
 
-  if (updates.status !== undefined) {
-    const { data: resource } = await supabase.from('resources').select('task_id').eq('id', id).single()
-    if (resource?.task_id) {
-      await supabase.from('tasks').update({ done: updates.status === 'completed' }).eq('id', resource.task_id)
-    }
-  }
-
   revalidatePath('/learning')
-  revalidatePath('/planner')
   revalidatePath('/dashboard')
 }
 
 export async function deleteResource(id: string) {
   const supabase = await createClient()
-  const { data: resource } = await supabase.from('resources').select('task_id').eq('id', id).single()
-
   const { error } = await supabase.from('resources').delete().eq('id', id)
   if (error) throw new Error(error.message)
 
-  if (resource?.task_id) {
-    await supabase.from('tasks').delete().eq('id', resource.task_id)
-  }
-
   revalidatePath('/learning')
-  revalidatePath('/planner')
 }
 
 export async function saveResourceQuizAttempt(

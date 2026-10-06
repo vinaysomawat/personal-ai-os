@@ -72,7 +72,7 @@ export async function dismissDecisionQueueItem(kind: string): Promise<void> {
 export async function getEveningReflection(isLateNight: boolean = false): Promise<EveningReflectionResult> {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return { reflection: '', tomorrowsPriority: null }
+  if (!user) return { reflection: '' }
 
   return generateEveningReflection(supabase, user.id, isLateNight)
 }

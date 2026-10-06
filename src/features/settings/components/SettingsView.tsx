@@ -16,7 +16,7 @@ import { TASK_LABEL } from '@/lib/ai-task-modules'
 import PageHeader from '@/components/PageHeader'
 
 const MODULE_LABEL: Record<string, string> = {
-  planner: 'Planner', career: 'Career', finance: 'Finance', health: 'Health',
+  planner: 'Daily', career: 'Career', finance: 'Finance', health: 'Health',
   learning: 'Learning', coding: 'Coding',
 }
 

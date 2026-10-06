@@ -64,7 +64,7 @@ export function AIAdvisorProvider({ children }: { children: ReactNode }) {
           Health Coach, Study Coach, Code Mentor) as a full-height right-side
           drawer — `top:0 right:0 bottom:0 width:min(400px,100vw)` — not a
           small top-right dropdown. Matches the same drawer pattern already
-          used for Ask Brain and Executive Summary. Ask Brain's own design
+          used for Ask Brain. Ask Brain's own design
           calls for 440px instead of 400px — widthPx (see registerTrigger)
           carries that per-instance override without forking this component. */}
       <div

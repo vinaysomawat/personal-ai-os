@@ -23,7 +23,6 @@ export async function swapQuestion(id: string): Promise<DailyQuestion[]> {
   if (!user) throw new Error('Not authenticated')
   const rows = await swapCodingQuestion(supabase, user.id, id)
   revalidatePath('/coding')
-  revalidatePath('/planner')
   revalidatePath('/dashboard')
   return rows
 }
@@ -33,7 +32,7 @@ export async function markQuestionComplete(id: string, extra?: { timeSpentMinute
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) throw new Error('Not authenticated')
 
-  const { data: row } = await supabase.from('coding_daily_questions').select('task_id, revision_count').eq('id', id).single()
+  const { data: row } = await supabase.from('coding_daily_questions').select('revision_count').eq('id', id).single()
 
   // A struggled outcome auto-flags this specific question for revision —
   // one bad outcome is reason enough to want to see it again, unlike the
@@ -52,12 +51,7 @@ export async function markQuestionComplete(id: string, extra?: { timeSpentMinute
   }).eq('id', id)
   if (error) throw new Error(error.message)
 
-  if (row?.task_id) {
-    await supabase.from('tasks').update({ done: true }).eq('id', row.task_id)
-  }
-
   revalidatePath('/coding')
-  revalidatePath('/planner')
   revalidatePath('/dashboard')
 }
 
@@ -120,19 +114,12 @@ export async function addRecommendedQuestion(question: CodingQuestion) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) throw new Error('Not authenticated')
 
-  const { data: task } = await supabase
-    .from('tasks')
-    .insert({ text: `Solve ${question.title}`, priority: question.difficulty === 'hard' ? 'high' : 'medium', area: 'Coding', user_id: user.id, done: false })
-    .select('id')
-    .single()
-
   const { error } = await supabase
     .from('coding_daily_questions')
-    .insert({ user_id: user.id, question_id: question.id, assigned_date: todayIST(), task_id: task?.id ?? null })
+    .insert({ user_id: user.id, question_id: question.id, assigned_date: todayIST() })
   if (error) throw new Error(error.message)
 
   revalidatePath('/coding')
-  revalidatePath('/planner')
 }
 
 export async function toggleFavorite(id: string) {

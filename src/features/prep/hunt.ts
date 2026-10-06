@@ -1,4 +1,5 @@
 import type { PrepBlock } from './types'
+import { formatMinutes, formatOf, mockFormatForDay } from './mock'
 
 // Job Hunt Mode (ROADMAP-v2 §9) — deterministic full-day plan sized to the
 // user's daily hours and days left before the target date. Each question
@@ -20,8 +21,8 @@ export const BANK_CATEGORIES: { key: BankCategory; label: string; share: number;
   // Lowest-signal pool for a senior FE loop — gave half its time to AI-native.
   { key: 'algorithm', label: 'Algorithms', share: 0.03, minutesPerQ: 30 },
 ]
-// Remaining 21% of the day: flashcards 5%, STAR stories 6%, applications 10%.
-const FLASHCARD_SHARE = 0.05
+// Remaining 21% of the day: a daily Mock Round (~5%, fixed by its format),
+// STAR stories 6%, applications 10%.
 const BEHAVIORAL_SHARE = 0.06
 const APPLICATIONS_SHARE = 0.10
 
@@ -30,8 +31,6 @@ export interface CategoryCoverage {
   label: string
   total: number
   seen: number
-  confident: number
-  review: number
   doneToday: number
 }
 
@@ -52,7 +51,7 @@ export function computeQuotas(coverage: CategoryCoverage[], hoursPerDay: number,
   return BANK_CATEGORIES.map(cat => {
     const c = coverage.find(x => x.key === cat.key)!
     const capacity = Math.max(1, Math.floor((dayMinutes * cat.share) / cat.minutesPerQ))
-    // Unseen left at the start of today (today's grades already counted in seen).
+    // Unseen left at the start of today (today's practice already counted in seen).
     const remaining = Math.max(0, c.total - c.seen + c.doneToday)
     const needed = Math.ceil(remaining / days)
     const quota = Math.min(capacity, needed)
@@ -68,15 +67,16 @@ export function computeQuotas(coverage: CategoryCoverage[], hoursPerDay: number,
 export function buildHuntPlan(ctx: {
   hoursPerDay: number
   days: number
+  date: string
   quotas: CategoryQuota[]
-  dueCards: number
   uncoveredCompetency: string | null
 }): { focus: string; blocks: PrepBlock[] } {
   const dayMinutes = ctx.hoursPerDay * 60
+  const format = mockFormatForDay(ctx.date)
   const blocks: PrepBlock[] = [{
-    key: 'warmup', label: 'Flashcards', minutes: Math.round(dayMinutes * FLASHCARD_SHARE),
-    detail: ctx.dueCards > 0 ? `Clear ${ctx.dueCards} due card${ctx.dueCards === 1 ? '' : 's'} — misses from yesterday come back here` : 'Nothing due — review ahead',
-    href: '/prep?tab=flashcards', done: false,
+    key: 'mock', label: `Mock round · ${formatOf(format).label}`, minutes: formatMinutes(format),
+    detail: 'Timed, no notes — yesterday\'s misses come back first. Grade every answer after.',
+    href: `/prep?tab=mock&format=${format}`, done: false,
   }]
   for (const q of ctx.quotas) {
     if (q.quota === 0) continue
@@ -84,12 +84,12 @@ export function buildHuntPlan(ctx: {
     blocks.push({
       key: `bank:${q.key}`, label: `${cat.label} × ${q.quota}`, minutes: q.minutes,
       detail: q.key === 'quiz'
-        ? `Answer ${q.quota} theory questions out loud, then check — misses become flashcards`
+        ? `Answer ${q.quota} theory questions out loud, then check — misses come back in mock rounds`
         : q.key === 'ai-native'
         ? `Answer ${q.quota} AI-native questions from real experience, get interviewer feedback, tighten the answer`
         : q.key === 'behavioral'
         ? `Say ${q.quota} answer${q.quota === 1 ? '' : 's'} out loud (tell me about yourself, the layoff, salary…), get feedback, tighten`
-        : `Solve ${q.quota} unseen ${cat.label.toLowerCase()} question${q.quota === 1 ? '' : 's'}, then grade yourself honestly`,
+        : `Solve ${q.quota} unseen ${cat.label.toLowerCase()} question${q.quota === 1 ? '' : 's'}, then hit Next`,
       href: `/prep?tab=questions&cat=${q.key}`, done: q.doneToday >= q.quota,
     })
   }

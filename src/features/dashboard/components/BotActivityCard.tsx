@@ -6,7 +6,7 @@ import { formatDistanceToNow } from 'date-fns'
 import Card from '@/components/Card'
 
 const MODULE_META: Record<string, { label: string; emoji: string; color: string; bg: string }> = {
-  planner:   { label: 'Planner',   emoji: '📋', color: 'text-blue-400',   bg: 'bg-blue-500/10' },
+  planner:   { label: 'Daily',     emoji: '🌅', color: 'text-blue-400',   bg: 'bg-blue-500/10' },
   career:    { label: 'Career',    emoji: '💼', color: 'text-warn',  bg: 'bg-warn-soft' },
   finance:   { label: 'Finance',   emoji: '💸', color: 'text-good',  bg: 'bg-good-soft' },
   health:    { label: 'Health',    emoji: '💪', color: 'text-risk',    bg: 'bg-risk-soft' },

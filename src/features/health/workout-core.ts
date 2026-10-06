@@ -45,7 +45,6 @@ export interface DailyWorkout {
   status: WorkoutStatus
   assigned_date: string
   completed_at: string | null
-  task_id: string | null
   workout: Workout
 }
 
@@ -181,27 +180,17 @@ export async function generateWorkoutForUser(supabase: SupabaseClient, userId: s
   const picked = pickNextWorkout((pool ?? []) as Workout[], recentCompleted, recentAny)
   if (!picked) return null
 
-  const { data: task } = await supabase
-    .from('tasks')
-    .insert({ text: `Workout: ${picked.name}`, priority: 'medium', area: 'Health', user_id: userId, done: false })
-    .select('id')
-    .single()
-
   const { data: row, error } = await supabase
     .from('daily_workouts')
-    .insert({ user_id: userId, workout_id: picked.id, assigned_date: todayStr(), status: 'pending', task_id: task?.id ?? null })
+    .insert({ user_id: userId, workout_id: picked.id, assigned_date: todayStr(), status: 'pending' })
     .select('*, workout:workout_library(*)')
     .single()
 
   // Lost a race against a concurrent call (e.g. web + Telegram both hitting
   // this at once) — the DB's one-active-workout-per-user constraint
   // (daily_workouts_one_active_per_user) rejected this insert because the
-  // other call's already won. Clean up the now-orphaned task and defer to
-  // whatever the winner created, instead of leaving a duplicate task behind.
-  if (error) {
-    if (task?.id) await supabase.from('tasks').delete().eq('id', task.id)
-    return getActiveWorkout(supabase, userId)
-  }
+  // other call's already won. Defer to whatever the winner created.
+  if (error) return getActiveWorkout(supabase, userId)
 
   return (row as unknown as DailyWorkout | null) ?? null
 }
@@ -209,15 +198,12 @@ export async function generateWorkoutForUser(supabase: SupabaseClient, userId: s
 export async function markWorkoutComplete(supabase: SupabaseClient, id: string): Promise<void> {
   const { data: row } = await supabase
     .from('daily_workouts')
-    .select('user_id, task_id, workout:workout_library(category, duration_minutes)')
+    .select('user_id, workout:workout_library(category, duration_minutes)')
     .eq('id', id)
-    .single<{ user_id: string; task_id: string | null; workout: { category: string; duration_minutes: number } }>()
+    .single<{ user_id: string; workout: { category: string; duration_minutes: number } }>()
   if (!row) return
 
   await supabase.from('daily_workouts').update({ status: 'completed', completed_at: new Date().toISOString() }).eq('id', id)
-  if (row.task_id) {
-    await supabase.from('tasks').update({ done: true }).eq('id', row.task_id)
-  }
 
   // Feed the existing (simple) workouts log too, so today's Health Score
   // Activity sub-score — which checks `workouts` for a same-day entry —
@@ -244,7 +230,7 @@ export async function markWorkoutComplete(supabase: SupabaseClient, id: string):
 }
 
 // Swaps the active workout to a different category in place — same row,
-// same linked Planner task (renamed), no "skipped" row left behind.
+// no "skipped" row left behind.
 // Replaces the old skip-until-the-right-one-comes-up habit (usage showed
 // 45 of 53 assignments "skipped", mostly rerolls seconds apart). Since the
 // row keeps its created_at, the split cycle continues from the swapped-to
@@ -252,9 +238,9 @@ export async function markWorkoutComplete(supabase: SupabaseClient, id: string):
 export async function swapWorkoutCategory(supabase: SupabaseClient, id: string, category: string): Promise<DailyWorkout | null> {
   const { data: row } = await supabase
     .from('daily_workouts')
-    .select('user_id, workout_id, task_id, status')
+    .select('user_id, workout_id, status')
     .eq('id', id)
-    .single<{ user_id: string; workout_id: string; task_id: string | null; status: WorkoutStatus }>()
+    .single<{ user_id: string; workout_id: string; status: WorkoutStatus }>()
   if (!row || (row.status !== 'pending' && row.status !== 'in_progress')) return null
 
   const [{ data: pool }, recentCompleted] = await Promise.all([
@@ -270,20 +256,11 @@ export async function swapWorkoutCategory(supabase: SupabaseClient, id: string, 
 
   const { error } = await supabase.from('daily_workouts').update({ workout_id: picked.id }).eq('id', id)
   if (error) throw new Error(error.message)
-  if (row.task_id) {
-    await supabase.from('tasks').update({ text: `Workout: ${picked.name}` }).eq('id', row.task_id)
-  }
   return getActiveWorkout(supabase, row.user_id)
 }
 
-// Skipping removes the linked Planner task entirely (not "done" — it wasn't
-// actually completed) rather than leaving a stale open task behind.
 export async function markWorkoutSkipped(supabase: SupabaseClient, id: string): Promise<void> {
-  const { data: row } = await supabase.from('daily_workouts').select('task_id').eq('id', id).single()
   await supabase.from('daily_workouts').update({ status: 'skipped' }).eq('id', id)
-  if (row?.task_id) {
-    await supabase.from('tasks').delete().eq('id', row.task_id)
-  }
 }
 
 export interface WorkoutStats {

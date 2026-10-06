@@ -1,24 +1,3 @@
-export type FlashcardSource = 'career_quiz' | 'learning_quiz' | 'manual' | 'question_bank'
-
-export interface Flashcard {
-  id: string
-  user_id: string
-  front: string
-  back: string
-  topic: string | null
-  source: FlashcardSource
-  source_ref: string | null
-  ease: number
-  interval_days: number
-  reps: number
-  lapses: number
-  due_date: string
-  last_reviewed_at: string | null
-  created_at: string
-}
-
-export type ReviewGrade = 'again' | 'hard' | 'good' | 'easy'
-
 export interface Story {
   id: string
   user_id: string
@@ -46,8 +25,8 @@ export interface StoryRehearsal {
 }
 
 export interface PrepBlock {
-  // 'warmup' | 'main' | 'concept' | 'lead' in a normal session; Job Hunt
-  // Mode adds 'bank:<category>' blocks and 'applications'.
+  // 'main' | 'mock' | 'concept' | 'lead' in a normal session; Job Hunt
+  // Mode uses 'mock', 'bank:<category>', 'lead' and 'applications'.
   key: string
   label: string
   detail: string
@@ -61,10 +40,8 @@ export interface PrepSettings {
   hours_per_day: number
 }
 
-export type QuestionStatus = 'confident' | 'partial' | 'missed'
-
-// A coding_questions row plus the user's latest self-grade (from the
-// Question Bank, or derived from a completed Coding pick's outcome).
+// A coding_questions row plus when it was last practiced (in the Question
+// Bank / a Mock Round, or completed as a Coding pick).
 export interface BankQuestion {
   id: string
   title: string
@@ -72,7 +49,6 @@ export interface BankQuestion {
   url: string | null
   category: string
   topics: string[]
-  status: QuestionStatus | null
   last_seen_at: string | null
   last_answer: string | null
   // Explicit practice order (AI-native section); null = difficulty order.

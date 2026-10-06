@@ -77,7 +77,7 @@ function extractActions(raw: string): Record<string, unknown>[] {
   }
 }
 
-// Handles inline-keyboard button presses (e.g. "✅ Mark Done" on a task).
+// Handles inline-keyboard button presses (e.g. "↩️ Undo" on a logged entry).
 // Bypasses AI classification entirely — the callback_data already encodes
 // exactly what to do.
 async function handleCallbackQuery(moduleName: ModuleName, update: TelegramUpdate): Promise<void> {
@@ -90,22 +90,7 @@ async function handleCallbackQuery(moduleName: ModuleName, update: TelegramUpdat
   if (!token) return
 
   const data = cq.data ?? ''
-  if (data.startsWith('task_done:')) {
-    const taskId = data.slice('task_done:'.length)
-    const db = createServiceClient()
-    await db.from('tasks').update({ done: true }).eq('id', taskId)
-    // Two-way sync with the Coding daily-question habit system and Learning
-    // resources (incl. the daily-read pick), same as the web app's toggleTask.
-    await db.from('coding_daily_questions').update({ completed: true, completed_at: new Date().toISOString() }).eq('task_id', taskId)
-    await db.from('resources').update({ status: 'completed', progress: 100, completed_at: new Date().toISOString() }).eq('task_id', taskId)
-    const { data: dw } = await db.from('daily_workouts').select('id').eq('task_id', taskId).in('status', ['pending', 'in_progress']).maybeSingle()
-    if (dw) {
-      const { markWorkoutComplete } = await import('@/features/health/workout-core')
-      await markWorkoutComplete(db, dw.id)
-    }
-    await answerCallbackQuery(token, cq.id, '✅ Marked done!')
-    if (cq.message) await editMessageReplyMarkup(token, chatId, cq.message.message_id)
-  } else if (data.startsWith('undo:')) {
+  if (data.startsWith('undo:')) {
     const [, table, id] = data.split(':')
     if (isUndoableTable(table) && id) {
       const db = createServiceClient()

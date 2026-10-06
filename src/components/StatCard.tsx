@@ -13,7 +13,7 @@ interface StatCardProps {
 }
 
 // The one stat tile for every page (UI v2.2a, 2026-09-24) — replaces five
-// drifted variants (centered big-number tiles on Planner/Learning, local
+// drifted variants (centered big-number tiles on Learning, local
 // StatTile copies on Health/Prep, inline markup on Finance/Coding). Matches
 // the Claude Design source's tile: uppercase 11px label on top, 20px bold
 // value, optional sub-line, left-aligned.

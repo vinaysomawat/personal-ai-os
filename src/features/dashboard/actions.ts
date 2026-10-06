@@ -9,7 +9,6 @@ import { getActiveWorkout, computeWorkoutStats } from '@/features/health/workout
 import { computeHealthPlan } from '@/features/health/calculations'
 import type { Workout } from '@/features/health/types'
 import { rankSignals, type Signal } from '@/lib/signals'
-import { checkOverdueTasks, checkHighPriorityPending } from '@/features/planner/signals'
 import { checkInterviewStage, checkQuizNeedsRevision, checkQuizWeakArea, checkHighValueJobAlert } from '@/features/career/signals'
 import { daysSinceLastQuiz, topWeakSubtopic } from '@/features/career/quiz-calculations'
 import { checkBudget } from '@/features/finance/signals'
@@ -37,8 +36,6 @@ export interface TopAction {
 }
 
 interface TopActionInput {
-  today: string
-  pendingTasks: { text: string; priority: string; due_date: string | null }[]
   applications: { status: string }[]
   monthSpend: number
   monthBudget: number
@@ -58,13 +55,11 @@ interface TopActionInput {
 // module's signals.ts (see src/lib/signals.ts) rather than being hand-rolled
 // here, so new modules can plug into Today's Focus without touching this file.
 function computeTopActions(input: TopActionInput): TopAction[] {
-  const { today, pendingTasks, applications, monthSpend, monthBudget, todayMetric, codingQuestionPending, codingStaleRevisionCount, daysSinceLastQuiz, workoutPending, codingWeakAreas, careerTopWeakSubtopic, topJobAlert } = input
+  const { applications, monthSpend, monthBudget, todayMetric, codingQuestionPending, codingStaleRevisionCount, daysSinceLastQuiz, workoutPending, codingWeakAreas, careerTopWeakSubtopic, topJobAlert } = input
 
   const signals = [
-    checkOverdueTasks(pendingTasks, today),
     checkInterviewStage(applications),
     checkBudget(monthSpend, monthBudget),
-    checkHighPriorityPending(pendingTasks, today),
     checkQuestionPending(codingQuestionPending),
     checkWorkoutPending(workoutPending),
     checkNoMetricsToday(todayMetric),
@@ -87,7 +82,7 @@ export async function getDashboardData() {
   const since30 = daysAgoIST(30)
 
   if (!user) return {
-    pendingTasks: [], recentApplications: [], botActivity: [],
+    recentApplications: [], botActivity: [],
     scores: { health: 0, finance: 50, career: 0, learning: 0, projects: 0, life: 0 },
     scoreTips: { health: '', finance: '', career: '', learning: '', projects: '' },
     scoreBreakdown: {
@@ -100,7 +95,7 @@ export async function getDashboardData() {
     lifeDelta: null as number | null,
     todayHealth: null,
     scoreHistory: [] as { date: string; life: number; health: number; finance: number; career: number; learning: number; projects: number }[],
-    stats: { pendingTaskCount: 0, overdueCount: 0, activeApplications: 0, workoutsToday: 0, monthSpend: 0, monthBudget: 0, learningInProgress: 0, codingSolved30d: 0, workoutStreak: 0 },
+    stats: { activeApplications: 0, workoutsToday: 0, monthSpend: 0, monthBudget: 0, learningInProgress: 0, codingSolved30d: 0, workoutStreak: 0 },
     codingQuestionPending: false,
     workoutCategory: null as string | null,
     aiBudget: { callsToday: 0, costTodayUsd: 0, callsMonth: 0, costMonthUsd: 0, cacheHitRateMonth: 0 },
@@ -113,17 +108,16 @@ export async function getDashboardData() {
   }
 
   const [
-    tasksRes, appsRes, workoutsRes,
+    appsRes, workoutsRes,
     expensesRes, budgetsRes, resourcesRes,
     botLogsRes, healthMetricRes, careerProfileRes, skillsRes,
     aiUsageMonthRes, codingTodayRows, activeWorkout, codingSolved30dRes,
-    codingCompletionsRes, quizAttemptsRes, tasksDueTodayRes, workoutCompletedTodayRes,
+    codingCompletionsRes, quizAttemptsRes, workoutCompletedTodayRes,
     recentPatterns, financialGoalsRes, codingHistoryForWeakAreas,
     workoutStats, astrologyProfileRes, panchangTodayRes, topJobAlertsRes,
     healthProfileRes, healthMetricsHistoryRes, allApplicationsRes, jobAlerts30dRes,
     { data: historyData },
   ] = await Promise.all([
-    supabase.from('tasks').select('id, text, done, priority, due_date').eq('user_id', user.id).eq('done', false).order('created_at', { ascending: false }).limit(5),
     supabase.from('applications').select('id, company, role, status, applied_at').eq('user_id', user.id).order('created_at', { ascending: false }).limit(5),
     supabase.from('workouts').select('id').eq('user_id', user.id).eq('date', today),
     supabase.from('expenses').select('amount, date').eq('user_id', user.id).gte('date', monthStart),
@@ -139,7 +133,6 @@ export async function getDashboardData() {
     supabase.from('coding_daily_questions').select('id', { count: 'exact', head: true }).eq('user_id', user.id).eq('completed', true).gte('assigned_date', since30),
     supabase.from('coding_daily_questions').select('question_id, completed, completed_at').eq('user_id', user.id).eq('completed', true),
     supabase.from('quiz_attempts').select('created_at, weak_areas').eq('user_id', user.id),
-    supabase.from('tasks').select('id, text, done').eq('user_id', user.id).eq('due_date', today),
     supabase.from('daily_workouts').select('id').eq('user_id', user.id).eq('status', 'completed').gte('completed_at', istMidnightUtc()).limit(1),
     getRecentPatterns(supabase, user.id),
     supabase.from('financial_goals').select('name, target_amount, current_amount, target_date').eq('user_id', user.id).order('priority', { ascending: true }),
@@ -172,7 +165,6 @@ export async function getDashboardData() {
       .eq('user_id', user.id).gte('date', daysAgoIST(30)).order('date', { ascending: true }),
   ])
 
-  const pendingTasks = tasksRes.data ?? []
   const applications = appsRes.data ?? []
   const workoutsToday = workoutsRes.data ?? []
   const expenses = expensesRes.data ?? []
@@ -443,7 +435,6 @@ export async function getDashboardData() {
   const expenseLoggedToday = (expensesRes.data ?? []).some(e => (e as { date: string }).date === today)
 
   const todayProgress = computeTodayProgress({
-    tasksDueToday: tasksDueTodayRes.data ?? [],
     metricsLoggedToday,
     workoutStatus,
     codingPicks: codingTodayRows.map(r => ({ completed: r.completed, completedToday: !!r.completed_at && toISTDateStr(r.completed_at) === today })),
@@ -472,13 +463,12 @@ export async function getDashboardData() {
     .find(j => !appliedCompanies.has(j.company.toLowerCase())) ?? null
 
   const topActions = computeTopActions({
-    today, pendingTasks, applications, monthSpend, monthBudget, todayMetric, workoutPending,
+    applications, monthSpend, monthBudget, todayMetric, workoutPending,
     codingQuestionPending, codingStaleRevisionCount, daysSinceLastQuiz: daysSinceLastQuizAttempt,
     codingWeakAreas, careerTopWeakSubtopic, topJobAlert,
   })
 
   return {
-    pendingTasks,
     recentApplications: applications.slice(0, 3),
     botActivity: botLogsRes.data ?? [],
     todayHealth: todayMetric,
@@ -497,8 +487,6 @@ export async function getDashboardData() {
     lifeDelta,
     scoreTips,
     stats: {
-      pendingTaskCount: pendingTasks.length,
-      overdueCount: pendingTasks.filter(t => t.due_date && t.due_date < today).length,
       activeApplications: activeApps,
       workoutsToday: workoutsToday.length,
       monthSpend, monthBudget,

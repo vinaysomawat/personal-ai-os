@@ -4,7 +4,6 @@ import { sendMessage } from '@/lib/telegram/send'
 import { generateAssignmentForUser } from '@/features/coding/daily-core'
 import { getDailyTip } from '@/lib/daily-tip'
 import { logCronRun } from '@/lib/cron-log'
-import { expireStaleAutoTasks } from '@/lib/stale-tasks'
 
 const CHAT_ID = process.env.TELEGRAM_ALLOWED_CHAT_ID!
 const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN_CODING!
@@ -23,13 +22,9 @@ export async function GET(req: Request) {
   const user = users?.users?.[0]
   if (!user) return NextResponse.json({ error: 'No user' }, { status: 404 })
 
-  // Before the notify check below, so Planner cleanup runs even when the
-  // Telegram push is turned off.
-  const expiredTasks = await expireStaleAutoTasks(supabase, user.id)
-
   const { data: settings } = await supabase.from('coding_settings').select('telegram_notify').eq('user_id', user.id).single()
   if (settings?.telegram_notify === false) {
-    return NextResponse.json({ ok: true, notified: false, expiredTasks })
+    return NextResponse.json({ ok: true, notified: false })
   }
 
   const [assignment, tip] = await Promise.all([

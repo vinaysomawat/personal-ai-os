@@ -10,7 +10,7 @@ import type { ReminderSlot } from './types'
 
 // Settings shows every reminder (active or paused) so the toggle below has
 // something to switch back on — actual Telegram delivery (src/lib/reminders.ts,
-// the Telegram planner module) queries this same table directly with its own
+// the Telegram Daily bot, module key 'planner') queries this same table directly with its own
 // .eq('active', true) filter, so pausing here never touches delivery logic.
 export async function getReminders() {
   const supabase = await createClient()
@@ -144,6 +144,7 @@ export async function exportAllData() {
   return {
     exported_at: new Date().toISOString(),
     account: { email: user.email },
+    // Planner was removed 2026-10-07; its tasks stay in the DB and the backup.
     planner: { tasks: tasks.data ?? [] },
     career: {
       applications: applications.data ?? [], profile: careerProfile.data ?? null,

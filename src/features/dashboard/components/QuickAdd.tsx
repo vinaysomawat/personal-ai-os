@@ -1,14 +1,13 @@
 'use client'
 
 import { useState, useTransition, useRef, useEffect } from 'react'
-import { Plus, X, CalendarDays, HeartPulse, DollarSign } from 'lucide-react'
-import { addTask } from '@/features/planner/actions'
+import { Plus, X, HeartPulse, DollarSign } from 'lucide-react'
 import { addExpense } from '@/features/finance/actions'
 import { todayIST } from '@/lib/date'
 import { upsertTodayMetric } from '@/features/health/actions'
 import { useEscapeKey } from '@/lib/use-escape-key'
 
-type Mode = null | 'task' | 'expense' | 'metric'
+type Mode = null | 'expense' | 'metric'
 
 const METRIC_OPTIONS = [
   { value: 'weight_kg',    label: 'Weight (kg)' },
@@ -32,14 +31,6 @@ export default function QuickAdd() {
   useEscapeKey(() => open && reset())
 
   const flash = () => { setDone(true); setTimeout(reset, 800) }
-
-  const handleTask = (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault()
-    const fd = new FormData(e.currentTarget)
-    const text = fd.get('text') as string
-    const priority = fd.get('priority') as 'high' | 'medium' | 'low'
-    startTransition(async () => { await addTask(text, priority); flash() })
-  }
 
   const handleExpense = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
@@ -75,15 +66,14 @@ export default function QuickAdd() {
           <div className="bg-surface-1 border border-surface-3 rounded-2xl w-full max-w-sm animate-in fade-in zoom-in-95 duration-200">
             <div className="flex items-center justify-between px-5 pt-5 pb-4 border-b border-surface-3">
               <p className="text-sm font-semibold text-fg-primary">
-                {mode === 'task' ? 'Add Task' : mode === 'expense' ? 'Add Expense' : mode === 'metric' ? 'Log Metric' : 'Quick Add'}
+                {mode === 'expense' ? 'Add Expense' : mode === 'metric' ? 'Log Metric' : 'Quick Add'}
               </p>
               <button onClick={reset} aria-label="Close" className="p-1.5 -m-1.5 text-fg-tertiary hover:text-fg-secondary"><X size={16} /></button>
             </div>
 
             {!mode && (
-              <div className="p-4 grid grid-cols-3 gap-2">
+              <div className="p-4 grid grid-cols-2 gap-2">
                 {[
-                  { key: 'task',    icon: CalendarDays, label: 'Task',    color: 'bg-blue-500/10 text-blue-400' },
                   { key: 'expense', icon: DollarSign,   label: 'Expense', color: 'bg-good-soft text-good' },
                   { key: 'metric',  icon: HeartPulse,   label: 'Metric',  color: 'bg-risk-soft text-risk' },
                 ].map(({ key, icon: Icon, label, color }) => (
@@ -94,20 +84,6 @@ export default function QuickAdd() {
                   </button>
                 ))}
               </div>
-            )}
-
-            {mode === 'task' && (
-              <form onSubmit={handleTask} className="p-4 space-y-3">
-                <input ref={inputRef} name="text" required placeholder="Task description..." className="w-full bg-surface-2 border border-surface-3 rounded-lg px-3 py-2.5 text-sm text-fg-primary placeholder-fg-quaternary outline-none focus:border-accent transition-colors" />
-                <select name="priority" className="w-full bg-surface-2 border border-surface-3 rounded-lg px-3 py-2.5 text-sm text-fg-secondary outline-none focus:border-accent">
-                  <option value="medium">Medium priority</option>
-                  <option value="high">High priority</option>
-                  <option value="low">Low priority</option>
-                </select>
-                <button type="submit" disabled={isPending || done} className="w-full py-2.5 rounded-lg bg-accent text-white text-sm font-medium disabled:opacity-60 active:scale-95 transition-all">
-                  {done ? '✓ Added!' : isPending ? 'Adding...' : 'Add Task'}
-                </button>
-              </form>
             )}
 
             {mode === 'expense' && (

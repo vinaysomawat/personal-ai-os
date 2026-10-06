@@ -41,15 +41,7 @@ export default function EveningReflection() {
           {[90, 75, 85].map((w, i) => <div key={i} className="h-3 rounded bg-surface-2 animate-pulse" style={{ width: `${w}%` }} />)}
         </div>
       ) : (
-        <>
-          <p className="text-sm text-fg-secondary leading-relaxed whitespace-pre-wrap">{result?.reflection}</p>
-          {result?.tomorrowsPriority && (
-            <p className="flex gap-2 text-xs text-fg-secondary mt-3 pt-3 border-t border-surface-3">
-              <span className="shrink-0">🎯</span>
-              <span><span className="font-semibold text-fg-primary">Tomorrow&apos;s top priority:</span> {result.tomorrowsPriority}</span>
-            </p>
-          )}
-        </>
+        <p className="text-sm text-fg-secondary leading-relaxed whitespace-pre-wrap">{result?.reflection}</p>
       )}
     </Card>
   )

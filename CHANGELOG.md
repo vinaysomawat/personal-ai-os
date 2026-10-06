@@ -3,6 +3,12 @@
 One line per shipped change, newest first. Sourced from commit messages —
 append here whenever you deploy, same cadence as the version bump.
 
+## 2026-10-07
+
+- **v3.0 — Planner removed.** The task list, its nav item, Quick Add's Task option, the Plan Coach and the Executive Summary are gone. Coding picks, daily reads and workouts no longer create Planner tasks, and tasks no longer feed Daily Mission, Needs Attention, the Brain, the briefing, the evening check-in or the evening reflection. The Planner Telegram bot is now the **Daily** bot (briefing, digests, reminders; all scheduled messages unchanged). Task data is kept in the database and the export.
+- Prep: **Mock Round** replaces Flashcards — timed Frontend screen / Behavioral / System design rounds over the Question Bank, unseen questions first, with key points and an AI interviewer review on each answer afterwards. Today's Prep and Job Hunt Mode schedule a daily round.
+- Prep: no more Missed / Partial / Confident grading anywhere — every question is just Skip or Next, with AI review on request. Coverage shows practiced/total.
+
 ## 2026-09-24
 
 - UI v2.2a: Dashboard loads ~1s faster (score-history query batched, score write deferred until after the response); every page has its own layout-matched loading skeleton; one shared page header and one stat-tile style (matching the design) across all pages, with extra detail lines on Finance/Coding/Health tiles; cards no longer stretch into empty space; informational text moved to a readable-contrast color; Settings shows "Astrology Daily" instead of a raw job id.

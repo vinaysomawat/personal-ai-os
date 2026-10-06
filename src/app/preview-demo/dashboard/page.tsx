@@ -4,11 +4,6 @@ import { todayIST, daysAgoIST } from '@/lib/date'
 const today = todayIST()
 
 const dummyData = {
-  pendingTasks: [
-    { id: '1', text: 'Finish system design notes', done: false, priority: 'high', due_date: today },
-    { id: '2', text: 'Ship onboarding flow PR', done: false, priority: 'medium', due_date: null },
-    { id: '3', text: 'Book dentist appointment', done: false, priority: 'low', due_date: null },
-  ],
   recentApplications: [
     { id: '1', company: 'Acme Corp', role: 'Senior Frontend Engineer', status: 'interview', applied_at: today },
     { id: '2', company: 'Globex', role: 'Staff Engineer', status: 'applied', applied_at: today },
@@ -40,7 +35,7 @@ const dummyData = {
     projects: 'Maxed out — consistent practice',
   },
   stats: {
-    pendingTaskCount: 3, overdueCount: 1, activeApplications: 2, workoutsToday: 1,
+    activeApplications: 2, workoutsToday: 1,
     monthSpend: 32000, monthBudget: 45000, learningInProgress: 2, codingSolved30d: 19,
     workoutStreak: 4,
   },
@@ -48,7 +43,6 @@ const dummyData = {
   workoutCategory: 'Push Day',
   aiBudget: { callsToday: 6, costTodayUsd: 0.042, callsMonth: 118, costMonthUsd: 1.86, cacheHitRateMonth: 41 },
   topActions: [
-    { emoji: '⚡', text: '1 high-priority task pending', href: '/planner' },
     { emoji: '🎯', text: '1 application in interview stage', href: '/career' },
     { emoji: '💻', text: "Today's coding question still open", href: '/coding' },
   ],

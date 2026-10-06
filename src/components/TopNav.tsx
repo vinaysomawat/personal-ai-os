@@ -4,7 +4,7 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { useRouter, usePathname } from 'next/navigation'
 import {
-  LayoutDashboard, CalendarDays, Briefcase, DollarSign, HeartPulse,
+  LayoutDashboard, Briefcase, DollarSign, HeartPulse,
   BookOpen, Code2, Sun, Moon, ChevronDown, MoreHorizontal, Target,
 } from 'lucide-react'
 import { useTheme } from './ThemeProvider'
@@ -12,7 +12,7 @@ import { useAIAdvisorTrigger } from './AIAdvisorProvider'
 import ProfileMenu from './ProfileMenu'
 import pkg from '../../package.json'
 
-// Desktop top nav — 7 items; Settings lives in the profile dropdown instead
+// Desktop top nav — 7 items (Planner removed 2026-10-07); Settings lives in the profile dropdown instead
 // (matching the design source, which dropped it from the top-level nav list).
 // Astrology also lives in the profile dropdown (2026-08-13 design decision)
 // rather than as a peer module pill — it's a different category
@@ -21,7 +21,6 @@ const MODULES = [
   { label: 'Dashboard', to: '/dashboard', icon: LayoutDashboard },
   // v2.0: Prep — the daily interview-prep session hub (ROADMAP-v2.md).
   { label: 'Prep', to: '/prep', icon: Target },
-  { label: 'Planner', to: '/planner', icon: CalendarDays },
   { label: 'Career', to: '/career', icon: Briefcase },
   { label: 'Finance', to: '/finance', icon: DollarSign },
   { label: 'Health', to: '/health', icon: HeartPulse },
@@ -39,7 +38,6 @@ const MOBILE_PRIMARY = [
 ]
 
 const MOBILE_MORE = [
-  { label: 'Planner', to: '/planner', icon: '📋' },
   { label: 'Career', to: '/career', icon: '💼' },
   { label: 'Learning', to: '/learning', icon: '📚' },
   { label: 'Coding', to: '/coding', icon: '💻' },

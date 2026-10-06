@@ -1,8 +1,7 @@
 import type { PrepBlock } from './types'
+import { formatMinutes } from './mock'
 
 export interface PrepPlanContext {
-  dueCards: number
-  totalCards: number
   // Weakest readiness area that maps to a quiz topic (for quiz-based blocks).
   weakestTopic: { area: string; topic: string } | null
   activeRead: { title: string } | null
@@ -27,10 +26,6 @@ export function buildPrepPlan(date: string, ctx: PrepPlanContext): { focus: stri
   const weekday = new Date(`${date}T00:00:00Z`).getUTCDay()
   const pick = (category: string) => ctx.codingPicks.find(p => p.category === category) ?? null
   const weakTopic = ctx.weakestTopic?.topic ?? 'JavaScript'
-
-  const warmup: PrepBlock = ctx.totalCards === 0
-    ? { key: 'warmup', label: 'Flashcards', detail: 'No cards yet — they\'re created from quiz questions you miss. Take any quiz to start.', minutes: 5, href: '/career', done: false }
-    : { key: 'warmup', label: 'Flashcards', detail: ctx.dueCards > 0 ? `Review ${Math.min(ctx.dueCards, 10)} due card${Math.min(ctx.dueCards, 10) === 1 ? '' : 's'}` : 'Nothing due — review a few ahead', minutes: weekday === 0 ? 15 : 5, href: '/prep?tab=flashcards', done: false }
 
   let main: PrepBlock
   switch (weekday) {
@@ -57,13 +52,12 @@ export function buildPrepPlan(date: string, ctx: PrepPlanContext): { focus: stri
     case 5:
       main = { key: 'main', label: 'Rehearse stories', detail: 'Answer 2 "Tell me about a time…" prompts out loud; get written feedback on one', minutes: 25, href: '/prep?tab=stories', done: false }
       break
-    case 6: {
-      const algo = pick('algorithm') ?? pick('system-design')
-      main = { key: 'main', label: 'Mock round', detail: `Timed: 10-question ${weakTopic} quiz${algo ? ` + "${algo.title}" in 25 min` : ''} — no notes`, minutes: 40, href: '/career', done: false }
+    case 6:
+      // Auto-ticks when a Mock Round is saved (key 'mock').
+      main = { key: 'mock', label: 'Mock round', detail: 'Frontend screen: 6 questions under the clock, no notes, then read the key points and get AI review', minutes: formatMinutes('screen'), href: '/prep?tab=mock&format=screen', done: false }
       break
-    }
     default:
-      main = { key: 'main', label: 'Weekly review', detail: 'Check the readiness matrix, pick next week\'s weakest area, and clear due flashcards', minutes: 15, href: '/prep', done: false }
+      main = { key: 'main', label: 'Weekly review', detail: 'Check the readiness matrix and mock-round history, pick next week\'s weakest area', minutes: 15, href: '/prep', done: false }
   }
 
   const concept: PrepBlock = ctx.activeRead
@@ -74,5 +68,5 @@ export function buildPrepPlan(date: string, ctx: PrepPlanContext): { focus: stri
     ? { key: 'lead', label: 'Leadership rep', detail: `Draft a STAR story for "${ctx.uncoveredCompetency}" — you have none yet`, minutes: 5, href: '/prep?tab=stories', done: false }
     : { key: 'lead', label: 'Leadership rep', detail: 'Rehearse one story, or strengthen your weakest-rated one', minutes: 5, href: '/prep?tab=stories', done: false }
 
-  return { focus: FOCUS[weekday], blocks: [warmup, main, concept, lead] }
+  return { focus: FOCUS[weekday], blocks: [main, concept, lead] }
 }

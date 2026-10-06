@@ -5,65 +5,64 @@ import { useRouter } from 'next/navigation'
 import { ExternalLink, Sparkles, Target } from 'lucide-react'
 import Card from '@/components/Card'
 import { modalInputClass, modalSaveButtonClass, modalCancelButtonClass } from '@/components/Modal'
-import { critiqueAnswer, gradeQuestion, savePrepSettings } from '../actions'
+import { answerQuestion, critiqueAnswer, savePrepSettings } from '../actions'
 import { BANK_CATEGORIES, type BankCategory, type CategoryCoverage, type CategoryQuota } from '../hunt'
-import type { BankQuestion, PrepSession, PrepSettings, QuestionStatus } from '../types'
+import { toISTDateStr } from '@/lib/date'
+import type { BankQuestion, PrepSession, PrepSettings } from '../types'
 
 const DIFFICULTY_ORDER: Record<string, number> = { medium: 0, easy: 1, hard: 2 }
-
-const GRADES: { status: QuestionStatus; label: string; hint: string; cls: string }[] = [
-  { status: 'missed', label: 'Missed', hint: 'couldn\'t answer', cls: 'border-risk-border text-risk hover:bg-risk-soft' },
-  { status: 'partial', label: 'Partial', hint: 'gaps or slow', cls: 'border-border-strong text-warn hover:bg-warn-soft' },
-  { status: 'confident', label: 'Confident', hint: 'interview-ready', cls: 'border-border-strong text-good hover:bg-good-soft' },
-]
 
 const isQuota = (c: CategoryCoverage | CategoryQuota): c is CategoryQuota => 'quota' in c
 
 // Unseen first (coverage is the goal before the target date) — in the
 // question's explicit sort_order when it has one (AI-native), else medium →
-// easy → hard; then questions graded partial/missed, oldest first. Skipped
-// questions go to the back for this visit.
+// easy → hard; then practiced ones, longest ago first. Skipped questions go
+// to the back for this visit.
 function buildQueue(bank: BankQuestion[], category: string, topic: string, skipped: string[]): BankQuestion[] {
   const qs = bank.filter(q => q.category === category && (!topic || q.topics.includes(topic)))
-  const unseen = qs.filter(q => !q.status).sort((a, b) =>
+  const unseen = qs.filter(q => !q.last_seen_at).sort((a, b) =>
     (a.sort_order ?? Infinity) - (b.sort_order ?? Infinity) ||
     (DIFFICULTY_ORDER[a.difficulty] ?? 1) - (DIFFICULTY_ORDER[b.difficulty] ?? 1) || a.title.localeCompare(b.title))
-  const review = qs.filter(q => q.status === 'partial' || q.status === 'missed').sort((a, b) => (a.last_seen_at ?? '').localeCompare(b.last_seen_at ?? ''))
+  const review = qs.filter(q => q.last_seen_at).sort((a, b) => a.last_seen_at!.localeCompare(b.last_seen_at!))
   const queue = [...unseen, ...review]
   const skip = (q: BankQuestion) => skipped.indexOf(q.id)
   return [...queue.filter(q => skip(q) < 0), ...queue.filter(q => skip(q) >= 0).sort((a, b) => skip(a) - skip(b))]
 }
 
 const PLACEHOLDER: Record<string, string> = {
-  quiz: 'Answer out loud first, then jot the key points (optional — saved on the flashcard if you miss it)',
-  'ai-native': 'Answer from real experience: the tool, the task, what the AI got wrong or right, and how YOU verified it. Saved with your grade.',
-  behavioral: 'Say it out loud first (60–120 s), then type it. Lead with the direct answer; no blame. Saved with your grade.',
+  quiz: 'Answer out loud first, then type it to get feedback (optional — saved when you hit Next)',
+  'ai-native': 'Answer from real experience: the tool, the task, what the AI got wrong or right, and how YOU verified it. Saved when you hit Next.',
+  behavioral: 'Say it out loud first (60–120 s), then type it. Lead with the direct answer; no blame. Saved when you hit Next.',
 }
 // Linkless (Prep-added) questions are answered in the app: a typed answer,
 // the key points on request, and AI interviewer feedback.
 const VERBAL_PLACEHOLDER: Record<string, string> = {
-  quiz: 'Answer out loud, then type it — the why, not just the what. Saved with your grade.',
+  quiz: 'Answer out loud, then type it — the why, not just the what. Saved when you hit Next.',
   'ui-coding': 'Build it in your editor, then summarize: component API, state, keyboard + ARIA, edge cases, trade-offs.',
   'system-design': 'Outline it (Requirements → Architecture → Data model → Interface → Optimizations), then paste or summarize here.',
 }
 
-export function QuestionsTab({ bank: initialBank, coverage, category: categoryParam, onCategoryChange, today, onGraded }: {
+export function QuestionsTab({ bank, setBank, coverage, category: categoryParam, onCategoryChange, today, onGraded }: {
+  // Owned by PrepView so Mock Round answers show up here too.
   bank: BankQuestion[]
+  setBank: (fn: (prev: BankQuestion[]) => BankQuestion[]) => void
   coverage: (CategoryCoverage | CategoryQuota)[]
   category: string | null
   onCategoryChange: (key: BankCategory) => void
   today: string
   onGraded: (session: PrepSession | null) => void
 }) {
-  const [bank, setBank] = useState(initialBank)
-  const [doneToday, setDoneToday] = useState<Record<string, number>>(() => Object.fromEntries(coverage.map(c => [c.key, c.doneToday])))
+  const doneToday = useMemo(() => {
+    const counts: Record<string, number> = {}
+    for (const q of bank) if (q.last_seen_at && toISTDateStr(q.last_seen_at) === today) counts[q.category] = (counts[q.category] ?? 0) + 1
+    return counts
+  }, [bank, today])
   const category: BankCategory = BANK_CATEGORIES.some(c => c.key === categoryParam) ? categoryParam as BankCategory : 'quiz'
   const setCategory = onCategoryChange
   const [topic, setTopic] = useState('')
   // Draft is per question so a review question starts from your last saved
   // answer (the AI-native answers are meant to be refined, not retyped).
   const [draft, setDraft] = useState<{ id: string; text: string } | null>(null)
-  const [opened, setOpened] = useState(false)
   const [skipped, setSkipped] = useState<string[]>([])
   const [feedback, setFeedback] = useState<{ id: string; text: string } | null>(null)
   const [showHints, setShowHints] = useState(false)
@@ -81,7 +80,7 @@ export function QuestionsTab({ bank: initialBank, coverage, category: categoryPa
   const current = queue[0] ?? null
   const answer = current && draft?.id === current.id ? draft.text : (current?.last_answer ?? '')
   const setAnswer = (text: string) => { if (current) setDraft({ id: current.id, text }) }
-  const resetCard = () => { setDraft(null); setOpened(false); setShowHints(false) }
+  const resetCard = () => { setDraft(null); setShowHints(false) }
   const currentFeedback = current && feedback?.id === current.id ? feedback.text : null
   const verbal = !!current && !current.url
 
@@ -96,22 +95,20 @@ export function QuestionsTab({ bank: initialBank, coverage, category: categoryPa
     const qs = bank.filter(q => q.category === key)
     return {
       total: qs.length,
-      seen: qs.filter(q => q.status).length,
-      confident: qs.filter(q => q.status === 'confident').length,
-      review: qs.filter(q => q.status === 'partial' || q.status === 'missed').length,
+      seen: qs.filter(q => q.last_seen_at).length,
     }
   }
   const totals = BANK_CATEGORIES.reduce((acc, c) => { const s = stats(c.key); return { seen: acc.seen + s.seen, total: acc.total + s.total } }, { seen: 0, total: 0 })
 
-  const grade = (status: QuestionStatus) => {
+  const next = () => {
     if (!current) return
     const id = current.id
     const text = answer.trim() || null
-    setBank(prev => prev.map(q => q.id === id ? { ...q, status, last_seen_at: new Date().toISOString(), last_answer: text ?? q.last_answer } : q))
-    setDoneToday(prev => ({ ...prev, [category]: (prev[category] ?? 0) + 1 }))
+    setBank(prev => prev.map(q => q.id === id ? { ...q, last_seen_at: new Date().toISOString(), last_answer: text ?? q.last_answer } : q))
     resetCard()
-    startTransition(async () => onGraded(await gradeQuestion(id, status, text)))
+    startTransition(async () => onGraded(await answerQuestion(id, text)))
   }
+  const skip = () => { if (!current) return; resetCard(); setSkipped(prev => [...prev.filter(x => x !== current.id), current.id]) }
 
   const quotaFor = (key: string) => { const c = coverage.find(x => x.key === key); return c && isQuota(c) ? c : null }
   const q = quotaFor(category)
@@ -140,12 +137,12 @@ export function QuestionsTab({ bank: initialBank, coverage, category: categoryPa
         {!current ? (
           <div className="text-center py-8">
             <p className="text-[22px] mb-1.5">✅</p>
-            <p className="text-[13px] text-fg-secondary">Every question here is graded confident. Pick another category or topic.</p>
+            <p className="text-[13px] text-fg-secondary">No questions here. Pick another category or topic.</p>
           </div>
         ) : (
           <div>
             <p className="text-[10.5px] font-bold uppercase tracking-[0.4px] text-fg-tertiary mb-1.5">
-              {current.status ? `Review · last ${current.status}` : 'New'} · {current.difficulty}{current.topics.length ? ` · ${current.topics.join(', ')}` : ''}
+              {current.last_seen_at ? `Review · last ${toISTDateStr(current.last_seen_at).slice(5)}` : 'New'} · {current.difficulty}{current.topics.length ? ` · ${current.topics.join(', ')}` : ''}
             </p>
             <p className="text-[15px] font-semibold text-fg-primary leading-snug">{current.title}</p>
             <textarea value={answer} onChange={e => setAnswer(e.target.value)} rows={verbal ? 7 : category === 'quiz' ? 4 : 3}
@@ -153,39 +150,26 @@ export function QuestionsTab({ bank: initialBank, coverage, category: categoryPa
               className="mt-3 w-full bg-surface-2 border border-surface-3 rounded-[8px] px-3 py-2 text-[13px] text-fg-primary outline-none focus:border-accent resize-y" />
             <div className="flex items-center justify-between gap-2 mt-2">
               {current.url ? (
-                <a href={current.url} target="_blank" rel="noopener noreferrer" onClick={() => setOpened(true)}
+                <a href={current.url} target="_blank" rel="noopener noreferrer"
                   className="text-[12px] text-accent hover:underline inline-flex items-center gap-1">
                   {category === 'quiz' ? 'Check the answer' : 'Open the problem'} <ExternalLink size={11} />
                 </a>
-              ) : verbal ? (
-                <span className="text-[11px] text-fg-tertiary tabular-nums">{answer.trim().split(/\s+/).filter(Boolean).length} words · aim for ~200</span>
+              ) : current.answer_hints ? (
+                <button onClick={() => setShowHints(v => !v)} className="text-[11.5px] text-accent hover:underline">{showHints ? 'Hide' : 'Show'} {category === 'quiz' ? 'key points' : category === 'ui-coding' ? 'requirements' : 'expected areas'}</button>
               ) : <span />}
-              <button onClick={() => { resetCard(); setSkipped(prev => [...prev.filter(x => x !== current.id), current.id]) }} className="text-[11.5px] text-fg-tertiary hover:text-fg-secondary">Skip for now</button>
+              <span className="text-[11px] text-fg-tertiary tabular-nums">{answer.trim().split(/\s+/).filter(Boolean).length} words{verbal ? ' · aim for ~200' : ''}</span>
             </div>
-            {verbal && (
-              <div className="mt-2">
-                <div className="flex items-center justify-between gap-2">
-                  {current.answer_hints ? (
-                    <button onClick={() => setShowHints(v => !v)} className="text-[11.5px] text-accent hover:underline">{showHints ? 'Hide' : 'Show'} {category === 'quiz' ? 'key points' : category === 'ui-coding' ? 'requirements' : 'expected areas'}</button>
-                  ) : <span />}
-                  <button onClick={getFeedback} disabled={reviewing || answer.trim().length < 40} className={`${modalSaveButtonClass} inline-flex items-center gap-1.5 !py-[7px]`}>
-                    <Sparkles size={13} /> {reviewing ? 'Reviewing…' : 'Get feedback'}
-                  </button>
-                </div>
-                {showHints && current.answer_hints && <p className="text-[12px] text-fg-secondary mt-1.5">Cover: {current.answer_hints}</p>}
-                {reviewing && <div className="space-y-2 mt-3">{[90, 70, 80].map((w, i) => <div key={i} className="h-3 rounded bg-surface-2 animate-pulse" style={{ width: `${w}%` }} />)}</div>}
-                {currentFeedback && !reviewing && <p className="mt-3 text-[13px] text-fg-secondary whitespace-pre-wrap leading-relaxed border-l-2 border-accent/40 pl-3">{currentFeedback}</p>}
-              </div>
-            )}
-            <div className={`grid grid-cols-3 gap-2 mt-3 ${opened || category !== 'quiz' ? '' : 'opacity-80'}`}>
-              {GRADES.map(g => (
-                <button key={g.status} onClick={() => grade(g.status)} className={`rounded-[8px] border py-2 text-[12.5px] font-semibold transition-colors ${g.cls}`}>
-                  {g.label}
-                  <span className="block text-[10.5px] font-normal text-fg-tertiary">{g.hint}</span>
-                </button>
-              ))}
+            {showHints && current.answer_hints && <p className="text-[12px] text-fg-secondary mt-1.5">Cover: {current.answer_hints}</p>}
+            {reviewing && <div className="space-y-2 mt-3">{[90, 70, 80].map((w, i) => <div key={i} className="h-3 rounded bg-surface-2 animate-pulse" style={{ width: `${w}%` }} />)}</div>}
+            {currentFeedback && !reviewing && <p className="mt-3 text-[13px] text-fg-secondary whitespace-pre-wrap leading-relaxed border-l-2 border-accent/40 pl-3">{currentFeedback}</p>}
+            <div className="flex items-center gap-2 mt-3">
+              <button onClick={getFeedback} disabled={reviewing || answer.trim().length < 40} title={answer.trim().length < 40 ? 'Type at least a few sentences first' : undefined}
+                className={`${modalCancelButtonClass} inline-flex items-center gap-1.5 !py-[7px] !text-accent disabled:opacity-50`}>
+                <Sparkles size={13} /> {reviewing ? 'Reviewing…' : 'AI review'}
+              </button>
+              <button onClick={skip} className={`${modalCancelButtonClass} !py-[7px] ml-auto`}>Skip</button>
+              <button onClick={next} className={`${modalSaveButtonClass} !py-[7px]`}>Next →</button>
             </div>
-            <p className="text-[11px] text-fg-tertiary mt-2">Partial and missed questions become flashcards, so they come back before your interview.</p>
           </div>
         )}
       </Card>
@@ -200,11 +184,10 @@ export function QuestionsTab({ bank: initialBank, coverage, category: categoryPa
                 <button onClick={() => setCategory(c.key)} className="w-full text-left">
                   <div className="flex items-baseline justify-between text-[12.5px] gap-2">
                     <span className="font-medium text-fg-primary">{c.label}</span>
-                    <span className="text-[11px] text-fg-tertiary tabular-nums">{s.seen}/{s.total} · <span className="text-good">{s.confident}✓</span> · <span className="text-warn">{s.review} review</span></span>
+                    <span className="text-[11px] text-fg-tertiary tabular-nums">{s.seen}/{s.total} · {s.total ? Math.round((s.seen / s.total) * 100) : 0}%</span>
                   </div>
                   <div className="h-[5px] rounded-[3px] bg-border mt-1 flex overflow-hidden">
-                    <div className="h-full bg-good" style={{ width: `${s.total ? (s.confident / s.total) * 100 : 0}%` }} />
-                    <div className="h-full bg-warn" style={{ width: `${s.total ? (s.review / s.total) * 100 : 0}%` }} />
+                    <div className="h-full bg-good" style={{ width: `${s.total ? (s.seen / s.total) * 100 : 0}%` }} />
                   </div>
                   {cq && <p className="text-[10.5px] text-fg-tertiary mt-0.5 tabular-nums">{cq.quota}/day · ~{cq.projectedSeen}/{s.total} seen by target ({s.total ? Math.round((cq.projectedSeen / s.total) * 100) : 0}%)</p>}
                 </button>

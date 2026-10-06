@@ -19,7 +19,6 @@ export interface TodayProgress {
 }
 
 export interface TodayProgressInput {
-  tasksDueToday: { id: string; text: string; done: boolean }[]
   metricsLoggedToday: boolean
   workoutStatus: 'completed' | 'pending' | 'none'
   // Every active coding pick (all slots, carried-over included), with
@@ -31,10 +30,6 @@ export interface TodayProgressInput {
 
 export function computeTodayProgress(input: TodayProgressInput): TodayProgress {
   const items: ProgressItem[] = []
-
-  for (const t of input.tasksDueToday) {
-    items.push({ key: `task-${t.id}`, label: t.text, done: t.done, href: '/planner' })
-  }
 
   items.push({ key: 'health-metrics', label: "Log today's health metrics", done: input.metricsLoggedToday, href: '/health' })
 

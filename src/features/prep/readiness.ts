@@ -36,7 +36,7 @@ function storyCoverage(stories: Story[], group: 'behavioral' | 'leadership'): { 
 // quiz scores (Career's computeReadiness) and self-reported coding outcomes
 // on matching topics over the last 90 days — or story coverage for the two
 // behavioral/leadership areas. null = no data yet.
-export function computeReadinessMatrix(quizAttempts: QuizAttempt[], codingHistory: CodingHistoryRow[], stories: Story[], aiNative: { total: number; seen: number; confident: number } | null = null, now = new Date()): ReadinessCell[] {
+export function computeReadinessMatrix(quizAttempts: QuizAttempt[], codingHistory: CodingHistoryRow[], stories: Story[], aiNative: { total: number; seen: number } | null = null, now = new Date()): ReadinessCell[] {
   const since = new Date(now.getTime() - CODING_WINDOW_DAYS * 86400000).toISOString()
   const recentCoding = codingHistory.filter(r => r.completed && r.completed_at && r.completed_at >= since && r.question)
 
@@ -50,12 +50,12 @@ export function computeReadinessMatrix(quizAttempts: QuizAttempt[], codingHistor
       }
     }
 
-    // AI-native: share of the section graded confident in the Question Bank.
+    // AI-native: share of the section practiced (no self-grades since 2026-10-07).
     if (area.key === 'ainative') {
       return {
         key: area.key, label: area.label, href: area.href,
-        score: aiNative && aiNative.seen > 0 ? Math.round((aiNative.confident / aiNative.total) * 100) : null,
-        basis: aiNative ? `${aiNative.confident}/${aiNative.total} confident` : 'No data yet',
+        score: aiNative && aiNative.seen > 0 ? Math.round((aiNative.seen / aiNative.total) * 100) : null,
+        basis: aiNative ? `${aiNative.seen}/${aiNative.total} practiced` : 'No data yet',
       }
     }
 
