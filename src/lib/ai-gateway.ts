@@ -41,6 +41,7 @@ export type AITask =
   | 'ai_native_critique'
   | 'answer_critique'
   | 'mock_round_review'
+  | 'prep_forecast'
 
 interface TaskConfig {
   model: string
@@ -112,6 +113,9 @@ const TASK_CONFIG: Record<AITask, TaskConfig> = {
   // Prep Mock Round — one review of every answer in a finished round (JSON),
   // stored on the round so it's never re-run; uncached.
   mock_round_review:      { model: HAIKU_MODEL,  cacheTTLSeconds: null,       fallback: BUDGET_FALLBACK },
+  // Prep War Mode's weekly "if you interviewed tomorrow" forecast (JSON),
+  // stored in prep_forecasts; Sunday cron or the Today tab's button.
+  prep_forecast:          { model: SONNET_MODEL, cacheTTLSeconds: SIX_HOURS,  fallback: BUDGET_FALLBACK },
 }
 
 // Static per-model pricing, USD per 1M tokens (Sonnet 4.6 / Haiku 4.5).

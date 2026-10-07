@@ -17,6 +17,11 @@ export default async function PrepPage({ searchParams }: { searchParams: Promise
       streak={data.streak}
       sessionsLast7={data.sessionsLast7}
       mockRounds={data.mockRounds}
+      war={data.war}
+      weakness={data.weakness}
+      revision={data.revision}
+      focusSessions={data.focusSessions}
+      forecast={data.forecast}
       stories={data.stories}
       rehearsals={data.rehearsals}
       readiness={data.readiness}

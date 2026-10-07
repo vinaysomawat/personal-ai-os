@@ -1,23 +1,22 @@
 'use client'
 
 import { useState, useTransition } from 'react'
-import Link from 'next/link'
-import { Check, Layers, MessageSquareQuote, Plus, Shuffle, Sparkles } from 'lucide-react'
+import { MessageSquareQuote, Plus, Shuffle, Sparkles } from 'lucide-react'
 import Card from '@/components/Card'
 import PageTabs from '@/components/PageTabs'
 import EmptyState from '@/components/EmptyState'
 import ConfirmDialog from '@/components/ConfirmDialog'
 import Modal, { modalLabelClass, modalInputClass, modalCancelButtonClass, modalSaveButtonClass } from '@/components/Modal'
-import { READINESS_CONFIG, type ReadinessTier } from '@/features/career/types'
 import { useEscapeKey } from '@/lib/use-escape-key'
 import { daysAgoIST, toISTDateStr } from '@/lib/date'
 import { formatOf, type MockRound } from '../mock'
-import { overallReadiness, weakestAreas } from '../readiness'
-import { togglePrepBlock, saveStory, deleteStory, rehearseStory, type StoryInput } from '../actions'
+import { startFocusSession, togglePrepBlock, saveStory, deleteStory, rehearseStory, type StoryInput } from '../actions'
 import { COMPETENCIES, REHEARSAL_PROMPTS, type BankQuestion, type CompetencyKey, type PrepSession, type PrepSettings, type ReadinessCell, type Story, type StoryRehearsal } from '../types'
 import type { CategoryCoverage, CategoryQuota } from '../hunt'
 import { HuntModeCard, QuestionsTab } from './QuestionsTab'
 import { MockTab } from './MockTab'
+import { FocusBar, FocusOverlay, ForecastCard, GatesCard, MissionCard, RevisionCard, WarHeader, WeaknessCard } from './WarRoom'
+import { focusSeconds, hm, type FocusSession, type Forecast, type RevisionItem, type TopicWeakness, type WarReadiness } from '../war'
 import PageHeader, { HeaderChip } from '@/components/PageHeader'
 import StatCard from '@/components/StatCard'
 
@@ -38,6 +37,11 @@ interface Props {
   streak: number
   sessionsLast7: number
   mockRounds: MockRound[]
+  war: WarReadiness
+  weakness: TopicWeakness[]
+  revision: RevisionItem[]
+  focusSessions: FocusSession[]
+  forecast: { date: string; forecast: Forecast } | null
   stories: Story[]
   rehearsals: StoryRehearsal[]
   readiness: ReadinessCell[]
@@ -45,11 +49,6 @@ interface Props {
   daysLeft: number | null
   coverage: (CategoryCoverage | CategoryQuota)[]
   bank: BankQuestion[]
-}
-
-function tierFor(score: number | null): ReadinessTier {
-  if (score === null) return 'not_started'
-  return score >= 80 ? 'strong' : score >= 60 ? 'ready' : score >= 40 ? 'developing' : 'needs_work'
 }
 
 export default function PrepView(props: Props) {
@@ -63,10 +62,32 @@ export default function PrepView(props: Props) {
   const [rehearsals, setRehearsals] = useState(props.rehearsals)
   const [, startTransition] = useTransition()
 
+  const [focusSessions, setFocusSessions] = useState(props.focusSessions)
+  const [bankTopic, setBankTopic] = useState('')
+  const [overlayHidden, setOverlayHidden] = useState(false)
+  const todayFocus = focusSessions.filter(f => f.date === props.today)
+  const focusedToday = Math.round(todayFocus.reduce((s, f) => s + focusSeconds(f), 0) / 60)
+  const activeFocus = focusSessions.find(f => f.status === 'active') ?? null
+  const upsertFocus = (f: FocusSession) => setFocusSessions(prev => [...prev.filter(x => x.id !== f.id), f])
+
+  // In-page links switch tabs (and the Questions category/topic or Mock
+  // format) instead of navigating.
+  const openHref = (href: string) => {
+    if (!href.startsWith('/prep?')) { window.location.href = href; return }
+    const p = new URLSearchParams(href.split('?')[1])
+    setTab(p.get('tab') as PrepTab)
+    if (p.get('cat')) { setBankCategory(p.get('cat')); setBankTopic('') }
+    if (p.get('format')) setMockFormat(p.get('format'))
+    setOverlayHidden(true)
+  }
+  const openTopic = (category: string, topic: string) => { setBankCategory(category); setBankTopic(topic); setTab('questions') }
+  const startFocus = (key: string) => {
+    if (activeFocus?.block_key === key) { setOverlayHidden(false); return }
+    startTransition(async () => { const f = await startFocusSession(key); if (f) { upsertFocus(f); setOverlayHidden(false) } })
+  }
+
   const lastRound = rounds[0] ?? null
   const roundsThisWeek = rounds.filter(r => toISTDateStr(r.created_at) >= daysAgoIST(6)).length
-  const overall = overallReadiness(props.readiness)
-  const weakest = weakestAreas(props.readiness)
   const coveredCompetencies = new Set(stories.filter(s => (s.strength ?? 3) >= 3).flatMap(s => s.competencies))
 
   const handleToggle = (key: string) => {
@@ -74,8 +95,6 @@ export default function PrepView(props: Props) {
     startTransition(async () => { const s = await togglePrepBlock(key); if (s) setSession(s) })
   }
 
-  const blocksDone = session?.blocks.filter(b => b.done).length ?? 0
-  const totalMinutes = session?.blocks.reduce((s, b) => s + b.minutes, 0) ?? 0
 
   return (
     <div className="space-y-3">
@@ -86,10 +105,10 @@ export default function PrepView(props: Props) {
       </>} />
 
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-[var(--grid-gap-sm)]">
-        <StatCard label="Interview readiness" value={`${overall}%`} sub={`${props.readiness.filter(c => c.score === null).length} blind spots`} valueClassName={overall >= 60 ? 'text-good' : overall >= 40 ? 'text-warn' : 'text-risk'} />
+        <StatCard label="Interview readiness" value={`${props.war.overall}%`} sub={props.war.ready ? 'all gates passed' : `not ready · ${props.war.blockers.length} blockers`} valueClassName={props.war.ready ? 'text-good' : props.war.overall >= 60 ? 'text-warn' : 'text-risk'} />
         <StatCard label="Mock rounds" value={roundsThisWeek} sub={lastRound ? `this week · last ${formatOf(lastRound.format).label} ${toISTDateStr(lastRound.created_at).slice(5)}${lastRound.review?.score != null ? ` · ${lastRound.review.score}/10` : ''}` : 'this week · none yet'} />
         <StatCard label="Story Bank" value={stories.length} sub={`${coveredCompetencies.size}/${COMPETENCIES.length} competencies covered`} />
-        <StatCard label="This week" value={`${props.sessionsLast7}/7`} sub="prep sessions completed" />
+        <StatCard label="Focused today" value={hm(focusedToday)} sub={`${hm(Math.round(focusSessions.reduce((s, f) => s + focusSeconds(f), 0) / 60))} last 7 days · ${props.sessionsLast7}/7 full days`} />
       </div>
 
       <PageTabs tabs={TABS} active={tab} onChange={setTab} />
@@ -97,70 +116,27 @@ export default function PrepView(props: Props) {
       {tab === 'today' && <HuntModeCard settings={props.settings} daysLeft={props.daysLeft} coverage={props.coverage} />}
 
       {tab === 'today' && (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-[var(--grid-gap)] items-start">
-          <Card title="Today's Prep" action={<span className="text-[11px] text-fg-tertiary tabular-nums">{blocksDone}/{session?.blocks.length ?? 0} · ~{totalMinutes} min</span>}>
-            {!session ? (
-              <EmptyState icon={Layers} message="Couldn't build today's session — try reloading." compact />
-            ) : (
-              <>
-                <div className="h-[5px] rounded-[3px] bg-border mb-3">
-                  <div className="h-full rounded-[3px] bg-good transition-all" style={{ width: `${(blocksDone / session.blocks.length) * 100}%` }} />
-                </div>
-                <ol className="flex flex-col gap-2">
-                  {session.blocks.map((b, i) => (
-                    <li key={b.key} className={`flex items-start gap-3 rounded-[10px] px-3 py-2.5 ${b.done ? 'bg-good-soft' : 'bg-surface-2'}`}>
-                      <button onClick={() => handleToggle(b.key)} aria-label={b.done ? `Mark ${b.label} not done` : `Mark ${b.label} done`} aria-pressed={b.done}
-                        className={`mt-0.5 w-5 h-5 rounded-[6px] border flex items-center justify-center shrink-0 transition-colors ${b.done ? 'bg-good border-good text-on-good' : 'border-border-strong hover:border-accent'}`}>
-                        {b.done && <Check size={12} strokeWidth={3} />}
-                      </button>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-baseline justify-between gap-2">
-                          <p className={`text-[13px] font-semibold ${b.done ? 'text-fg-tertiary line-through' : 'text-fg-primary'}`}>{i + 1}. {b.label}</p>
-                          <span className="text-[11px] text-fg-tertiary tabular-nums shrink-0">{b.minutes} min</span>
-                        </div>
-                        <p className="text-[12px] text-fg-secondary mt-0.5">{b.detail}</p>
-                      </div>
-                      <Link href={b.href} onClick={e => { if (b.href.startsWith('/prep?')) { e.preventDefault(); const p = new URLSearchParams(b.href.split('?')[1]); setTab(p.get('tab') as PrepTab); if (p.get('cat')) setBankCategory(p.get('cat')); if (p.get('format')) setMockFormat(p.get('format')) } }}
-                        className="shrink-0 text-[11.5px] text-accent hover:underline mt-0.5 whitespace-nowrap">Open →</Link>
-                    </li>
-                  ))}
-                </ol>
-                {session.completed_at && <p className="text-[12px] text-good font-semibold mt-3">✓ Session complete — see you tomorrow.</p>}
-              </>
-            )}
-          </Card>
-
-          <Card title="Interview Readiness" action={<span className="text-[11px] text-fg-tertiary">senior / lead FE loop</span>}>
-            <p className="text-[11.5px] text-fg-tertiary mb-2.5">
-              Next focus: {weakest.map(w => <span key={w.key} className="font-semibold text-fg-secondary">{w.label}</span>).reduce<React.ReactNode[]>((acc, el, i) => i ? [...acc, ' · ', el] : [el], [])}
-            </p>
-            <ul className="flex flex-col gap-1.5">
-              {props.readiness.map(c => {
-                const cfg = READINESS_CONFIG[tierFor(c.score)]
-                return (
-                  <li key={c.key}>
-                    <Link href={c.href} className="block rounded-md hover:bg-surface-2 px-1 -mx-1 py-0.5 transition-colors">
-                      <div className="flex items-center justify-between text-[12.5px] mb-1 gap-2">
-                        <span className="font-medium text-fg-primary truncate">{c.label}</span>
-                        <span className="text-[11px] text-fg-tertiary whitespace-nowrap">
-                          <span className="text-fg-tertiary hidden sm:inline">{c.basis} · </span><span className="font-semibold" style={{ color: c.score === null ? 'var(--text-tertiary)' : cfg.color }}>{c.score === null ? 'No data' : `${c.score}%`}</span>
-                        </span>
-                      </div>
-                      <div className="h-[5px] rounded-[3px] bg-border">
-                        <div className="h-full rounded-[3px]" style={{ width: `${c.score ?? 0}%`, background: cfg.color }} />
-                      </div>
-                    </Link>
-                  </li>
-                )
-              })}
-            </ul>
-          </Card>
-        </div>
+        <>
+          <WarHeader war={props.war} daysLeft={props.daysLeft} targetDate={props.settings.target_date} session={session} focusedMinutes={focusedToday} />
+          <div className="grid grid-cols-1 lg:grid-cols-[1fr_380px] gap-[var(--grid-gap)] items-start">
+            <div className="space-y-[var(--grid-gap)]">
+              <MissionCard session={session} focusSessions={todayFocus} onToggle={handleToggle} onStart={startFocus} onOpen={openHref} />
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-[var(--grid-gap)] items-start">
+                <RevisionCard items={props.revision} onOpen={openTopic} />
+                <WeaknessCard items={props.weakness} onOpen={openTopic} />
+              </div>
+            </div>
+            <div className="space-y-[var(--grid-gap)]">
+              <GatesCard cells={props.readiness} war={props.war} />
+              <ForecastCard forecast={props.forecast} today={props.today} />
+            </div>
+          </div>
+        </>
       )}
 
       {/* Kept mounted so answers made here survive switching tabs. */}
       <div hidden={tab !== 'questions'}>
-        <QuestionsTab bank={bank} setBank={setBank} coverage={props.coverage} category={bankCategory} onCategoryChange={setBankCategory} today={props.today} onGraded={s => { if (s) setSession(s) }} />
+        <QuestionsTab bank={bank} setBank={setBank} topic={bankTopic} onTopicChange={setBankTopic} coverage={props.coverage} category={bankCategory} onCategoryChange={setBankCategory} today={props.today} onGraded={s => { if (s) setSession(s) }} />
       </div>
 
       {tab === 'mock' && (
@@ -186,6 +162,12 @@ export default function PrepView(props: Props) {
           onRehearsed={r => setRehearsals(prev => [r, ...prev])}
         />
       )}
+      {activeFocus && !overlayHidden && (
+        <FocusOverlay focus={activeFocus} block={session?.blocks.find(b => b.key === activeFocus.block_key) ?? null}
+          onChange={upsertFocus} onOpen={openHref}
+          onEnded={(f, s) => { if (f) upsertFocus(f); if (s) setSession(s) }} />
+      )}
+      {activeFocus && overlayHidden && <FocusBar focus={activeFocus} onShow={() => setOverlayHidden(false)} />}
     </div>
   )
 }

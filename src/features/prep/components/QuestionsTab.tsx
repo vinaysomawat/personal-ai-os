@@ -42,10 +42,13 @@ const VERBAL_PLACEHOLDER: Record<string, string> = {
   'system-design': 'Outline it (Requirements → Architecture → Data model → Interface → Optimizations), then paste or summarize here.',
 }
 
-export function QuestionsTab({ bank, setBank, coverage, category: categoryParam, onCategoryChange, today, onGraded }: {
+export function QuestionsTab({ bank, setBank, topic, onTopicChange: setTopic, coverage, category: categoryParam, onCategoryChange, today, onGraded }: {
   // Owned by PrepView so Mock Round answers show up here too.
   bank: BankQuestion[]
   setBank: (fn: (prev: BankQuestion[]) => BankQuestion[]) => void
+  // Owned by PrepView so the War Room's revision queue can deep-link a topic.
+  topic: string
+  onTopicChange: (topic: string) => void
   coverage: (CategoryCoverage | CategoryQuota)[]
   category: string | null
   onCategoryChange: (key: BankCategory) => void
@@ -59,7 +62,6 @@ export function QuestionsTab({ bank, setBank, coverage, category: categoryParam,
   }, [bank, today])
   const category: BankCategory = BANK_CATEGORIES.some(c => c.key === categoryParam) ? categoryParam as BankCategory : 'quiz'
   const setCategory = onCategoryChange
-  const [topic, setTopic] = useState('')
   // Draft is per question so a review question starts from your last saved
   // answer (the AI-native answers are meant to be refined, not retyped).
   const [draft, setDraft] = useState<{ id: string; text: string } | null>(null)
@@ -104,9 +106,11 @@ export function QuestionsTab({ bank, setBank, coverage, category: categoryParam,
     if (!current) return
     const id = current.id
     const text = answer.trim() || null
-    setBank(prev => prev.map(q => q.id === id ? { ...q, last_seen_at: new Date().toISOString(), last_answer: text ?? q.last_answer } : q))
+    const rating = feedback?.id === id ? feedback.rating : null
+    const now = new Date().toISOString()
+    setBank(prev => prev.map(q => q.id === id ? { ...q, last_seen_at: now, last_answer: text ?? q.last_answer, ...(rating !== null ? { last_rating: rating, last_rated_at: now } : {}) } : q))
     resetCard()
-    startTransition(async () => onGraded(await answerQuestion(id, text)))
+    startTransition(async () => onGraded(await answerQuestion(id, text, rating)))
   }
   const skip = () => { if (!current) return; resetCard(); setSkipped(prev => [...prev.filter(x => x !== current.id), current.id]) }
 

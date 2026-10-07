@@ -46,15 +46,19 @@ export function daysLeft(today: string, targetDate: string): number {
   return Math.max(1, Math.round(ms / 86400000) + 1)
 }
 
-export function computeQuotas(coverage: CategoryCoverage[], hoursPerDay: number, days: number): CategoryQuota[] {
+// War Mode (2026-10-07): quotas are sized by time, not by "unseen ÷ days
+// left" — the hours are fixed, re-answering weak questions counts, and the
+// old cap left most of a long runway's day empty. Each category's share is
+// scaled by its readiness gap (weights from war.ts's categoryWeights) and
+// renormalized, so weak areas get more of the same day.
+export function computeQuotas(coverage: CategoryCoverage[], hoursPerDay: number, days: number, weights: Record<string, number> = {}): CategoryQuota[] {
   const dayMinutes = hoursPerDay * 60
+  const baseTotal = BANK_CATEGORIES.reduce((s, c) => s + c.share, 0)
+  const weightedTotal = BANK_CATEGORIES.reduce((s, c) => s + c.share * (weights[c.key] ?? 1), 0)
   return BANK_CATEGORIES.map(cat => {
     const c = coverage.find(x => x.key === cat.key)!
-    const capacity = Math.max(1, Math.floor((dayMinutes * cat.share) / cat.minutesPerQ))
-    // Unseen left at the start of today (today's practice already counted in seen).
-    const remaining = Math.max(0, c.total - c.seen + c.doneToday)
-    const needed = Math.ceil(remaining / days)
-    const quota = Math.min(capacity, needed)
+    const share = (cat.share * (weights[cat.key] ?? 1) * baseTotal) / weightedTotal
+    const quota = Math.max(1, Math.floor((dayMinutes * share) / cat.minutesPerQ))
     return {
       ...c,
       quota,
@@ -70,29 +74,40 @@ export function buildHuntPlan(ctx: {
   date: string
   quotas: CategoryQuota[]
   uncoveredCompetency: string | null
+  // 0–1 readiness gap per category (war.ts) — bank blocks run weakest first.
+  gaps?: Record<string, number>
+  // Weakest theory topic, named in the Theory block.
+  focusTopic?: string | null
+  mockDoneToday?: boolean
 }): { focus: string; blocks: PrepBlock[] } {
   const dayMinutes = ctx.hoursPerDay * 60
   const format = mockFormatForDay(ctx.date)
-  const blocks: PrepBlock[] = [{
-    key: 'mock', label: `Mock round · ${formatOf(format).label}`, minutes: formatMinutes(format),
-    detail: 'Timed, no notes — yesterday\'s misses come back first. Grade every answer after.',
-    href: `/prep?tab=mock&format=${format}`, done: false,
-  }]
-  for (const q of ctx.quotas) {
-    if (q.quota === 0) continue
-    const cat = BANK_CATEGORIES.find(c => c.key === q.key)!
-    blocks.push({
-      key: `bank:${q.key}`, label: `${cat.label} × ${q.quota}`, minutes: q.minutes,
-      detail: q.key === 'quiz'
-        ? `Answer ${q.quota} theory questions out loud, then check — misses come back in mock rounds`
+  const gap = (key: string) => ctx.gaps?.[key] ?? 0
+  const pct = (key: string) => `${Math.round((1 - gap(key)) * 100)}% of gate`
+  const bankBlocks: PrepBlock[] = [...ctx.quotas].filter(q => q.quota > 0)
+    .sort((a, b) => gap(b.key) - gap(a.key))
+    .map(q => {
+      const cat = BANK_CATEGORIES.find(c => c.key === q.key)!
+      const base = q.key === 'quiz'
+        ? `Answer ${q.quota} theory questions out loud, type the gist, get the AI rating${ctx.focusTopic ? ` — focus: ${ctx.focusTopic}` : ''}`
         : q.key === 'ai-native'
-        ? `Answer ${q.quota} AI-native questions from real experience, get interviewer feedback, tighten the answer`
+        ? `Answer ${q.quota} AI-native questions from real experience, get the AI rating, tighten the answer`
         : q.key === 'behavioral'
-        ? `Say ${q.quota} answer${q.quota === 1 ? '' : 's'} out loud (tell me about yourself, the layoff, salary…), get feedback, tighten`
-        : `Solve ${q.quota} unseen ${cat.label.toLowerCase()} question${q.quota === 1 ? '' : 's'}, then hit Next`,
-      href: `/prep?tab=questions&cat=${q.key}`, done: q.doneToday >= q.quota,
+        ? `Say ${q.quota} answer${q.quota === 1 ? '' : 's'} out loud (tell me about yourself, the layoff, salary…), get rated, tighten`
+        : `Solve ${q.quota} ${cat.label} question${q.quota === 1 ? '' : 's'}, then hit Next`
+      return {
+        key: `bank:${q.key}`, label: `${cat.label} × ${q.quota}`, minutes: q.minutes,
+        detail: `${base} (${pct(q.key)})`,
+        href: `/prep?tab=questions&cat=${q.key}`, done: q.doneToday >= q.quota,
+      }
     })
+  const mock: PrepBlock = {
+    key: 'mock', label: `Mock round · ${formatOf(format).label}`, minutes: formatMinutes(format),
+    detail: 'Timed, no notes. Run the one-click AI review after.',
+    href: `/prep?tab=mock&format=${format}`, done: !!ctx.mockDoneToday,
   }
+  // Weakest two areas first, then the mock round, then the rest.
+  const blocks: PrepBlock[] = [...bankBlocks.slice(0, 2), mock, ...bankBlocks.slice(2)]
   blocks.push({
     key: 'lead', label: 'STAR stories', minutes: Math.round(dayMinutes * BEHAVIORAL_SHARE),
     detail: ctx.uncoveredCompetency ? `Write a STAR story for "${ctx.uncoveredCompetency}", then rehearse one out loud` : 'Rehearse 2 stories out loud and get feedback on one',
@@ -100,7 +115,7 @@ export function buildHuntPlan(ctx: {
   })
   blocks.push({
     key: 'applications', label: 'Applications', minutes: Math.round(dayMinutes * APPLICATIONS_SHARE),
-    detail: 'Send 5 tailored applications or referral asks, and follow up on anything older than 7 days',
+    detail: '3 targeted applications — or 2 + 2 referral asks — and follow up on anything older than 7 days. Quality over volume.',
     href: '/career', done: false,
   })
   return { focus: `Job hunt · D-${ctx.days}`, blocks }

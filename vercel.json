@@ -47,6 +47,18 @@
     {
       "path": "/api/cron/astrology-daily",
       "schedule": "0 4 * * *"
+    },
+    {
+      "path": "/api/cron/prep-coach-morning",
+      "schedule": "0 2 * * *"
+    },
+    {
+      "path": "/api/cron/prep-coach-midday",
+      "schedule": "30 7 * * *"
+    },
+    {
+      "path": "/api/cron/prep-coach-evening",
+      "schedule": "0 16 * * *"
     }
   ]
 }

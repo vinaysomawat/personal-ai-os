@@ -14,6 +14,10 @@ Actions:
 {"action":"set_reminder","label":"what to be reminded about","slot":"morning"|"evening"}
 {"action":"list_reminders"}
 {"action":"delete_reminder","search":"partial reminder text"}
+{"action":"start_focus"}
+{"action":"pause_focus"}
+{"action":"finish_focus","finished":true|false}
+{"action":"prep_now"}
 {"action":"help"}
 
 Rules:
@@ -23,10 +27,47 @@ Rules:
 - For "remind me to X every morning/day" → set_reminder with slot "morning"
 - For "remind me to X every evening/night" → set_reminder with slot "evening"
 - Reminders only fire at the two existing daily windows (~8:30am and ~8pm IST) — not arbitrary times
+- For "start", "START", "begin", "let's go", "start focus" → start_focus (Prep War Mode focus session on the next block)
+- For "pause", "break", "resume", "back" → pause_focus (toggles pause)
+- For "done", "finished", "finish", "block done" → finish_focus with finished true; "stop", "give up", "abandon" → finish_focus with finished false
+- For "what now", "what should I do", "status", "next" → prep_now
 - If message is unclear, return {"action":"help"}`
+
+const mm = (s: number) => `${Math.floor(s / 60)}m`
 
 export async function execute(action: Record<string, unknown>, db: SupabaseClient, userId: string): Promise<ModuleReply> {
   switch (action.action) {
+    // Prep War Mode focus sessions (same rows as the web timer).
+    case 'start_focus': {
+      const { startFocus } = await import('@/features/prep/core')
+      const f = await startFocus(db, userId)
+      if (!f) return '✅ Every block in today\'s plan is done.'
+      const fresh = Date.now() - new Date(f.started_at).getTime() < 15_000
+      return `${fresh ? '🔒 *Focus started*' : '⏱️ *Already focusing*'}: ${f.label} — ${f.planned_minutes} min planned.\nReply *DONE* when the block is finished, *PAUSE* for a break.`
+    }
+    case 'pause_focus': {
+      const { getActiveFocus, toggleFocusPause } = await import('@/features/prep/core')
+      const active = await getActiveFocus(db, userId)
+      if (!active) return 'No focus session running. Reply *START* to begin the next block.'
+      const f = await toggleFocusPause(db, userId, active.id)
+      return f?.paused_at ? `⏸️ Paused *${f.label}*. Reply *RESUME* to continue.` : `▶️ Resumed *${active.label}*.`
+    }
+    case 'finish_focus': {
+      const { getActiveFocus, endFocus } = await import('@/features/prep/core')
+      const active = await getActiveFocus(db, userId)
+      if (!active) return 'No focus session running.'
+      const finished = action.finished !== false
+      const { focus, session } = await endFocus(db, userId, active.id, finished)
+      const next = session?.blocks.find(b => !b.done)
+      return `${finished ? '✅ *Block done*' : '⏹️ *Stopped*'}: ${active.label}\nPlanned ${active.planned_minutes}m · focused ${mm(focus?.actual_seconds ?? 0)}${active.interruptions ? ` · ${active.interruptions} interruption${active.interruptions === 1 ? '' : 's'}` : ''}` +
+        (next ? `\n\n👉 Next: *${next.label}* — ${next.minutes}m. Reply *START*.` : finished ? '\n\nThat was the last block today.' : '')
+    }
+    case 'prep_now': {
+      const { coachData, middayMessage, morningMessage } = await import('@/features/prep/coach')
+      const data = await coachData(db, userId)
+      if (!data) return 'Job Hunt Mode is off — set a target date on the Prep page.'
+      return middayMessage(data) ?? morningMessage(data)
+    }
     case 'briefing': {
       const { generateDailyBriefing } = await import('@/features/ai/daily-briefing')
       const { text } = await generateDailyBriefing(db, userId)
@@ -61,6 +102,6 @@ export async function execute(action: Record<string, unknown>, db: SupabaseClien
       return `🗑️ Removed reminder: "${reminder.label}"`
     }
     default:
-      return `*Daily Bot — What I can do:*\n• "how am I doing" (briefing)\n• "how was my week" (digest)\n• "how was my month" (monthly digest)\n• "remind me to log weight every morning"\n• "show my reminders"\n\nI also send the morning briefing, evening check-in, digests and daily journal.`
+      return `*Daily Bot — What I can do:*\n• "how am I doing" (briefing)\n• "how was my week" (digest)\n• "how was my month" (monthly digest)\n• "remind me to log weight every morning"\n• "show my reminders"\n• "start" / "pause" / "done" (Prep focus sessions)\n• "what now" (today\'s War Mode mission)\n\nI also send the morning briefing, evening check-in, digests and daily journal.`
   }
 }

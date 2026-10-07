@@ -199,3 +199,20 @@ Design process: new screens (Prep, Drills, Story Bank, Lead Journal, Flashcards)
 **Paused:** v2.2 UI quality (U1–U9), Lead Journal (except promote-to-story), Health/Finance expansion, Astrology.
 
 **Capacity reality at 10 h/day × 13 days:** theory 324/324 (24/day), AI-native 115/115 (9/day), Behavioral Q&A 25/25 (2/day), JS functions ~39/196 (3/day), UI coding ~42/79 (2/day), system design ~15/40 (1/day), algorithms ~13/347 (1/day) — ~590 min with flashcards, STAR stories and applications. Full coverage is only realistic for theory; the coding pools are covered by priority (unseen medium-difficulty first).
+
+## 10. v3.2 — Interview War Mode (2026-10-07)
+
+**Context:** target moved to 2026-11-18 (6 weeks, 10 h/day). Goal for the sprint: maximize the probability of passing a top-tier Senior Frontend loop. Every feature answers: what should I do now, did I do it, am I improving, what's most likely to make me fail. Built in one pass (README §14 "Interview War Mode"):
+
+| # | Item | Status |
+|---|---|---|
+| 1 | War Room Today tab: NOW block + START, mission list, brutal coach line, focused vs planned | ✅ built |
+| 2 | Focus sessions (`prep_focus_sessions`): full-screen timer, pause = interruption, finish ticks the block | ✅ built |
+| 3 | Readiness gates + bottleneck-penalized readiness, blockers, DSA area, AI ratings as a readiness signal | ✅ built |
+| 4 | Topic weakness score + topic-level revision queue (stored answer ratings) | ✅ built |
+| 5 | Adaptive plan: category time weighted by readiness gap, weakest first; time-based quotas | ✅ built |
+| 6 | Telegram Prep Coach: 7:30 mission, 1pm behind-pace, 9:30pm review; START/PAUSE/DONE/what now | ✅ built |
+| 7 | Weekly "if you interviewed tomorrow" forecast (Sonnet, Sunday + on demand) | ✅ built |
+| — | Idle/distraction detector, hiding modules, separate /war-room route, Life Score replacement | ✗ skipped (prep happens outside the tab; /prep already is the war room) |
+| — | JD → plan weighting, application conversion funnel | later, once applications flow |
+

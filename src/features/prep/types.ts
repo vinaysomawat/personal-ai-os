@@ -55,6 +55,10 @@ export interface BankQuestion {
   sort_order: number | null
   // Expected areas an answer should cover (AI-native scenarios).
   answer_hints: string | null
+  // Latest AI rating (1–10) of your answer, from a Question Bank or Mock
+  // Round review.
+  last_rating: number | null
+  last_rated_at: string | null
 }
 
 export interface PrepSession {
@@ -173,6 +177,7 @@ export const READINESS_AREAS = [
   { key: 'sysdesign', label: 'Frontend system design', quizTopics: ['System Design', 'Micro-frontends', 'Design Systems'], codingTopics: ['System Design'], href: '/career' },
   { key: 'ainative', label: 'AI-native engineering', quizTopics: [], codingTopics: [], href: '/prep?tab=questions&cat=ai-native' },
   { key: 'uicoding', label: 'UI coding', quizTopics: [], codingTopics: ['UI Components'], href: '/coding' },
+  { key: 'dsa', label: 'Algorithms (DSA)', quizTopics: [], codingTopics: ['Algorithms', 'Data Structures'], href: '/coding' },
   { key: 'behavioral', label: 'Behavioral', quizTopics: [], codingTopics: [], href: '/prep?tab=stories' },
   { key: 'leadership', label: 'Leadership', quizTopics: [], codingTopics: [], href: '/prep?tab=stories' },
 ] as const

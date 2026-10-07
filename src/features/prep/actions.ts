@@ -1,153 +1,60 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
-import type { SupabaseClient } from '@supabase/supabase-js'
 import { createClient } from '@/lib/supabase/server'
 import { askAI } from '@/lib/ai-gateway'
-import { todayIST, daysAgoIST, toISTDateStr, istMidnightUtc } from '@/lib/date'
-import { getTodayAssignmentRows } from '@/features/coding/daily-core'
-import { getActiveDailyRead } from '@/features/learning/daily-read'
-import type { QuizAttempt } from '@/features/career/types'
+import { todayIST } from '@/lib/date'
 import { formatOf, roundScore, type MockFormat, type MockItem, type MockReview, type MockRound } from './mock'
-import { buildPrepPlan } from './plan'
-import { BANK_CATEGORIES, buildHuntPlan, computeQuotas, daysLeft, type CategoryCoverage } from './hunt'
-import { computeReadinessMatrix, weakestAreas, type CodingHistoryRow } from './readiness'
-import { COMPETENCIES, READINESS_AREAS } from './types'
-import type { BankQuestion, PrepBlock, PrepSession, PrepSettings, Story, StoryRehearsal } from './types'
-
-function prepStreak(sessions: { date: string; completed_at: string | null }[], today: string): number {
-  const done = new Set(sessions.filter(s => s.completed_at).map(s => s.date))
-  let streak = 0
-  const cursor = new Date(`${today}T00:00:00Z`)
-  for (let i = 0; i < 3650; i++) {
-    const d = cursor.toISOString().slice(0, 10)
-    if (done.has(d)) { streak++; cursor.setUTCDate(cursor.getUTCDate() - 1) }
-    else if (i === 0) cursor.setUTCDate(cursor.getUTCDate() - 1)
-    else break
-  }
-  return streak
-}
+import { COMPETENCIES } from './types'
+import type { PrepSession, Story, StoryRehearsal } from './types'
+import { endFocus, loadPrepData, startFocus, syncBankBlocks, toggleFocusPause, updateBlocks } from './core'
+import type { FocusSession } from './war'
 
 export async function getPrepData() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return null
-  const today = todayIST()
-
-  const [mockRes, storiesRes, rehearsalsRes, quizRes, codingRes, activePicks, resourcesRes, sessionsRes] = await Promise.all([
-    supabase.from('mock_rounds').select('id, format, items, duration_seconds, created_at, review').eq('user_id', user.id).order('created_at', { ascending: false }).limit(500),
-    supabase.from('stories').select('*').eq('user_id', user.id).order('updated_at', { ascending: false }),
-    supabase.from('story_rehearsals').select('id, story_id, competency, prompt, answer, critique, created_at').eq('user_id', user.id).order('created_at', { ascending: false }).limit(10),
-    supabase.from('quiz_attempts').select('*').eq('user_id', user.id),
-    supabase.from('coding_daily_questions').select('completed, outcome, completed_at, question:coding_questions(category, topics)').eq('user_id', user.id).eq('completed', true).gte('completed_at', istMidnightUtc(90)),
-    getTodayAssignmentRows(supabase, user.id),
-    supabase.from('resources').select('id, title, notes, created_at, status').eq('user_id', user.id),
-    supabase.from('prep_sessions').select('*').eq('user_id', user.id).gte('date', daysAgoIST(60)).order('date', { ascending: false }),
-  ])
-  const [settings, bank] = await Promise.all([getPrepSettings(supabase, user.id), getQuestionBank(supabase, user.id)])
-  const days = settings.target_date ? daysLeft(today, settings.target_date) : null
-  const coverage = bankCoverage(bank, today)
-  const quotas = days !== null ? computeQuotas(coverage, settings.hours_per_day, days) : null
-
-  const stories = (storiesRes.data ?? []) as Story[]
-  const quizAttempts = (quizRes.data ?? []) as QuizAttempt[]
-  const readiness = computeReadinessMatrix(quizAttempts, (codingRes.data ?? []) as unknown as CodingHistoryRow[], stories, coverage.find(c => c.key === 'ai-native') ?? null)
-
-  let sessions = (sessionsRes.data ?? []) as PrepSession[]
-  let todaySession = sessions.find(s => s.date === today) ?? null
-  if (!todaySession) {
-    // Weakest area that maps to a quiz topic — drives the quiz-based blocks.
-    const weakQuizArea = weakestAreas(readiness, READINESS_AREAS.length)
-      .map(c => READINESS_AREAS.find(a => a.key === c.key)!)
-      .find(a => a.quizTopics.length > 0)
-    const covered = new Set(stories.filter(s => (s.strength ?? 3) >= 3).flatMap(s => s.competencies))
-    const uncovered = COMPETENCIES.find(c => !covered.has(c.key))
-    const activeRead = getActiveDailyRead((resourcesRes.data ?? []) as { title: string; notes: string | null; created_at: string; status: 'not-started' | 'in-progress' | 'completed' }[])
-    const plan = quotas && days !== null ? buildHuntPlan({
-      hoursPerDay: settings.hours_per_day, days, date: today, quotas,
-      uncoveredCompetency: uncovered?.label ?? null,
-    }) : buildPrepPlan(today, {
-      weakestTopic: weakQuizArea ? { area: weakQuizArea.label, topic: (weakQuizArea.quizTopics as readonly string[])[0] } : null,
-      activeRead: activeRead && activeRead.status !== 'completed' ? { title: activeRead.title } : null,
-      uncoveredCompetency: uncovered?.label ?? null,
-      codingPicks: activePicks.filter(p => !p.completed).map(p => ({ category: p.question.category, title: p.question.title })),
-    })
-    const { data: inserted } = await supabase.from('prep_sessions')
-      .upsert({ user_id: user.id, date: today, focus: plan.focus, blocks: plan.blocks }, { onConflict: 'user_id,date', ignoreDuplicates: true })
-      .select('*')
-    todaySession = ((inserted ?? [])[0] as PrepSession | undefined) ?? null
-    if (!todaySession) {
-      const { data } = await supabase.from('prep_sessions').select('*').eq('user_id', user.id).eq('date', today).maybeSingle()
-      todaySession = (data as PrepSession | null) ?? null
-    }
-    if (todaySession) sessions = [todaySession, ...sessions]
-  }
-
-  return {
-    today,
-    session: todaySession,
-    streak: prepStreak(sessions, today),
-    sessionsLast7: sessions.filter(s => s.date >= daysAgoIST(6) && s.completed_at).length,
-    // Empty (not an error) until the mock_rounds migration has run.
-    mockRounds: (mockRes.data ?? []) as MockRound[],
-    stories,
-    rehearsals: (rehearsalsRes.data ?? []) as StoryRehearsal[],
-    readiness,
-    settings,
-    daysLeft: days,
-    coverage: quotas ?? coverage,
-    bank,
-  }
+  return loadPrepData(supabase, user.id)
 }
 
-async function getPrepSettings(supabase: SupabaseClient, userId: string): Promise<PrepSettings> {
-  const { data } = await supabase.from('prep_settings').select('target_date, hours_per_day').eq('user_id', userId).maybeSingle()
-  return { target_date: data?.target_date ?? null, hours_per_day: data?.hours_per_day ?? 8 }
+// ---------------- Focus sessions (War Mode) ----------------
+
+export async function startFocusSession(blockKey: string): Promise<FocusSession | null> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) throw new Error('Not authenticated')
+  const f = await startFocus(supabase, user.id, blockKey)
+  revalidatePath('/prep')
+  return f
 }
 
-// PostgREST caps a response at 1,000 rows, and the bank is past that —
-// page through it so no category gets silently truncated.
-async function fetchAllQuestions(supabase: SupabaseClient) {
-  const PAGE = 1000
-  const rows: { id: string; title: string; difficulty: string; url: string | null; category: string; topics: string[] | null; sort_order: number | null; answer_hints: string | null }[] = []
-  for (let from = 0; ; from += PAGE) {
-    const { data, error } = await supabase.from('coding_questions')
-      .select('id, title, difficulty, url, category, topics, sort_order, answer_hints').order('id').range(from, from + PAGE - 1)
-    if (error) throw new Error(error.message)
-    rows.push(...(data ?? []))
-    if (!data || data.length < PAGE) return rows
-  }
+export async function toggleFocusSessionPause(id: string): Promise<FocusSession | null> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) throw new Error('Not authenticated')
+  return toggleFocusPause(supabase, user.id, id)
 }
 
-async function getQuestionBank(supabase: SupabaseClient, userId: string): Promise<BankQuestion[]> {
-  const [questions, { data: progress }, { data: coding }] = await Promise.all([
-    fetchAllQuestions(supabase),
-    supabase.from('question_progress').select('question_id, last_seen_at, last_answer').eq('user_id', userId),
-    supabase.from('coding_daily_questions').select('question_id, completed_at').eq('user_id', userId).eq('completed', true),
-  ])
-  // Last practiced = the newer of a Question Bank / Mock Round answer and a
-  // completed Coding pick, so Coding work counts as covered.
-  const lastSeen = new Map<string, string>()
-  const answers = new Map<string, string | null>()
-  const touch = (id: string, at: string) => { if ((lastSeen.get(id) ?? '') < at) lastSeen.set(id, at) }
-  for (const c of coding ?? []) if (c.completed_at) touch(c.question_id, c.completed_at)
-  for (const p of progress ?? []) { touch(p.question_id, p.last_seen_at); answers.set(p.question_id, p.last_answer) }
-  return questions.map(q => ({
-    ...q, topics: q.topics ?? [],
-    last_seen_at: lastSeen.get(q.id) ?? null,
-    last_answer: answers.get(q.id) ?? null,
-  }))
+export async function endFocusSession(id: string, finished: boolean): Promise<{ focus: FocusSession | null; session: PrepSession | null }> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) throw new Error('Not authenticated')
+  const res = await endFocus(supabase, user.id, id, finished)
+  revalidatePath('/prep')
+  revalidatePath('/dashboard')
+  return res
 }
 
-function bankCoverage(bank: BankQuestion[], today: string): CategoryCoverage[] {
-  return BANK_CATEGORIES.map(cat => {
-    const qs = bank.filter(q => q.category === cat.key)
-    return {
-      key: cat.key, label: cat.label, total: qs.length,
-      seen: qs.filter(q => q.last_seen_at).length,
-      doneToday: qs.filter(q => q.last_seen_at && toISTDateStr(q.last_seen_at) === today).length,
-    }
-  })
+// Weekly "if you interviewed tomorrow" forecast, on demand (the Sunday
+// evening coach cron also generates one).
+export async function generatePrepForecast() {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) throw new Error('Not authenticated')
+  const { generateForecast } = await import('./forecast')
+  const res = await generateForecast(supabase, user.id)
+  revalidatePath('/prep')
+  return res
 }
 
 // Turning Job Hunt Mode on/off (or changing hours) rebuilds today's plan.
@@ -213,7 +120,7 @@ export async function critiqueAnswer(questionId: string, answer: string): Promis
 
 // Records a Question Bank answer (the question counts as practiced); the
 // matching Job Hunt block auto-completes once today's quota is met.
-export async function answerQuestion(questionId: string, answer: string | null): Promise<PrepSession | null> {
+export async function answerQuestion(questionId: string, answer: string | null, rating: number | null = null): Promise<PrepSession | null> {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) throw new Error('Not authenticated')
@@ -226,34 +133,14 @@ export async function answerQuestion(questionId: string, answer: string | null):
   const { error } = await supabase.from('question_progress').upsert({
     user_id: user.id, question_id: questionId, status: null,
     attempts: (prev?.attempts ?? 0) + 1, last_answer: answer || prev?.last_answer || null, last_seen_at: new Date().toISOString(),
+    // The AI review's rating, when one was run before Next.
+    ...(rating !== null ? { last_rating: rating, last_rated_at: new Date().toISOString() } : {}),
   }, { onConflict: 'user_id,question_id' })
   if (error) throw new Error(error.message)
 
   const session = await syncBankBlocks(supabase, user.id, [q.category])
   revalidatePath('/prep')
   return session
-}
-
-// Ticks Job Hunt bank blocks whose quota (the label's "× N") today's practiced
-// count in that category has reached. `extra` lets a caller tick more blocks
-// in the same write.
-async function syncBankBlocks(supabase: SupabaseClient, userId: string, categories: string[], extra: (b: PrepBlock) => boolean = () => false): Promise<PrepSession | null> {
-  const counts = new Map<string, number>()
-  if (categories.length > 0) {
-    const { data } = await supabase.from('question_progress')
-      .select('question_id, coding_questions!inner(category)').eq('user_id', userId)
-      .in('coding_questions.category', categories).gte('last_seen_at', istMidnightUtc())
-    for (const row of (data ?? []) as unknown as { coding_questions: { category: string } }[]) {
-      counts.set(row.coding_questions.category, (counts.get(row.coding_questions.category) ?? 0) + 1)
-    }
-  }
-  return updateBlocks(supabase, userId, todayIST(), blocks => blocks.map(b => {
-    if (extra(b)) return { ...b, done: true }
-    const cat = b.key.startsWith('bank:') ? b.key.slice(5) : null
-    if (!cat || !categories.includes(cat)) return b
-    const quota = Number(b.label.match(/× (\d+)$/)?.[1] ?? 0)
-    return quota > 0 && (counts.get(cat) ?? 0) >= quota ? { ...b, done: true } : b
-  }))
 }
 
 // Saves a finished Mock Round: each answered (not skipped) bank question
@@ -290,17 +177,6 @@ export async function saveMockRound(format: MockFormat, items: MockItem[], durat
   revalidatePath('/prep')
   revalidatePath('/dashboard')
   return { round: round as MockRound, session }
-}
-
-async function updateBlocks(supabase: SupabaseClient, userId: string, date: string, fn: (blocks: PrepBlock[]) => PrepBlock[]): Promise<PrepSession | null> {
-  const { data } = await supabase.from('prep_sessions').select('*').eq('user_id', userId).eq('date', date).maybeSingle()
-  if (!data) return null
-  const blocks = fn(data.blocks as PrepBlock[])
-  const allDone = blocks.length > 0 && blocks.every(b => b.done)
-  const { data: updated } = await supabase.from('prep_sessions')
-    .update({ blocks, completed_at: allDone ? (data.completed_at ?? new Date().toISOString()) : null })
-    .eq('id', data.id).select('*').single()
-  return (updated as PrepSession | null) ?? null
 }
 
 export async function togglePrepBlock(key: string): Promise<PrepSession | null> {
@@ -359,6 +235,12 @@ export async function reviewMockRound(roundId: string): Promise<{ review: MockRe
   }
   const { error } = await supabase.from('mock_rounds').update({ review }).eq('id', roundId)
   if (error) throw new Error(error.message)
+  // Each rated bank answer's rating also lands on its question, so topic
+  // weakness and readiness see mock performance.
+  const ratedAt = new Date().toISOString()
+  await Promise.all(items.map((it, i) => it.question_id && ratings[i] !== null
+    ? supabase.from('question_progress').update({ last_rating: ratings[i], last_rated_at: ratedAt }).eq('user_id', user.id).eq('question_id', it.question_id)
+    : null))
   revalidatePath('/prep')
   return { review, error: null }
 }
