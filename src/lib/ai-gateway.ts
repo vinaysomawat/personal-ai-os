@@ -40,6 +40,7 @@ export type AITask =
   | 'story_critique'
   | 'ai_native_critique'
   | 'answer_critique'
+  | 'mock_round_review'
 
 interface TaskConfig {
   model: string
@@ -108,6 +109,9 @@ const TASK_CONFIG: Record<AITask, TaskConfig> = {
   // Same, for the other linkless Question Bank questions (behavioral/fit,
   // and Prep-added theory, UI coding and system design) — uncached.
   answer_critique:        { model: HAIKU_MODEL,  cacheTTLSeconds: null,       fallback: BUDGET_FALLBACK },
+  // Prep Mock Round — one review of every answer in a finished round (JSON),
+  // stored on the round so it's never re-run; uncached.
+  mock_round_review:      { model: HAIKU_MODEL,  cacheTTLSeconds: null,       fallback: BUDGET_FALLBACK },
 }
 
 // Static per-model pricing, USD per 1M tokens (Sonnet 4.6 / Haiku 4.5).

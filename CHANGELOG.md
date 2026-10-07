@@ -5,6 +5,7 @@ append here whenever you deploy, same cadence as the version bump.
 
 ## 2026-10-07
 
+- **v3.1** — Prep: Mock Round gets a one-click AI review of the whole round (one call, ~$0.01): a 1–10 rating and a note for every answer, an overall score, verdict, likely outcome, what worked and the top fixes — saved with the round. New **Mock Interview Calendar** keeps every round with its answers and review. The Questions tab's AI review now rates each answer 1–10 too.
 - **v3.0 — Planner removed.** The task list, its nav item, Quick Add's Task option, the Plan Coach and the Executive Summary are gone. Coding picks, daily reads and workouts no longer create Planner tasks, and tasks no longer feed Daily Mission, Needs Attention, the Brain, the briefing, the evening check-in or the evening reflection. The Planner Telegram bot is now the **Daily** bot (briefing, digests, reminders; all scheduled messages unchanged). Task data is kept in the database and the export.
 - Prep: **Mock Round** replaces Flashcards — timed Frontend screen / Behavioral / System design rounds over the Question Bank, unseen questions first, with key points and an AI interviewer review on each answer afterwards. Today's Prep and Job Hunt Mode schedule a daily round.
 - Prep: no more Missed / Partial / Confident grading anywhere — every question is just Skip or Next, with AI review on request. Coverage shows practiced/total.

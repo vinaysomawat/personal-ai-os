@@ -87,7 +87,7 @@ export default function PrepView(props: Props) {
 
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-[var(--grid-gap-sm)]">
         <StatCard label="Interview readiness" value={`${overall}%`} sub={`${props.readiness.filter(c => c.score === null).length} blind spots`} valueClassName={overall >= 60 ? 'text-good' : overall >= 40 ? 'text-warn' : 'text-risk'} />
-        <StatCard label="Mock rounds" value={roundsThisWeek} sub={lastRound ? `this week · last ${formatOf(lastRound.format).label} ${toISTDateStr(lastRound.created_at).slice(5)}` : 'this week · none yet'} />
+        <StatCard label="Mock rounds" value={roundsThisWeek} sub={lastRound ? `this week · last ${formatOf(lastRound.format).label} ${toISTDateStr(lastRound.created_at).slice(5)}${lastRound.review?.score != null ? ` · ${lastRound.review.score}/10` : ''}` : 'this week · none yet'} />
         <StatCard label="Story Bank" value={stories.length} sub={`${coveredCompetencies.size}/${COMPETENCIES.length} competencies covered`} />
         <StatCard label="This week" value={`${props.sessionsLast7}/7`} sub="prep sessions completed" />
       </div>
@@ -174,7 +174,7 @@ export default function PrepView(props: Props) {
             setBank(prev => prev.map(q => { const it = answered.get(q.id); return it ? { ...q, last_seen_at: now, last_answer: it.answer.trim() || q.last_answer } : q }))
             if (s) setSession(s)
           }}
-          onRehearsed={r => setRehearsals(prev => [r, ...prev])}
+          onRoundUpdated={round => setRounds(prev => prev.map(r => r.id === round.id ? round : r))}
         />
       )}
 

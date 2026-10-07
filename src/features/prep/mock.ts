@@ -65,12 +65,33 @@ export interface MockItem {
   skipped: boolean
 }
 
+// One AI review of a whole round (mock_rounds.review); notes[i] and
+// ratings[i] belong to items[i]. ratings are the AI's 1–10 per answer (null
+// when it couldn't judge: skipped or answered out loud); score is their
+// average, computed in code, not by the AI.
+export interface MockReview {
+  verdict: string
+  outcome: string
+  summary: string
+  strengths: string[]
+  fixes: string[]
+  notes: string[]
+  ratings: (number | null)[]
+  score: number | null
+}
+
+export const roundScore = (ratings: (number | null)[]): number | null => {
+  const rated = ratings.filter((r): r is number => typeof r === 'number')
+  return rated.length ? Math.round((rated.reduce((s, r) => s + r, 0) / rated.length) * 10) / 10 : null
+}
+
 export interface MockRound {
   id: string
   format: MockFormat
   items: MockItem[]
   duration_seconds: number
   created_at: string
+  review: MockReview | null
 }
 
 const DIFFICULTY_ORDER: Record<string, number> = { medium: 0, easy: 1, hard: 2 }

@@ -8,7 +8,7 @@ import { todayIST, daysAgoIST, toISTDateStr, istMidnightUtc } from '@/lib/date'
 import { getTodayAssignmentRows } from '@/features/coding/daily-core'
 import { getActiveDailyRead } from '@/features/learning/daily-read'
 import type { QuizAttempt } from '@/features/career/types'
-import { type MockFormat, type MockItem, type MockRound } from './mock'
+import { formatOf, roundScore, type MockFormat, type MockItem, type MockReview, type MockRound } from './mock'
 import { buildPrepPlan } from './plan'
 import { BANK_CATEGORIES, buildHuntPlan, computeQuotas, daysLeft, type CategoryCoverage } from './hunt'
 import { computeReadinessMatrix, weakestAreas, type CodingHistoryRow } from './readiness'
@@ -35,7 +35,7 @@ export async function getPrepData() {
   const today = todayIST()
 
   const [mockRes, storiesRes, rehearsalsRes, quizRes, codingRes, activePicks, resourcesRes, sessionsRes] = await Promise.all([
-    supabase.from('mock_rounds').select('id, format, items, duration_seconds, created_at').eq('user_id', user.id).order('created_at', { ascending: false }).limit(30),
+    supabase.from('mock_rounds').select('id, format, items, duration_seconds, created_at, review').eq('user_id', user.id).order('created_at', { ascending: false }).limit(500),
     supabase.from('stories').select('*').eq('user_id', user.id).order('updated_at', { ascending: false }),
     supabase.from('story_rehearsals').select('id, story_id, competency, prompt, answer, critique, created_at').eq('user_id', user.id).order('created_at', { ascending: false }).limit(10),
     supabase.from('quiz_attempts').select('*').eq('user_id', user.id),
@@ -167,6 +167,7 @@ export async function savePrepSettings(targetDate: string | null, hoursPerDay: n
 const AI_NATIVE_SYSTEM = `You are a senior engineer interviewing a candidate for a Senior Frontend Engineer role at an AI-native company. The company's bar: engineers don't merely use AI for speed — they form their own hypotheses, pressure-test AI output, catch and explain AI mistakes, verify with evidence (tests, profiling, reading the code, reproducing), and take full ownership of final quality.
 Grade one spoken answer against that bar. Reward: a concrete real example (tool, task, what went wrong or right), the candidate's own judgment leading rather than following the AI, explicit verification steps, trade-offs, and honest limits of AI. Penalize: generic "AI makes me faster" claims, no specific example, blind trust, vague verification ("I check it"), buzzwords.
 Respond in plain text (no markdown headings), under 200 words, in exactly this shape:
+Rating: <integer 1-10> — hiring bar for this level: 9-10 strong hire, 7-8 solid, 5-6 borderline, 3-4 weak, 1-2 no real answer
 Verdict: <Strong / Good / Needs work> — <one sentence why>
 What worked: <1-2 short points>
 Fix next: <2-3 specific, actionable points>
@@ -175,6 +176,7 @@ Follow-up they'd ask: <one probing question that pressure-tests this answer>`
 const BEHAVIORAL_SYSTEM = `You are a hiring manager interviewing a candidate for a Senior Frontend Engineer / Frontend Tech Lead role. The candidate was recently laid off and is answering a general or fit question.
 Grade the spoken answer for: directness (answers the actual question in the first sentence), brevity (60–120 seconds spoken), concrete evidence (specific outcomes, numbers), fit with a senior/lead role, and tone (confident, no blame, no over-explaining — especially about the layoff or salary).
 Respond in plain text (no markdown headings), under 180 words, in exactly this shape:
+Rating: <integer 1-10> — hiring bar for this level: 9-10 strong hire, 7-8 solid, 5-6 borderline, 3-4 weak, 1-2 no real answer
 Verdict: <Strong / Good / Needs work> — <one sentence why>
 What worked: <1-2 short points>
 Fix next: <2-3 specific, actionable points>
@@ -183,16 +185,17 @@ Follow-up they'd ask: <one natural follow-up question>`
 const TECHNICAL_SYSTEM = `You are a senior frontend interviewer at a top product company. The candidate answered a frontend theory, UI-coding design, or frontend system-design question out loud and typed their answer.
 Grade for technical correctness first (call out anything wrong), then depth (the why, not just the what), trade-offs, and what a senior candidate would add (performance, accessibility, testing, edge cases). If the question lists key points, check which are missing.
 Respond in plain text (no markdown headings), under 200 words, in exactly this shape:
+Rating: <integer 1-10> — hiring bar for this level: 9-10 strong hire, 7-8 solid, 5-6 borderline, 3-4 weak, 1-2 no real answer
 Verdict: <Strong / Good / Needs work> — <one sentence why>
 Correct / missing: <what was right, what was wrong or missing>
 Fix next: <2-3 specific points to add>
 Follow-up they'd ask: <one probing follow-up question>`
 
-// AI interviewer feedback on a typed answer to a linkless question
-// (reviewing the user's own work — uncached, every answer differs). The
-// rubric depends on the category. Feedback isn't stored; the answer itself
-// is saved when you hit Next.
-export async function critiqueAnswer(questionId: string, answer: string): Promise<string> {
+// AI interviewer feedback on a typed Question Bank answer (reviewing the
+// user's own work — uncached, every answer differs), with a 1–10 rating
+// parsed off its first line. The rubric depends on the category. Not
+// stored; the answer itself is saved when you hit Next.
+export async function critiqueAnswer(questionId: string, answer: string): Promise<{ rating: number | null; feedback: string }> {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) throw new Error('Not authenticated')
@@ -200,8 +203,12 @@ export async function critiqueAnswer(questionId: string, answer: string): Promis
   if (!q) throw new Error('Question not found')
   const hints = q.answer_hints ? `\nKey points a strong answer covers: ${q.answer_hints}` : ''
   const prompt = `Interview question: ${q.title}${hints}\n\nCandidate's answer:\n${answer}`
-  if (q.category === 'ai-native') return askAI('ai_native_critique', prompt, AI_NATIVE_SYSTEM, { userId: user.id })
-  return askAI('answer_critique', prompt, q.category === 'behavioral' ? BEHAVIORAL_SYSTEM : TECHNICAL_SYSTEM, { userId: user.id })
+  const raw = q.category === 'ai-native'
+    ? await askAI('ai_native_critique', prompt, AI_NATIVE_SYSTEM, { userId: user.id })
+    : await askAI('answer_critique', prompt, q.category === 'behavioral' ? BEHAVIORAL_SYSTEM : TECHNICAL_SYSTEM, { userId: user.id })
+  const m = raw.match(/^\s*Rating:\s*(\d{1,2})(?:\s*\/\s*10)?[^\n]*\n?/i)
+  const n = m ? Number(m[1]) : NaN
+  return { rating: Number.isFinite(n) ? Math.min(10, Math.max(1, n)) : null, feedback: m ? raw.slice(m[0].length).trim() : raw }
 }
 
 // Records a Question Bank answer (the question counts as practiced); the
@@ -276,7 +283,7 @@ export async function saveMockRound(format: MockFormat, items: MockItem[], durat
 
   const { data: round, error } = await supabase.from('mock_rounds')
     .insert({ user_id: user.id, format, items, duration_seconds: Math.max(0, Math.round(durationSeconds)) })
-    .select('id, format, items, duration_seconds, created_at').single()
+    .select('id, format, items, duration_seconds, created_at, review').single()
   if (error) throw new Error(error.message)
 
   const session = await syncBankBlocks(supabase, user.id, [...new Set(answered.map(i => i.category))], b => b.key === 'mock')
@@ -304,6 +311,56 @@ export async function togglePrepBlock(key: string): Promise<PrepSession | null> 
   revalidatePath('/prep')
   revalidatePath('/dashboard')
   return session
+}
+
+const MOCK_REVIEW_SYSTEM = `You are a senior frontend interviewer (Senior Frontend Engineer / Frontend Tech Lead loop, at a company that expects AI-native engineers) reviewing a candidate's whole mock interview round at once.
+For each question judge the typed answer by its kind: theory / UI coding / system design — technical correctness first (call out anything wrong), then depth, trade-offs and missing key points; behavioral / STAR — directness, structure (situation, what THEY did, measurable result), evidence and tone; AI-native — their own judgment and verification of AI output, a concrete example, honest limits. Use the listed key points as the rubric. Note answers that ran far over their time budget.
+Rate every judged answer 1-10 as a hiring bar for this level: 9-10 = strong hire answer, 7-8 = solid, 5-6 = borderline (gaps or shallow), 3-4 = weak (wrong or missing key points), 1-2 = no real answer. Use null for answers you can't judge (skipped, or given out loud and not typed).
+If an answer is marked as given out loud (not typed), say you can't judge it and suggest typing the gist next time. If it is marked skipped, say what a strong answer would have covered in one line.
+Respond with ONLY a JSON object, no prose before or after:
+{"verdict":"Strong" | "Good" | "Needs work","outcome":"Likely pass" | "Borderline" | "Likely no","summary":"2 sentences on the round overall","strengths":["up to 2 short points"],"fixes":["up to 3 specific, actionable fixes, most important first"],"ratings":[one integer 1-10 or null per question, in order],"notes":["one note per question, in order, each 1-3 sentences"]}`
+
+const parseList = (v: unknown) => Array.isArray(v) ? v.map(String).filter(Boolean) : []
+
+// One AI review for a whole saved round (all answers in a single call, Haiku,
+// uncached), stored on the row so the calendar can show it again for free.
+export async function reviewMockRound(roundId: string): Promise<{ review: MockReview | null; error: string | null }> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) throw new Error('Not authenticated')
+  const { data: round } = await supabase.from('mock_rounds').select('format, items, review').eq('id', roundId).eq('user_id', user.id).single()
+  if (!round) throw new Error('Round not found')
+  if (round.review) return { review: round.review as MockReview, error: null }
+
+  const items = round.items as MockItem[]
+  const mm = (s: number) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`
+  const prompt = `Round: ${formatOf(round.format).label}, ${items.length} questions.\n\n` + items.map((it, i) => [
+    `Q${i + 1} [${it.category === 'star' ? 'STAR story' : it.category}] ${it.prompt}`,
+    it.hints ? `Key points: ${it.hints}` : null,
+    `Time: ${mm(it.seconds)} of ${mm(it.budget_seconds)}`,
+    `Answer: ${it.skipped ? '[skipped]' : it.answer.trim() || '[answered out loud — not typed]'}`,
+  ].filter(Boolean).join('\n')).join('\n\n')
+
+  const raw = await askAI('mock_round_review', prompt, MOCK_REVIEW_SYSTEM, { userId: user.id })
+  const json = raw.slice(raw.indexOf('{'), raw.lastIndexOf('}') + 1)
+  let parsed: Record<string, unknown>
+  try { parsed = JSON.parse(json) } catch { return { review: null, error: raw.startsWith('{') ? 'The review came back malformed — try again.' : raw } }
+  const rawRatings = Array.isArray(parsed.ratings) ? parsed.ratings : []
+  // Clamp to 1–10; skipped / untyped answers are never rated, whatever the AI says.
+  const ratings = items.map((it, i) => {
+    const n = Number(rawRatings[i])
+    return it.skipped || !it.answer.trim() || !Number.isFinite(n) || rawRatings[i] === null ? null : Math.min(10, Math.max(1, Math.round(n)))
+  })
+  const review: MockReview = {
+    verdict: String(parsed.verdict ?? ''), outcome: String(parsed.outcome ?? ''), summary: String(parsed.summary ?? ''),
+    strengths: parseList(parsed.strengths), fixes: parseList(parsed.fixes),
+    notes: items.map((_, i) => parseList(parsed.notes)[i] ?? ''),
+    ratings, score: roundScore(ratings),
+  }
+  const { error } = await supabase.from('mock_rounds').update({ review }).eq('id', roundId)
+  if (error) throw new Error(error.message)
+  revalidatePath('/prep')
+  return { review, error: null }
 }
 
 export type StoryInput = Pick<Story, 'title' | 'competencies' | 'situation' | 'task' | 'action' | 'result' | 'metrics' | 'strength'>

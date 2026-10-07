@@ -64,7 +64,7 @@ export function QuestionsTab({ bank, setBank, coverage, category: categoryParam,
   // answer (the AI-native answers are meant to be refined, not retyped).
   const [draft, setDraft] = useState<{ id: string; text: string } | null>(null)
   const [skipped, setSkipped] = useState<string[]>([])
-  const [feedback, setFeedback] = useState<{ id: string; text: string } | null>(null)
+  const [feedback, setFeedback] = useState<{ id: string; text: string; rating: number | null } | null>(null)
   const [showHints, setShowHints] = useState(false)
   const [, startTransition] = useTransition()
   const [reviewing, startReview] = useTransition()
@@ -81,14 +81,14 @@ export function QuestionsTab({ bank, setBank, coverage, category: categoryParam,
   const answer = current && draft?.id === current.id ? draft.text : (current?.last_answer ?? '')
   const setAnswer = (text: string) => { if (current) setDraft({ id: current.id, text }) }
   const resetCard = () => { setDraft(null); setShowHints(false) }
-  const currentFeedback = current && feedback?.id === current.id ? feedback.text : null
+  const currentFeedback = current && feedback?.id === current.id ? feedback : null
   const verbal = !!current && !current.url
 
   const getFeedback = () => {
     if (!current || answer.trim().length < 40) return
     const id = current.id
     const text = answer.trim()
-    startReview(async () => setFeedback({ id, text: await critiqueAnswer(id, text) }))
+    startReview(async () => { const r = await critiqueAnswer(id, text); setFeedback({ id, text: r.feedback, rating: r.rating }) })
   }
 
   const stats = (key: string) => {
@@ -161,7 +161,14 @@ export function QuestionsTab({ bank, setBank, coverage, category: categoryParam,
             </div>
             {showHints && current.answer_hints && <p className="text-[12px] text-fg-secondary mt-1.5">Cover: {current.answer_hints}</p>}
             {reviewing && <div className="space-y-2 mt-3">{[90, 70, 80].map((w, i) => <div key={i} className="h-3 rounded bg-surface-2 animate-pulse" style={{ width: `${w}%` }} />)}</div>}
-            {currentFeedback && !reviewing && <p className="mt-3 text-[13px] text-fg-secondary whitespace-pre-wrap leading-relaxed border-l-2 border-accent/40 pl-3">{currentFeedback}</p>}
+            {currentFeedback && !reviewing && (
+              <div className="mt-3 border-l-2 border-accent/40 pl-3">
+                {currentFeedback.rating !== null && (
+                  <p className="mb-1"><span className={`text-[12px] font-bold tabular-nums rounded-[5px] px-1.5 py-[1px] ${currentFeedback.rating >= 8 ? 'text-good bg-good-soft' : currentFeedback.rating >= 6 ? 'text-warn bg-warn-soft' : 'text-risk bg-risk-soft'}`}>{currentFeedback.rating}/10</span></p>
+                )}
+                <p className="text-[13px] text-fg-secondary whitespace-pre-wrap leading-relaxed">{currentFeedback.text}</p>
+              </div>
+            )}
             <div className="flex items-center gap-2 mt-3">
               <button onClick={getFeedback} disabled={reviewing || answer.trim().length < 40} title={answer.trim().length < 40 ? 'Type at least a few sentences first' : undefined}
                 className={`${modalCancelButtonClass} inline-flex items-center gap-1.5 !py-[7px] !text-accent disabled:opacity-50`}>
