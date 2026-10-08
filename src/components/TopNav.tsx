@@ -21,7 +21,7 @@ const MODULES = [
   { label: 'Dashboard', to: '/dashboard', icon: LayoutDashboard },
   // v2.0: Prep — the daily interview-prep session hub (ROADMAP-v2.md).
   { label: 'Prep', to: '/prep', icon: Target },
-  { label: 'Interviews', to: '/career', icon: Briefcase },
+  { label: 'Interviews', to: '/interviews', icon: Briefcase },
   { label: 'Finance', to: '/finance', icon: DollarSign },
   { label: 'Health', to: '/health', icon: HeartPulse },
   { label: 'Coding', to: '/coding', icon: Code2 },
@@ -37,7 +37,7 @@ const MOBILE_PRIMARY = [
 ]
 
 const MOBILE_MORE = [
-  { label: 'Interviews', to: '/career', icon: '💼' },
+  { label: 'Interviews', to: '/interviews', icon: '💼' },
   { label: 'Coding', to: '/coding', icon: '💻' },
   { label: 'Astrology', to: '/astrology', icon: '🔮' },
   { label: 'Settings', to: '/settings', icon: '⚙' },

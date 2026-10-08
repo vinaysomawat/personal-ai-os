@@ -36,6 +36,14 @@ const nextConfig: NextConfig = {
   // means Next loads it via Node's native module system at runtime instead
   // of bundling it, which is exactly the wasm-loading behavior it expects.
   serverExternalPackages: ['swisseph-wasm'],
+  // Career was renamed Interviews (route /interviews) on 2026-10-08 — keep
+  // old bookmarks and links working.
+  async redirects() {
+    return [
+      { source: '/career', destination: '/interviews', permanent: true },
+      { source: '/interview', destination: '/interviews', permanent: true },
+    ]
+  },
 }
 
 // Known issue, confirmed 2026-08-20, not yet fixed: swisseph.wasm +

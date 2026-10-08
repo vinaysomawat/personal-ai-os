@@ -39,7 +39,7 @@ async function userClient() {
   return { supabase, userId: user.id }
 }
 
-const done = () => { revalidatePath('/career'); revalidatePath('/prep'); revalidatePath('/dashboard') }
+const done = () => { revalidatePath('/interviews'); revalidatePath('/prep'); revalidatePath('/dashboard') }
 
 export async function upsertCareerProfile(fields: {
   current_role?: string
@@ -51,7 +51,7 @@ export async function upsertCareerProfile(fields: {
 }) {
   const { supabase, userId } = await userClient()
   await supabase.from('career_profile').upsert({ user_id: userId, ...fields, updated_at: new Date().toISOString() }, { onConflict: 'user_id' })
-  revalidatePath('/career')
+  revalidatePath('/interviews')
 }
 
 // ---------------- Companies ----------------
@@ -79,7 +79,7 @@ export async function saveApplicationJD(id: string, jobDescription: string, anal
   const { supabase } = await userClient()
   const { error } = await supabase.from('applications').update({ job_description: jobDescription, jd_analysis: analysis }).eq('id', id)
   if (error) throw new Error(error.message)
-  revalidatePath('/career')
+  revalidatePath('/interviews')
 }
 
 export async function deleteApplication(id: string) {
@@ -123,7 +123,7 @@ export async function addQuestion(input: { application_id: string; round_id: str
   const { supabase, userId } = await userClient()
   const { data, error } = await supabase.from('interview_questions').insert({ user_id: userId, ...input, question: input.question.trim() }).select('*').single()
   if (error) throw new Error(error.message)
-  revalidatePath('/career')
+  revalidatePath('/interviews')
   return data as InterviewQuestion
 }
 
@@ -131,12 +131,12 @@ export async function updateQuestion(id: string, patch: Partial<Pick<InterviewQu
   const { supabase } = await userClient()
   const { error } = await supabase.from('interview_questions').update(patch).eq('id', id)
   if (error) throw new Error(error.message)
-  revalidatePath('/career')
+  revalidatePath('/interviews')
 }
 
 export async function deleteQuestion(id: string) {
   const { supabase } = await userClient()
   const { error } = await supabase.from('interview_questions').delete().eq('id', id)
   if (error) throw new Error(error.message)
-  revalidatePath('/career')
+  revalidatePath('/interviews')
 }

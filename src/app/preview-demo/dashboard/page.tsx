@@ -41,7 +41,7 @@ const dummyData = {
   workoutCategory: 'Push Day',
   aiBudget: { callsToday: 6, costTodayUsd: 0.042, callsMonth: 118, costMonthUsd: 1.86, cacheHitRateMonth: 41 },
   topActions: [
-    { emoji: '🎯', text: '1 application in interview stage', href: '/career' },
+    { emoji: '🎯', text: '1 application in interview stage', href: '/interviews' },
     { emoji: '💻', text: "Today's coding question still open", href: '/coding' },
   ],
   todayProgress: {

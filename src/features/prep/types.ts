@@ -26,7 +26,7 @@ export interface StoryRehearsal {
 
 export interface PrepBlock {
   // 'main' | 'mock' | 'concept' | 'lead' in a normal session; Job Hunt
-  // Mode uses 'mock', 'bank:<category>', 'lead' and 'applications'.
+  // Mode uses 'mock', 'bank:<category>' and 'lead'.
   key: string
   label: string
   detail: string
@@ -166,15 +166,15 @@ export const REHEARSAL_PROMPTS: Record<CompetencyKey, string[]> = {
 // rows. Each area is fed by quiz topics (career QUIZ_TOPICS), coding
 // question topics/categories, and/or story coverage.
 export const READINESS_AREAS = [
-  { key: 'js', label: 'JavaScript depth', quizTopics: ['JavaScript'], codingTopics: ['JavaScript Fundamentals', 'Async & Promises', 'Array & Object Methods'], href: '/career' },
-  { key: 'ts', label: 'TypeScript', quizTopics: ['TypeScript'], codingTopics: ['TypeScript'], href: '/career' },
-  { key: 'react', label: 'React / Next.js', quizTopics: ['React', 'Next.js', 'State Management'], codingTopics: ['React & State Management'], href: '/career' },
-  { key: 'css', label: 'CSS & layout', quizTopics: ['HTML/CSS', 'CSS Architecture'], codingTopics: ['CSS & Layout'], href: '/career' },
-  { key: 'a11y', label: 'Accessibility', quizTopics: ['Accessibility'], codingTopics: [], href: '/career' },
-  { key: 'perf', label: 'Performance', quizTopics: ['Performance'], codingTopics: ['Performance'], href: '/career' },
-  { key: 'testing', label: 'Testing', quizTopics: ['Testing'], codingTopics: ['Testing'], href: '/career' },
-  { key: 'browser', label: 'Browser, network & security', quizTopics: ['Browser Internals', 'Web Security', 'APIs'], codingTopics: ['DOM & Browser APIs', 'Networking & APIs'], href: '/career' },
-  { key: 'sysdesign', label: 'Frontend system design', quizTopics: ['System Design', 'Micro-frontends', 'Design Systems'], codingTopics: ['System Design'], href: '/career' },
+  { key: 'js', label: 'JavaScript depth', quizTopics: ['JavaScript'], codingTopics: ['JavaScript Fundamentals', 'Async & Promises', 'Array & Object Methods'], href: '/prep?tab=questions&cat=quiz' },
+  { key: 'ts', label: 'TypeScript', quizTopics: ['TypeScript'], codingTopics: ['TypeScript'], href: '/prep?tab=questions&cat=quiz' },
+  { key: 'react', label: 'React / Next.js', quizTopics: ['React', 'Next.js', 'State Management'], codingTopics: ['React & State Management'], href: '/prep?tab=questions&cat=quiz' },
+  { key: 'css', label: 'CSS & layout', quizTopics: ['HTML/CSS', 'CSS Architecture'], codingTopics: ['CSS & Layout'], href: '/prep?tab=questions&cat=quiz' },
+  { key: 'a11y', label: 'Accessibility', quizTopics: ['Accessibility'], codingTopics: [], href: '/prep?tab=questions&cat=quiz' },
+  { key: 'perf', label: 'Performance', quizTopics: ['Performance'], codingTopics: ['Performance'], href: '/prep?tab=questions&cat=quiz' },
+  { key: 'testing', label: 'Testing', quizTopics: ['Testing'], codingTopics: ['Testing'], href: '/prep?tab=questions&cat=quiz' },
+  { key: 'browser', label: 'Browser, network & security', quizTopics: ['Browser Internals', 'Web Security', 'APIs'], codingTopics: ['DOM & Browser APIs', 'Networking & APIs'], href: '/prep?tab=questions&cat=quiz' },
+  { key: 'sysdesign', label: 'Frontend system design', quizTopics: ['System Design', 'Micro-frontends', 'Design Systems'], codingTopics: ['System Design'], href: '/prep?tab=questions&cat=system-design' },
   { key: 'ainative', label: 'AI-native engineering', quizTopics: [], codingTopics: [], href: '/prep?tab=questions&cat=ai-native' },
   { key: 'uicoding', label: 'UI coding', quizTopics: [], codingTopics: ['UI Components'], href: '/coding' },
   { key: 'dsa', label: 'Algorithms (DSA)', quizTopics: [], codingTopics: ['Algorithms', 'Data Structures'], href: '/coding' },

@@ -10,7 +10,7 @@ export function checkUpcomingInterview(next: { company: string; kind: string; sc
   const hours = (new Date(next.scheduled_at).getTime() - nowMs) / 3600_000
   if (hours < 0 || hours > 48) return null
   return {
-    id: 'career.upcoming_interview', module: 'career', weight: 95, emoji: '📅', href: '/career',
+    id: 'career.upcoming_interview', module: 'career', weight: 95, emoji: '📅', href: '/interviews',
     message: `${next.company} ${next.kind.replace(/_/g, ' ')} round ${toISTDateStr(next.scheduled_at) === todayIST() ? 'today' : 'tomorrow'} — prep for it now`,
   }
 }
@@ -21,7 +21,7 @@ export function checkUnscheduledProcess(active: { company: string }[], scheduled
   const idle = active.filter(a => !scheduledCompanies.has(a.company))
   if (idle.length === 0) return null
   return {
-    id: 'career.unscheduled_process', module: 'career', weight: 58, emoji: '🎯', href: '/career',
+    id: 'career.unscheduled_process', module: 'career', weight: 58, emoji: '🎯', href: '/interviews',
     message: `${idle.map(a => a.company).slice(0, 2).join(', ')}${idle.length > 2 ? ` +${idle.length - 2}` : ''}: no next round scheduled — log it or follow up`,
   }
 }

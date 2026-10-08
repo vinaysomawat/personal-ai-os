@@ -36,5 +36,5 @@ export const KIND_HREF: Record<Risk['kind'] | Opportunity['kind'], string> = {
   budget_pace: '/finance',
   protein_decline: '/health',
   coding_streak: '/coding',
-  interview_momentum: '/career',
+  interview_momentum: '/interviews',
 }

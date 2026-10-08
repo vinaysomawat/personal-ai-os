@@ -21,10 +21,13 @@ export const BANK_CATEGORIES: { key: BankCategory; label: string; share: number;
   // Lowest-signal pool for a senior FE loop — gave half its time to AI-native.
   { key: 'algorithm', label: 'Algorithms', share: 0.03, minutesPerQ: 30 },
 ]
-// Remaining 21% of the day: a daily Mock Round (~5%, fixed by its format),
-// STAR stories 6%, applications 10%.
+// Rest of the day: a daily Mock Round (~5%, fixed by its format) and STAR
+// stories 6%. The Applications block (10%) was removed 2026-10-08 —
+// applying happens outside the app — and its time went to the bank.
 const BEHAVIORAL_SHARE = 0.06
-const APPLICATIONS_SHARE = 0.10
+// Share of the day for Question Bank blocks (base shares sum to 0.79 and
+// are scaled up to this).
+const BANK_SHARE = 0.89
 
 export interface CategoryCoverage {
   key: BankCategory
@@ -53,11 +56,10 @@ export function daysLeft(today: string, targetDate: string): number {
 // renormalized, so weak areas get more of the same day.
 export function computeQuotas(coverage: CategoryCoverage[], hoursPerDay: number, days: number, weights: Record<string, number> = {}): CategoryQuota[] {
   const dayMinutes = hoursPerDay * 60
-  const baseTotal = BANK_CATEGORIES.reduce((s, c) => s + c.share, 0)
   const weightedTotal = BANK_CATEGORIES.reduce((s, c) => s + c.share * (weights[c.key] ?? 1), 0)
   return BANK_CATEGORIES.map(cat => {
     const c = coverage.find(x => x.key === cat.key)!
-    const share = (cat.share * (weights[cat.key] ?? 1) * baseTotal) / weightedTotal
+    const share = (cat.share * (weights[cat.key] ?? 1) * BANK_SHARE) / weightedTotal
     const quota = Math.max(1, Math.floor((dayMinutes * share) / cat.minutesPerQ))
     return {
       ...c,
@@ -112,11 +114,6 @@ export function buildHuntPlan(ctx: {
     key: 'lead', label: 'STAR stories', minutes: Math.round(dayMinutes * BEHAVIORAL_SHARE),
     detail: ctx.uncoveredCompetency ? `Write a STAR story for "${ctx.uncoveredCompetency}", then rehearse one out loud` : 'Rehearse 2 stories out loud and get feedback on one',
     href: '/prep?tab=stories', done: false,
-  })
-  blocks.push({
-    key: 'applications', label: 'Applications', minutes: Math.round(dayMinutes * APPLICATIONS_SHARE),
-    detail: '3 targeted applications — or 2 + 2 referral asks — and follow up on anything older than 7 days. Quality over volume.',
-    href: '/career', done: false,
   })
   return { focus: `Job hunt · D-${ctx.days}`, blocks }
 }

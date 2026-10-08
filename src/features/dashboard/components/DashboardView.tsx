@@ -37,7 +37,7 @@ export default function DashboardView({ data, executive }: { data: DashboardData
   const moduleScores = [
     { label: 'Health',   score: scores.health,        to: '/health',   tip: scoreTips.health },
     { label: 'Finance',  score: scores.finance,       to: '/finance',  tip: scoreTips.finance },
-    { label: 'Career',   score: scores.career,        to: '/career',   tip: scoreTips.career },
+    { label: 'Career',   score: scores.career,        to: '/interviews',   tip: scoreTips.career },
     { label: 'Coding',   score: scores.projects ?? 0, to: '/coding',   tip: scoreTips.projects },
   ].map(m => ({ ...m, color: tierColor(m.score) }))
 

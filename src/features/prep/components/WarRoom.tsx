@@ -39,7 +39,7 @@ export function WarHeader({ war, daysLeft, targetDate, session, focusedMinutes, 
           <p className="text-[13px] font-bold text-fg-primary">🔥 Interview War Mode{daysLeft !== null && <span className="font-semibold text-accent"> · D-{daysLeft}</span>}{targetDate && <span className="font-normal text-fg-tertiary"> · target {targetDate}</span>}</p>
           <p className={`text-[12.5px] mt-1 ${pace.behindMinutes >= 30 || (pace.blocksDone === 0 && hour >= 10) ? 'text-risk' : 'text-fg-secondary'}`}>{coachLine(pace, hour)}</p>
           {nextInterview && (
-            <a href="/career" className="block text-[12px] font-semibold text-accent mt-0.5 hover:underline">📅 Next interview: {nextInterview.company} · {nextInterview.kind.replace(/_/g, ' ')} · {new Date(nextInterview.scheduled_at).toLocaleString('en-IN', { weekday: 'short', day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit', timeZone: 'Asia/Kolkata' })} →</a>
+            <a href="/interviews" className="block text-[12px] font-semibold text-accent mt-0.5 hover:underline">📅 Next interview: {nextInterview.company} · {nextInterview.kind.replace(/_/g, ' ')} · {new Date(nextInterview.scheduled_at).toLocaleString('en-IN', { weekday: 'short', day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit', timeZone: 'Asia/Kolkata' })} →</a>
           )}
           <p className="text-[11.5px] text-fg-tertiary mt-0.5 tabular-nums">Focused {hm(focusedMinutes)} / {hm(pace.plannedMinutes)} planned · done {hm(pace.doneMinutes)} · expected by now {hm(pace.expectedMinutes)}</p>
         </div>

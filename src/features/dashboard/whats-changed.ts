@@ -50,7 +50,7 @@ export async function getWhatsChanged(supabase: SupabaseClient, userId: string):
 
   if ((todayApps ?? []).length > 0) {
     const count = (todayApps ?? []).length
-    items.push({ emoji: '💼', label: 'Applications', value: `${count} added`, tone: 'neutral', href: '/career' })
+    items.push({ emoji: '💼', label: 'Applications', value: `${count} added`, tone: 'neutral', href: '/interviews' })
   }
 
   const scoreRows = scores ?? []
