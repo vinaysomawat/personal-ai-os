@@ -3,7 +3,7 @@ export type ScoreLogRow = { date: string; life_score: number; health_score: numb
 export interface ScoreStats {
   daysTracked: number
   avgLife: number
-  moduleAvgs: { Health: number; Finance: number; Career: number; Learning: number; Projects: number }
+  moduleAvgs: { Health: number; Finance: number; Career: number; Projects: number }
   best: { date: string; score: number }
   worst: { date: string; score: number }
   topModule: [string, number]
@@ -21,7 +21,7 @@ export function computeScoreStats(logs: ScoreLogRow[]): ScoreStats {
   const avgLife    = avg('life_score')
   const moduleAvgs = {
     Health: avg('health_score'), Finance: avg('finance_score'), Career: avg('career_score'),
-    Learning: avg('learning_score'), Projects: avg('projects_score'),
+    Projects: avg('projects_score'),
   }
 
   const best  = logs.reduce((a, b) => a.life_score > b.life_score ? a : b)

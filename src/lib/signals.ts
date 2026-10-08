@@ -7,7 +7,7 @@
 // Dashboard's Today's Focus) aggregate and rank via rankSignals() instead of
 // hand-rolling their own candidate list per widget.
 
-type ModuleName = 'career' | 'finance' | 'health' | 'learning' | 'coding'
+type ModuleName = 'career' | 'finance' | 'health' | 'coding'
 
 export interface Signal {
   id: string

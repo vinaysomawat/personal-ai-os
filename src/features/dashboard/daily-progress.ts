@@ -24,7 +24,6 @@ export interface TodayProgressInput {
   // Every active coding pick (all slots, carried-over included), with
   // whether it was completed today (IST).
   codingPicks: { completed: boolean; completedToday: boolean }[]
-  dailyRead: { completed: boolean } | null
   expenseLoggedToday: boolean
 }
 
@@ -44,10 +43,6 @@ export function computeTodayProgress(input: TodayProgressInput): TodayProgress {
   if (input.codingPicks.length > 0) {
     const doneCount = input.codingPicks.filter(p => p.completed).length
     items.push({ key: 'coding', label: `Coding practice — finish 1 of today's picks (${doneCount}/${input.codingPicks.length} done)`, done: input.codingPicks.some(p => p.completedToday), href: '/coding' })
-  }
-
-  if (input.dailyRead) {
-    items.push({ key: 'daily-read', label: "Read today's article", done: input.dailyRead.completed, href: '/learning' })
   }
 
   items.push({ key: 'expense', label: "Log today's expenses", done: input.expenseLoggedToday, href: '/finance' })

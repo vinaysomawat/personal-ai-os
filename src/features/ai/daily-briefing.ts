@@ -41,12 +41,11 @@ export async function generateDailyBriefing(db: SupabaseClient, userId: string):
   const monthStart = today.slice(0, 7) + '-01'
 
   const [
-    expensesRes, budgetsRes, resourcesRes,
+    expensesRes, budgetsRes,
     appsRes, scoreRes,
   ] = await Promise.all([
     db.from('expenses').select('amount, category').eq('user_id', userId).gte('date', monthStart),
     db.from('budgets').select('amount, category').eq('user_id', userId).eq('month', today.slice(0, 7)),
-    db.from('resources').select('status').eq('user_id', userId),
     db.from('applications').select('status').eq('user_id', userId),
     db.from('life_score_logs').select('life_score').eq('user_id', userId).order('date', { ascending: false }).limit(2),
   ])
@@ -55,7 +54,6 @@ export async function generateDailyBriefing(db: SupabaseClient, userId: string):
   const budgets = budgetsRes.data ?? []
   const monthSpend = expenses.reduce((s: number, e: { amount: number }) => s + (e.amount ?? 0), 0)
   const monthBudget = budgets.reduce((s: number, b: { amount: number }) => s + (b.amount ?? 0), 0)
-  const resources = resourcesRes.data ?? []
   const apps = appsRes.data ?? []
   const scores = scoreRes.data ?? []
 
@@ -64,14 +62,12 @@ export async function generateDailyBriefing(db: SupabaseClient, userId: string):
   const delta = prevScore !== null ? lifeScore - prevScore : null
 
   const activeApps = apps.filter((a: { status: string }) => ['applied', 'screening', 'interview'].includes(a.status)).length
-  const inProgress = resources.filter((r: { status: string }) => r.status === 'in-progress').length
 
   const prompt = `Morning briefing for Vinay. Today: ${todayISTLabel()}.
 
 Life Score: ${lifeScore}/100${delta !== null ? ` (${delta >= 0 ? '+' : ''}${delta} from yesterday)` : ''}
 Budget: ₹${Math.round(monthSpend).toLocaleString('en-IN')} of ₹${Math.round(monthBudget).toLocaleString('en-IN')} this month
 Active applications: ${activeApps}
-Learning in progress: ${inProgress} resources
 
 Write a short morning briefing (max 120 words):
 1. One motivating sentence about the Life Score

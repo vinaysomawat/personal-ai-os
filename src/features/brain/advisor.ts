@@ -73,7 +73,7 @@ export async function getWeeklyReflection(): Promise<WeeklyReflection> {
 }
 
 const EMPTY_MONTHLY_REVIEW: MonthlyReview = {
-  career: '', finance: '', health: '', learning: '', coding: '',
+  career: '', finance: '', health: '', coding: '',
   overall: 'Not enough data logged this month yet — keep tracking and check back later.',
   biggestAchievement: '', biggestMistake: '', recommendation: '',
 }
@@ -84,7 +84,7 @@ export interface MonthlyReviewResult {
 }
 
 // Takes the already-built BrainContext (like askBrain/askBrainDecision do)
-// for the Career/Finance-total/Learning/Coding snapshot fields it needs —
+// for the Career/Finance-total/Coding snapshot fields it needs —
 // only the 30-day score trend, patterns, and spend-category breakdown are
 // fetched fresh here, since those aren't part of the per-render snapshot.
 export async function getMonthlyReview(context: BrainContext): Promise<MonthlyReviewResult> {
@@ -107,7 +107,7 @@ export async function getMonthlyReview(context: BrainContext): Promise<MonthlyRe
     return {
       review: {
         career: parsed.career ?? '', finance: parsed.finance ?? '', health: parsed.health ?? '',
-        learning: parsed.learning ?? '', coding: parsed.coding ?? '', overall: parsed.overall,
+        coding: parsed.coding ?? '', overall: parsed.overall,
         biggestAchievement: parsed.biggestAchievement ?? '', biggestMistake: parsed.biggestMistake ?? '',
         recommendation: parsed.recommendation ?? '',
       },

@@ -4,7 +4,6 @@ const MODULE_ROWS: { key: keyof MonthlyReview; label: string }[] = [
   { key: 'career', label: 'Career' },
   { key: 'finance', label: 'Finance' },
   { key: 'health', label: 'Health' },
-  { key: 'learning', label: 'Learning' },
   { key: 'coding', label: 'Coding' },
 ]
 

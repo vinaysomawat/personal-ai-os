@@ -1,7 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { todayIST } from '@/lib/date'
 
-const TIP_TABLE = { coding: 'coding_tips', health: 'health_tips', learning: 'learning_tips' } as const
+const TIP_TABLE = { coding: 'coding_tips', health: 'health_tips' } as const
 export type TipCategory = keyof typeof TIP_TABLE
 
 const todayStr = todayIST

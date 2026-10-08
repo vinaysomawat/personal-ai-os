@@ -38,7 +38,6 @@ export default function DashboardView({ data, executive }: { data: DashboardData
     { label: 'Health',   score: scores.health,        to: '/health',   tip: scoreTips.health },
     { label: 'Finance',  score: scores.finance,       to: '/finance',  tip: scoreTips.finance },
     { label: 'Career',   score: scores.career,        to: '/career',   tip: scoreTips.career },
-    { label: 'Learning', score: scores.learning,      to: '/learning', tip: scoreTips.learning },
     { label: 'Coding',   score: scores.projects ?? 0, to: '/coding',   tip: scoreTips.projects },
   ].map(m => ({ ...m, color: tierColor(m.score) }))
 
@@ -128,7 +127,7 @@ export default function DashboardView({ data, executive }: { data: DashboardData
       {/* Life Score Trend + Daily Mission side by side — Daily Mission
           resets to a fresh checklist every midnight, separate from the
           persistent Life Score above. Deterministic, cross-module
-          (Health/Coding/Learning/Finance) — same primitive the
+          (Health/Coding/Finance) — same primitive the
           Phase 2 "Brain" PRD calls Daily Mission. */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-[var(--grid-gap)] items-start">
         <LifeScoreTrend scoreHistory={scoreHistory} />

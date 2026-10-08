@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { useRouter, usePathname } from 'next/navigation'
 import {
   LayoutDashboard, Briefcase, DollarSign, HeartPulse,
-  BookOpen, Code2, Sun, Moon, ChevronDown, MoreHorizontal, Target,
+  Code2, Sun, Moon, ChevronDown, MoreHorizontal, Target,
 } from 'lucide-react'
 import { useTheme } from './ThemeProvider'
 import { useAIAdvisorTrigger } from './AIAdvisorProvider'
@@ -24,7 +24,6 @@ const MODULES = [
   { label: 'Career', to: '/career', icon: Briefcase },
   { label: 'Finance', to: '/finance', icon: DollarSign },
   { label: 'Health', to: '/health', icon: HeartPulse },
-  { label: 'Learning', to: '/learning', icon: BookOpen },
   { label: 'Coding', to: '/coding', icon: Code2 },
 ]
 
@@ -39,7 +38,6 @@ const MOBILE_PRIMARY = [
 
 const MOBILE_MORE = [
   { label: 'Career', to: '/career', icon: '💼' },
-  { label: 'Learning', to: '/learning', icon: '📚' },
   { label: 'Coding', to: '/coding', icon: '💻' },
   { label: 'Astrology', to: '/astrology', icon: '🔮' },
   { label: 'Settings', to: '/settings', icon: '⚙' },

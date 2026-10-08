@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Personal OS is a single-user AI Operating System — a Next.js 15 web app backed by Supabase and deployed to Vercel. It covers Dashboard (Life Score + Today's Focus), Prep, Career, Finance, Health, Learning, Coding, and Settings, all reachable from a per-module Telegram bot (plus a Daily bot for briefings/digests).
+Personal OS is a single-user AI Operating System — a Next.js 15 web app backed by Supabase and deployed to Vercel. It covers Dashboard (Life Score + Today's Focus), Prep, Career, Finance, Health, Coding, and Settings, all reachable from a per-module Telegram bot (plus a Daily bot for briefings/digests).
 
 **For the full, current, module-by-module spec (exact fields, formulas, AI features, Telegram capabilities, cron jobs, complete DB schema) — read `README.md`, not this section.** This file covers workflow/conventions only; README.md is the single source of truth for what the app does, and per the checklist below it's kept current with every functional change.
 

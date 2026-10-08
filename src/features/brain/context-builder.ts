@@ -28,7 +28,6 @@ export function buildBrainContext(data: DashboardData): BrainContext {
     },
     finance: { monthSpend: data.stats.monthSpend, monthBudget: data.stats.monthBudget, goals: data.financialGoals },
     health: { workoutsToday: data.stats.workoutsToday, todayMetric: data.todayHealth },
-    learning: { inProgress: data.stats.learningInProgress },
     coding: { solved30d: data.stats.codingSolved30d },
     signals: data.topActions,
     weeklyPatterns: data.recentPatterns.map(p => p.pattern),
@@ -63,7 +62,7 @@ export async function getWeeklyReflectionContext(supabase: SupabaseClient, userI
 // life_score_logs aggregation as above with a wider window, plus this
 // calendar month's top spend category — the one number not already sitting
 // in BrainContext (which only has the month's total, not a breakdown).
-// Career/Finance-total/Learning/Coding figures are read from the caller's
+// Career/Finance-total/Coding figures are read from the caller's
 // already-built BrainContext instead of re-querying them here.
 export async function getMonthlyReviewContext(supabase: SupabaseClient, userId: string): Promise<MonthlyReviewContext | null> {
   const since = daysAgoIST(30)

@@ -65,7 +65,6 @@ Keep it personal, direct, under 80 words.`
     `Health   ${scoreBar(moduleAvgs.Health)} ${moduleAvgs.Health}\n` +
     `Finance  ${scoreBar(moduleAvgs.Finance)} ${moduleAvgs.Finance}\n` +
     `Career   ${scoreBar(moduleAvgs.Career)} ${moduleAvgs.Career}\n` +
-    `Learning ${scoreBar(moduleAvgs.Learning)} ${moduleAvgs.Learning}\n` +
     `Projects ${scoreBar(moduleAvgs.Projects)} ${moduleAvgs.Projects}\n\n` +
     `${message}${spendSection}`
 }

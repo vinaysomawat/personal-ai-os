@@ -17,10 +17,6 @@
       "schedule": "5 3 * * *"
     },
     {
-      "path": "/api/cron/daily-read",
-      "schedule": "20 3 * * *"
-    },
-    {
       "path": "/api/cron/evening-checkin",
       "schedule": "0 17 * * *"
     },
@@ -35,10 +31,6 @@
     {
       "path": "/api/cron/job-alerts",
       "schedule": "35 3 * * *"
-    },
-    {
-      "path": "/api/cron/learning-tip",
-      "schedule": "45 3 * * *"
     },
     {
       "path": "/api/cron/daily-journal",

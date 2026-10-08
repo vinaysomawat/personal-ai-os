@@ -3,6 +3,10 @@
 One line per shipped change, newest first. Sourced from commit messages —
 append here whenever you deploy, same cadence as the version bump.
 
+## 2026-10-08
+
+- **v3.3 — Learning removed.** The resource tracker, daily read, AI/tech tip, the Learning Telegram bot and its four AI tasks are gone. Life Score is now Health 30 / Finance 25 / Career 25 / Coding 20 (Learning's 20% redistributed); Daily Mission, digests, Explain My Score, Monthly Review and the Brain no longer mention it. Prep's normal plan uses a concept quiz instead of the daily read. Resource data is kept in the database and the export.
+
 ## 2026-10-07
 
 - **v3.2 — Interview War Mode.** Prep's Today tab is now a War Room: one "do this now" block with a full-screen focus timer, readiness gates with a weakest-area penalty (NOT READY until every area clears its bar, plus mock average ≥8/10), a revision queue and weakest-topic scores built from stored AI answer ratings, a plan that gives the weakest areas the most time, and a weekly "if you interviewed tomorrow" forecast. The Daily Telegram bot coaches the day (7:30am mission, 1pm behind-pace nudge, 9:30pm review) and takes START / PAUSE / DONE. Target moved to Nov 18.

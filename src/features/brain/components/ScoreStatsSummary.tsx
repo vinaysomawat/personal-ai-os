@@ -1,10 +1,10 @@
-const MODULES = ['Health', 'Finance', 'Career', 'Learning', 'Projects'] as const
+const MODULES = ['Health', 'Finance', 'Career', 'Projects'] as const
 
 interface ScoreStatsSummaryProps {
   daysTracked: number
   totalDays: number
   avgLife: number
-  moduleAvgs: { Health: number; Finance: number; Career: number; Learning: number; Projects: number }
+  moduleAvgs: { Health: number; Finance: number; Career: number; Projects: number }
   best: { date: string; score: number }
   worst: { date: string; score: number }
   periodLabel: string

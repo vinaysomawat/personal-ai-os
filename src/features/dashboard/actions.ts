@@ -16,7 +16,6 @@ import { checkQuestionPending, checkStaleRevision, checkCodingWeakArea } from '@
 import { computeWeakAreas, type WeakArea } from '@/features/coding/daily-core'
 import { getInsightsHistory } from '@/features/coding/daily'
 import { checkWorkoutPending, checkNoMetricsToday } from '@/features/health/signals'
-import { getActiveDailyRead } from '@/features/learning/daily-read'
 import { computeTodayProgress } from './daily-progress'
 import { getRecentPatterns, type RecentPattern } from '@/features/brain/signals'
 import type { ScoreModule } from '@/features/brain/types'
@@ -83,19 +82,18 @@ export async function getDashboardData() {
 
   if (!user) return {
     recentApplications: [], botActivity: [],
-    scores: { health: 0, finance: 50, career: 0, learning: 0, projects: 0, life: 0 },
-    scoreTips: { health: '', finance: '', career: '', learning: '', projects: '' },
+    scores: { health: 0, finance: 50, career: 0, projects: 0, life: 0 },
+    scoreTips: { health: '', finance: '', career: '', projects: '' },
     scoreBreakdown: {
       health: { today: 0, weeklyAvg: 0, blended: 0, delta: null },
       finance: { today: 0, weeklyAvg: 0, blended: 0, delta: null },
       career: { today: 0, weeklyAvg: 0, blended: 0, delta: null },
-      learning: { today: 0, weeklyAvg: 0, blended: 0, delta: null },
       projects: { today: 0, weeklyAvg: 0, blended: 0, delta: null },
     } as Record<ScoreModule, ModuleBreakdown>,
     lifeDelta: null as number | null,
     todayHealth: null,
-    scoreHistory: [] as { date: string; life: number; health: number; finance: number; career: number; learning: number; projects: number }[],
-    stats: { activeApplications: 0, workoutsToday: 0, monthSpend: 0, monthBudget: 0, learningInProgress: 0, codingSolved30d: 0, workoutStreak: 0 },
+    scoreHistory: [] as { date: string; life: number; health: number; finance: number; career: number; projects: number }[],
+    stats: { activeApplications: 0, workoutsToday: 0, monthSpend: 0, monthBudget: 0, codingSolved30d: 0, workoutStreak: 0 },
     codingQuestionPending: false,
     workoutCategory: null as string | null,
     aiBudget: { callsToday: 0, costTodayUsd: 0, callsMonth: 0, costMonthUsd: 0, cacheHitRateMonth: 0 },
@@ -109,7 +107,7 @@ export async function getDashboardData() {
 
   const [
     appsRes, workoutsRes,
-    expensesRes, budgetsRes, resourcesRes,
+    expensesRes, budgetsRes,
     botLogsRes, healthMetricRes, careerProfileRes, skillsRes,
     aiUsageMonthRes, codingTodayRows, activeWorkout, codingSolved30dRes,
     codingCompletionsRes, quizAttemptsRes, workoutCompletedTodayRes,
@@ -122,7 +120,6 @@ export async function getDashboardData() {
     supabase.from('workouts').select('id').eq('user_id', user.id).eq('date', today),
     supabase.from('expenses').select('amount, date').eq('user_id', user.id).gte('date', monthStart),
     supabase.from('budgets').select('amount').eq('user_id', user.id).eq('month', today.slice(0, 7)),
-    supabase.from('resources').select('id, status, notes, created_at, completed_at').eq('user_id', user.id),
     supabase.from('telegram_logs').select('module, message, response, created_at').order('created_at', { ascending: false }).limit(50),
     supabase.from('health_metrics').select('*').eq('user_id', user.id).eq('date', today).single(),
     supabase.from('career_profile').select('current_role, target_role, current_company, current_salary, bio').eq('user_id', user.id).single(),
@@ -169,15 +166,11 @@ export async function getDashboardData() {
   const workoutsToday = workoutsRes.data ?? []
   const expenses = expensesRes.data ?? []
   const budgets = budgetsRes.data ?? []
-  const resources = resourcesRes.data ?? []
   const todayMetric = healthMetricRes.data ?? null
-  const todayDailyRead = getActiveDailyRead(resources)
-  const todayDailyReadStatus = todayDailyRead ? { completed: todayDailyRead.status === 'completed' } : null
 
   const activeApps = applications.filter(a => ['applied', 'screening', 'interview'].includes(a.status)).length
   const monthSpend = expenses.reduce((s, e) => s + (e.amount ?? 0), 0)
   const monthBudget = budgets.reduce((s, b) => s + (b.amount ?? 0), 0)
-  const learningInProgress = resources.filter(r => r.status === 'in-progress').length
 
   // --- Scores (Life Score v2, 2026-08-23) ---
   // Each of these is today's fresh "daily raw" score — the quality-aware
@@ -241,13 +234,6 @@ export async function getDashboardData() {
     (jobAlertTracked30d ? 20 : 0)
   )
 
-  // Learning: resources completed in the last 30 days (by completed_at,
-  // added 2026-09-24) against a target — was completed/total, a backlog
-  // ratio that moved when unread items were deleted rather than when
-  // anything was actually read.
-  const learningCompleted30d = resources.filter(r => r.status === 'completed' && r.completed_at && r.completed_at >= istMidnightUtc(30)).length
-  const learningScore = Math.min(100, Math.round((learningCompleted30d / LIFE_SCORE_THRESHOLDS.learningCompletionsTarget) * 100))
-
   // Coding: weighted by category over the last 30 days instead of a flat
   // count — algorithm and system-design questions take meaningfully longer
   // than a quiz/JS-function/UI-coding pick, so they're worth more. Reuses
@@ -296,10 +282,6 @@ export async function getDashboardData() {
   const topCareerDeficit = careerDeficits.reduce((a, b) => (b[0] > a[0] ? b : a))
   const careerTip = topCareerDeficit[0] > 0 ? topCareerDeficit[1] : 'Career basics maxed — check the AI Mentor for what\'s next'
 
-  const learningTip = learningCompleted30d >= LIFE_SCORE_THRESHOLDS.learningCompletionsTarget
-    ? 'Maxed out — steady reading habit'
-    : `${learningCompleted30d} of ${LIFE_SCORE_THRESHOLDS.learningCompletionsTarget} completions in 30 days — finish today's read`
-
   const projectsTip = codingWeighted30d === 0
     ? 'No coding questions solved in the last 30 days — start today\'s question'
     : codingConsistency < codingVolume
@@ -308,7 +290,7 @@ export async function getDashboardData() {
         ? 'Keep solving — algorithm and system-design questions count for more'
         : 'Maxed out — consistent practice'
 
-  const scoreTips = { health: healthTip, finance: financeTip, career: careerTip, learning: learningTip, projects: projectsTip }
+  const scoreTips = { health: healthTip, finance: financeTip, career: careerTip, projects: projectsTip }
 
   // --- Life Score v2 blend: daily raw × 0.6 + trailing-7-day average × 0.4 ---
   // life_score_logs only ever stores each module's pure daily raw score
@@ -319,14 +301,14 @@ export async function getDashboardData() {
   const priorHistory = (historyData ?? []).map(r => ({
     date: r.date as string, life: r.life_score as number,
     health: r.health_score as number, finance: r.finance_score as number,
-    career: r.career_score as number, learning: r.learning_score as number,
+    career: r.career_score as number,
     projects: r.projects_score as number,
   }))
   const priorHistoryByDate = new Map(priorHistory.map(r => [r.date, r]))
 
   const todayRaw: Record<ScoreModule, number> = {
     health: healthScore, finance: financeScore, career: careerScore,
-    learning: learningScore, projects: projectsScore,
+    projects: projectsScore,
   }
 
   // Brand-new accounts shouldn't have their first week's weekly average
@@ -368,7 +350,7 @@ export async function getDashboardData() {
   const yesterday = subtractDays(today, 1)
   const isFirstDay = accountCreatedDate === today
 
-  const moduleKeys: ScoreModule[] = ['health', 'finance', 'career', 'learning', 'projects']
+  const moduleKeys: ScoreModule[] = ['health', 'finance', 'career', 'projects']
   const scoreBreakdown = Object.fromEntries(moduleKeys.map(key => {
     const blendedToday = blendedOn(today, key)
     const blendedYesterday = isFirstDay ? null : blendedOn(yesterday, key)
@@ -380,12 +362,13 @@ export async function getDashboardData() {
     }]
   })) as Record<ScoreModule, ModuleBreakdown>
 
+  // Reweighted 2026-10-08 when Learning was removed (was 25/20/20/20/15
+  // with Learning 20%); life_score_logs.learning_score now defaults to 0.
   const lifeScore = Math.round(
-    scoreBreakdown.health.blended    * 0.25 +
-    scoreBreakdown.finance.blended   * 0.20 +
-    scoreBreakdown.career.blended    * 0.20 +
-    scoreBreakdown.learning.blended  * 0.20 +
-    scoreBreakdown.projects.blended  * 0.15
+    scoreBreakdown.health.blended    * 0.30 +
+    scoreBreakdown.finance.blended   * 0.25 +
+    scoreBreakdown.career.blended    * 0.25 +
+    scoreBreakdown.projects.blended  * 0.20
   )
   const yesterdayLifeScore = isFirstDay ? null : (priorHistoryByDate.get(yesterday)?.life ?? null)
   const lifeDelta = yesterdayLifeScore === null ? null : lifeScore - yesterdayLifeScore
@@ -403,14 +386,14 @@ export async function getDashboardData() {
     await createServiceClient().from('life_score_logs').upsert({
       user_id: userId, date: today,
       health_score: healthScore, finance_score: financeScore,
-      career_score: careerScore, learning_score: learningScore,
+      career_score: careerScore,
       projects_score: projectsScore, life_score: lifeScore,
     }, { onConflict: 'user_id,date' })
   })
 
   const scoreHistory = [
     ...priorHistory.filter(r => r.date !== today),
-    { date: today, life: lifeScore, health: healthScore, finance: financeScore, career: careerScore, learning: learningScore, projects: projectsScore },
+    { date: today, life: lifeScore, health: healthScore, finance: financeScore, career: careerScore, projects: projectsScore },
   ].sort((a, b) => a.date.localeCompare(b.date))
 
   // --- AI spend (from ai_usage_logs, written by the AI Gateway) ---
@@ -438,7 +421,6 @@ export async function getDashboardData() {
     metricsLoggedToday,
     workoutStatus,
     codingPicks: codingTodayRows.map(r => ({ completed: r.completed, completedToday: !!r.completed_at && toISTDateStr(r.completed_at) === today })),
-    dailyRead: todayDailyReadStatus,
     expenseLoggedToday,
   })
 
@@ -480,7 +462,7 @@ export async function getDashboardData() {
     // (see the upsert comment above).
     scores: {
       health: scoreBreakdown.health.blended, finance: scoreBreakdown.finance.blended,
-      career: scoreBreakdown.career.blended, learning: scoreBreakdown.learning.blended,
+      career: scoreBreakdown.career.blended,
       projects: scoreBreakdown.projects.blended, life: lifeScore,
     },
     scoreBreakdown,
@@ -490,7 +472,6 @@ export async function getDashboardData() {
       activeApplications: activeApps,
       workoutsToday: workoutsToday.length,
       monthSpend, monthBudget,
-      learningInProgress,
       codingSolved30d,
       workoutStreak: workoutStats.currentStreakDays,
     },

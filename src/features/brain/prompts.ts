@@ -1,6 +1,6 @@
 import type { BrainContext, WeeklyReflectionContext, MonthlyReviewContext } from './types'
 
-export const BRAIN_SYSTEM_PROMPT = `You are Vinay's personal Brain — a single assistant that understands his whole life across Career, Finance, Health, Learning, Coding and interview prep, and helps him make decisions.
+export const BRAIN_SYSTEM_PROMPT = `You are Vinay's personal Brain — a single assistant that understands his whole life across Career, Finance, Health, Coding and interview prep, and helps him make decisions.
 
 Rules:
 - Answer directly and specifically using only the context provided below. Never invent numbers, events, or facts that aren't in the context.
@@ -19,7 +19,6 @@ export function buildContextSummary(ctx: BrainContext): string {
     `Career: ${ctx.career.activeApplications} active applications${ctx.career.currentRole ? `, currently ${ctx.career.currentRole}${ctx.career.currentCompany ? ` at ${ctx.career.currentCompany}` : ''}` : ''}${ctx.career.targetRole ? `, targeting ${ctx.career.targetRole}` : ''}${ctx.career.currentSalary ? `, current salary ₹${Math.round(ctx.career.currentSalary).toLocaleString('en-IN')}` : ''}${ctx.career.bio ? `. Bio/focus: ${ctx.career.bio}` : ''}`,
     `Finance: ₹${Math.round(ctx.finance.monthSpend)} spent of ₹${Math.round(ctx.finance.monthBudget)} budget this month`,
     `Health: ${ctx.health.workoutsToday} workout(s) today${ctx.health.todayMetric ? '' : ', no metrics logged today'}`,
-    `Learning: ${ctx.learning.inProgress} resources in progress`,
     `Coding: ${ctx.coding.solved30d} questions solved in the last 30 days`,
   ]
 
@@ -80,7 +79,7 @@ export function buildWeeklyReflectionContextSummary(ctx: WeeklyReflectionContext
     `Average Life Score: ${ctx.avgLife}/100`,
     `Best day: ${ctx.best.date} (${ctx.best.score}/100)`,
     `Worst day: ${ctx.worst.date} (${ctx.worst.score}/100)`,
-    `Module averages — Health: ${ctx.moduleAvgs.Health}, Finance: ${ctx.moduleAvgs.Finance}, Career: ${ctx.moduleAvgs.Career}, Learning: ${ctx.moduleAvgs.Learning}, Projects: ${ctx.moduleAvgs.Projects}`,
+    `Module averages — Health: ${ctx.moduleAvgs.Health}, Finance: ${ctx.moduleAvgs.Finance}, Career: ${ctx.moduleAvgs.Career}, Projects: ${ctx.moduleAvgs.Projects}`,
   ]
   if (ctx.patterns.length > 0) {
     lines.push('Confirmed patterns: ' + ctx.patterns.join('; '))
@@ -104,10 +103,10 @@ Rules:
 - If days tracked is low (fewer than 10), say so plainly in "overall" instead of fabricating a fuller picture.
 
 Respond with ONLY a JSON object, no markdown, no code fences, matching exactly this shape:
-{"career": "...", "finance": "...", "health": "...", "learning": "...", "coding": "...", "overall": "...", "biggestAchievement": "...", "biggestMistake": "...", "recommendation": "..."}`
+{"career": "...", "finance": "...", "health": "...", "coding": "...", "overall": "...", "biggestAchievement": "...", "biggestMistake": "...", "recommendation": "..."}`
 
 // Same "one line per fact" style as the other Brain prompts — combines the
-// 30-day MonthlyReviewContext with the Career/Finance-total/Learning/Coding
+// 30-day MonthlyReviewContext with the Career/Finance-total/Coding
 // snapshot fields already sitting in the caller's BrainContext, so this is
 // the only place that re-fetches anything (topSpendCategory + patterns).
 export function buildMonthlyReviewContextSummary(ctx: MonthlyReviewContext, brain: BrainContext): string {
@@ -118,10 +117,9 @@ export function buildMonthlyReviewContextSummary(ctx: MonthlyReviewContext, brai
     `Worst day: ${ctx.worst.date} (${ctx.worst.score}/100)`,
     `Strongest module: ${ctx.topModule[0]} (avg ${ctx.topModule[1]})`,
     `Weakest module: ${ctx.weakModule[0]} (avg ${ctx.weakModule[1]})`,
-    `Module averages — Health: ${ctx.moduleAvgs.Health}, Finance: ${ctx.moduleAvgs.Finance}, Career: ${ctx.moduleAvgs.Career}, Learning: ${ctx.moduleAvgs.Learning}, Projects: ${ctx.moduleAvgs.Projects}`,
+    `Module averages — Health: ${ctx.moduleAvgs.Health}, Finance: ${ctx.moduleAvgs.Finance}, Career: ${ctx.moduleAvgs.Career}, Projects: ${ctx.moduleAvgs.Projects}`,
     `Finance: ₹${Math.round(brain.finance.monthSpend)} spent of ₹${Math.round(brain.finance.monthBudget)} budget this month${ctx.topSpendCategory ? `, top category: ${ctx.topSpendCategory.name} (₹${Math.round(ctx.topSpendCategory.amount).toLocaleString('en-IN')})` : ''}`,
     `Career: ${brain.career.activeApplications} active applications`,
-    `Learning: ${brain.learning.inProgress} resources in progress`,
     `Coding: ${brain.coding.solved30d} questions solved in the last 30 days`,
   ]
   if (brain.finance.goals.length > 0) {

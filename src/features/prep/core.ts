@@ -1,7 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { todayIST, daysAgoIST, toISTDateStr, istMidnightUtc } from '@/lib/date'
 import { getTodayAssignmentRows } from '@/features/coding/daily-core'
-import { getActiveDailyRead } from '@/features/learning/daily-read'
 import type { QuizAttempt } from '@/features/career/types'
 import type { MockRound } from './mock'
 import { buildPrepPlan } from './plan'
@@ -36,14 +35,13 @@ export async function loadPrepData(supabase: SupabaseClient, userId: string) {
   const user = { id: userId }
   const today = todayIST()
 
-  const [mockRes, storiesRes, rehearsalsRes, quizRes, codingRes, activePicks, resourcesRes, sessionsRes, focusRes, forecastRes] = await Promise.all([
+  const [mockRes, storiesRes, rehearsalsRes, quizRes, codingRes, activePicks, sessionsRes, focusRes, forecastRes] = await Promise.all([
     supabase.from('mock_rounds').select('id, format, items, duration_seconds, created_at, review').eq('user_id', user.id).order('created_at', { ascending: false }).limit(500),
     supabase.from('stories').select('*').eq('user_id', user.id).order('updated_at', { ascending: false }),
     supabase.from('story_rehearsals').select('id, story_id, competency, prompt, answer, critique, created_at').eq('user_id', user.id).order('created_at', { ascending: false }).limit(10),
     supabase.from('quiz_attempts').select('*').eq('user_id', user.id),
     supabase.from('coding_daily_questions').select('completed, outcome, completed_at, question:coding_questions(category, topics)').eq('user_id', user.id).eq('completed', true).gte('completed_at', istMidnightUtc(90)),
     getTodayAssignmentRows(supabase, user.id),
-    supabase.from('resources').select('id, title, notes, created_at, status').eq('user_id', user.id),
     supabase.from('prep_sessions').select('*').eq('user_id', user.id).gte('date', daysAgoIST(60)).order('date', { ascending: false }),
     supabase.from('prep_focus_sessions').select('*').eq('user_id', user.id).gte('date', daysAgoIST(6)).order('started_at', { ascending: true }),
     supabase.from('prep_forecasts').select('date, forecast, created_at').eq('user_id', user.id).order('date', { ascending: false }).limit(1).maybeSingle(),
@@ -71,7 +69,6 @@ export async function loadPrepData(supabase: SupabaseClient, userId: string) {
       .find(a => a.quizTopics.length > 0)
     const covered = new Set(stories.filter(s => (s.strength ?? 3) >= 3).flatMap(s => s.competencies))
     const uncovered = COMPETENCIES.find(c => !covered.has(c.key))
-    const activeRead = getActiveDailyRead((resourcesRes.data ?? []) as { title: string; notes: string | null; created_at: string; status: 'not-started' | 'in-progress' | 'completed' }[])
     const plan = quotas && days !== null ? buildHuntPlan({
       hoursPerDay: settings.hours_per_day, days, date: today, quotas,
       uncoveredCompetency: uncovered?.label ?? null,
@@ -80,7 +77,6 @@ export async function loadPrepData(supabase: SupabaseClient, userId: string) {
       mockDoneToday: mockRounds.some(r => toISTDateStr(r.created_at) === today),
     }) : buildPrepPlan(today, {
       weakestTopic: weakQuizArea ? { area: weakQuizArea.label, topic: (weakQuizArea.quizTopics as readonly string[])[0] } : null,
-      activeRead: activeRead && activeRead.status !== 'completed' ? { title: activeRead.title } : null,
       uncoveredCompetency: uncovered?.label ?? null,
       codingPicks: activePicks.filter(p => !p.completed).map(p => ({ category: p.question.category, title: p.question.title })),
     })

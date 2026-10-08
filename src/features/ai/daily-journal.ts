@@ -2,10 +2,9 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { askAI } from '@/lib/ai-gateway'
-import { todayIST, daysAgoIST, istMidnightUtc, toISTDateStr } from '@/lib/date'
-import { DAILY_READ_NOTE_PREFIX } from '@/features/learning/daily-read'
+import { todayIST, daysAgoIST, istMidnightUtc } from '@/lib/date'
 
-const SYSTEM_PROMPT = `You are writing Vinay's Daily Auto Journal — a nightly "what happened today" entry from his actual logged activity across Work, Learning, Health, Finance, and Career.
+const SYSTEM_PROMPT = `You are writing Vinay's Daily Auto Journal — a nightly "what happened today" entry from his actual logged activity across Work, Prep, Health, Finance, and Career.
 
 Rules:
 - Write exactly ONE paragraph, under 150 words, plain prose — no markdown, no headings, no bullet lists.
@@ -27,11 +26,10 @@ export async function gatherTodayActivityLines(db: SupabaseClient, userId: strin
   const today = daysAgoIST(daysAgo)
 
   const [
-    codingRes, resourcesRes, metricRes,
+    codingRes, metricRes,
     workoutsRes, expensesRes, quizRes, appsRes,
   ] = await Promise.all([
     db.from('coding_daily_questions').select('completed').eq('user_id', userId).eq('completed', true).gte('completed_at', istMidnightUtc(daysAgo)).lt('completed_at', istMidnightUtc(daysAgo - 1)),
-    db.from('resources').select('status, title, notes, created_at').eq('user_id', userId),
     db.from('health_metrics').select('weight_kg, calories, protein_g, steps').eq('user_id', userId).eq('date', today).maybeSingle(),
     db.from('workouts').select('type, duration_minutes').eq('user_id', userId).eq('date', today),
     db.from('expenses').select('amount, category').eq('user_id', userId).eq('date', today),
@@ -46,11 +44,6 @@ export async function gatherTodayActivityLines(db: SupabaseClient, userId: strin
 
   const codingSolved = (codingRes.data ?? []).some(q => q.completed)
   if (codingSolved) lines.push('Solved today\'s coding question')
-
-  const dailyRead = (resourcesRes.data ?? []).find(r =>
-    !!r.notes?.startsWith(DAILY_READ_NOTE_PREFIX) && toISTDateStr(r.created_at) === today && r.status === 'completed'
-  )
-  if (dailyRead) lines.push(`Read today's article: "${dailyRead.title}"`)
 
   const metric = metricRes.data
   if (metric) {

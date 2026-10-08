@@ -4,7 +4,6 @@ import { formatMinutes } from './mock'
 export interface PrepPlanContext {
   // Weakest readiness area that maps to a quiz topic (for quiz-based blocks).
   weakestTopic: { area: string; topic: string } | null
-  activeRead: { title: string } | null
   uncoveredCompetency: string | null
   codingPicks: { category: string; title: string }[]
 }
@@ -60,9 +59,9 @@ export function buildPrepPlan(date: string, ctx: PrepPlanContext): { focus: stri
       main = { key: 'main', label: 'Weekly review', detail: 'Check the readiness matrix and mock-round history, pick next week\'s weakest area', minutes: 15, href: '/prep', done: false }
   }
 
-  const concept: PrepBlock = ctx.activeRead
-    ? { key: 'concept', label: 'Concept read', detail: `Read: ${ctx.activeRead.title}`, minutes: 10, href: '/learning', done: false }
-    : { key: 'concept', label: 'Concept quiz', detail: `Quick quiz on your weakest area: ${weakTopic}`, minutes: 10, href: '/career', done: false }
+  // A quick quiz on the weakest area (the daily-read option went with the
+  // Learning module, removed 2026-10-08).
+  const concept: PrepBlock = { key: 'concept', label: 'Concept quiz', detail: `Quick quiz on your weakest area: ${weakTopic}`, minutes: 10, href: '/career', done: false }
 
   const lead: PrepBlock = ctx.uncoveredCompetency && weekday !== 5
     ? { key: 'lead', label: 'Leadership rep', detail: `Draft a STAR story for "${ctx.uncoveredCompetency}" — you have none yet`, minutes: 5, href: '/prep?tab=stories', done: false }

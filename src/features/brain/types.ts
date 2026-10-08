@@ -1,4 +1,4 @@
-export type ScoreModule = 'health' | 'finance' | 'career' | 'learning' | 'projects'
+export type ScoreModule = 'health' | 'finance' | 'career' | 'projects'
 
 export interface ScoreHistoryEntry {
   date: string
@@ -6,7 +6,6 @@ export interface ScoreHistoryEntry {
   health: number
   finance: number
   career: number
-  learning: number
   projects: number
 }
 
@@ -43,7 +42,7 @@ export interface Decision {
 export interface WeeklyReflectionContext {
   daysTracked: number
   avgLife: number
-  moduleAvgs: { Health: number; Finance: number; Career: number; Learning: number; Projects: number }
+  moduleAvgs: { Health: number; Finance: number; Career: number; Projects: number }
   best: { date: string; score: number }
   worst: { date: string; score: number }
   patterns: string[]
@@ -55,7 +54,7 @@ export interface WeeklyReflectionContext {
 export interface MonthlyReviewContext {
   daysTracked: number
   avgLife: number
-  moduleAvgs: { Health: number; Finance: number; Career: number; Learning: number; Projects: number }
+  moduleAvgs: { Health: number; Finance: number; Career: number; Projects: number }
   best: { date: string; score: number }
   worst: { date: string; score: number }
   topModule: [string, number]
@@ -66,12 +65,11 @@ export interface MonthlyReviewContext {
 
 // Structured output for the Monthly tab — unlike Weekly Reflection's single
 // paragraph, the PRD asks for discrete fields (Career/Finance/Health/
-// Learning/Coding/Overall + achievement/mistake/recommendation).
+// Coding/Overall + achievement/mistake/recommendation).
 export interface MonthlyReview {
   career: string
   finance: string
   health: string
-  learning: string
   coding: string
   overall: string
   biggestAchievement: string
@@ -108,7 +106,6 @@ export interface BrainContext {
     goals: { name: string; targetAmount: number; currentAmount: number; targetDate: string | null }[]
   }
   health: { workoutsToday: number; todayMetric: Record<string, unknown> | null }
-  learning: { inProgress: number }
   coding: { solved30d: number }
   signals: { emoji: string; text: string; href: string }[]
   weeklyPatterns: string[]
