@@ -32,6 +32,8 @@ interface Props {
   initialTab: PrepTab
   initialCategory: string | null
   initialFormat: string | null
+  initialTopic: string | null
+  nextInterview: { company: string; kind: string; scheduled_at: string } | null
   today: string
   session: PrepSession | null
   streak: number
@@ -63,7 +65,7 @@ export default function PrepView(props: Props) {
   const [, startTransition] = useTransition()
 
   const [focusSessions, setFocusSessions] = useState(props.focusSessions)
-  const [bankTopic, setBankTopic] = useState('')
+  const [bankTopic, setBankTopic] = useState(props.initialTopic ?? '')
   const [overlayHidden, setOverlayHidden] = useState(false)
   const todayFocus = focusSessions.filter(f => f.date === props.today)
   const focusedToday = Math.round(todayFocus.reduce((s, f) => s + focusSeconds(f), 0) / 60)
@@ -76,7 +78,7 @@ export default function PrepView(props: Props) {
     if (!href.startsWith('/prep?')) { window.location.href = href; return }
     const p = new URLSearchParams(href.split('?')[1])
     setTab(p.get('tab') as PrepTab)
-    if (p.get('cat')) { setBankCategory(p.get('cat')); setBankTopic('') }
+    if (p.get('cat')) { setBankCategory(p.get('cat')); setBankTopic(p.get('topic') ?? '') }
     if (p.get('format')) setMockFormat(p.get('format'))
     setOverlayHidden(true)
   }
@@ -117,7 +119,7 @@ export default function PrepView(props: Props) {
 
       {tab === 'today' && (
         <>
-          <WarHeader war={props.war} daysLeft={props.daysLeft} targetDate={props.settings.target_date} session={session} focusedMinutes={focusedToday} />
+          <WarHeader war={props.war} daysLeft={props.daysLeft} targetDate={props.settings.target_date} session={session} focusedMinutes={focusedToday} nextInterview={props.nextInterview} />
           <div className="grid grid-cols-1 lg:grid-cols-[1fr_380px] gap-[var(--grid-gap)] items-start">
             <div className="space-y-[var(--grid-gap)]">
               <MissionCard session={session} focusSessions={todayFocus} onToggle={handleToggle} onStart={startFocus} onOpen={openHref} />

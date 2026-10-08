@@ -1,5 +1,3 @@
-import { computeReadiness } from '@/features/career/quiz-calculations'
-import type { QuizAttempt } from '@/features/career/types'
 import { COMPETENCIES, READINESS_AREAS, type ReadinessCell, type Story } from './types'
 
 // A Question Bank answer's latest AI rating (1–10), for the rating signal.
@@ -46,10 +44,10 @@ function storyCoverage(stories: Story[], group: 'behavioral' | 'leadership'): { 
 
 // Deterministic readiness across the senior-FE interview surface (no AI).
 // Each area blends whatever real signal exists — recency-weighted topic
-// quiz scores (Career's computeReadiness) and self-reported coding outcomes
+// self-reported coding outcomes
 // on matching topics over the last 90 days — or story coverage for the two
 // behavioral/leadership areas. null = no data yet.
-export function computeReadinessMatrix(quizAttempts: QuizAttempt[], codingHistory: CodingHistoryRow[], stories: Story[], aiNative: { total: number; seen: number } | null = null, rated: RatedAnswer[] = [], now = new Date()): ReadinessCell[] {
+export function computeReadinessMatrix(codingHistory: CodingHistoryRow[], stories: Story[], aiNative: { total: number; seen: number } | null = null, rated: RatedAnswer[] = [], now = new Date()): ReadinessCell[] {
   const since = new Date(now.getTime() - CODING_WINDOW_DAYS * 86400000).toISOString()
   const recentCoding = codingHistory.filter(r => r.completed && r.completed_at && r.completed_at >= since && r.question)
 
@@ -83,11 +81,6 @@ export function computeReadinessMatrix(quizAttempts: QuizAttempt[], codingHistor
       }
     }
 
-    const quizScores = (area.quizTopics as readonly string[])
-      .map(t => computeReadiness(quizAttempts, t).avgPercent)
-      .filter((v): v is number => v !== null)
-    const quizPart = quizScores.length ? Math.round(quizScores.reduce((s, v) => s + v, 0) / quizScores.length) : null
-
     const codingRows = recentCoding.filter(r => {
       const q = r.question!
       if (area.key === 'uicoding' && q.category === 'ui-coding') return true
@@ -99,9 +92,9 @@ export function computeReadinessMatrix(quizAttempts: QuizAttempt[], codingHistor
       ? Math.round(codingRows.reduce((s, r) => s + (r.outcome ? OUTCOME_SCORE[r.outcome] ?? NO_OUTCOME_SCORE : NO_OUTCOME_SCORE), 0) / codingRows.length)
       : null
 
-    const parts = [quizPart, codingPart, rp?.score ?? null].filter((v): v is number => v !== null)
+    // The Career topic-quiz signal was dropped with the quiz (2026-10-08).
+    const parts = [codingPart, rp?.score ?? null].filter((v): v is number => v !== null)
     const basis = [
-      quizPart !== null ? `quiz ${quizPart}%` : null,
       codingPart !== null ? `${codingRows.length} coding Qs` : null,
       rp ? `${rp.n} rated answers` : null,
     ].filter(Boolean).join(' · ') || 'No data yet'

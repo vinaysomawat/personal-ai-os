@@ -19,7 +19,7 @@ export async function generateForecast(db: SupabaseClient, userId: string): Prom
   const data = await loadPrepData(db, userId)
   const reviewed = data.mockRounds.filter(r => r.review).slice(0, 5)
   const focusMin = Math.round(data.focusSessions.reduce((s, f) => s + focusSeconds(f), 0) / 60)
-  const { data: apps } = await db.from('applications').select('company, role, status, jd_analysis').eq('user_id', userId).in('status', ['applied', 'screening', 'interview'])
+  const { data: apps } = await db.from('applications').select('company, role, status, jd_analysis').eq('user_id', userId).in('status', ['screening', 'interview'])
   const prompt = [
     `Target: interview-ready by ${data.settings.target_date ?? 'not set'} (${data.daysLeft ?? '?'} days left), ${data.settings.hours_per_day}h/day.`,
     `Readiness (deterministic, 0-100, gate in brackets): ${data.readiness.map(c => `${c.label} ${c.score ?? 'no data'}`).join('; ')}.`,
@@ -28,7 +28,7 @@ export async function generateForecast(db: SupabaseClient, userId: string): Prom
     `Mock rounds (last ${reviewed.length} reviewed): ${reviewed.map(r => `${r.format} ${r.review!.score ?? '?'}/10 ${r.review!.verdict} — fixes: ${r.review!.fixes.join(' / ')}`).join(' | ') || 'none reviewed'}.`,
     `Focused time last 7 days: ${focusMin} min. Revision queue: ${data.revision.map(r => `${r.topic} ${r.avgRating}/10 ${r.status}`).join(', ') || 'empty'}.`,
     `STAR stories: ${data.stories.length}.`,
-    `Active applications: ${(apps ?? []).map(a => `${a.company} (${a.role}, ${a.status}${(a.jd_analysis as { priorityTopics?: string[] } | null)?.priorityTopics?.length ? `; JD stresses ${(a.jd_analysis as { priorityTopics: string[] }).priorityTopics.join(', ')}` : ''})`).join('; ') || 'none'}.`,
+    `Live interview processes: ${(apps ?? []).map(a => `${a.company} (${a.role}, ${a.status}${(a.jd_analysis as { priorityTopics?: string[] } | null)?.priorityTopics?.length ? `; JD stresses ${(a.jd_analysis as { priorityTopics: string[] }).priorityTopics.join(', ')}` : ''})`).join('; ') || 'none'}.`,
   ].join('\n')
 
   const raw = await askAI('prep_forecast', prompt, SYSTEM, { userId })

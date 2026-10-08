@@ -61,13 +61,13 @@ export async function generateDailyBriefing(db: SupabaseClient, userId: string):
   const prevScore = scores[1]?.life_score ?? null
   const delta = prevScore !== null ? lifeScore - prevScore : null
 
-  const activeApps = apps.filter((a: { status: string }) => ['applied', 'screening', 'interview'].includes(a.status)).length
+  const activeApps = apps.filter((a: { status: string }) => ['screening', 'interview'].includes(a.status)).length
 
   const prompt = `Morning briefing for Vinay. Today: ${todayISTLabel()}.
 
 Life Score: ${lifeScore}/100${delta !== null ? ` (${delta >= 0 ? '+' : ''}${delta} from yesterday)` : ''}
 Budget: ₹${Math.round(monthSpend).toLocaleString('en-IN')} of ₹${Math.round(monthBudget).toLocaleString('en-IN')} this month
-Active applications: ${activeApps}
+Active interview processes: ${activeApps}
 
 Write a short morning briefing (max 120 words):
 1. One motivating sentence about the Life Score

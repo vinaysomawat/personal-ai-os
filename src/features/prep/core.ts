@@ -1,7 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { todayIST, daysAgoIST, toISTDateStr, istMidnightUtc } from '@/lib/date'
 import { getTodayAssignmentRows } from '@/features/coding/daily-core'
-import type { QuizAttempt } from '@/features/career/types'
 import type { MockRound } from './mock'
 import { buildPrepPlan } from './plan'
 import { BANK_CATEGORIES, buildHuntPlan, computeQuotas, daysLeft, type CategoryCoverage } from './hunt'
@@ -35,24 +34,24 @@ export async function loadPrepData(supabase: SupabaseClient, userId: string) {
   const user = { id: userId }
   const today = todayIST()
 
-  const [mockRes, storiesRes, rehearsalsRes, quizRes, codingRes, activePicks, sessionsRes, focusRes, forecastRes] = await Promise.all([
+  const [mockRes, storiesRes, rehearsalsRes, codingRes, activePicks, sessionsRes, focusRes, forecastRes, nextRoundRes] = await Promise.all([
     supabase.from('mock_rounds').select('id, format, items, duration_seconds, created_at, review').eq('user_id', user.id).order('created_at', { ascending: false }).limit(500),
     supabase.from('stories').select('*').eq('user_id', user.id).order('updated_at', { ascending: false }),
     supabase.from('story_rehearsals').select('id, story_id, competency, prompt, answer, critique, created_at').eq('user_id', user.id).order('created_at', { ascending: false }).limit(10),
-    supabase.from('quiz_attempts').select('*').eq('user_id', user.id),
     supabase.from('coding_daily_questions').select('completed, outcome, completed_at, question:coding_questions(category, topics)').eq('user_id', user.id).eq('completed', true).gte('completed_at', istMidnightUtc(90)),
     getTodayAssignmentRows(supabase, user.id),
     supabase.from('prep_sessions').select('*').eq('user_id', user.id).gte('date', daysAgoIST(60)).order('date', { ascending: false }),
     supabase.from('prep_focus_sessions').select('*').eq('user_id', user.id).gte('date', daysAgoIST(6)).order('started_at', { ascending: true }),
     supabase.from('prep_forecasts').select('date, forecast, created_at').eq('user_id', user.id).order('date', { ascending: false }).limit(1).maybeSingle(),
+    // The next scheduled interview round (Interviews / Career page).
+    supabase.from('interview_rounds').select('kind, scheduled_at, application:applications(company)').eq('user_id', user.id).eq('status', 'scheduled').gte('scheduled_at', new Date().toISOString()).order('scheduled_at').limit(1).maybeSingle(),
   ])
   const [settings, bank] = await Promise.all([getPrepSettings(supabase, user.id), getQuestionBank(supabase, user.id)])
   const days = settings.target_date ? daysLeft(today, settings.target_date) : null
   const coverage = bankCoverage(bank, today)
 
   const stories = (storiesRes.data ?? []) as Story[]
-  const quizAttempts = (quizRes.data ?? []) as QuizAttempt[]
-  const readiness = computeReadinessMatrix(quizAttempts, (codingRes.data ?? []) as unknown as CodingHistoryRow[], stories, coverage.find(c => c.key === 'ai-native') ?? null,
+  const readiness = computeReadinessMatrix((codingRes.data ?? []) as unknown as CodingHistoryRow[], stories, coverage.find(c => c.key === 'ai-native') ?? null,
     bank.filter(q => q.last_rating !== null).map(q => ({ category: q.category, topics: q.topics, rating: q.last_rating! })))
   // Empty (not an error) until the mock_rounds migration has run.
   const mockRounds = (mockRes.data ?? []) as MockRound[]
@@ -102,6 +101,7 @@ export async function loadPrepData(supabase: SupabaseClient, userId: string) {
     weakness: weakness.slice(0, 8),
     revision: revisionQueue(bank, today),
     focusSessions: (focusRes.data ?? []) as FocusSession[],
+    nextInterview: nextRoundRes.data ? { company: (nextRoundRes.data as unknown as { application: { company: string } | null }).application?.company ?? 'Interview', kind: nextRoundRes.data.kind as string, scheduled_at: nextRoundRes.data.scheduled_at as string } : null,
     forecast: (forecastRes.data as { date: string; forecast: Forecast; created_at: string } | null) ?? null,
     stories,
     rehearsals: (rehearsalsRes.data ?? []) as StoryRehearsal[],

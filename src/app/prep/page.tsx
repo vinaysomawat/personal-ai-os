@@ -3,14 +3,15 @@ import { getPrepData } from '@/features/prep/actions'
 
 const TABS: PrepTab[] = ['today', 'questions', 'mock', 'stories']
 
-export default async function PrepPage({ searchParams }: { searchParams: Promise<{ tab?: string; cat?: string; format?: string }> }) {
-  const [{ tab, cat, format }, data] = await Promise.all([searchParams, getPrepData()])
+export default async function PrepPage({ searchParams }: { searchParams: Promise<{ tab?: string; cat?: string; topic?: string; format?: string }> }) {
+  const [{ tab, cat, topic, format }, data] = await Promise.all([searchParams, getPrepData()])
   if (!data) return null
   const initialTab = TABS.includes(tab as PrepTab) ? (tab as PrepTab) : 'today'
   return (
     <PrepView
       initialTab={initialTab}
       initialCategory={cat ?? null}
+      initialTopic={topic ?? null}
       initialFormat={format ?? null}
       today={data.today}
       session={data.session}
@@ -22,6 +23,7 @@ export default async function PrepPage({ searchParams }: { searchParams: Promise
       revision={data.revision}
       focusSessions={data.focusSessions}
       forecast={data.forecast}
+      nextInterview={data.nextInterview}
       stories={data.stories}
       rehearsals={data.rehearsals}
       readiness={data.readiness}

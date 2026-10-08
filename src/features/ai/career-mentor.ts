@@ -1,15 +1,15 @@
 'use server'
 
 import { askAI, askAIWithMeta } from '@/lib/ai-gateway'
-import { computeReadiness } from '@/features/career/quiz-calculations'
-import { QUIZ_TOPICS, READINESS_CONFIG } from '@/features/career/types'
-import type { CareerProfile, Skill, Application, JDAnalysis, QuizAttempt, CompanyInsights } from '@/features/career/types'
+import { QUIZ_TOPICS } from '@/features/career/types'
+import type { CareerProfile, Skill, Application, JDAnalysis, CompanyInsights, InterviewQuestion, InterviewRound } from '@/features/career/types'
 
 interface CareerContext {
   profile: CareerProfile | null
   skills: Skill[]
   applications: Application[]
-  quizAttempts?: QuizAttempt[]
+  rounds?: InterviewRound[]
+  questions?: InterviewQuestion[]
   codingStreak?: number
 }
 
@@ -19,15 +19,9 @@ export async function askCareerMentor(question: string, ctx: CareerContext): Pro
     return acc
   }, {})
 
-  const activeApps = ctx.applications.filter(a => ['applied', 'screening', 'interview'].includes(a.status))
+  const activeApps = ctx.applications.filter(a => ['screening', 'interview'].includes(a.status))
   const offers = ctx.applications.filter(a => a.status === 'offer')
-
-  const attemptedTopics = ctx.quizAttempts?.length
-    ? QUIZ_TOPICS
-        .map(topic => ({ topic, ...computeReadiness(ctx.quizAttempts!, topic) }))
-        .filter(t => t.tier !== 'not_started')
-        .map(t => `${t.topic}: ${READINESS_CONFIG[t.tier].label} (${t.avgPercent}%)`)
-    : []
+  const badly = (ctx.questions ?? []).filter(q => q.went === 'badly').slice(0, 5)
 
   const context = `Vinay's career snapshot:
 - Current role: ${ctx.profile?.current_role ?? 'not set'} at ${ctx.profile?.current_company ?? 'not set'}
@@ -38,16 +32,17 @@ export async function askCareerMentor(question: string, ctx: CareerContext): Pro
 Skills:
 ${Object.entries(skillsByCategory).map(([cat, skills]) => `  ${cat}: ${skills.join(', ')}`).join('\n') || '  None added yet'}
 
-Job search: ${activeApps.length} active applications${offers.length ? `, ${offers.length} offer(s)` : ''}
-Recent applications: ${ctx.applications.slice(0, 5).map(a => `${a.company} (${a.role}, ${a.status})`).join(', ') || 'none'}
-${attemptedTopics.length ? `Interview quiz readiness: ${attemptedTopics.join(', ')}` : ''}
+Interviews: ${activeApps.length} active processes${offers.length ? `, ${offers.length} offer(s)` : ''}
+Companies: ${ctx.applications.slice(0, 6).map(a => `${a.company} (${a.role}, ${a.status})`).join(', ') || 'none yet'}
+${(ctx.rounds ?? []).length ? `Rounds: ${(ctx.rounds ?? []).length} logged, ${(ctx.rounds ?? []).filter(r => r.outcome === 'failed').length} failed` : ''}
+${badly.length ? `Interview questions that went badly: ${badly.map(q => q.question).join(' | ')}` : ''}
 ${ctx.codingStreak ? `Coding practice: ${ctx.codingStreak}-day streak — factor consistency into interview readiness` : ''}
 
 Question: ${question}`
 
   return askAI('career_mentor', context, `You are Vinay's personal career mentor — sharp, honest, and specific.
 He is a frontend/testing engineer targeting senior+ roles.
-Give concrete, actionable advice referencing his actual skills, experience, and quiz readiness.
+Give concrete, actionable advice referencing his actual skills, experience, and real interview history.
 If asked about readiness for a role, give a clear verdict with specific gaps to close.
 For salary questions, give actual numbers. For learning paths, give a prioritised list.
 Under 250 words. No generic platitudes.`)

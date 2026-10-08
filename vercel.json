@@ -29,10 +29,6 @@
       "schedule": "25 3 * * *"
     },
     {
-      "path": "/api/cron/job-alerts",
-      "schedule": "35 3 * * *"
-    },
-    {
       "path": "/api/cron/daily-journal",
       "schedule": "30 17 * * *"
     },

@@ -95,7 +95,7 @@ export async function getActiveCompanyPriorityTopics(): Promise<{ company: strin
     .from('applications')
     .select('company, jd_analysis, applied_at')
     .eq('user_id', user.id)
-    .in('status', ['applied', 'screening', 'interview'])
+    .in('status', ['screening', 'interview'])
     .not('jd_analysis', 'is', null)
     .order('applied_at', { ascending: false })
     .limit(1)

@@ -30,6 +30,7 @@ export function morningMessage(d: PrepData): string {
     `🎯 *INTERVIEW WAR MODE — D-${d.daysLeft}*`,
     readinessLine(d),
     risk ? `🔴 Biggest risk: *${risk.label}* ${risk.score ?? 'no data'}/${risk.gate}` : null,
+    d.nextInterview ? `📅 Next interview: *${d.nextInterview.company}* ${d.nextInterview.kind.replace(/_/g, ' ')} — ${new Date(d.nextInterview.scheduled_at).toLocaleString('en-IN', { weekday: 'short', day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit', timeZone: 'Asia/Kolkata' })}` : null,
     '',
     `*Today's mission (${hm(blocks.reduce((s, b) => s + b.minutes, 0))}):*`,
     ...blocks.map((b, i) => `${b.done ? '✅' : `${i + 1}.`} ${b.label} — ${hm(b.minutes)}`),

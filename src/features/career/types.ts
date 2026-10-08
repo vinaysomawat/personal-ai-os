@@ -1,4 +1,61 @@
-export type AppStatus = 'applied' | 'screening' | 'interview' | 'offer' | 'rejected'
+// v3.4 (Interviews): a company is added once a phone screen happens, so
+// 'applied' is no longer offered (old rows can still hold it).
+export type AppStatus = 'applied' | 'screening' | 'interview' | 'offer' | 'rejected' | 'withdrawn'
+export const ACTIVE_STATUSES: AppStatus[] = ['screening', 'interview']
+
+export const STAGE_CONFIG: Record<AppStatus, { label: string; color: string }> = {
+  applied:   { label: 'Applied',     color: 'text-fg-tertiary' },
+  screening: { label: 'Phone screen', color: 'text-warn' },
+  interview: { label: 'Interviewing', color: 'text-accent' },
+  offer:     { label: 'Offer',        color: 'text-good' },
+  rejected:  { label: 'Rejected',     color: 'text-risk' },
+  withdrawn: { label: 'Withdrawn',    color: 'text-fg-tertiary' },
+}
+// Offered in the stage picker ('applied' isn't — see above).
+export const STAGES: AppStatus[] = ['screening', 'interview', 'offer', 'rejected', 'withdrawn']
+
+export type RoundKind = 'recruiter' | 'phone_screen' | 'technical' | 'coding' | 'system_design' | 'behavioral' | 'hiring_manager' | 'onsite' | 'other'
+export const ROUND_KINDS: { key: RoundKind; label: string }[] = [
+  { key: 'recruiter', label: 'Recruiter call' }, { key: 'phone_screen', label: 'Phone screen' },
+  { key: 'technical', label: 'Technical' }, { key: 'coding', label: 'Coding' },
+  { key: 'system_design', label: 'System design' }, { key: 'behavioral', label: 'Behavioral' },
+  { key: 'hiring_manager', label: 'Hiring manager' }, { key: 'onsite', label: 'Onsite / final' },
+  { key: 'other', label: 'Other' },
+]
+export const roundLabel = (k: string) => ROUND_KINDS.find(r => r.key === k)?.label ?? k
+
+export interface InterviewRound {
+  id: string
+  application_id: string
+  kind: RoundKind
+  scheduled_at: string | null
+  status: 'scheduled' | 'done' | 'cancelled'
+  outcome: 'pending' | 'passed' | 'failed'
+  interviewer: string | null
+  notes: string | null
+  created_at: string
+}
+
+export type QuestionCategory = 'technical' | 'coding' | 'system_design' | 'behavioral' | 'ai_native' | 'other'
+export const QUESTION_CATEGORIES: { key: QuestionCategory; label: string }[] = [
+  { key: 'technical', label: 'Technical / theory' }, { key: 'coding', label: 'Coding' },
+  { key: 'system_design', label: 'System design' }, { key: 'behavioral', label: 'Behavioral' },
+  { key: 'ai_native', label: 'AI-native' }, { key: 'other', label: 'Other' },
+]
+export const categoryLabel = (k: string) => QUESTION_CATEGORIES.find(c => c.key === k)?.label ?? k
+
+// Every question an interviewer asked — the interview experience, kept.
+export interface InterviewQuestion {
+  id: string
+  application_id: string
+  round_id: string | null
+  question: string
+  category: QuestionCategory
+  my_answer: string | null
+  went: 'well' | 'ok' | 'badly' | null
+  notes: string | null
+  created_at: string
+}
 
 export interface JDAnalysis {
   requiredSkills: string[]
@@ -13,21 +70,6 @@ export interface CompanyInsights {
   hiringPatterns: string
   source: 'company-specific' | 'general-fallback'
   generatedAt: string
-}
-
-export interface JobAlert {
-  id: string
-  user_id: string
-  source: 'greenhouse' | 'lever' | 'ashby'
-  company: string
-  external_id: string
-  title: string
-  url: string
-  created_at: string
-  salary_min: number | null
-  salary_max: number | null
-  matched_skills: string[]
-  score: number
 }
 
 export interface Application {
@@ -70,45 +112,16 @@ export interface Skill {
   created_at: string
 }
 
-export type Difficulty = 'easy' | 'medium' | 'hard'
-
-export const DIFFICULTY_CONFIG: Record<Difficulty, { label: string; color: string }> = {
-  easy:   { label: 'Easy',   color: 'bg-good-soft text-green-400' },
-  medium: { label: 'Medium', color: 'bg-warn-soft text-amber-400' },
-  hard:   { label: 'Hard',   color: 'bg-risk-soft text-red-400' },
-}
-
-// Expanded 2026-09-24 (v2.0) from 10 to the senior/lead frontend interview
-// surface — Accessibility, Testing, Security, CSS architecture, state
-// management, design systems, build tooling, and micro-frontends are staples
-// of senior UI loops that the original list didn't cover.
+// The frontend interview topic vocabulary — the JD analysis picks its
+// priorityTopics from this list, and Prep's READINESS_AREAS map them to
+// readiness areas. (Was the Topic Quiz's topic list; the quiz itself was
+// removed 2026-10-08.)
 export const QUIZ_TOPICS = [
   'JavaScript', 'TypeScript', 'React', 'Next.js', 'HTML/CSS', 'CSS Architecture',
   'Browser Internals', 'Performance', 'Accessibility', 'Testing', 'Web Security',
   'State Management', 'Design Systems', 'System Design', 'Micro-frontends',
   'Build Tooling', 'Node.js', 'APIs',
 ] as const
-
-export interface QuizQuestion {
-  question: string
-  options: string[]
-  correctIndex: number
-  explanation: string
-  subtopic: string
-}
-
-export interface QuizAttempt {
-  id: string
-  user_id: string
-  topic: string
-  difficulty: Difficulty
-  questions: QuizQuestion[]
-  user_answers: number[]
-  score: number
-  total: number
-  weak_areas: string[]
-  created_at: string
-}
 
 export type ReadinessTier = 'not_started' | 'needs_work' | 'developing' | 'ready' | 'strong'
 

@@ -9,8 +9,7 @@ import { getActiveWorkout, computeWorkoutStats } from '@/features/health/workout
 import { computeHealthPlan } from '@/features/health/calculations'
 import type { Workout } from '@/features/health/types'
 import { rankSignals, type Signal } from '@/lib/signals'
-import { checkInterviewStage, checkQuizNeedsRevision, checkQuizWeakArea, checkHighValueJobAlert } from '@/features/career/signals'
-import { daysSinceLastQuiz, topWeakSubtopic } from '@/features/career/quiz-calculations'
+import { checkUnscheduledProcess, checkUpcomingInterview } from '@/features/career/signals'
 import { checkBudget } from '@/features/finance/signals'
 import { checkQuestionPending, checkStaleRevision, checkCodingWeakArea } from '@/features/coding/signals'
 import { computeWeakAreas, type WeakArea } from '@/features/coding/daily-core'
@@ -41,11 +40,10 @@ interface TopActionInput {
   todayMetric: Record<string, unknown> | null
   codingQuestionPending: boolean
   codingStaleRevisionCount: number
-  daysSinceLastQuiz: number | null
   workoutPending: boolean
   codingWeakAreas: WeakArea[]
-  careerTopWeakSubtopic: { subtopic: string; count: number } | null
-  topJobAlert: { company: string; title: string } | null
+  nextRound: { company: string; kind: string; scheduled_at: string } | null
+  scheduledCompanies: Set<string>
 }
 
 // Deterministic ranking — no AI call. Per Product Principles (CLAUDE.md):
@@ -54,19 +52,17 @@ interface TopActionInput {
 // module's signals.ts (see src/lib/signals.ts) rather than being hand-rolled
 // here, so new modules can plug into Today's Focus without touching this file.
 function computeTopActions(input: TopActionInput): TopAction[] {
-  const { applications, monthSpend, monthBudget, todayMetric, codingQuestionPending, codingStaleRevisionCount, daysSinceLastQuiz, workoutPending, codingWeakAreas, careerTopWeakSubtopic, topJobAlert } = input
+  const { applications, monthSpend, monthBudget, todayMetric, codingQuestionPending, codingStaleRevisionCount, workoutPending, codingWeakAreas, nextRound, scheduledCompanies } = input
 
   const signals = [
-    checkInterviewStage(applications),
+    checkUpcomingInterview(nextRound),
+    checkUnscheduledProcess((applications as { company: string; status: string }[]).filter(a => a.status === 'screening' || a.status === 'interview'), scheduledCompanies),
     checkBudget(monthSpend, monthBudget),
     checkQuestionPending(codingQuestionPending),
     checkWorkoutPending(workoutPending),
     checkNoMetricsToday(todayMetric),
     checkStaleRevision(codingStaleRevisionCount),
-    checkQuizNeedsRevision(daysSinceLastQuiz),
     checkCodingWeakArea(codingWeakAreas),
-    checkQuizWeakArea(careerTopWeakSubtopic),
-    checkHighValueJobAlert(topJobAlert),
   ].filter((s): s is Signal => s !== null)
 
   return rankSignals(signals, 5).map(s => ({ id: s.id, emoji: s.emoji, text: s.message, href: s.href }))
@@ -108,28 +104,28 @@ export async function getDashboardData() {
   const [
     appsRes, workoutsRes,
     expensesRes, budgetsRes,
-    botLogsRes, healthMetricRes, careerProfileRes, skillsRes,
+    botLogsRes, healthMetricRes, careerProfileRes, mockRounds30dRes,
     aiUsageMonthRes, codingTodayRows, activeWorkout, codingSolved30dRes,
-    codingCompletionsRes, quizAttemptsRes, workoutCompletedTodayRes,
+    codingCompletionsRes, questions30dRes, workoutCompletedTodayRes,
     recentPatterns, financialGoalsRes, codingHistoryForWeakAreas,
-    workoutStats, astrologyProfileRes, panchangTodayRes, topJobAlertsRes,
-    healthProfileRes, healthMetricsHistoryRes, allApplicationsRes, jobAlerts30dRes,
+    workoutStats, astrologyProfileRes, panchangTodayRes, roundsRes,
+    healthProfileRes, healthMetricsHistoryRes,
     { data: historyData },
   ] = await Promise.all([
-    supabase.from('applications').select('id, company, role, status, applied_at').eq('user_id', user.id).order('created_at', { ascending: false }).limit(5),
+    supabase.from('applications').select('id, company, role, status, applied_at').eq('user_id', user.id).order('created_at', { ascending: false }),
     supabase.from('workouts').select('id').eq('user_id', user.id).eq('date', today),
     supabase.from('expenses').select('amount, date').eq('user_id', user.id).gte('date', monthStart),
     supabase.from('budgets').select('amount').eq('user_id', user.id).eq('month', today.slice(0, 7)),
     supabase.from('telegram_logs').select('module, message, response, created_at').order('created_at', { ascending: false }).limit(50),
     supabase.from('health_metrics').select('*').eq('user_id', user.id).eq('date', today).single(),
     supabase.from('career_profile').select('current_role, target_role, current_company, current_salary, bio').eq('user_id', user.id).single(),
-    supabase.from('skills').select('id', { count: 'exact', head: true }).eq('user_id', user.id),
+    supabase.from('mock_rounds').select('id', { count: 'exact', head: true }).eq('user_id', user.id).gte('created_at', istMidnightUtc(30)),
     supabase.from('ai_usage_logs').select('estimated_cost_usd, cache_hit, created_at').eq('user_id', user.id).gte('created_at', istDateStrToUtcMidnight(monthStart)),
     getTodayAssignmentRows(supabase, user.id),
     getActiveWorkout(supabase, user.id),
     supabase.from('coding_daily_questions').select('id', { count: 'exact', head: true }).eq('user_id', user.id).eq('completed', true).gte('assigned_date', since30),
     supabase.from('coding_daily_questions').select('question_id, completed, completed_at').eq('user_id', user.id).eq('completed', true),
-    supabase.from('quiz_attempts').select('created_at, weak_areas').eq('user_id', user.id),
+    supabase.from('interview_questions').select('id', { count: 'exact', head: true }).eq('user_id', user.id).gte('created_at', istMidnightUtc(30)),
     supabase.from('daily_workouts').select('id').eq('user_id', user.id).eq('status', 'completed').gte('completed_at', istMidnightUtc()).limit(1),
     getRecentPatterns(supabase, user.id),
     supabase.from('financial_goals').select('name, target_amount, current_amount, target_date').eq('user_id', user.id).order('priority', { ascending: true }),
@@ -140,20 +136,14 @@ export async function getDashboardData() {
     // already-cached panchang_daily row — no new AI/ephemeris cost added.
     supabase.from('astrology_profile').select('natal_chart').eq('user_id', user.id).maybeSingle(),
     supabase.from('panchang_daily').select('tithi, nakshatra').eq('date', today).maybeSingle(),
-    // Top Job Alert signal below: best-scoring ("Top Fit", see job-alerts.ts's
-    // deterministic computeScore) new posting from the last 30 days.
-    supabase.from('job_alerts_seen').select('company, title').eq('user_id', user.id).gte('created_at', istMidnightUtc(30)).gte('score', 70).order('score', { ascending: false }).limit(5),
+    // Scheduled interview rounds from now on — the upcoming-interview signal.
+    supabase.from('interview_rounds').select('kind, scheduled_at, application:applications(company)').eq('user_id', user.id).eq('status', 'scheduled').gte('scheduled_at', new Date().toISOString()).order('scheduled_at', { ascending: true }),
     // Life Score v2's Health sub-score reuses the Health module's own
     // nutrition/activity calc instead of a separate presence-only formula —
     // needs the profile (for targets) and enough metric history for the
     // same-day-or-most-recent weight lookback computeHealthPlan does.
     supabase.from('health_profile').select('*').eq('user_id', user.id).single(),
     supabase.from('health_metrics').select('*').eq('user_id', user.id).gte('date', since30).order('date', { ascending: false }),
-    // Unlimited (unlike appsRes above, capped at 5 recent) — needed to
-    // reliably detect a job-alert-to-application conversion from any point
-    // in the last 30 days, not just the 5 most recently added applications.
-    supabase.from('applications').select('company').eq('user_id', user.id),
-    supabase.from('job_alerts_seen').select('company').eq('user_id', user.id).gte('created_at', istMidnightUtc(30)),
     // Life-score history for the v2 blend below — independent of every
     // other query, so it runs in this same batch (was a separate sequential
     // round-trip after it, ~600ms).
@@ -168,7 +158,7 @@ export async function getDashboardData() {
   const budgets = budgetsRes.data ?? []
   const todayMetric = healthMetricRes.data ?? null
 
-  const activeApps = applications.filter(a => ['applied', 'screening', 'interview'].includes(a.status)).length
+  const activeApps = applications.filter(a => ['screening', 'interview'].includes(a.status)).length
   const monthSpend = expenses.reduce((s, e) => s + (e.amount ?? 0), 0)
   const monthBudget = budgets.reduce((s, b) => s + (b.amount ?? 0), 0)
 
@@ -217,21 +207,17 @@ export async function getDashboardData() {
     financeScore = 60
   }
 
-  // Career: recurring signals replace static one-time fillers — a quiz taken
-  // once used to permanently max that clause; now it's quiz attempts in the
-  // last 30 days, plus a new job-alert-tracked signal.
+  // Career (Interviews, 2026-10-08): profile + live interview processes +
+  // practice that prepares for them — mock rounds and logged interview
+  // questions in the last 30 days. (Was quizzes + job-alert tracking.)
   const profileFilled = !!(careerProfileRes.data?.current_role && careerProfileRes.data?.target_role)
-  const skillCount = skillsRes.count ?? 0
-  const quizAttempts30dCount = (quizAttemptsRes.data ?? []).filter(a => (a.created_at as string) >= istMidnightUtc(30)).length
-  const allApplicationCompanies = new Set((allApplicationsRes.data ?? []).map(a => (a.company as string).toLowerCase()))
-  const jobAlertTracked30d = ((jobAlerts30dRes.data ?? []) as { company: string }[])
-    .some(j => allApplicationCompanies.has(j.company.toLowerCase()))
+  const mockRounds30d = mockRounds30dRes.count ?? 0
+  const questions30d = questions30dRes.count ?? 0
   const careerScore = Math.min(100,
     (profileFilled ? 15 : 0) +
-    Math.min(20, skillCount * 2) +
-    Math.min(25, activeApps * 8) +
-    Math.min(20, quizAttempts30dCount * 4) +
-    (jobAlertTracked30d ? 20 : 0)
+    Math.min(30, activeApps * 10) +
+    Math.min(30, mockRounds30d * 6) +
+    Math.min(25, questions30d * 5)
   )
 
   // Coding: weighted by category over the last 30 days instead of a flat
@@ -274,10 +260,9 @@ export async function getDashboardData() {
 
   const careerDeficits: [number, string][] = [
     [profileFilled ? 0 : 15, 'Fill in your career profile (current + target role) — worth 15 points'],
-    [20 - Math.min(20, skillCount * 2), 'Add a few more skills to the tracker'],
-    [25 - Math.min(25, activeApps * 8), 'No active applications — apply somewhere to earn up to 25 points'],
-    [20 - Math.min(20, quizAttempts30dCount * 4), 'Take an interview prep quiz — worth up to 20 points, and recurring monthly (not a one-time fill)'],
-    [jobAlertTracked30d ? 0 : 20, 'Track a Job Alert lead into an application — worth 20 points'],
+    [30 - Math.min(30, activeApps * 10), 'No live interview process — add a company once a phone screen is booked'],
+    [30 - Math.min(30, mockRounds30d * 6), 'Run a Mock Round in Prep — up to 30 points'],
+    [25 - Math.min(25, questions30d * 5), 'Log the questions interviewers asked you — up to 25 points'],
   ]
   const topCareerDeficit = careerDeficits.reduce((a, b) => (b[0] > a[0] ? b : a))
   const careerTip = topCareerDeficit[0] > 0 ? topCareerDeficit[1] : 'Career basics maxed — check the AI Mentor for what\'s next'
@@ -409,7 +394,6 @@ export async function getDashboardData() {
 
   const codingQuestionPending = codingTodayRows.length > 0 && codingTodayRows.some(r => !r.completed)
   const codingStaleRevisionCount = getStaleRevisionCount(codingCompletionsRes.data ?? [])
-  const daysSinceLastQuizAttempt = daysSinceLastQuiz(quizAttemptsRes.data ?? [])
   const workoutPending = !!activeWorkout
 
   const workoutStatus: 'completed' | 'pending' | 'none' =
@@ -425,7 +409,6 @@ export async function getDashboardData() {
   })
 
   const codingWeakAreas = computeWeakAreas(codingHistoryForWeakAreas)
-  const careerTopWeakSubtopic = topWeakSubtopic(quizAttemptsRes.data ?? [])
 
   // Claude Design source's Dashboard strip only shows dasha lord names +
   // today's tithi/nakshatra (no until-date, no Yogini) — kept minimal here
@@ -440,14 +423,14 @@ export async function getDashboardData() {
     nakshatra: panchangTodayRes.data?.nakshatra ?? null,
   } : null
 
-  const appliedCompanies = new Set(applications.map(a => (a as { company: string }).company.toLowerCase()))
-  const topJobAlert = ((topJobAlertsRes.data ?? []) as { company: string; title: string }[])
-    .find(j => !appliedCompanies.has(j.company.toLowerCase())) ?? null
+  const upcomingRounds = ((roundsRes.data ?? []) as unknown as { kind: string; scheduled_at: string; application: { company: string } | null }[])
+  const nextRound = upcomingRounds[0] ? { company: upcomingRounds[0].application?.company ?? 'Interview', kind: upcomingRounds[0].kind, scheduled_at: upcomingRounds[0].scheduled_at } : null
+  const scheduledCompanies = new Set(upcomingRounds.map(r => r.application?.company ?? ''))
 
   const topActions = computeTopActions({
     applications, monthSpend, monthBudget, todayMetric, workoutPending,
-    codingQuestionPending, codingStaleRevisionCount, daysSinceLastQuiz: daysSinceLastQuizAttempt,
-    codingWeakAreas, careerTopWeakSubtopic, topJobAlert,
+    codingQuestionPending, codingStaleRevisionCount,
+    codingWeakAreas, nextRound, scheduledCompanies,
   })
 
   return {

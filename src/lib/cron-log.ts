@@ -24,7 +24,6 @@ const EXPECTED_CRON_JOBS: { job: string; maxAgeHours: number }[] = [
   { job: 'daily-briefing',       maxAgeHours: 26 },
   { job: 'daily-coding',         maxAgeHours: 26 },
   { job: 'health-tip',           maxAgeHours: 26 },
-  { job: 'job-alerts',           maxAgeHours: 26 },
   { job: 'evening-checkin',      maxAgeHours: 26 },
   { job: 'monthly-digest',       maxAgeHours: 26 },
   { job: 'daily-journal',        maxAgeHours: 26 },

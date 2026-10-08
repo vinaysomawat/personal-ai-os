@@ -23,7 +23,7 @@ const MODULE_LABEL: Record<string, string> = {
 const JOB_LABEL: Record<string, string> = {
   'daily-briefing': 'Daily Briefing', 'daily-coding': 'Daily Coding',
   'evening-checkin': 'Evening Check-in',
-  'monthly-digest': 'Monthly Digest', 'weekly-digest': 'Weekly Digest', 'health-tip': 'Health Tip', 'job-alerts': 'Job Alerts',
+  'monthly-digest': 'Monthly Digest', 'weekly-digest': 'Weekly Digest', 'health-tip': 'Health Tip',
   'daily-journal': 'Daily Journal', 'cron-health-check': 'Cron Health Check',
   'astrology-daily': 'Astrology Daily',
   'prep-coach-morning': 'Prep Coach (morning)',

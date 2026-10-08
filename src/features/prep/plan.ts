@@ -32,14 +32,14 @@ export function buildPrepPlan(date: string, ctx: PrepPlanContext): { focus: stri
       const js = pick('javascript-functions')
       main = js
         ? { key: 'main', label: 'Implement a JS function', detail: `Solve "${js.title}" without looking anything up, then note your approach`, minutes: 30, href: '/coding', done: false }
-        : { key: 'main', label: 'JavaScript quiz', detail: '10-question JavaScript or TypeScript quiz, then review every miss', minutes: 25, href: '/career', done: false }
+        : { key: 'main', label: 'JavaScript theory', detail: 'Answer 8 JavaScript / TypeScript questions out loud, type the gist, get the AI rating', minutes: 25, href: '/prep?tab=questions&cat=quiz&topic=JavaScript%20Fundamentals', done: false }
       break
     }
     case 2:
-      main = { key: 'main', label: 'React internals quiz', detail: '10-question React (or Next.js / State Management) quiz — explain each wrong answer out loud', minutes: 25, href: '/career', done: false }
+      main = { key: 'main', label: 'React internals', detail: 'Answer 8 React / Next.js questions out loud — get the AI rating and tighten the weakest answer', minutes: 25, href: '/prep?tab=questions&cat=quiz&topic=React%20%26%20State%20Management', done: false }
       break
     case 3:
-      main = { key: 'main', label: 'Frontend system design', detail: 'System Design quiz, then outline one design (Requirements → Architecture → Data → Interface → Optimizations) in 20 min', minutes: 30, href: '/career', done: false }
+      main = { key: 'main', label: 'Frontend system design', detail: 'Outline one design (Requirements → Architecture → Data → Interface → Optimizations) in 25 min, then get the AI rating', minutes: 30, href: '/prep?tab=questions&cat=system-design', done: false }
       break
     case 4: {
       const ui = pick('ui-coding')
@@ -59,9 +59,9 @@ export function buildPrepPlan(date: string, ctx: PrepPlanContext): { focus: stri
       main = { key: 'main', label: 'Weekly review', detail: 'Check the readiness matrix and mock-round history, pick next week\'s weakest area', minutes: 15, href: '/prep', done: false }
   }
 
-  // A quick quiz on the weakest area (the daily-read option went with the
-  // Learning module, removed 2026-10-08).
-  const concept: PrepBlock = { key: 'concept', label: 'Concept quiz', detail: `Quick quiz on your weakest area: ${weakTopic}`, minutes: 10, href: '/career', done: false }
+  // A few theory questions on the weakest area (the daily-read option went
+  // with Learning, and the Career topic quiz with Career's revamp, 2026-10-08).
+  const concept: PrepBlock = { key: 'concept', label: 'Concept rep', detail: `3 theory questions on your weakest area: ${weakTopic}`, minutes: 10, href: '/prep?tab=questions&cat=quiz', done: false }
 
   const lead: PrepBlock = ctx.uncoveredCompetency && weekday !== 5
     ? { key: 'lead', label: 'Leadership rep', detail: `Draft a STAR story for "${ctx.uncoveredCompetency}" — you have none yet`, minutes: 5, href: '/prep?tab=stories', done: false }

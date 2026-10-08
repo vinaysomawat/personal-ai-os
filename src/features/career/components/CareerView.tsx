@@ -1,51 +1,48 @@
 'use client'
 
-import { useState, useEffect, useTransition } from 'react'
+import { useMemo, useState, useTransition } from 'react'
 import { formatDistanceToNow } from 'date-fns'
-import { Plus, ExternalLink, X, Sparkles, ChevronRight, Pencil, Check, Bell } from 'lucide-react'
+import { Check, ExternalLink, Pencil, Plus, Sparkles, Trash2, X } from 'lucide-react'
 import Card from '@/components/Card'
 import ConfirmDialog from '@/components/ConfirmDialog'
 import EmptyState from '@/components/EmptyState'
 import Modal, { modalLabelClass, modalInputClass, modalSelectClass, modalCancelButtonClass, modalSaveButtonClass } from '@/components/Modal'
 import PageTabs from '@/components/PageTabs'
+import PageHeader, { HeaderChip } from '@/components/PageHeader'
+import StatCard from '@/components/StatCard'
 import { useAIAdvisor } from '@/components/AIAdvisorProvider'
-import { todayIST } from '@/lib/date'
+import { useEscapeKey } from '@/lib/use-escape-key'
 import {
-  addApplication, updateStatus, deleteApplication, saveApplicationJD,
-  upsertCareerProfile, saveQuizAttempt,
+  addCompany, addQuestion, addRound, deleteApplication, deleteQuestion, deleteRound,
+  saveApplicationJD, updateCompany, updateQuestion, updateRound, upsertCareerProfile,
 } from '../actions'
 import { askCareerMentor, analyzeJobDescription, getCompanyInsights } from '@/features/ai/career-mentor'
-import { generateTopicQuiz } from '@/features/ai/quiz'
-import { gradeQuiz, computeReadiness, suggestNextTopic } from '../quiz-calculations'
-import type { Application, AppStatus, CareerProfile, Skill, QuizAttempt, QuizQuestion, Difficulty, CompanyInsights, JobAlert } from '../types'
-import { DIFFICULTY_CONFIG, QUIZ_TOPICS, READINESS_CONFIG } from '../types'
-import { useEscapeKey } from '@/lib/use-escape-key'
-import { useFormValidation } from '@/lib/use-form-validation'
-import FieldError from '@/components/FieldError'
-import PageHeader, { HeaderChip } from '@/components/PageHeader'
+import { READINESS_AREAS } from '@/features/prep/types'
+import {
+  ACTIVE_STATUSES, QUESTION_CATEGORIES, ROUND_KINDS, STAGES, STAGE_CONFIG, categoryLabel, roundLabel,
+  type Application, type AppStatus, type CareerProfile, type CompanyInsights, type InterviewQuestion, type InterviewRound, type QuestionCategory, type RoundKind, type Skill,
+} from '../types'
 
-const STATUS_CONFIG: Record<AppStatus, { label: string; color: string }> = {
-  applied:   { label: 'Applied',   color: 'text-fg-tertiary' },
-  screening: { label: 'Screening', color: 'text-warn' },
-  interview: { label: 'Interview', color: 'text-accent' },
-  offer:     { label: 'Offer',     color: 'text-good' },
-  rejected:  { label: 'Rejected',  color: 'text-risk' },
+const WENT: Record<string, { label: string; cls: string }> = {
+  well: { label: 'Went well', cls: 'text-good bg-good-soft' },
+  ok: { label: 'OK', cls: 'text-warn bg-warn-soft' },
+  badly: { label: 'Went badly', cls: 'text-risk bg-risk-soft' },
 }
-const STATUSES = Object.keys(STATUS_CONFIG) as AppStatus[]
-// Design's quick-filter pills — 5 items, deliberately excluding Rejected
-// (still reachable via the per-application status select and "All").
-const FILTER_STATUSES: (AppStatus | 'all')[] = ['all', 'applied', 'screening', 'interview', 'offer']
+const OUTCOME_CLS: Record<string, string> = { passed: 'text-good', failed: 'text-risk', pending: 'text-fg-tertiary' }
 
-// Design keeps the match badge's background neutral (surface-2) and only
-// recolors the text — not a filled bg+text pill like elsewhere in the app.
-function matchTextColor(pct: number): string {
-  if (pct >= 70) return 'text-green-400'
-  if (pct >= 40) return 'text-amber-400'
-  return 'text-red-400'
-}
+const when = (iso: string | null) => iso
+  ? new Date(iso).toLocaleString('en-IN', { weekday: 'short', day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit', timeZone: 'Asia/Kolkata' })
+  : 'not scheduled'
+// <input type="datetime-local"> ↔ ISO, in the browser's local time.
+const toLocalInput = (iso: string | null) => { if (!iso) return ''; const d = new Date(iso); return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16) }
+const fromLocalInput = (v: string) => v ? new Date(v).toISOString() : null
 
-function shortDate(iso: string): string {
-  return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+// JD priority topic (QUIZ_TOPICS vocabulary) → a Prep Question Bank link.
+function prepHref(topic: string): string {
+  if (topic === 'System Design') return '/prep?tab=questions&cat=system-design'
+  const area = READINESS_AREAS.find(a => (a.quizTopics as readonly string[]).includes(topic))
+  const coding = area?.codingTopics[0]
+  return `/prep?tab=questions&cat=quiz${coding ? `&topic=${encodeURIComponent(coding)}` : ''}`
 }
 
 function ProfileField({ label, value, onSave, type = 'text', placeholder, masked = false }: {
@@ -54,32 +51,12 @@ function ProfileField({ label, value, onSave, type = 'text', placeholder, masked
   const [editing, setEditing] = useState(false)
   const [input, setInput] = useState(value)
   const [revealed, setRevealed] = useState(false)
-
-  if (masked && !editing && !revealed) return (
-    <div>
-      <div className="flex items-center justify-between mb-[5px]">
-        <p className="text-[11px] font-bold text-fg-tertiary uppercase tracking-[0.4px]">{label}</p>
-        <button onClick={() => setRevealed(true)} aria-label="Reveal value" className="p-1.5 -m-1.5 text-[12px] leading-none">
-          🙈
-        </button>
-      </div>
-      <p className="text-[13.5px] font-medium text-fg-primary tracking-widest">••••••</p>
-    </div>
-  )
-
   if (!editing) return (
-    <div className="text-left w-full group">
-      <div className="flex items-center justify-between mb-[5px]">
-        <p className="text-[11px] font-bold text-fg-tertiary uppercase tracking-[0.4px]">{label}</p>
-        {masked && (
-          <button onClick={() => setRevealed(false)} aria-label="Hide value" className="p-1.5 -m-1.5 text-[12px] leading-none">
-            👁
-          </button>
-        )}
-      </div>
-      <button onClick={() => { setInput(value); setEditing(true) }} className="text-left w-full">
+    <div className="group">
+      <p className="text-[11px] font-bold text-fg-tertiary uppercase tracking-[0.4px] mb-[5px]">{label}</p>
+      <button onClick={() => { if (masked && !revealed) { setRevealed(true); return } setInput(value); setEditing(true) }} className="text-left w-full">
         <p className={`text-[13.5px] font-medium flex items-center gap-1 ${value ? 'text-fg-primary' : 'text-fg-tertiary'}`}>
-          {value || `Set ${label.toLowerCase()}`}
+          {masked && !revealed && value ? '•••••• (tap to reveal)' : value || `Set ${label.toLowerCase()}`}
           <Pencil size={9} className="opacity-0 group-hover:opacity-40 transition-opacity shrink-0" />
         </p>
       </button>
@@ -89,715 +66,445 @@ function ProfileField({ label, value, onSave, type = 'text', placeholder, masked
     <div>
       <p className="text-[11px] font-bold text-fg-tertiary uppercase tracking-[0.4px] mb-[5px]">{label}</p>
       <div className="flex items-center gap-1">
-        <input value={input} onChange={e => setInput(e.target.value)} type={type} placeholder={placeholder}
+        <input value={input} onChange={e => setInput(e.target.value)} type={type} placeholder={placeholder} autoFocus
           onKeyDown={e => { if (e.key === 'Enter') { onSave(input); setEditing(false) } if (e.key === 'Escape') setEditing(false) }}
-          autoFocus className="flex-1 bg-surface-2 border border-accent rounded px-2 py-1 text-[13.5px] text-fg-primary outline-none" />
-        <button onClick={() => { onSave(input); setEditing(false) }} aria-label="Save" className="p-1.5 -m-1.5 text-green-400 shrink-0"><Check size={12} /></button>
+          className="flex-1 bg-surface-2 border border-accent rounded px-2 py-1 text-[13.5px] text-fg-primary outline-none" />
+        <button onClick={() => { onSave(input); setEditing(false) }} aria-label="Save" className="p-1.5 -m-1.5 text-good shrink-0"><Check size={12} /></button>
         <button onClick={() => setEditing(false)} aria-label="Cancel edit" className="p-1.5 -m-1.5 text-fg-tertiary shrink-0"><X size={12} /></button>
       </div>
     </div>
   )
 }
 
-interface QuizSession {
-  topic: string
-  difficulty: Difficulty
-  stage: 'picking' | 'generating' | 'taking' | 'results'
-  questions: QuizQuestion[]
-  answers: number[]
-  score: number
-  weakAreas: string[]
-}
-
 interface Props {
   applications: Application[]
   profile: CareerProfile | null
   skills: Skill[]
-  quizAttempts: QuizAttempt[]
-  recommendedTopic: { topic: string; reason: string; generatedAt: string } | null
+  rounds: InterviewRound[]
+  questions: InterviewQuestion[]
   codingStreak: number
-  jobAlerts: JobAlert[]
 }
 
-type CareerTab = 'applications' | 'interview-prep' | 'profile'
-const CAREER_TABS: { key: CareerTab; label: string }[] = [
-  { key: 'applications', label: 'Applications' },
-  { key: 'interview-prep', label: 'Interview Prep' },
+type Tab = 'companies' | 'questions' | 'profile'
+const TABS: { key: Tab; label: string }[] = [
+  { key: 'companies', label: 'Companies' },
+  { key: 'questions', label: 'Question Log' },
   { key: 'profile', label: 'Profile' },
 ]
 
-export default function CareerView({ applications, profile, skills, quizAttempts, recommendedTopic, codingStreak, jobAlerts }: Props) {
+const EMPTY_Q = { question: '', category: 'technical' as QuestionCategory, round_id: '', my_answer: '', went: '' as '' | 'well' | 'ok' | 'badly', notes: '' }
+
+export default function CareerView(props: Props) {
   const [, startTransition] = useTransition()
-  const [activeTab, setActiveTab] = useState<CareerTab>('applications')
+  const [tab, setTab] = useState<Tab>('companies')
+  const [apps, setApps] = useState(props.applications)
+  const [rounds, setRounds] = useState(props.rounds)
+  const [questions, setQuestions] = useState(props.questions)
+  const [profile, setProfile] = useState(props.profile)
+  const active = (a: Application) => ACTIVE_STATUSES.includes(a.status) || a.status === 'offer'
+  const [selectedId, setSelectedId] = useState<string | null>(() => props.applications.find(active)?.id ?? props.applications[0]?.id ?? null)
+  const [addOpen, setAddOpen] = useState(false)
+  const [confirmDelete, setConfirmDelete] = useState<Application | null>(null)
+  useEscapeKey(() => setAddOpen(false))
 
-  const [localApps, setLocalApps] = useState(applications)
-  const activeAppCount = localApps.filter(a => a.status !== 'rejected').length
-  const [localProfile, setLocalProfile] = useState(profile)
-  const [localQuizAttempts, setLocalQuizAttempts] = useState(quizAttempts)
-
-  const [filterStatus, setFilterStatus] = useState<AppStatus | 'all'>('all')
-  const [appsSort, setAppsSort] = useState<'recent' | 'match' | 'company'>('recent')
-  const [modal, setModal] = useState<'app' | null>(null)
-  const [confirmDeleteAppId, setConfirmDeleteAppId] = useState<string | null>(null)
-  useEscapeKey(() => setModal(null))
-  const { invalidFields, validate, clear, onFieldInput } = useFormValidation()
-
-  // Set when "Track" is clicked on a Job Alert row — pre-fills the Add
-  // Application modal's company/role/url so surfacing a lead and starting to
-  // track it takes one click instead of retyping what's already known.
-  const [prefillApp, setPrefillApp] = useState<{ company: string; role: string; url: string } | null>(null)
-  useEffect(() => { clear(); if (!modal) setPrefillApp(null) }, [modal, clear])
-
-  // JD analysis
-  // Screening/interview-stage applications default to expanded (need more
-  // attention than a plain "Applied"), with per-app overrides once the user
-  // manually toggles one — so several can be open at once, not just one.
-  const [expandedOverrides, setExpandedOverrides] = useState<Record<string, boolean>>({})
-  const [analyzingAppId, setAnalyzingAppId] = useState<string | null>(null)
-  const [jdInput, setJdInput] = useState('')
-
-  // Company Insights — keyed by company name, shared across every application to that company
-  const [companyInsights, setCompanyInsights] = useState<Record<string, CompanyInsights | null>>({})
-  const [loadingInsightsFor, setLoadingInsightsFor] = useState<string | null>(null)
-
-  // Quiz
-  const [quiz, setQuiz] = useState<QuizSession | null>(null)
-  useEscapeKey(() => setQuiz(null))
-
-  // AI Mentor
-  const [mentorQ, setMentorQ] = useState('')
-  const [mentorA, setMentorA] = useState<string | null>(null)
-  const [mentorLoading, setMentorLoading] = useState(false)
-
-  const appliedCompanies = new Set(localApps.map(a => a.company.toLowerCase()))
-  const counts = STATUSES.reduce((acc, s) => ({ ...acc, [s]: localApps.filter(a => a.status === s).length }), {} as Record<AppStatus, number>)
-  const filteredByStatus = filterStatus === 'all' ? localApps : localApps.filter(a => a.status === filterStatus)
-  const filtered = appsSort === 'match'
-    ? [...filteredByStatus].sort((a, b) => (b.jd_analysis?.matchPercentage ?? -1) - (a.jd_analysis?.matchPercentage ?? -1))
-    : appsSort === 'company'
-    ? [...filteredByStatus].sort((a, b) => a.company.localeCompare(b.company))
-    : filteredByStatus
+  const nowIso = new Date().toISOString()
+  const upcoming = rounds.filter(r => r.status === 'scheduled' && r.scheduled_at && r.scheduled_at >= nowIso).sort((a, b) => a.scheduled_at!.localeCompare(b.scheduled_at!))
+  const next = upcoming[0] ?? null
+  const companyOf = (id: string) => apps.find(a => a.id === id)
+  const in7d = upcoming.filter(r => r.scheduled_at! <= new Date(Date.now() + 7 * 86400000).toISOString()).length
+  const sorted = useMemo(() => {
+    const nextFor = (id: string) => upcoming.find(r => r.application_id === id)?.scheduled_at ?? '9999'
+    return [...apps].sort((a, b) => Number(active(b)) - Number(active(a)) || nextFor(a.id).localeCompare(nextFor(b.id)) || b.created_at.localeCompare(a.created_at))
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [apps, rounds])
+  const selected = apps.find(a => a.id === selectedId) ?? null
 
   const saveProfile = (field: keyof CareerProfile, raw: string) => {
     const value = ['current_salary', 'years_experience'].includes(field) ? (parseFloat(raw) || null) : raw
-    setLocalProfile(p => ({ id: '', user_id: '', current_role: null, current_company: null, current_salary: null, target_role: null, years_experience: null, bio: null, updated_at: '', ...p, [field]: value }))
+    setProfile(p => ({ id: '', user_id: '', current_role: null, current_company: null, current_salary: null, target_role: null, years_experience: null, bio: null, updated_at: '', ...p, [field]: value }))
     startTransition(() => upsertCareerProfile({ [field]: value }))
   }
 
-  const handleDeleteApp = (id: string) => {
-    setLocalApps(prev => prev.filter(a => a.id !== id))
-    startTransition(() => deleteApplication(id))
-  }
-  const confirmDeleteApp = () => {
-    if (!confirmDeleteAppId) return
-    handleDeleteApp(confirmDeleteAppId)
-    setConfirmDeleteAppId(null)
-  }
-  const handleStatus = (id: string, status: AppStatus) => {
-    setLocalApps(prev => prev.map(a => a.id === id ? { ...a, status } : a))
-    startTransition(() => updateStatus(id, status))
-  }
-
-  const handleTrackJobAlert = (alert: JobAlert) => {
-    setPrefillApp({ company: alert.company, role: alert.title, url: alert.url })
-    setModal('app')
-  }
-
-  const handleAddApplication = async (fd: FormData) => {
-    const tempId = `temp-${Date.now()}`
-    const company = fd.get('company') as string
-    const role = fd.get('role') as string
-    const jobDescription = fd.get('job_description') as string
-    const newApp: Application = {
-      id: tempId, user_id: '',
-      company, role,
-      status: (fd.get('status') as AppStatus) ?? 'applied',
-      salary_range: fd.get('salary_range') as string || null,
-      location: fd.get('location') as string || null,
-      url: fd.get('url') as string || null,
-      notes: fd.get('notes') as string || null,
-      applied_at: fd.get('applied_at') as string || todayIST(),
-      created_at: new Date().toISOString(),
-      resume_version_id: null,
-      job_description: jobDescription,
-      jd_analysis: null,
-    }
-    setLocalApps(prev => [newApp, ...prev])
-    setModal(null)
-
-    const inserted = await addApplication(fd)
-    setLocalApps(prev => prev.map(a => a.id === tempId ? { ...a, id: inserted.id } : a))
-
-    setAnalyzingAppId(inserted.id)
-    const analysis = await analyzeJobDescription(jobDescription, company, role, localProfile)
-    setLocalApps(prev => prev.map(a => a.id === inserted.id ? { ...a, jd_analysis: analysis } : a))
-    setAnalyzingAppId(null)
-    await saveApplicationJD(inserted.id, jobDescription, analysis)
-  }
-
-  const handleAnalyzeJD = async (id: string, jd: string) => {
-    const app = localApps.find(a => a.id === id)
-    if (!app) return
-    setAnalyzingAppId(id)
-    setJdInput('')
-    const analysis = await analyzeJobDescription(jd, app.company, app.role, localProfile)
-    setLocalApps(prev => prev.map(a => a.id === id ? { ...a, job_description: jd, jd_analysis: analysis } : a))
-    setAnalyzingAppId(null)
-    await saveApplicationJD(id, jd, analysis)
-  }
-
-  const handleLoadCompanyInsights = async (company: string, role: string) => {
-    if (company in companyInsights || loadingInsightsFor === company) return
-    setLoadingInsightsFor(company)
-    const insights = await getCompanyInsights(company, role)
-    setCompanyInsights(prev => ({ ...prev, [company]: insights }))
-    setLoadingInsightsFor(null)
-  }
-
-  const handleAsk = async () => {
+  // ---- Career Mentor (header advisor) ----
+  const [mentorQ, setMentorQ] = useState('')
+  const [mentorA, setMentorA] = useState<string | null>(null)
+  const [mentorLoading, setMentorLoading] = useState(false)
+  const ask = async () => {
     if (!mentorQ.trim() || mentorLoading) return
     setMentorLoading(true); setMentorA(null)
-    try {
-      const answer = await askCareerMentor(mentorQ, { profile: localProfile, skills, applications: localApps, quizAttempts: localQuizAttempts, codingStreak })
-      setMentorA(answer)
-    } finally { setMentorLoading(false) }
+    try { setMentorA(await askCareerMentor(mentorQ, { profile, skills: props.skills, applications: apps, rounds, questions, codingStreak: props.codingStreak })) }
+    finally { setMentorLoading(false) }
   }
-
-  const handleOpenQuiz = (topic: string) => setQuiz({ topic, difficulty: 'medium', stage: 'picking', questions: [], answers: [], score: 0, weakAreas: [] })
-  const handleCloseQuiz = () => setQuiz(null)
-
-  const handleGenerateQuiz = async (difficulty?: Difficulty) => {
-    if (!quiz) return
-    const targetDifficulty = difficulty ?? quiz.difficulty
-    setQuiz(q => q ? { ...q, difficulty: targetDifficulty, stage: 'generating' } : q)
-    const priorWeakAreas = localQuizAttempts.filter(a => a.topic === quiz.topic).flatMap(a => a.weak_areas)
-    // Real pipeline signal, not just past quiz misses: a JD's own missingSkills
-    // for any active application that flagged this topic as a priority.
-    const jdMissingSkills = localApps
-      .filter(a => a.status !== 'rejected' && a.jd_analysis?.priorityTopics.includes(quiz.topic))
-      .flatMap(a => a.jd_analysis!.missingSkills)
-    const weakAreas = [...new Set([...priorWeakAreas, ...jdMissingSkills])]
-    const questions = await generateTopicQuiz(quiz.topic, targetDifficulty, weakAreas)
-    if (questions.length === 0) { setQuiz(null); return }
-    setQuiz(q => q ? { ...q, stage: 'taking', questions, answers: new Array(questions.length).fill(-1) } : q)
-  }
-
-  const handleRetakeQuiz = () => {
-    if (!quiz) return
-    setQuiz(q => q ? { ...q, stage: 'picking', questions: [], answers: [], score: 0, weakAreas: [] } : q)
-  }
-
-  const handleSelectAnswer = (qIndex: number, optIndex: number) => {
-    setQuiz(q => {
-      if (!q) return q
-      const answers = [...q.answers]
-      answers[qIndex] = optIndex
-      return { ...q, answers }
-    })
-  }
-
-  const handleSubmitQuiz = async () => {
-    if (!quiz) return
-    const { score, weakAreas } = gradeQuiz(quiz.questions, quiz.answers)
-    setQuiz(q => q ? { ...q, stage: 'results', score, weakAreas } : q)
-    const newAttempt: QuizAttempt = {
-      id: `temp-${Date.now()}`, user_id: '', topic: quiz.topic, difficulty: quiz.difficulty,
-      questions: quiz.questions, user_answers: quiz.answers, score, total: quiz.questions.length,
-      weak_areas: weakAreas, created_at: new Date().toISOString(),
-    }
-    setLocalQuizAttempts(prev => [newAttempt, ...prev])
-    await saveQuizAttempt(quiz.topic, quiz.difficulty, quiz.questions, quiz.answers, score, weakAreas)
-  }
-
-  const QUICK_PROMPTS = [
-    `Am I ready for ${localProfile?.target_role ?? 'Staff Engineer'}?`,
-    'What skills should I learn next?',
-    'How do I increase my salary?',
-    'What are my biggest career gaps?',
-  ]
-
   const advisorPortal = useAIAdvisor('Career Mentor', Sparkles, (
     <div className="space-y-3">
       <div className="flex flex-wrap gap-2">
-        {QUICK_PROMPTS.map(q => (
-          <button key={q} onClick={() => setMentorQ(q)} className="text-xs text-fg-quaternary px-2 py-1 rounded-lg bg-surface-2 hover:bg-surface-3 hover:text-fg-secondary transition-colors">{q}</button>
+        {['How do I answer the questions that went badly?', 'What should I prep for my next round?', 'How do I negotiate an offer?'].map(q => (
+          <button key={q} onClick={() => setMentorQ(q)} className="text-xs text-fg-quaternary px-2 py-1 rounded-lg bg-surface-2 hover:bg-surface-3 hover:text-fg-secondary">{q}</button>
         ))}
       </div>
       <div className="flex gap-2">
-        <input value={mentorQ} onChange={e => setMentorQ(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleAsk()}
-          placeholder="Am I ready for a promotion? What should I learn next?" disabled={mentorLoading}
-          className="flex-1 bg-surface-2 border border-surface-3 rounded-lg px-3 py-2 text-sm text-fg-primary placeholder-fg-quaternary outline-none focus:border-accent transition-colors" />
-        <button onClick={handleAsk} disabled={mentorLoading || !mentorQ.trim()} className="px-4 py-2 rounded-lg bg-accent text-white text-sm font-medium hover:bg-accent/80 disabled:opacity-50 transition-colors">
-          {mentorLoading ? '...' : 'Ask'}
-        </button>
+        <input value={mentorQ} onChange={e => setMentorQ(e.target.value)} onKeyDown={e => e.key === 'Enter' && ask()} disabled={mentorLoading}
+          placeholder="Ask about your interviews, offers, salary…" className="flex-1 bg-surface-2 border border-surface-3 rounded-lg px-3 py-2 text-sm text-fg-primary outline-none focus:border-accent" />
+        <button onClick={ask} disabled={mentorLoading || !mentorQ.trim()} className="px-4 py-2 rounded-lg bg-accent text-white text-sm font-medium disabled:opacity-50">{mentorLoading ? '…' : 'Ask'}</button>
       </div>
-      {mentorLoading && <div className="space-y-2">{[85, 70, 90, 60].map((w, i) => <div key={i} className="h-3 rounded bg-surface-2 animate-pulse" style={{ width: `${w}%` }} />)}</div>}
-      {mentorA && <p className="text-sm text-fg-secondary leading-relaxed whitespace-pre-wrap border-l-2 border-accent/40 pl-3">{mentorA}</p>}
+      {mentorLoading && <div className="space-y-2">{[90, 75, 85].map((w, i) => <div key={i} className="h-3 rounded bg-surface-2 animate-pulse" style={{ width: `${w}%` }} />)}</div>}
+      {mentorA && <p className="text-sm text-fg-secondary whitespace-pre-wrap leading-relaxed">{mentorA}</p>}
     </div>
   ))
+
+  const activeCount = apps.filter(a => ACTIVE_STATUSES.includes(a.status)).length
+  const badly = questions.filter(q => q.went === 'badly').length
 
   return (
     <div className="space-y-3">
       {advisorPortal}
-      <PageHeader title="Career" chips={<>
-        {/* Rejected applications aren't active — this used to count every row. */}
-        <HeaderChip>💼 {activeAppCount} active application{activeAppCount === 1 ? '' : 's'}</HeaderChip>
-        {counts.interview > 0 && <HeaderChip tone="accentSoft">🎯 {counts.interview} at interview</HeaderChip>}
+      <PageHeader title="Interviews" chips={<>
+        <HeaderChip tone="accent">🎯 {activeCount} active</HeaderChip>
+        {next && <HeaderChip>📅 Next: {companyOf(next.application_id)?.company} · {roundLabel(next.kind)} · {when(next.scheduled_at)}</HeaderChip>}
       </>} />
 
-      <PageTabs tabs={CAREER_TABS} active={activeTab} onChange={setActiveTab} />
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-[var(--grid-gap-sm)]">
+        <StatCard label="Active processes" value={activeCount} sub={`${apps.length} companies screened`} />
+        <StatCard label="Upcoming rounds" value={in7d} sub={next ? `next ${formatDistanceToNow(new Date(next.scheduled_at!), { addSuffix: true })}` : 'none scheduled'} />
+        <StatCard label="Questions logged" value={questions.length} sub={`${badly} went badly`} valueClassName={badly ? undefined : undefined} />
+        <StatCard label="Offers" value={apps.filter(a => a.status === 'offer').length} sub={`${apps.filter(a => a.status === 'rejected').length} rejected · ${rounds.filter(r => r.outcome === 'passed').length} rounds passed`} />
+      </div>
 
-      {/* Applications Pipeline */}
-      {activeTab === 'applications' && <Card title="Applications" padding="p-3.5" action={
-        <div className="flex items-center gap-2">
-          <select value={appsSort} onChange={e => setAppsSort(e.target.value as typeof appsSort)}
-            className="bg-surface-2 border border-surface-3 rounded-[7px] px-2 py-[6px] text-[11.5px] text-fg-secondary outline-none cursor-pointer">
-            <option value="recent">Sort: Recent</option>
-            <option value="match">Sort: Match %</option>
-            <option value="company">Sort: Company A–Z</option>
-          </select>
-          <button onClick={() => setModal('app')} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-accent text-white text-xs font-medium hover:bg-accent/80 transition-colors whitespace-nowrap">
-            <Plus size={12} /> Add Application
-          </button>
-        </div>
-      }>
-        <div className="flex flex-wrap gap-2 mb-3.5">
-          {FILTER_STATUSES.map(s => {
-            const label = s === 'all' ? 'All' : STATUS_CONFIG[s].label
-            const count = s === 'all' ? localApps.length : counts[s]
-            const active = filterStatus === s
-            return (
-              <button key={s} onClick={() => setFilterStatus(s)}
-                className={`rounded-full px-3.5 py-[6px] text-xs border transition-colors ${active ? 'bg-accent border-accent text-white' : 'bg-surface-2 border-surface-3 text-fg-secondary hover:bg-surface-3'}`}>
-                {label} ({count})
-              </button>
-            )
-          })}
-        </div>
-        {filtered.length === 0 ? (
-          <div className="text-center py-7">
-            <div className="text-[22px] mb-1.5">📭</div>
-            <p className="text-[13px] text-fg-tertiary">No applications in this status.</p>
-          </div>
-        ) : (
-          <div className="flex gap-[var(--grid-gap-sm)] overflow-x-auto pb-1">
-            {filtered.map(app => {
-              const cfg = STATUS_CONFIG[app.status]
-              const defaultExpanded = app.status === 'screening' || app.status === 'interview'
-              const isExpanded = expandedOverrides[app.id] ?? defaultExpanded
-              const isAnalyzing = analyzingAppId === app.id
-              const missingSkills = app.jd_analysis?.missingSkills ?? []
-              return (
-                <div key={app.id} onClick={() => setExpandedOverrides(prev => ({ ...prev, [app.id]: !isExpanded }))}
-                  className="w-[260px] shrink-0 max-h-[460px] overflow-y-auto bg-surface-1 border border-surface-3 rounded-2xl shadow-card p-4 cursor-pointer">
-                  <div className="flex items-start justify-between gap-2.5">
-                    <div className="min-w-0">
-                      <div className="font-bold text-sm flex items-center gap-1.5 text-fg-primary">
-                        <ChevronRight size={10} className={`shrink-0 transition-transform ${isExpanded ? 'rotate-90' : ''}`} />
-                        <span className="truncate">{app.company}</span>
-                        {app.url && <a href={app.url} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()} className="shrink-0 text-fg-quaternary hover:text-accent transition-colors"><ExternalLink size={11} /></a>}
-                      </div>
-                      <div className="text-xs text-fg-tertiary ml-[14px] truncate">{app.role} · Applied {app.applied_at}</div>
-                    </div>
-                    <div className="flex items-center gap-1.5 shrink-0">
-                      {isAnalyzing ? (
-                        <span className="text-[10px] text-fg-tertiary italic whitespace-nowrap">Analyzing...</span>
-                      ) : app.jd_analysis ? (
-                        <span className={`text-[11px] font-bold px-2 py-[3px] rounded-[6px] bg-surface-2 ${matchTextColor(app.jd_analysis.matchPercentage)}`}>{app.jd_analysis.matchPercentage}%</span>
-                      ) : null}
-                      <button onClick={e => { e.stopPropagation(); setConfirmDeleteAppId(app.id) }} aria-label="Delete application" className="text-fg-quaternary hover:text-red-400 transition-colors p-0.5">
-                        <X size={12} />
-                      </button>
-                    </div>
-                  </div>
-                  <div className="ml-[14px] mt-2 flex items-center justify-between gap-2.5 flex-wrap" onClick={e => e.stopPropagation()}>
-                    <select value={app.status} onChange={e => handleStatus(app.id, e.target.value as AppStatus)}
-                      className={`text-[11.5px] font-semibold bg-transparent border border-border-strong rounded-[6px] px-1.5 py-[3px] outline-none cursor-pointer ${cfg.color}`}>
-                      {STATUSES.map(s => <option key={s} value={s}>{STATUS_CONFIG[s].label}</option>)}
-                    </select>
-                    {missingSkills.length > 0 && (
-                      <div className="flex flex-wrap gap-1">
-                        {missingSkills.map(s => <span key={s} className="text-[10px] font-semibold bg-risk-soft text-risk rounded-[5px] px-1.5 py-0.5">{s}</span>)}
-                      </div>
-                    )}
-                  </div>
-                  {(app.location || app.salary_range) && (
-                    <div className="ml-[14px] mt-1.5 flex items-center gap-2 flex-wrap text-[11px] text-fg-tertiary">
-                      {app.location && <span>{app.location}</span>}
-                      {app.salary_range && <span>{app.salary_range}</span>}
-                    </div>
-                  )}
-                  {app.notes && <p className="ml-[14px] mt-1 text-[11px] text-fg-tertiary line-clamp-1">{app.notes}</p>}
-                  {isExpanded && (
-                    <div className="ml-[14px] mt-3 pt-3 border-t border-surface-3 flex flex-col gap-2.5" onClick={e => e.stopPropagation()}>
-                      {isAnalyzing ? (
-                        <div className="space-y-2">{[80, 60, 90].map((w, i) => <div key={i} className="h-3 rounded bg-surface-3 animate-pulse" style={{ width: `${w}%` }} />)}</div>
-                      ) : app.jd_analysis ? (
-                        <>
-                          <div className="bg-surface-2 rounded-lg px-3 py-2.5">
-                            <p className="text-[11px] font-bold text-fg-tertiary uppercase tracking-[0.4px]">📄 Job Description</p>
-                            <p className="text-xs text-fg-secondary mt-1 leading-relaxed italic">{app.job_description || 'No JD saved for this application yet.'}</p>
-                          </div>
-                          <div className="grid grid-cols-2 gap-3">
-                            <div>
-                              <p className="text-[11px] font-bold text-fg-tertiary uppercase tracking-[0.4px] mb-1">✅ Required Skills</p>
-                              <div className="flex flex-wrap gap-1">
-                                {app.jd_analysis.requiredSkills.map(s => <span key={s} className="text-[10.5px] font-semibold px-2 py-[3px] rounded-[5px] bg-good-soft text-good">{s}</span>)}
-                              </div>
-                            </div>
-                            <div>
-                              <p className="text-[11px] font-bold text-fg-tertiary uppercase tracking-[0.4px] mb-1">⚠️ Missing Skills</p>
-                              {app.jd_analysis.missingSkills.length === 0 ? (
-                                <p className="text-xs text-fg-tertiary italic">None identified</p>
-                              ) : (
-                                <div className="flex flex-wrap gap-1">
-                                  {app.jd_analysis.missingSkills.map(s => <span key={s} className="text-[10.5px] font-semibold px-2 py-[3px] rounded-[5px] bg-risk-soft text-risk">{s}</span>)}
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                          <div>
-                            <p className="text-[11px] font-bold text-fg-tertiary uppercase tracking-[0.4px] mb-1">Priority Prep Topics</p>
-                            <div className="flex flex-wrap gap-1">
-                              {app.jd_analysis.priorityTopics.map(t => <span key={t} className="text-xs px-1.5 py-0.5 rounded-full bg-accent/15 text-accent">{t}</span>)}
-                            </div>
-                          </div>
-                          <div>
-                            <p className="text-[11px] font-bold text-fg-tertiary uppercase tracking-[0.4px] mb-1">🎯 Company Focus</p>
-                            <p className="text-xs text-fg-secondary leading-relaxed">{app.jd_analysis.companyFocus}</p>
-                          </div>
-                        </>
-                      ) : app.job_description ? (
-                        <div className="flex items-center gap-3">
-                          <p className="text-sm text-fg-tertiary italic flex-1">Analysis unavailable — AI budget may have been reached.</p>
-                          <button onClick={() => handleAnalyzeJD(app.id, app.job_description!)} className="shrink-0 text-xs px-2 py-1 rounded-lg border border-surface-3 text-fg-secondary hover:text-accent hover:border-accent/40 transition-colors">
-                            Retry analysis
-                          </button>
+      <PageTabs tabs={TABS} active={tab} onChange={setTab} />
+
+      {tab === 'companies' && (
+        <div className="grid grid-cols-1 lg:grid-cols-[320px_1fr] gap-[var(--grid-gap)] items-start">
+          <Card title="Companies" action={<button onClick={() => setAddOpen(true)} className="px-3 py-[6px] rounded-[7px] bg-accent text-white text-[12px] font-semibold inline-flex items-center gap-1"><Plus size={12} /> Add</button>}>
+            {apps.length === 0 ? (
+              <EmptyState icon={Sparkles} message="Add a company once a phone screen is booked — then prep for it here and log every question they ask." compact cta={{ label: 'Add company', onClick: () => setAddOpen(true) }} />
+            ) : (
+              <ul className="flex flex-col gap-1">
+                {sorted.map(a => {
+                  const nextRound = upcoming.find(r => r.application_id === a.id)
+                  const qn = questions.filter(q => q.application_id === a.id).length
+                  return (
+                    <li key={a.id}>
+                      <button onClick={() => setSelectedId(a.id)} aria-pressed={selectedId === a.id}
+                        className={`w-full text-left rounded-[9px] px-2.5 py-2 transition-colors ${selectedId === a.id ? 'bg-accent-soft' : 'hover:bg-surface-2'} ${active(a) ? '' : 'opacity-60'}`}>
+                        <div className="flex items-baseline justify-between gap-2">
+                          <span className="text-[13px] font-semibold text-fg-primary truncate">{a.company}</span>
+                          <span className={`text-[11px] font-semibold shrink-0 ${STAGE_CONFIG[a.status].color}`}>{STAGE_CONFIG[a.status].label}</span>
                         </div>
-                      ) : (
-                        <div className="space-y-2">
-                          <p className="text-xs text-fg-tertiary">Added before Job Descriptions were required — paste one now to get skill matching and prep topics.</p>
-                          <textarea value={jdInput} onChange={e => setJdInput(e.target.value)} rows={3} placeholder="Paste the job description..."
-                            className="w-full bg-surface-2 border border-surface-3 rounded-lg px-3 py-2 text-sm text-fg-primary placeholder-fg-quaternary outline-none focus:border-accent transition-colors resize-none" />
-                          <button onClick={() => jdInput.trim() && handleAnalyzeJD(app.id, jdInput.trim())} disabled={!jdInput.trim()}
-                            className="text-xs px-3 py-1.5 rounded-lg bg-accent text-white font-medium hover:bg-accent/80 disabled:opacity-50 transition-colors">
-                            Analyze
-                          </button>
-                        </div>
-                      )}
-
-                      <div className="pt-2.5 border-t border-surface-3">
-                        <p className="text-[11px] font-bold text-fg-tertiary uppercase tracking-[0.4px] mb-1.5">🎤 Interview Guidance</p>
-                        {loadingInsightsFor === app.company ? (
-                          <div className="space-y-2">{[85, 65].map((w, i) => <div key={i} className="h-3 rounded bg-surface-3 animate-pulse" style={{ width: `${w}%` }} />)}</div>
-                        ) : app.company in companyInsights ? (
-                          companyInsights[app.company] ? (
-                            <div className="space-y-2">
-                              <span className="inline-block text-[9.5px] font-bold uppercase text-fg-tertiary bg-surface-3 rounded px-1.5 py-0.5">
-                                {companyInsights[app.company]!.source === 'company-specific' ? 'Company-specific' : 'General guidance'}
-                              </span>
-                              <p className="text-sm text-fg-secondary leading-relaxed">{companyInsights[app.company]!.interviewTrends}</p>
-                              <p className="text-sm text-fg-secondary leading-relaxed">{companyInsights[app.company]!.hiringPatterns}</p>
-                              <p className="text-[10.5px] text-fg-tertiary">Updated {formatDistanceToNow(new Date(companyInsights[app.company]!.generatedAt), { addSuffix: true })}</p>
-                            </div>
-                          ) : (
-                            <p className="text-sm text-fg-tertiary italic">Unavailable — AI budget may have been reached.</p>
-                          )
-                        ) : (
-                          <button onClick={() => handleLoadCompanyInsights(app.company, app.role)}
-                            className="text-xs px-3 py-1.5 rounded-lg border border-surface-3 text-fg-secondary hover:text-accent hover:border-accent/40 transition-colors">
-                            Load Interview Guidance
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )
-            })}
-          </div>
-        )}
-      </Card>}
-
-      {/* Job Alerts — deterministic daily poll of public Greenhouse/Lever/
-          Ashby boards (src/features/career/job-alerts.ts), already
-          Telegram-notified; this surfaces the same job_alerts_seen log
-          in-app, best-fit (score) first. Score is deterministic (skill
-          overlap + seniority + salary vs. current), never AI — see
-          computeScore() in job-alerts.ts. Deliberately outside the tab
-          system — a passive daily feed, not a section to toggle in/out of
-          view like Applications/Interview Prep/Profile — so it always
-          renders as its own card directly below Applications. */}
-      <Card title="Job Alerts" padding="p-3.5" action={
-        jobAlerts.length > 0 ? <span className="text-xs text-fg-tertiary">{jobAlerts.length} in the last 30 days</span> : undefined
-      }>
-        {jobAlerts.length === 0 ? (
-          <EmptyState icon={Bell} message="No new postings yet — checked daily against public job boards" compact />
-        ) : (
-          <div className="flex flex-col gap-1 max-h-[264px] overflow-y-auto">
-            {jobAlerts.map(alert => {
-              const isApplied = appliedCompanies.has(alert.company.toLowerCase())
-              const salaryLabel = alert.salary_min && alert.salary_max
-                ? `$${Math.round(alert.salary_min / 1000)}k–$${Math.round(alert.salary_max / 1000)}k`
-                : null
-              return (
-                <div key={alert.id} className="flex flex-col gap-1 py-[9px] border-b border-surface-3">
-                  <div className="flex items-center gap-2.5">
-                    <div className="flex-1 min-w-0">
-                      <span className="text-[13px] font-semibold text-fg-primary">{alert.company}</span>
-                      <span className="text-[13px] text-fg-secondary"> · {alert.title}</span>
-                      {salaryLabel && <span className="text-[12px] text-good font-semibold"> · {salaryLabel}</span>}
-                      {alert.score >= 70 && <span className="text-[10px] font-bold px-1.5 py-[1px] rounded-[5px] bg-accent-soft text-accent-strong ml-1.5 align-middle">Top Fit</span>}
-                    </div>
-                    <span className="text-[11px] text-fg-tertiary whitespace-nowrap">{shortDate(alert.created_at)}</span>
-                    <a href={alert.url} target="_blank" rel="noopener noreferrer" aria-label="View posting" className="text-[12px] text-fg-tertiary hover:text-accent transition-colors no-underline">↗</a>
-                    {isApplied ? (
-                      <span className="shrink-0 text-[11.5px] font-bold px-2.5 py-1 rounded-[6px] bg-good-soft text-good whitespace-nowrap">✓ Applied</span>
-                    ) : (
-                      <button onClick={() => handleTrackJobAlert(alert)} className="shrink-0 text-[11.5px] px-2.5 py-1 rounded-[6px] border border-border-strong text-fg-secondary hover:text-accent hover:border-accent/40 transition-colors whitespace-nowrap">
-                        Track
+                        <p className="text-[11.5px] text-fg-tertiary truncate">{a.role}</p>
+                        <p className="text-[11px] text-fg-tertiary tabular-nums">{nextRound ? `📅 ${roundLabel(nextRound.kind)} · ${when(nextRound.scheduled_at)}` : 'no round scheduled'}{qn ? ` · ${qn} Qs` : ''}</p>
                       </button>
-                    )}
-                  </div>
-                  {alert.matched_skills.length > 0 && (
-                    <div className="flex flex-wrap gap-1">
-                      {alert.matched_skills.map(s => (
-                        <span key={s} className="text-[10.5px] px-1.5 py-[1px] rounded-[5px] bg-surface-2 text-fg-tertiary">{s}</span>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              )
-            })}
-          </div>
-        )}
-      </Card>
-
-      {/* Interview Prep — Interactive Topic Quiz */}
-      {activeTab === 'interview-prep' && <Card title="Interview Prep — Topic Quiz" padding="p-3.5">
-        {recommendedTopic && (
-          <div className="flex items-center gap-3 p-3 mb-4 rounded-[10px] bg-accent-soft border border-accent-border">
-            <span className="shrink-0">🎯</span>
-            <div className="flex-1 min-w-0">
-              <p className="text-[12.5px] text-fg-secondary">Recommended: <span className="font-bold text-fg-primary">{recommendedTopic.topic}</span> — {recommendedTopic.reason}</p>
-              <p className="text-[10.5px] text-fg-tertiary mt-0.5">Updated {formatDistanceToNow(new Date(recommendedTopic.generatedAt), { addSuffix: true })}</p>
-            </div>
-            <button onClick={() => handleOpenQuiz(recommendedTopic.topic)} className="shrink-0 text-xs px-3 py-1.5 rounded-lg bg-accent text-white font-medium hover:bg-accent/80 transition-colors">
-              Start Quiz
-            </button>
-          </div>
-        )}
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
-          {QUIZ_TOPICS.map(topic => {
-            const { tier, avgPercent } = computeReadiness(localQuizAttempts, topic)
-            const lastAttempt = localQuizAttempts.filter(a => a.topic === topic).sort((a, b) => b.created_at.localeCompare(a.created_at))[0]
-            const rcfg = READINESS_CONFIG[tier]
-            return (
-              <button key={topic} onClick={() => handleOpenQuiz(topic)}
-                className="relative flex flex-col items-start p-3 rounded-[10px] border border-surface-3 bg-surface-2 hover:bg-surface-3 transition-colors text-left">
-                <span className="absolute top-2.5 right-2.5 w-[7px] h-[7px] rounded-full" style={{ background: rcfg.color }} />
-                <span className="text-[12.5px] font-semibold text-fg-primary pr-3">{topic}</span>
-                <span className="text-[10.5px] font-bold mt-1.5 px-2.5 py-[3px] rounded-full inline-block" style={{ color: rcfg.color, background: rcfg.bg }}>{rcfg.label}{avgPercent !== null ? ` · ${avgPercent}%` : ''}</span>
-                <span className="text-[10.5px] text-fg-tertiary mt-[3px]">{lastAttempt ? `Last score: ${Math.round((lastAttempt.score / lastAttempt.total) * 100)}%` : 'No attempts yet'}</span>
-              </button>
-            )
-          })}
-        </div>
-      </Card>}
-
-      {/* Career Profile */}
-      {activeTab === 'profile' && <Card title="Career Profile" padding="p-3.5" action={
-        codingStreak > 0
-          ? <span className="text-[11px] font-semibold bg-surface-2 rounded-full px-2.5 py-1 text-fg-secondary">🔥 {codingStreak}-day coding streak</span>
-          : undefined
-      }>
-        <div className="grid grid-cols-2 sm:grid-cols-5 gap-x-3 gap-y-4">
-          <ProfileField label="Current Role" value={localProfile?.current_role ?? ''} onSave={v => saveProfile('current_role', v)} placeholder="Senior Frontend Engineer" />
-          <ProfileField label="Company" value={localProfile?.current_company ?? ''} onSave={v => saveProfile('current_company', v)} placeholder="Accenture" />
-          <ProfileField label="Current Salary (₹/yr)" value={localProfile?.current_salary?.toString() ?? ''} onSave={v => saveProfile('current_salary', v)} type="number" placeholder="1200000" masked />
-          <ProfileField label="Target Role" value={localProfile?.target_role ?? ''} onSave={v => saveProfile('target_role', v)} placeholder="Staff Engineer / Tech Lead" />
-          <ProfileField label="Years of Experience" value={localProfile?.years_experience?.toString() ?? ''} onSave={v => saveProfile('years_experience', v)} type="number" placeholder="5" />
-        </div>
-        <div className="mt-4 pt-3.5 border-t border-surface-3">
-          <ProfileField label="Bio / Focus" value={localProfile?.bio ?? ''} onSave={v => saveProfile('bio', v)} placeholder="Frontend + Testing specialist" />
-        </div>
-      </Card>}
-
-      {/* Quiz modal */}
-      {quiz && (
-        <Modal title={`${quiz.topic} Quiz`} onClose={handleCloseQuiz} maxWidthClass="max-w-[520px]">
-            {quiz.stage === 'picking' && (() => {
-              const seededSubtopics = [...new Set(localQuizAttempts.filter(a => a.topic === quiz.topic).flatMap(a => a.weak_areas))]
-              return (
-                <div>
-                  <p className="text-[13px] text-fg-secondary mb-2.5">Pick a difficulty to generate 10 questions{seededSubtopics.length > 0 ? ', seeded toward your weak subtopics.' : '.'}</p>
-                  {seededSubtopics.length > 0 && (
-                    <p className="text-[11.5px] text-accent-strong bg-accent-soft rounded-[8px] px-[11px] py-2 mb-3.5">Seeded toward: {seededSubtopics.join(', ')}</p>
-                  )}
-                  <div className="flex gap-2.5">
-                    {(['easy', 'medium', 'hard'] as Difficulty[]).map(d => (
-                      <button key={d} onClick={() => handleGenerateQuiz(d)}
-                        className="flex-1 bg-surface-2 border border-surface-3 rounded-[10px] p-3.5 text-center hover:border-accent/40 transition-colors">
-                        <span className="text-[14px] font-bold text-fg-primary">{DIFFICULTY_CONFIG[d].label}</span>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )
-            })()}
-
-            {quiz.stage === 'generating' && (
-              <div className="space-y-2 py-4">{[90, 70, 85, 60, 75].map((w, i) => <div key={i} className="h-3 rounded bg-surface-2 animate-pulse" style={{ width: `${w}%` }} />)}</div>
+                    </li>
+                  )
+                })}
+              </ul>
             )}
-
-            {quiz.stage === 'taking' && (() => {
-              const answeredCount = quiz.answers.filter(a => a !== -1).length
-              const total = quiz.questions.length
-              const submitDisabled = quiz.answers.includes(-1)
-              return (
-                <div>
-                  <p className="text-xs text-fg-tertiary mb-1.5">{DIFFICULTY_CONFIG[quiz.difficulty].label} · {answeredCount} of {total} answered</p>
-                  <div className="h-1 rounded-[3px] bg-border mb-3.5">
-                    <div className="h-full rounded-[3px] bg-accent transition-all" style={{ width: `${Math.round((answeredCount / total) * 100)}%` }} />
-                  </div>
-                  <div className="flex flex-col gap-4">
-                    {quiz.questions.map((q, qi) => (
-                      <div key={qi}>
-                        <p className="text-[13.5px] font-semibold text-fg-primary mb-2">{qi + 1}. {q.question}</p>
-                        <div className="flex flex-col gap-1.5">
-                          {q.options.map((opt, oi) => (
-                            <button key={oi} onClick={() => handleSelectAnswer(qi, oi)}
-                              className={`text-left w-full rounded-[8px] px-3 py-[9px] text-[12.5px] border transition-colors ${quiz.answers[qi] === oi ? 'bg-accent-soft border-accent text-fg-primary' : 'bg-surface-2 border-surface-3 text-fg-primary hover:border-border-strong'}`}>
-                              {opt}
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                  <div className="flex justify-end gap-2.5 mt-5">
-                    <button type="button" onClick={handleCloseQuiz} className={modalCancelButtonClass}>Cancel</button>
-                    <button onClick={handleSubmitQuiz} disabled={submitDisabled} className={modalSaveButtonClass}>Submit Quiz</button>
-                  </div>
-                </div>
-              )
-            })()}
-
-            {quiz.stage === 'results' && (() => {
-              const nextTopic = suggestNextTopic(localQuizAttempts, QUIZ_TOPICS)
-              const wrongQuestions = quiz.questions.filter((q, qi) => quiz.answers[qi] !== q.correctIndex)
-              const scoreColor = quiz.score >= 80 ? 'var(--good)' : quiz.score >= 60 ? 'var(--accent)' : quiz.score >= 40 ? 'var(--warn)' : 'var(--risk)'
-              const readinessNote = quiz.score >= 80 ? 'Readiness → Strong' : quiz.score >= 60 ? 'Readiness → Ready' : quiz.score >= 40 ? 'Readiness → Developing' : 'Readiness → Needs Work'
-              const weakAreasText = wrongQuestions.length ? quiz.weakAreas.join(', ') : 'None — clean sweep'
-              return (
-                <div>
-                  <div className="text-center mb-[18px]">
-                    <p className="text-[34px] font-bold" style={{ color: scoreColor }}>{quiz.score}%</p>
-                    <p className="text-[12.5px] text-fg-tertiary mt-0.5">{quiz.questions.length - wrongQuestions.length} of {quiz.questions.length} correct · {DIFFICULTY_CONFIG[quiz.difficulty].label}</p>
-                    <p className="text-[11.5px] font-semibold mt-1.5" style={{ color: scoreColor }}>{readinessNote}</p>
-                  </div>
-                  {wrongQuestions.length > 0 && (
-                    <>
-                      <p className="text-[11px] font-bold text-fg-tertiary uppercase tracking-[0.4px] mb-2">Review</p>
-                      <div className="flex flex-col gap-2.5 mb-4">
-                        {quiz.questions.map((q, qi) => quiz.answers[qi] !== q.correctIndex && (
-                          <div key={qi} className="bg-risk-soft border border-risk-border rounded-[10px] px-3 py-2.5">
-                            <p className="text-[12.5px] font-semibold text-fg-primary mb-1">{q.question}</p>
-                            <p className="text-xs text-fg-secondary">{q.explanation}</p>
-                          </div>
-                        ))}
-                      </div>
-                    </>
-                  )}
-                  <div className="bg-surface-2 rounded-[10px] px-3.5 py-3 mb-4">
-                    <p className="text-xs text-fg-secondary">Weak areas: <span className="text-fg-primary font-semibold">{weakAreasText}</span></p>
-                    <p className="text-xs text-fg-secondary mt-1">Next up: <span className="text-accent font-semibold">{nextTopic}</span></p>
-                  </div>
-                  <div className="flex justify-end gap-2.5">
-                    <button onClick={handleRetakeQuiz} className={modalCancelButtonClass}>Retake</button>
-                    <button onClick={handleCloseQuiz} className={modalSaveButtonClass}>Done</button>
-                  </div>
-                </div>
-              )
-            })()}
-        </Modal>
+          </Card>
+          {selected ? (
+            <CompanyDetail key={selected.id} app={selected} profile={profile}
+              rounds={rounds.filter(r => r.application_id === selected.id)}
+              questions={questions.filter(q => q.application_id === selected.id)}
+              onApp={a => setApps(prev => prev.map(x => x.id === a.id ? a : x))}
+              onRounds={fn => setRounds(fn)} onQuestions={fn => setQuestions(fn)}
+              onDelete={() => setConfirmDelete(selected)} />
+          ) : (
+            <Card><p className="text-[12.5px] text-fg-tertiary">Pick a company.</p></Card>
+          )}
+        </div>
       )}
 
-      {/* Add Application modal */}
-      {modal === 'app' && (
-        <Modal title="Add Application" onClose={() => setModal(null)} maxWidthClass="max-w-[460px]">
-            <form className="flex flex-col gap-3.5" noValidate onInput={onFieldInput} onSubmit={async e => {
-              e.preventDefault()
-              if (!validate(e.currentTarget)) return
-              const fd = new FormData(e.currentTarget)
-              await handleAddApplication(fd)
-            }}>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className={modalLabelClass}>Company</label>
-                  <input name="company" required autoFocus defaultValue={prefillApp?.company ?? ''} placeholder="Google" className={modalInputClass(invalidFields.has('company'))} />
-                  <FieldError show={invalidFields.has('company')} />
-                </div>
-                <div>
-                  <label className={modalLabelClass}>Role</label>
-                  <input name="role" required defaultValue={prefillApp?.role ?? ''} placeholder="Senior Engineer" className={modalInputClass(invalidFields.has('role'))} />
-                  <FieldError show={invalidFields.has('role')} />
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className={modalLabelClass}>Status</label>
-                  <select name="status" defaultValue="applied" className={modalSelectClass}>
-                    {STATUSES.map(s => <option key={s} value={s}>{STATUS_CONFIG[s].label}</option>)}
+      {tab === 'questions' && <QuestionLog questions={questions} apps={apps} rounds={rounds} onQuestions={fn => setQuestions(fn)} />}
+
+      {tab === 'profile' && (
+        <Card title="Career Profile" action={props.codingStreak > 0 ? <span className="text-[11px] text-fg-tertiary">🔥 {props.codingStreak}-day coding streak</span> : undefined}>
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+            <ProfileField label="Current Role" value={profile?.current_role ?? ''} onSave={v => saveProfile('current_role', v)} placeholder="Senior Frontend Engineer" />
+            <ProfileField label="Company" value={profile?.current_company ?? ''} onSave={v => saveProfile('current_company', v)} />
+            <ProfileField label="Current Salary (₹/yr)" value={profile?.current_salary?.toString() ?? ''} onSave={v => saveProfile('current_salary', v)} type="number" masked />
+            <ProfileField label="Target Role" value={profile?.target_role ?? ''} onSave={v => saveProfile('target_role', v)} placeholder="Senior Frontend / Tech Lead" />
+            <ProfileField label="Years of Experience" value={profile?.years_experience?.toString() ?? ''} onSave={v => saveProfile('years_experience', v)} type="number" />
+            <ProfileField label="Bio / Focus" value={profile?.bio ?? ''} onSave={v => saveProfile('bio', v)} />
+          </div>
+          <p className="text-[11px] text-fg-tertiary mt-3">Used by the JD analysis and the Career Mentor.</p>
+        </Card>
+      )}
+
+      {addOpen && <AddCompanyModal onClose={() => setAddOpen(false)} onAdded={a => { setApps(prev => [a, ...prev]); setSelectedId(a.id); setTab('companies') }} />}
+      {confirmDelete && (
+        <ConfirmDialog title={`Delete ${confirmDelete.company}?`} description="Its rounds and every logged question are deleted too." onCancel={() => setConfirmDelete(null)}
+          onConfirm={() => {
+            const id = confirmDelete.id
+            setConfirmDelete(null)
+            setApps(prev => prev.filter(a => a.id !== id)); setRounds(prev => prev.filter(r => r.application_id !== id)); setQuestions(prev => prev.filter(q => q.application_id !== id))
+            setSelectedId(null)
+            startTransition(() => deleteApplication(id))
+          }} />
+      )}
+    </div>
+  )
+}
+
+// ---------------- Add company ----------------
+
+function AddCompanyModal({ onClose, onAdded }: { onClose: () => void; onAdded: (a: Application) => void }) {
+  const [busy, start] = useTransition()
+  const [f, setF] = useState({ company: '', role: '', status: 'screening' as AppStatus, url: '', job_description: '', notes: '' })
+  return (
+    <Modal title="Add company" onClose={onClose}>
+      <form className="flex flex-col gap-2.5" onSubmit={e => {
+        e.preventDefault()
+        if (!f.company.trim() || !f.role.trim()) return
+        start(async () => { onAdded(await addCompany({ ...f, url: f.url || null, job_description: f.job_description || null, notes: f.notes || null })); onClose() })
+      }}>
+        <div className="grid grid-cols-2 gap-2">
+          <div><label className={modalLabelClass}>Company</label><input autoFocus required value={f.company} onChange={e => setF({ ...f, company: e.target.value })} className={modalInputClass()} /></div>
+          <div><label className={modalLabelClass}>Role</label><input required value={f.role} onChange={e => setF({ ...f, role: e.target.value })} placeholder="Senior Frontend Engineer" className={modalInputClass()} /></div>
+        </div>
+        <div className="grid grid-cols-2 gap-2">
+          <div><label className={modalLabelClass}>Stage</label>
+            <select value={f.status} onChange={e => setF({ ...f, status: e.target.value as AppStatus })} className={modalSelectClass}>
+              {STAGES.map(s => <option key={s} value={s}>{STAGE_CONFIG[s].label}</option>)}
+            </select></div>
+          <div><label className={modalLabelClass}>Job link (optional)</label><input value={f.url} onChange={e => setF({ ...f, url: e.target.value })} className={modalInputClass()} /></div>
+        </div>
+        <div><label className={modalLabelClass}>Job description (optional — enables the JD analysis)</label><textarea rows={4} value={f.job_description} onChange={e => setF({ ...f, job_description: e.target.value })} className={modalInputClass()} /></div>
+        <div><label className={modalLabelClass}>Notes (optional)</label><input value={f.notes} onChange={e => setF({ ...f, notes: e.target.value })} placeholder="Recruiter name, referral, comp range…" className={modalInputClass()} /></div>
+        <div className="flex justify-end gap-2 mt-1">
+          <button type="button" onClick={onClose} className={modalCancelButtonClass}>Cancel</button>
+          <button type="submit" disabled={busy} className={modalSaveButtonClass}>{busy ? 'Adding…' : 'Add'}</button>
+        </div>
+      </form>
+    </Modal>
+  )
+}
+
+// ---------------- Company detail ----------------
+
+function CompanyDetail({ app, profile, rounds, questions, onApp, onRounds, onQuestions, onDelete }: {
+  app: Application; profile: CareerProfile | null; rounds: InterviewRound[]; questions: InterviewQuestion[]
+  onApp: (a: Application) => void
+  onRounds: (fn: (prev: InterviewRound[]) => InterviewRound[]) => void
+  onQuestions: (fn: (prev: InterviewQuestion[]) => InterviewQuestion[]) => void
+  onDelete: () => void
+}) {
+  const [, start] = useTransition()
+  const [round, setRound] = useState({ kind: 'technical' as RoundKind, at: '', interviewer: '' })
+  const [q, setQ] = useState(EMPTY_Q)
+  const [insights, setInsights] = useState<CompanyInsights | null>(null)
+  const [insightsLoading, setInsightsLoading] = useState(false)
+  const [jd, setJd] = useState('')
+  const [analyzing, setAnalyzing] = useState(false)
+  const [openRound, setOpenRound] = useState<string | null>(null)
+
+  const setApp = (patch: Partial<Application>) => { onApp({ ...app, ...patch }); start(() => updateCompany(app.id, patch)) }
+  const patchRound = (r: InterviewRound, patch: Partial<InterviewRound>) => { onRounds(prev => prev.map(x => x.id === r.id ? { ...x, ...patch } : x)); start(() => updateRound(r.id, patch)) }
+  const loadInsights = async () => { setInsightsLoading(true); try { setInsights(await getCompanyInsights(app.company, app.role)) } finally { setInsightsLoading(false) } }
+  const analyze = async (text: string) => {
+    setAnalyzing(true)
+    try {
+      const analysis = await analyzeJobDescription(text, app.company, app.role, profile)
+      onApp({ ...app, job_description: text, jd_analysis: analysis })
+      await saveApplicationJD(app.id, text, analysis)
+    } finally { setAnalyzing(false) }
+  }
+  const sortedRounds = [...rounds].sort((a, b) => (a.scheduled_at ?? a.created_at).localeCompare(b.scheduled_at ?? b.created_at))
+
+  return (
+    <div className="space-y-[var(--grid-gap)]">
+      <Card title={`${app.company} · ${app.role}`} action={
+        <div className="flex items-center gap-2">
+          <select value={app.status} onChange={e => setApp({ status: e.target.value as AppStatus })} aria-label="Stage"
+            className={`bg-surface-2 border border-surface-3 rounded-[7px] px-2 py-1 text-[12px] font-semibold outline-none ${STAGE_CONFIG[app.status].color}`}>
+            {[...new Set([app.status, ...STAGES])].map(s => <option key={s} value={s}>{STAGE_CONFIG[s].label}</option>)}
+          </select>
+          {app.url && <a href={app.url} target="_blank" rel="noopener noreferrer" aria-label="Job link" className="text-fg-tertiary hover:text-accent"><ExternalLink size={14} /></a>}
+          <button onClick={onDelete} aria-label="Delete company" className="text-fg-quaternary hover:text-risk"><Trash2 size={14} /></button>
+        </div>
+      }>
+        {app.notes && <p className="text-[12px] text-fg-secondary mb-2">{app.notes}</p>}
+        <p className="text-[10.5px] font-bold uppercase tracking-[0.4px] text-fg-tertiary mb-1.5">Rounds</p>
+        {sortedRounds.length === 0 && <p className="text-[12px] text-fg-tertiary mb-2">No rounds yet — add the next one when it&apos;s booked.</p>}
+        <ul className="flex flex-col gap-1.5 mb-2.5">
+          {sortedRounds.map(r => (
+            <li key={r.id} className="rounded-[9px] bg-surface-2 px-2.5 py-2">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <button onClick={() => setOpenRound(openRound === r.id ? null : r.id)} className="text-left min-w-0">
+                  <span className="text-[12.5px] font-semibold text-fg-primary">{roundLabel(r.kind)}</span>
+                  <span className="text-[11.5px] text-fg-tertiary"> · {when(r.scheduled_at)}{r.interviewer ? ` · ${r.interviewer}` : ''}</span>
+                </button>
+                <div className="flex items-center gap-1.5">
+                  <select value={r.status} onChange={e => patchRound(r, { status: e.target.value as InterviewRound['status'] })} aria-label="Round status" className="bg-surface-1 border border-surface-3 rounded-[6px] px-1.5 py-[3px] text-[11.5px] text-fg-secondary">
+                    <option value="scheduled">Scheduled</option><option value="done">Done</option><option value="cancelled">Cancelled</option>
+                  </select>
+                  <select value={r.outcome} onChange={e => patchRound(r, { outcome: e.target.value as InterviewRound['outcome'] })} aria-label="Round outcome" className={`bg-surface-1 border border-surface-3 rounded-[6px] px-1.5 py-[3px] text-[11.5px] font-semibold ${OUTCOME_CLS[r.outcome]}`}>
+                    <option value="pending">Pending</option><option value="passed">Passed</option><option value="failed">Failed</option>
                   </select>
                 </div>
-                <div>
-                  <label className={modalLabelClass}>Salary Range</label>
-                  <input name="salary_range" placeholder="₹40–60 LPA" className={modalInputClass()} />
+              </div>
+              {openRound === r.id && (
+                <div className="mt-2 flex flex-col gap-1.5">
+                  <input type="datetime-local" defaultValue={toLocalInput(r.scheduled_at)} onBlur={e => patchRound(r, { scheduled_at: fromLocalInput(e.target.value) })} className={modalInputClass()} />
+                  <textarea rows={2} defaultValue={r.notes ?? ''} onBlur={e => patchRound(r, { notes: e.target.value || null })} placeholder="How it went, who you met, what they focused on…" className={modalInputClass()} />
+                  <button onClick={() => { onRounds(prev => prev.filter(x => x.id !== r.id)); start(() => deleteRound(r.id)) }} className="self-start text-[11px] text-fg-quaternary hover:text-risk">Delete round</button>
                 </div>
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className={modalLabelClass}>Location</label>
-                  <input name="location" placeholder="Remote / Bangalore" className={modalInputClass()} />
-                </div>
-                <div>
-                  <label className={modalLabelClass}>Job URL</label>
-                  <input name="url" type="url" defaultValue={prefillApp?.url ?? ''} placeholder="https://..." className={modalInputClass()} />
-                </div>
-              </div>
-              <div>
-                <label className={modalLabelClass}>Applied On</label>
-                <input name="applied_at" type="date" defaultValue={todayIST()} className={modalInputClass()} />
-              </div>
-              <div>
-                <label className={modalLabelClass}>Job Description <span className="text-risk">*</span></label>
-                <textarea name="job_description" required rows={4} placeholder="Paste the full job description — used to auto-analyze required skills, match %, and prep topics" className={`${modalInputClass(invalidFields.has('job_description'))} resize-none`} />
-                <FieldError show={invalidFields.has('job_description')} message="Job description is required for match analysis." />
-              </div>
-              <div>
-                <label className={modalLabelClass}>Notes</label>
-                <textarea name="notes" rows={2} placeholder="Referral from X, interesting stack..." className={`${modalInputClass()} resize-none`} />
-              </div>
-              <div className="flex justify-end gap-2.5 mt-1.5">
-                <button type="button" onClick={() => setModal(null)} className={modalCancelButtonClass}>Cancel</button>
-                <button type="submit" className={modalSaveButtonClass}>Add Application</button>
-              </div>
-            </form>
-        </Modal>
-      )}
+              )}
+            </li>
+          ))}
+        </ul>
+        <form className="flex flex-wrap gap-1.5" onSubmit={e => {
+          e.preventDefault()
+          start(async () => {
+            const created = await addRound({ application_id: app.id, kind: round.kind, scheduled_at: fromLocalInput(round.at), interviewer: round.interviewer || null })
+            onRounds(prev => [...prev, created])
+            if (app.status === 'screening' && round.kind !== 'recruiter' && round.kind !== 'phone_screen') onApp({ ...app, status: 'interview' })
+            setRound({ kind: round.kind, at: '', interviewer: '' })
+          })
+        }}>
+          <select value={round.kind} onChange={e => setRound({ ...round, kind: e.target.value as RoundKind })} aria-label="Round type" className={`${modalSelectClass} !w-auto`}>
+            {ROUND_KINDS.map(k => <option key={k.key} value={k.key}>{k.label}</option>)}
+          </select>
+          <input type="datetime-local" value={round.at} onChange={e => setRound({ ...round, at: e.target.value })} aria-label="When" className={`${modalInputClass()} !w-auto`} />
+          <input value={round.interviewer} onChange={e => setRound({ ...round, interviewer: e.target.value })} placeholder="Interviewer (optional)" className={`${modalInputClass()} !w-auto flex-1 min-w-[140px]`} />
+          <button type="submit" className={modalSaveButtonClass}>+ Round</button>
+        </form>
+      </Card>
 
-      {confirmDeleteAppId && (() => {
-        const app = localApps.find(a => a.id === confirmDeleteAppId)
-        return (
-          <ConfirmDialog
-            title="Delete application?"
-            description={app ? `The application for ${app.role} at ${app.company} will be permanently removed.` : 'This application will be permanently removed.'}
-            onConfirm={confirmDeleteApp}
-            onCancel={() => setConfirmDeleteAppId(null)}
-          />
-        )
-      })()}
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-[var(--grid-gap)] items-start">
+        <Card title="Prep for this company">
+          {app.jd_analysis ? (
+            <div className="text-[12px]">
+              <p className="text-fg-secondary"><span className="font-semibold text-fg-primary">JD match {app.jd_analysis.matchPercentage}%</span> · {app.jd_analysis.companyFocus}</p>
+              <p className="text-[10.5px] font-bold uppercase tracking-[0.4px] text-fg-tertiary mt-2 mb-1">Practice these first</p>
+              <div className="flex flex-wrap gap-1.5">
+                {app.jd_analysis.priorityTopics.map(t => <a key={t} href={prepHref(t)} className="text-[11.5px] rounded-full px-2 py-[2px] bg-accent-soft text-accent hover:underline">{t} →</a>)}
+              </div>
+              {app.jd_analysis.missingSkills.length > 0 && <p className="text-fg-secondary mt-2"><span className="font-semibold text-risk">Gaps: </span>{app.jd_analysis.missingSkills.join(', ')}</p>}
+            </div>
+          ) : (
+            <div>
+              <textarea rows={3} value={jd} onChange={e => setJd(e.target.value)} placeholder={app.job_description ? 'Re-run the analysis on the saved JD, or paste a new one' : 'Paste the job description to get priority topics and gaps'} className={modalInputClass()} />
+              <button disabled={analyzing || !(jd.trim() || app.job_description)} onClick={() => analyze(jd.trim() || app.job_description!)} className={`${modalSaveButtonClass} mt-1.5 inline-flex items-center gap-1.5 !py-[7px]`}>
+                <Sparkles size={13} /> {analyzing ? 'Analyzing…' : 'Analyze JD'}
+              </button>
+            </div>
+          )}
+          <div className="flex flex-wrap gap-x-3 gap-y-1 mt-2.5 pt-2 border-t border-surface-3 text-[12px]">
+            <a href="/prep?tab=mock&format=screen" className="text-accent hover:underline">Mock frontend screen →</a>
+            <a href="/prep?tab=mock&format=system-design" className="text-accent hover:underline">Mock system design →</a>
+            <a href="/prep?tab=stories" className="text-accent hover:underline">Rehearse STAR stories →</a>
+          </div>
+        </Card>
+
+        <Card title="Interview guidance" action={!insights && <button onClick={loadInsights} disabled={insightsLoading} className="text-[11.5px] text-accent hover:underline inline-flex items-center gap-1 disabled:opacity-50"><Sparkles size={12} /> {insightsLoading ? 'Loading…' : 'Load'}</button>}>
+          {insightsLoading && <div className="space-y-2">{[90, 70, 80].map((w, i) => <div key={i} className="h-3 rounded bg-surface-2 animate-pulse" style={{ width: `${w}%` }} />)}</div>}
+          {!insights && !insightsLoading && <p className="text-[12px] text-fg-tertiary">What {app.company} is known to ask and how their loop runs (AI, cached 7 days; says when it&apos;s only general guidance).</p>}
+          {insights && (
+            <div className="text-[12.5px] text-fg-secondary space-y-1.5">
+              <p className="text-[10.5px] font-bold uppercase tracking-[0.4px] text-fg-tertiary">{insights.source === 'company-specific' ? `${app.company}-specific` : 'General guidance (no reliable company data)'} · {formatDistanceToNow(new Date(insights.generatedAt), { addSuffix: true })}</p>
+              <p>{insights.interviewTrends}</p>
+              <p>{insights.hiringPatterns}</p>
+            </div>
+          )}
+        </Card>
+      </div>
+
+      <Card title="Questions they asked" action={<span className="text-[11px] text-fg-tertiary tabular-nums">{questions.length} logged</span>}>
+        <form className="flex flex-col gap-1.5 mb-2.5" onSubmit={e => {
+          e.preventDefault()
+          if (!q.question.trim()) return
+          start(async () => {
+            const created = await addQuestion({ application_id: app.id, round_id: q.round_id || null, question: q.question, category: q.category, my_answer: q.my_answer || null, went: q.went || null, notes: q.notes || null })
+            onQuestions(prev => [created, ...prev])
+            setQ({ ...EMPTY_Q, category: q.category, round_id: q.round_id })
+          })
+        }}>
+          <textarea rows={2} value={q.question} onChange={e => setQ({ ...q, question: e.target.value })} placeholder="What did they ask? (exact wording if you can)" className={modalInputClass()} />
+          <textarea rows={2} value={q.my_answer} onChange={e => setQ({ ...q, my_answer: e.target.value })} placeholder="What you answered (optional — so you can tighten it later)" className={modalInputClass()} />
+          <div className="flex flex-wrap gap-1.5">
+            <select value={q.category} onChange={e => setQ({ ...q, category: e.target.value as QuestionCategory })} aria-label="Category" className={`${modalSelectClass} !w-auto`}>
+              {QUESTION_CATEGORIES.map(c => <option key={c.key} value={c.key}>{c.label}</option>)}
+            </select>
+            <select value={q.round_id} onChange={e => setQ({ ...q, round_id: e.target.value })} aria-label="Round" className={`${modalSelectClass} !w-auto`}>
+              <option value="">Any round</option>
+              {sortedRounds.map(r => <option key={r.id} value={r.id}>{roundLabel(r.kind)}{r.scheduled_at ? ` · ${when(r.scheduled_at)}` : ''}</option>)}
+            </select>
+            <select value={q.went} onChange={e => setQ({ ...q, went: e.target.value as typeof q.went })} aria-label="How it went" className={`${modalSelectClass} !w-auto`}>
+              <option value="">How did it go?</option><option value="well">Went well</option><option value="ok">OK</option><option value="badly">Went badly</option>
+            </select>
+            <button type="submit" disabled={!q.question.trim()} className={`${modalSaveButtonClass} ml-auto`}>Save question</button>
+          </div>
+        </form>
+        <QuestionList questions={questions} rounds={rounds} onQuestions={onQuestions} />
+      </Card>
     </div>
+  )
+}
+
+// ---------------- Questions ----------------
+
+function QuestionList({ questions, rounds, apps, onQuestions }: {
+  questions: InterviewQuestion[]; rounds: InterviewRound[]; apps?: Application[]
+  onQuestions: (fn: (prev: InterviewQuestion[]) => InterviewQuestion[]) => void
+}) {
+  const [, start] = useTransition()
+  const [open, setOpen] = useState<string | null>(null)
+  const patch = (q: InterviewQuestion, p: Partial<InterviewQuestion>) => { onQuestions(prev => prev.map(x => x.id === q.id ? { ...x, ...p } : x)); start(() => updateQuestion(q.id, p)) }
+  if (questions.length === 0) return <p className="text-[12px] text-fg-tertiary">Nothing logged yet.</p>
+  return (
+    <ul className="flex flex-col gap-1.5">
+      {questions.map(q => {
+        const r = rounds.find(x => x.id === q.round_id)
+        const company = apps?.find(a => a.id === q.application_id)?.company
+        return (
+          <li key={q.id} className="rounded-[9px] bg-surface-2 px-2.5 py-2">
+            <button onClick={() => setOpen(open === q.id ? null : q.id)} className="w-full text-left">
+              <div className="flex items-start justify-between gap-2">
+                <p className="text-[12.5px] font-semibold text-fg-primary leading-snug">{q.question}</p>
+                {q.went && <span className={`text-[10.5px] font-semibold rounded-[5px] px-1.5 py-[1px] shrink-0 ${WENT[q.went].cls}`}>{WENT[q.went].label}</span>}
+              </div>
+              <p className="text-[11px] text-fg-tertiary mt-0.5">{company ? `${company} · ` : ''}{categoryLabel(q.category)}{r ? ` · ${roundLabel(r.kind)}` : ''} · {new Date(q.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}</p>
+            </button>
+            {open === q.id && (
+              <div className="mt-2 flex flex-col gap-1.5">
+                <textarea rows={3} defaultValue={q.my_answer ?? ''} onBlur={e => patch(q, { my_answer: e.target.value || null })} placeholder="Your answer — refine it into the one you'll give next time" className={modalInputClass()} />
+                <textarea rows={2} defaultValue={q.notes ?? ''} onBlur={e => patch(q, { notes: e.target.value || null })} placeholder="Notes: follow-ups they asked, what they seemed to want…" className={modalInputClass()} />
+                <div className="flex items-center gap-2">
+                  <select value={q.went ?? ''} onChange={e => patch(q, { went: (e.target.value || null) as InterviewQuestion['went'] })} aria-label="How it went" className={`${modalSelectClass} !w-auto`}>
+                    <option value="">How did it go?</option><option value="well">Went well</option><option value="ok">OK</option><option value="badly">Went badly</option>
+                  </select>
+                  <button onClick={() => { onQuestions(prev => prev.filter(x => x.id !== q.id)); start(() => deleteQuestion(q.id)) }} className="ml-auto text-[11px] text-fg-quaternary hover:text-risk">Delete</button>
+                </div>
+              </div>
+            )}
+          </li>
+        )
+      })}
+    </ul>
+  )
+}
+
+function QuestionLog({ questions, apps, rounds, onQuestions }: {
+  questions: InterviewQuestion[]; apps: Application[]; rounds: InterviewRound[]
+  onQuestions: (fn: (prev: InterviewQuestion[]) => InterviewQuestion[]) => void
+}) {
+  const [cat, setCat] = useState<QuestionCategory | 'all'>('all')
+  const [went, setWent] = useState<'all' | 'badly'>('all')
+  const [search, setSearch] = useState('')
+  const shown = questions.filter(q => (cat === 'all' || q.category === cat) && (went === 'all' || q.went === 'badly') && (!search || `${q.question} ${q.my_answer ?? ''}`.toLowerCase().includes(search.toLowerCase())))
+  const counts = QUESTION_CATEGORIES.map(c => ({ ...c, n: questions.filter(q => q.category === c.key).length }))
+  return (
+    <Card title="Question Log" action={<span className="text-[11px] text-fg-tertiary tabular-nums">{shown.length}/{questions.length}</span>}>
+      <div className="flex flex-wrap gap-1.5 mb-2">
+        {[{ key: 'all' as const, label: 'All', n: questions.length }, ...counts].map(c => (
+          <button key={c.key} onClick={() => setCat(c.key)} aria-pressed={cat === c.key}
+            className={`text-[11.5px] px-2.5 py-1 rounded-full border ${cat === c.key ? 'bg-accent-soft border-accent text-accent' : 'border-border-strong text-fg-secondary hover:bg-surface-2'}`}>{c.label} · {c.n}</button>
+        ))}
+        <button onClick={() => setWent(went === 'badly' ? 'all' : 'badly')} aria-pressed={went === 'badly'}
+          className={`text-[11.5px] px-2.5 py-1 rounded-full border ${went === 'badly' ? 'bg-risk-soft border-risk text-risk' : 'border-border-strong text-fg-secondary hover:bg-surface-2'}`}>Went badly · {questions.filter(q => q.went === 'badly').length}</button>
+      </div>
+      <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search questions and answers" className={`${modalInputClass()} mb-2.5`} />
+      {questions.length === 0
+        ? <p className="text-[12px] text-fg-tertiary">Every question an interviewer asks you — logged from a company&apos;s page or by telling the Career bot — collects here.</p>
+        : <QuestionList questions={shown} rounds={rounds} apps={apps} onQuestions={onQuestions} />}
+    </Card>
   )
 }

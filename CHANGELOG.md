@@ -5,6 +5,7 @@ append here whenever you deploy, same cadence as the version bump.
 
 ## 2026-10-08
 
+- **v3.4 — Career → Interviews.** Add a company only once a phone screen is booked; track its rounds (type, date, interviewer, outcome); prep for it specifically (on-demand JD analysis with priority topics linking into Prep, AI interview guidance, mock links); and keep every question interviewers asked with your answer and how it went (Question Log across companies). Job Alerts, the Topic Quiz and the Applied stage are gone. The next interview shows in Prep's War header and the morning coach message; an interview within 48h tops Needs Attention. The Career bot handles phone screens, rounds and logged questions.
 - **v3.3 — Learning removed.** The resource tracker, daily read, AI/tech tip, the Learning Telegram bot and its four AI tasks are gone. Life Score is now Health 30 / Finance 25 / Career 25 / Coding 20 (Learning's 20% redistributed); Daily Mission, digests, Explain My Score, Monthly Review and the Brain no longer mention it. Prep's normal plan uses a concept quiz instead of the daily read. Resource data is kept in the database and the export.
 
 ## 2026-10-07
