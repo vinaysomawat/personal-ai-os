@@ -486,3 +486,12 @@ export async function getDashboardData() {
     huntMode,
   }
 }
+
+// Job Hunt Mode hero data (null when no Prep target date is set).
+export async function getHuntHero() {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return null
+  const { loadHuntHero } = await import('./hunt-hero')
+  return loadHuntHero(supabase, user.id)
+}

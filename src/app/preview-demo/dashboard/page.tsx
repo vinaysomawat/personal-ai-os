@@ -51,11 +51,23 @@ const dummyData = {
   careerMemory: { currentRole: null, currentCompany: null, targetRole: null, currentSalary: null, bio: null },
   financialGoals: [],
   astrology: null,
-  huntMode: false,
+  huntMode: true,
 }
 
 const dummyExecutive = { risks: [], opportunities: [] }
 
+const dummyHunt = {
+  overall: 64,
+  tier: { label: '✅ INTERVIEW-READY · 4 blockers to close', tone: 'good' as const },
+  topBlocker: { label: 'System design', score: 58, gate: 80 },
+  daysLeft: 5,
+  nextInterview: { company: 'Acme Corp', kind: 'system_design', scheduled_at: new Date(Date.now() + 2 * 86400_000).toISOString() },
+  pipeline: { week: { week: today, sent: 9, replies: 2, screens: 1, onsites: 0, offers: 0 }, target: 15, followUps: [{ company: 'Globex', person: 'Priya' }], debriefsOwed: [] },
+  focusedMinutes: 185,
+  blocks: { done: 3, total: 7 },
+  runway: 5.4,
+}
+
 export default function DashboardPreview() {
-  return <DashboardView data={dummyData} executive={dummyExecutive} />
+  return <DashboardView data={dummyData} executive={dummyExecutive} hunt={dummyHunt} />
 }

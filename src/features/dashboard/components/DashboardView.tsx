@@ -6,6 +6,8 @@ import ScoreExplainer from '@/features/brain/components/ScoreExplainer'
 import BrainAdvisorTrigger from '@/features/brain/components/BrainAdvisorTrigger'
 import NeedsAttention from './NeedsAttention'
 import QuickStats from './QuickStats'
+import HuntHero from './HuntHero'
+import type { HuntHero as HuntHeroData } from '../hunt-hero'
 import { explainScore } from '@/features/brain/calculations'
 import { buildBrainContext } from '@/features/brain/context-builder'
 import { buildPriorityItems, KIND_HREF } from '../priority'
@@ -17,7 +19,7 @@ import PageHeader from '@/components/PageHeader'
 
 type DashboardData = Awaited<ReturnType<typeof getDashboardData>>
 
-export default function DashboardView({ data, executive }: { data: DashboardData; executive: ExecutiveData }) {
+export default function DashboardView({ data, executive, hunt }: { data: DashboardData; executive: ExecutiveData; hunt: HuntHeroData | null }) {
   const { stats, scores, scoreTips, scoreHistory, scoreBreakdown, lifeDelta, topActions, todayProgress } = data
   const scoreExplanation = explainScore(scoreBreakdown, { score: scores.life, delta: lifeDelta }, scoreTips)
   const brainContext = buildBrainContext(data)
@@ -70,27 +72,30 @@ export default function DashboardView({ data, executive }: { data: DashboardData
         </Link>
       )}
 
-      {/* Hero: Life Score card + Quick Stats/Goal Progress side by side,
-          matching the design's [Life Score | Quick Stats] grid — Quick Stats
-          (Phase 5 PRD's "Sidebar Widget") already stacks the 3 stat tiles
-          above the Goal Progress bars internally, so it drops in as one
-          column unchanged. */}
-      <div className="grid grid-cols-1 lg:grid-cols-[340px_1fr] gap-[var(--grid-gap)] items-start">
-        <div className="bg-surface-1 border border-surface-3 rounded-[18px] shadow-card p-[var(--card-pad-lg)] flex flex-col items-center gap-2">
-          <p className="text-xs text-fg-tertiary uppercase tracking-[0.5px] self-start font-semibold">Life Score</p>
-          <ScoreExplainer score={scores.life ?? 0} result={scoreExplanation} />
-          <p className="text-xs text-fg-tertiary">Click ring to explain score</p>
+      {/* Job Hunt Mode: the Hunt Hero replaces Life Score + Quick Stats. */}
+      {hunt ? <HuntHero hero={hunt} /> : (<>
+        {/* Hero: Life Score card + Quick Stats/Goal Progress side by side,
+            matching the design's [Life Score | Quick Stats] grid — Quick Stats
+            (Phase 5 PRD's "Sidebar Widget") already stacks the 3 stat tiles
+            above the Goal Progress bars internally, so it drops in as one
+            column unchanged. */}
+        <div className="grid grid-cols-1 lg:grid-cols-[340px_1fr] gap-[var(--grid-gap)] items-start">
+          <div className="bg-surface-1 border border-surface-3 rounded-[18px] shadow-card p-[var(--card-pad-lg)] flex flex-col items-center gap-2">
+            <p className="text-xs text-fg-tertiary uppercase tracking-[0.5px] self-start font-semibold">Life Score</p>
+            <ScoreExplainer score={scores.life ?? 0} result={scoreExplanation} />
+            <p className="text-xs text-fg-tertiary">Click ring to explain score</p>
+          </div>
+          <QuickStats
+            prepStreak={stats.prepStreak}
+            prepToday={data.prepToday}
+            workoutStreak={stats.workoutStreak}
+            workoutCategory={data.workoutCategory}
+            budgetRemaining={stats.monthBudget - stats.monthSpend}
+            budgetTotal={stats.monthBudget}
+            workoutDoneToday={stats.workoutsToday > 0}
+          />
         </div>
-        <QuickStats
-          prepStreak={stats.prepStreak}
-          prepToday={data.prepToday}
-          workoutStreak={stats.workoutStreak}
-          workoutCategory={data.workoutCategory}
-          budgetRemaining={stats.monthBudget - stats.monthSpend}
-          budgetTotal={stats.monthBudget}
-          workoutDoneToday={stats.workoutsToday > 0}
-        />
-      </div>
+      </>)}
 
       {/* Needs Attention (Today's Focus signals + risks/opportunities,
           capped at 3) beside Daily Mission (a fresh checklist each day). */}
@@ -126,7 +131,7 @@ export default function DashboardView({ data, executive }: { data: DashboardData
         </Card>
       </div>
 
-      <LifeScoreTrend scoreHistory={scoreHistory} />
+      {!hunt && <LifeScoreTrend scoreHistory={scoreHistory} />}
     </div>
   )
 }
