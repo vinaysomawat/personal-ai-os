@@ -10,25 +10,20 @@ import type { AppStatus, Application, InterviewQuestion, InterviewRound, JDAnaly
 export async function getCareerData() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return { applications: [], profile: null, skills: [], rounds: [], questions: [], codingStreak: 0 }
+  if (!user) return { applications: [], profile: null, rounds: [], questions: [] }
 
-  const { computeCodingStats } = await import('@/features/coding/daily-core')
-  const [appsRes, profileRes, skillsRes, roundsRes, questionsRes, codingStats] = await Promise.all([
+  const [appsRes, profileRes, roundsRes, questionsRes] = await Promise.all([
     supabase.from('applications').select('*').eq('user_id', user.id).order('created_at', { ascending: false }),
     supabase.from('career_profile').select('*').eq('user_id', user.id).maybeSingle(),
-    supabase.from('skills').select('*').eq('user_id', user.id).order('category').order('level'),
     supabase.from('interview_rounds').select('*').eq('user_id', user.id).order('scheduled_at', { ascending: true, nullsFirst: false }),
     supabase.from('interview_questions').select('*').eq('user_id', user.id).order('created_at', { ascending: false }),
-    computeCodingStats(supabase, user.id),
   ])
   return {
     applications: (appsRes.data ?? []) as Application[],
     profile: profileRes.data ?? null,
-    skills: skillsRes.data ?? [],
     // Empty (not an error) until the interviews migration has run.
     rounds: (roundsRes.data ?? []) as InterviewRound[],
     questions: (questionsRes.data ?? []) as InterviewQuestion[],
-    codingStreak: codingStats.currentStreak,
   }
 }
 

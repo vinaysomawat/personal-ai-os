@@ -92,50 +92,15 @@ export async function getFinanceData() {
   }
 }
 
-interface CalendarDayExpense {
-  description: string | null
-  category: string
-  amount: number
-}
-
-export interface PaymentCalendarDay {
-  date: string
-  status: 'logged' | 'none'
-  expenses: CalendarDayExpense[]
-}
-
-// Simple day-by-day expense log (redesigned 2026-08-20, replacing the old
-// recurring-bill on-time tracker once Recurring Expenses was removed
-// entirely) — "logged" if >=1 expense was recorded that day, "none"
-// otherwise. Deliberately no streak/active-rate stats here unlike Coding/
-// Learning/Health's calendars: those track a daily habit worth being
-// consistent at, but spending money isn't something to keep a streak on —
-// a "none" day is often a good day, not a missed one.
-export async function computePaymentCalendar(supabase: Awaited<ReturnType<typeof createClient>>, userId: string, days = 182): Promise<PaymentCalendarDay[]> {
-  const since = daysAgoIST(days)
-  const { data: allExpenses } = await supabase.from('expenses').select('date, description, category, amount').eq('user_id', userId).gte('date', since)
-
-  const expensesByDate = new Map<string, CalendarDayExpense[]>()
-  for (const e of allExpenses ?? []) {
-    const list = expensesByDate.get(e.date) ?? []
-    list.push({ description: e.description, category: e.category, amount: Number(e.amount) })
-    expensesByDate.set(e.date, list)
-  }
-
-  const result: PaymentCalendarDay[] = []
-  for (let i = 0; i < days; i++) {
-    const d = daysAgoIST(i)
-    const dayExpenses = expensesByDate.get(d) ?? []
-    result.push({ date: d, status: dayExpenses.length > 0 ? 'logged' : 'none', expenses: dayExpenses })
-  }
-  return result.reverse()
-}
-
-export async function getFinanceCalendarData(days = 182): Promise<PaymentCalendarDay[]> {
+// Liquid savings for the Runway stat.
+export async function saveLiquidSavings(amount: number | null) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return []
-  return computePaymentCalendar(supabase, user.id, days)
+  if (!user) return
+  const { error } = await supabase.from('finance_profile').upsert({ user_id: user.id, liquid_savings: amount, updated_at: new Date().toISOString() }, { onConflict: 'user_id' })
+  if (error) throw new Error(error.message)
+  revalidatePath('/finance')
+  revalidatePath('/dashboard')
 }
 
 export async function upsertProfile(salary: number | null, emergencyFundMonths: number) {

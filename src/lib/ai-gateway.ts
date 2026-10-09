@@ -8,26 +8,14 @@ import { todayIST, istMidnightUtc, istDateStrToUtcMidnight } from '@/lib/date'
 export type AITask =
   | 'telegram_intent'
   | 'telegram_vision'
-  | 'career_mentor'
   | 'jd_analysis'
   | 'company_insights'
   | 'finance_advisor'
-  | 'health_report'
-  | 'health_daily_plan'
   | 'health_advisor'
-  | 'coding_mentor'
-  | 'recommend_coding_questions'
   | 'module_recommendations'
-  | 'daily_briefing'
   | 'weekly_digest'
   | 'monthly_digest'
   | 'brain_qa'
-  | 'brain_decision'
-  | 'brain_weekly_reflection'
-  | 'brain_monthly_review'
-  | 'daily_journal'
-  | 'finance_scenario'
-  | 'evening_reflection'
   | 'estimate_food_nutrition'
   | 'astrology_reading'
   | 'astrology_characteristics'
@@ -58,26 +46,14 @@ const BUDGET_FALLBACK = "I'm over my AI budget for today — try again tomorrow.
 const TASK_CONFIG: Record<AITask, TaskConfig> = {
   telegram_intent:        { model: HAIKU_MODEL,  cacheTTLSeconds: null,       fallback: '{"action":"help"}' },
   telegram_vision:        { model: SONNET_MODEL, cacheTTLSeconds: null,       fallback: '{"action":"help"}' },
-  career_mentor:          { model: SONNET_MODEL, cacheTTLSeconds: null,       fallback: BUDGET_FALLBACK },
   jd_analysis:            { model: SONNET_MODEL, cacheTTLSeconds: null,       fallback: 'null' },
   company_insights:       { model: SONNET_MODEL, cacheTTLSeconds: SEVEN_DAYS, fallback: 'null' },
   finance_advisor:        { model: SONNET_MODEL, cacheTTLSeconds: null,       fallback: BUDGET_FALLBACK },
-  health_report:          { model: SONNET_MODEL, cacheTTLSeconds: SIX_HOURS,  fallback: 'No report available right now — AI budget reached for today.' },
-  health_daily_plan:      { model: SONNET_MODEL, cacheTTLSeconds: SIX_HOURS,  fallback: '' },
   health_advisor:         { model: SONNET_MODEL, cacheTTLSeconds: null,       fallback: BUDGET_FALLBACK },
-  coding_mentor:          { model: SONNET_MODEL, cacheTTLSeconds: null,       fallback: BUDGET_FALLBACK },
-  recommend_coding_questions: { model: SONNET_MODEL, cacheTTLSeconds: null,  fallback: '[]' },
   module_recommendations: { model: SONNET_MODEL, cacheTTLSeconds: SIX_HOURS,  fallback: '[]' },
-  daily_briefing:         { model: SONNET_MODEL, cacheTTLSeconds: SIX_HOURS,  fallback: 'AI summary unavailable today — the deterministic sections below are still accurate.' },
   weekly_digest:          { model: SONNET_MODEL, cacheTTLSeconds: SIX_HOURS,  fallback: 'AI summary unavailable this week — the numbers above are still accurate.' },
   monthly_digest:         { model: SONNET_MODEL, cacheTTLSeconds: SIX_HOURS,  fallback: 'AI summary unavailable this month — the numbers above are still accurate.' },
   brain_qa:               { model: SONNET_MODEL, cacheTTLSeconds: null,       fallback: BUDGET_FALLBACK },
-  brain_decision:         { model: SONNET_MODEL, cacheTTLSeconds: null,       fallback: '{}' },
-  brain_weekly_reflection:{ model: SONNET_MODEL, cacheTTLSeconds: SIX_HOURS,  fallback: "Couldn't generate this week's reflection right now — try again shortly." },
-  brain_monthly_review:   { model: SONNET_MODEL, cacheTTLSeconds: SIX_HOURS,  fallback: '{}' },
-  daily_journal:          { model: SONNET_MODEL, cacheTTLSeconds: SIX_HOURS,  fallback: "Journal entry unavailable today — AI call failed, today's activity is still logged in each module." },
-  finance_scenario:       { model: SONNET_MODEL, cacheTTLSeconds: null,       fallback: BUDGET_FALLBACK },
-  evening_reflection:     { model: SONNET_MODEL, cacheTTLSeconds: SIX_HOURS,  fallback: "Couldn't generate tonight's reflection right now — try again shortly." },
   estimate_food_nutrition:{ model: SONNET_MODEL, cacheTTLSeconds: SEVEN_DAYS, fallback: 'null' },
   // astrology_reading's real TTL is computed dynamically per call (seconds
   // to the next calendar boundary of the period being requested — see

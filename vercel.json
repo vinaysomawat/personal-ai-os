@@ -1,10 +1,6 @@
 {
   "crons": [
     {
-      "path": "/api/cron/daily-briefing",
-      "schedule": "0 3 * * *"
-    },
-    {
       "path": "/api/cron/weekly-digest",
       "schedule": "30 2 * * 0"
     },
@@ -13,24 +9,8 @@
       "schedule": "40 2 * * *"
     },
     {
-      "path": "/api/cron/daily-coding",
-      "schedule": "5 3 * * *"
-    },
-    {
-      "path": "/api/cron/evening-checkin",
-      "schedule": "0 17 * * *"
-    },
-    {
       "path": "/api/cron/cron-health-check",
       "schedule": "0 4 * * *"
-    },
-    {
-      "path": "/api/cron/health-tip",
-      "schedule": "25 3 * * *"
-    },
-    {
-      "path": "/api/cron/daily-journal",
-      "schedule": "30 17 * * *"
     },
     {
       "path": "/api/cron/astrology-daily",

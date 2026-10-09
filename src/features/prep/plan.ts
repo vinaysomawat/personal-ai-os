@@ -5,7 +5,6 @@ export interface PrepPlanContext {
   // Weakest readiness area that maps to a quiz topic (for quiz-based blocks).
   weakestTopic: { area: string; topic: string } | null
   uncoveredCompetency: string | null
-  codingPicks: { category: string; title: string }[]
 }
 
 // Weekly focus rotation (ROADMAP-v2 §2.1). Deterministic — the day's plan
@@ -23,31 +22,24 @@ const FOCUS: Record<number, string> = {
 
 export function buildPrepPlan(date: string, ctx: PrepPlanContext): { focus: string; blocks: PrepBlock[] } {
   const weekday = new Date(`${date}T00:00:00Z`).getUTCDay()
-  const pick = (category: string) => ctx.codingPicks.find(p => p.category === category) ?? null
   const weakTopic = ctx.weakestTopic?.topic ?? 'JavaScript'
 
   let main: PrepBlock
   switch (weekday) {
-    case 1: {
-      const js = pick('javascript-functions')
-      main = js
-        ? { key: 'main', label: 'Implement a JS function', detail: `Solve "${js.title}" without looking anything up, then note your approach`, minutes: 30, href: '/coding', done: false }
-        : { key: 'main', label: 'JavaScript theory', detail: 'Answer 8 JavaScript / TypeScript questions out loud, type the gist, get the AI rating', minutes: 25, href: '/prep?tab=questions&cat=quiz&topic=JavaScript%20Fundamentals', done: false }
+    case 1:
+      // Question Bank blocks (the daily Coding picks were folded into Prep,
+      // 2026-10-10); the "× 1" label lets them auto-tick like hunt blocks.
+      main = { key: 'bank:javascript-functions', label: 'JS functions × 1', detail: 'Implement one JS function without looking anything up (polyfills, debounce, promise utilities), handle edge cases', minutes: 30, href: '/prep?tab=questions&cat=javascript-functions', done: false }
       break
-    }
     case 2:
       main = { key: 'main', label: 'React internals', detail: 'Answer 8 React / Next.js questions out loud — get the AI rating and tighten the weakest answer', minutes: 25, href: '/prep?tab=questions&cat=quiz&topic=React%20%26%20State%20Management', done: false }
       break
     case 3:
       main = { key: 'main', label: 'Frontend system design', detail: 'Outline one design (Requirements → Architecture → Data → Interface → Optimizations) in 25 min, then get the AI rating', minutes: 30, href: '/prep?tab=questions&cat=system-design', done: false }
       break
-    case 4: {
-      const ui = pick('ui-coding')
-      main = ui
-        ? { key: 'main', label: 'Build a UI component', detail: `Build "${ui.title}" — accessible, keyboard-navigable, with a note on trade-offs`, minutes: 30, href: '/coding', done: false }
-        : { key: 'main', label: 'Build a UI component', detail: 'Build any UI coding question from the pool, accessible and keyboard-navigable', minutes: 30, href: '/coding', done: false }
+    case 4:
+      main = { key: 'bank:ui-coding', label: 'UI coding × 1', detail: 'Build one component from scratch — accessible, keyboard-navigable, with a note on trade-offs', minutes: 45, href: '/prep?tab=questions&cat=ui-coding', done: false }
       break
-    }
     case 5:
       main = { key: 'main', label: 'Rehearse stories', detail: 'Answer 2 "Tell me about a time…" prompts out loud; get written feedback on one', minutes: 25, href: '/prep?tab=stories', done: false }
       break

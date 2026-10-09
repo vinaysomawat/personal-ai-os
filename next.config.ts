@@ -42,6 +42,8 @@ const nextConfig: NextConfig = {
     return [
       { source: '/career', destination: '/interviews', permanent: true },
       { source: '/interview', destination: '/interviews', permanent: true },
+      // Coding was folded into Prep's Question Bank on 2026-10-10.
+      { source: '/coding', destination: '/prep?tab=questions', permanent: true },
     ]
   },
 }

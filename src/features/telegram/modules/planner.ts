@@ -4,11 +4,10 @@ import type { ModuleReply } from '@/lib/telegram/types'
 // The "Daily" bot. Module key stays 'planner' (it's the registered webhook
 // path /api/telegram/planner and the TELEGRAM_BOT_TOKEN_PLANNER env var);
 // the Planner module and its tasks were removed 2026-10-07. It now carries
-// briefings, digests and reminders, and the crons post through it.
+// digests, reminders and the Prep Coach, and the crons post through it.
 export const SYSTEM_PROMPT = `You are the Daily bot for Personal OS. Parse the user message and return ONLY a JSON action, nothing else.
 
 Actions:
-{"action":"briefing"}
 {"action":"digest"}
 {"action":"monthly_digest"}
 {"action":"set_reminder","label":"what to be reminded about","slot":"morning"|"evening"}
@@ -21,7 +20,6 @@ Actions:
 {"action":"help"}
 
 Rules:
-- For "how am I doing", "give me my briefing", "today's briefing" → briefing
 - For "how was my week", "weekly digest", "weekly review" → digest
 - For "how was my month", "monthly digest", "monthly review" → monthly_digest
 - For "remind me to X every morning/day" → set_reminder with slot "morning"
@@ -68,11 +66,6 @@ export async function execute(action: Record<string, unknown>, db: SupabaseClien
       if (!data) return 'Job Hunt Mode is off — set a target date on the Prep page.'
       return middayMessage(data) ?? morningMessage(data)
     }
-    case 'briefing': {
-      const { generateDailyBriefing } = await import('@/features/ai/daily-briefing')
-      const { text } = await generateDailyBriefing(db, userId)
-      return `🌅 *Your Briefing:*\n\n${text}`
-    }
     case 'digest': {
       const { generateWeeklyDigest } = await import('@/features/ai/weekly-digest')
       const body = await generateWeeklyDigest(db, userId)
@@ -102,6 +95,6 @@ export async function execute(action: Record<string, unknown>, db: SupabaseClien
       return `🗑️ Removed reminder: "${reminder.label}"`
     }
     default:
-      return `*Daily Bot — What I can do:*\n• "how am I doing" (briefing)\n• "how was my week" (digest)\n• "how was my month" (monthly digest)\n• "remind me to log weight every morning"\n• "show my reminders"\n• "start" / "pause" / "done" (Prep focus sessions)\n• "what now" (today\'s War Mode mission)\n\nI also send the morning briefing, evening check-in, digests and daily journal.`
+      return `*Daily Bot — What I can do:*\n• "how was my week" (digest)\n• "how was my month" (monthly digest)\n• "remind me to log weight every morning"\n• "show my reminders"\n• "start" / "pause" / "done" (Prep focus sessions)\n• "what now" (today\'s War Mode mission)\n\nI also send the Prep Coach: the 7:30am mission, a 1pm nudge if you\'re behind, and the 9:30pm review (with your reminders and anything still open).`
   }
 }

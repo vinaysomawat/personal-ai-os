@@ -21,12 +21,7 @@ export async function logCronRun(db: ReturnType<typeof createServiceClient>, job
 // Shared by /api/cron/cron-health-check (Telegram alert) and Settings'
 // System Health card (passive display) — one source of truth for both.
 const EXPECTED_CRON_JOBS: { job: string; maxAgeHours: number }[] = [
-  { job: 'daily-briefing',       maxAgeHours: 26 },
-  { job: 'daily-coding',         maxAgeHours: 26 },
-  { job: 'health-tip',           maxAgeHours: 26 },
-  { job: 'evening-checkin',      maxAgeHours: 26 },
   { job: 'monthly-digest',       maxAgeHours: 26 },
-  { job: 'daily-journal',        maxAgeHours: 26 },
   { job: 'cron-health-check',    maxAgeHours: 26 },
   { job: 'astrology-daily',      maxAgeHours: 26 },
   { job: 'prep-coach-morning',   maxAgeHours: 26 },

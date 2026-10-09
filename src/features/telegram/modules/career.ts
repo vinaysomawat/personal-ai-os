@@ -16,7 +16,6 @@ Actions:
 {"action":"log_question","search":"company","question":"the question they asked","category":"technical"|"coding"|"system_design"|"behavioral"|"ai_native"|"other","went":"well"|"ok"|"badly"|null,"my_answer":"optional"}
 {"action":"upcoming"}
 {"action":"questions","search":"company or empty for all"}
-{"action":"ask","question":"free-form career / interview question"}
 {"action":"undo_last"}
 {"action":"help"}
 
@@ -26,7 +25,6 @@ Rules:
 - "X technical round Thursday 3pm", "system design with X tomorrow 11am" → schedule_round (resolve relative dates against today's date; time in IST)
 - "X asked me ...", "they asked about event loop at X, went badly" → log_question; a message listing several questions → one log_question per question
 - "what's coming up", "my interviews" → upcoming; "what did X ask me" → questions
-- Salary, offer negotiation, "how should I answer …", anything needing judgment → ask
 - "undo that" → undo_last`
 
 const STAGE_EMOJI: Record<string, string> = { screening: '📞', interview: '🎯', offer: '🎉', rejected: '❌', withdrawn: '↩️', applied: '📨' }
@@ -94,21 +92,6 @@ export async function execute(action: Record<string, unknown>, db: SupabaseClien
       if (!rows.length) return app ? `Nothing logged for *${app.company}* yet.` : 'No interview questions logged yet.'
       return `📝 *Questions asked${app ? ` at ${app.company}` : ''}:*\n` + rows.map(r => `• ${r.went === 'badly' ? '🔴 ' : r.went === 'well' ? '🟢 ' : ''}${r.question}${app ? '' : ` _(${r.application?.company})_`}`).join('\n')
     }
-    case 'ask': {
-      const { askCareerMentor } = await import('@/features/ai/career-mentor')
-      const [profileRes, skillsRes, appsRes, roundsRes, questionsRes] = await Promise.all([
-        db.from('career_profile').select('*').eq('user_id', userId).maybeSingle(),
-        db.from('skills').select('*').eq('user_id', userId),
-        db.from('applications').select('*').eq('user_id', userId).order('created_at', { ascending: false }),
-        db.from('interview_rounds').select('*').eq('user_id', userId),
-        db.from('interview_questions').select('*').eq('user_id', userId).order('created_at', { ascending: false }).limit(50),
-      ])
-      const answer = await askCareerMentor(String(action.question), {
-        profile: profileRes.data ?? null, skills: skillsRes.data ?? [], applications: appsRes.data ?? [],
-        rounds: roundsRes.data ?? [], questions: questionsRes.data ?? [],
-      })
-      return `🎓 *Career Mentor:*\n\n${answer}`
-    }
     case 'undo_last': {
       const { data } = await db.from('interview_questions').select('id, question, created_at').eq('user_id', userId).order('created_at', { ascending: false }).limit(1)
       const { data: apps } = await db.from('applications').select('id, company, created_at').eq('user_id', userId).order('created_at', { ascending: false }).limit(1)
@@ -118,6 +101,6 @@ export async function execute(action: Record<string, unknown>, db: SupabaseClien
       return '❌ Nothing to undo.'
     }
     default:
-      return `*Career Bot — Interviews:*\n• "Stripe booked a phone screen for Senior FE"\n• "Stripe technical round Thursday 3pm"\n• "Stripe asked me to design an autocomplete, went badly"\n• "Stripe moved me to onsite" / "rejected by Stripe"\n• "what's coming up"\n• "what did Stripe ask me"\n• "how should I answer why I was laid off?"`
+      return `*Career Bot — Interviews:*\n• "Stripe booked a phone screen for Senior FE"\n• "Stripe technical round Thursday 3pm"\n• "Stripe asked me to design an autocomplete, went badly"\n• "Stripe moved me to onsite" / "rejected by Stripe"\n• "what's coming up"\n• "what did Stripe ask me"`
   }
 }

@@ -2,7 +2,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import type { ModuleReply } from '@/lib/telegram/types'
 import { undoButton } from '@/lib/telegram/buttons'
 import { todayIST, daysAgoIST } from '@/lib/date'
-import { loanOutstanding, loanEffectiveRemainingMonths, monthStart } from '@/features/finance/calculations'
+import { loanOutstanding, loanEffectiveRemainingMonths, monthStart, runwayMonths } from '@/features/finance/calculations'
 
 export const SYSTEM_PROMPT = `You are the Finance bot for Personal OS. Parse the user message and return ONLY a JSON action.
 
@@ -135,7 +135,7 @@ export async function execute(action: Record<string, unknown>, db: SupabaseClien
 
     case 'net_worth': {
       const [profileRes, loansRes, investmentsRes, expensesRes] = await Promise.all([
-        db.from('finance_profile').select('monthly_salary').eq('user_id', userId).single(),
+        db.from('finance_profile').select('monthly_salary, liquid_savings').eq('user_id', userId).single(),
         db.from('loans').select('emi, interest_rate, remaining_months, remaining_months_as_of').eq('user_id', userId),
         db.from('investments').select('invested_amount, current_value').eq('user_id', userId),
         db.from('expenses').select('amount').eq('user_id', userId).gte('date', daysAgoIST(90)),
@@ -147,7 +147,8 @@ export async function execute(action: Record<string, unknown>, db: SupabaseClien
       const salary = profileRes.data?.monthly_salary ?? 0
       const avgSpend = Math.round((expensesRes.data ?? []).reduce((s, e) => s + Number(e.amount), 0) / 3)
       const emis = (loansRes.data ?? []).reduce((s, l) => s + Number(l.emi), 0)
-      return `💼 *Net Worth Snapshot:*\n\nPortfolio: ₹${portfolio.toLocaleString('en-IN')}\nTotal debt: ₹${debt.toLocaleString('en-IN')}\n*Net Worth: ₹${netWorth.toLocaleString('en-IN')}*\n\n💸 Monthly: ₹${salary.toLocaleString('en-IN')} salary − ₹${avgSpend.toLocaleString('en-IN')} avg spend (incl. ₹${emis.toLocaleString('en-IN')} EMIs) = *₹${(salary - avgSpend).toLocaleString('en-IN')} free*`
+      return `💼 *Net Worth Snapshot:*\n\nPortfolio: ₹${portfolio.toLocaleString('en-IN')}\nTotal debt: ₹${debt.toLocaleString('en-IN')}\n*Net Worth: ₹${netWorth.toLocaleString('en-IN')}*\n\n💸 Monthly: ₹${salary.toLocaleString('en-IN')} salary − ₹${avgSpend.toLocaleString('en-IN')} avg spend (incl. ₹${emis.toLocaleString('en-IN')} EMIs) = *₹${(salary - avgSpend).toLocaleString('en-IN')} free*` +
+        (() => { const r = runwayMonths(profileRes.data?.liquid_savings, avgSpend); return r === null ? '\n\n🛟 Runway: set liquid savings on the Finance page' : `\n\n🛟 *Runway: ${r} months* (₹${Number(profileRes.data!.liquid_savings).toLocaleString('en-IN')} liquid ÷ ₹${avgSpend.toLocaleString('en-IN')}/mo)` })()
     }
 
     case 'ask': {

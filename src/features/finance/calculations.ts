@@ -128,3 +128,12 @@ export function goalMonthlyNeeded(goal: { target_amount: number; current_amount:
   const months = Math.max(1, (gy - ty) * 12 + (gm - tm) + 1)
   return Math.ceil(gap / months)
 }
+
+// Months the liquid savings last at the rolling 3-month average spend
+// (1 decimal). null when either side is missing.
+export function runwayMonths(liquidSavings: number | null | undefined, avgMonthlySpend: number): number | null {
+  if (!liquidSavings || liquidSavings <= 0 || avgMonthlySpend <= 0) return null
+  return Math.round((liquidSavings / avgMonthlySpend) * 10) / 10
+}
+
+export const runwayTone = (m: number | null) => m === null ? 'text-fg-tertiary' : m < 3 ? 'text-risk' : m < 6 ? 'text-warn' : 'text-good'

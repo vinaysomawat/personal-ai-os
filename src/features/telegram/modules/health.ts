@@ -13,8 +13,6 @@ Actions:
 {"action":"today_workout"}
 {"action":"complete_workout"}
 {"action":"skip_workout"}
-{"action":"plan"}
-{"action":"report"}
 {"action":"ask","question":"free-form health/nutrition/fitness question"}
 {"action":"undo_last"}
 {"action":"help"}
@@ -37,8 +35,6 @@ Rules for workouts:
 - "today's workout", "what's my workout", "workout plan" → today_workout
 - "finished my workout", "done with the workout", "completed today's session" → complete_workout
 - "skip today's workout", "not training today", "skip workout" → skip_workout
-- For "what should I do today", "today's plan", "am I on track" → plan
-- For "how was my week", "weekly report" → report
 - For "should I take a rest day", "why isn't my weight moving", "is my protein enough" or anything needing judgment → ask with the question
 - For "undo that workout", "I didn't actually do that", "remove the last workout log" → undo_last (a mislogged metric like weight/steps doesn't need undo — just log the correct value again, it overwrites today's entry)
 
@@ -169,37 +165,8 @@ export async function execute(action: Record<string, unknown>, db: SupabaseClien
       return `⏭️ Skipped *${workout.workout.name}* — a new one will be picked next time you ask.`
     }
 
-    case 'plan': {
-      const { computeHealthPlan } = await import('@/features/health/calculations')
-      const { getDailyHealthPlan } = await import('@/features/ai/health-report')
-      const since30 = daysAgoIST(30)
-
-      const [profileRes, metricsRes, workoutsRes] = await Promise.all([
-        db.from('health_profile').select('*').eq('user_id', userId).single(),
-        db.from('health_metrics').select('*').eq('user_id', userId).gte('date', since30),
-        db.from('workouts').select('*').eq('user_id', userId).gte('date', since30),
-      ])
-      const workouts = workoutsRes.data ?? []
-      const metrics = metricsRes.data ?? []
-      const todayMetric = metrics.find(m => m.date === today) ?? null
-
-      const result = computeHealthPlan(profileRes.data ?? null, metrics, workouts, today)
-      if (!result) return `❌ Set up your health profile on the web app first (age, gender, height, activity level) — needed to compute your plan.`
-
-      const plan = await getDailyHealthPlan(profileRes.data, result.dailyTargets, todayMetric, result.healthScore, today)
-      return `🏋️ *Today's Plan:*\n\n${plan}`
-    }
-
-    case 'report': {
-      const { getHealthReport } = await import('@/features/ai/health-report')
-      const since7 = daysAgoIST(7)
-      const { data: metrics } = await db.from('health_metrics').select('*').eq('user_id', userId).gte('date', since7).order('date', { ascending: false })
-      const report = await getHealthReport(metrics ?? [])
-      return `📋 *Weekly Report:*\n\n${report}`
-    }
-
     case 'ask': {
-      const { askHealthCoach } = await import('@/features/ai/health-report')
+      const { askHealthCoach } = await import('@/features/ai/health-coach')
       const since14 = daysAgoIST(14)
       const [profileRes, metricsRes] = await Promise.all([
         db.from('health_profile').select('*').eq('user_id', userId).single(),
@@ -222,6 +189,6 @@ export async function execute(action: Record<string, unknown>, db: SupabaseClien
         `📊 *Metrics:*\n• "weight 88kg"\n• "8000 steps"\n• "2000 calories"\n• "120g protein"\n• "recovery 4/5"\n• "today's metrics"\n\n` +
         `🍽️ *Food (auto nutrition):*\n• "200g chicken breast"\n• "drank 250ml milk"\n• "2 rotis with dal"\n\n` +
         `🏋️ *Workouts:*\n• "did 45 min strength training"\n• "30 min run"\n• "today's workout"\n• "finished my workout"\n• "skip today's workout"\n• "undo that workout"\n\n` +
-        `🎓 *Coaching:*\n• "what should I do today"\n• "how was my week"\n• "why isn't my weight moving"`
+        `🎓 *Coaching:*\n• "why isn't my weight moving"\n• "should I train on an interview day?"`
   }
 }

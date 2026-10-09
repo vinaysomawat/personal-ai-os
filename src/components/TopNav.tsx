@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { useRouter, usePathname } from 'next/navigation'
 import {
   LayoutDashboard, Briefcase, DollarSign, HeartPulse,
-  Code2, Sun, Moon, ChevronDown, MoreHorizontal, Target,
+  Sun, Moon, ChevronDown, MoreHorizontal, Target,
 } from 'lucide-react'
 import { useTheme } from './ThemeProvider'
 import { useAIAdvisorTrigger } from './AIAdvisorProvider'
@@ -24,7 +24,6 @@ const MODULES = [
   { label: 'Interviews', to: '/interviews', icon: Briefcase },
   { label: 'Finance', to: '/finance', icon: DollarSign },
   { label: 'Health', to: '/health', icon: HeartPulse },
-  { label: 'Coding', to: '/coding', icon: Code2 },
 ]
 
 // Mobile primary tabs (fixed bottom bar) — the design's 4 most-frequent
@@ -38,7 +37,6 @@ const MOBILE_PRIMARY = [
 
 const MOBILE_MORE = [
   { label: 'Interviews', to: '/interviews', icon: '💼' },
-  { label: 'Coding', to: '/coding', icon: '💻' },
   { label: 'Astrology', to: '/astrology', icon: '🔮' },
   { label: 'Settings', to: '/settings', icon: '⚙' },
 ]

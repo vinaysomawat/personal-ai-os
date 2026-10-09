@@ -1,6 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { todayIST, daysAgoIST, toISTDateStr, istMidnightUtc } from '@/lib/date'
-import { getTodayAssignmentRows } from '@/features/coding/daily-core'
 import { formatMinutes, mockFormatForDay, type MockRound } from './mock'
 import { buildPrepPlan } from './plan'
 import { BANK_CATEGORIES, buildHuntPlan, computeQuotas, daysLeft, leadMinutes, type CategoryCoverage } from './hunt'
@@ -14,7 +13,7 @@ import type { BankQuestion, PrepBlock, PrepSession, PrepSettings, Story, StoryRe
 // signed-in user; the War Mode crons and the Daily bot call it with the
 // service client.
 
-function prepStreak(sessions: { date: string; completed_at: string | null }[], today: string): number {
+export function prepStreak(sessions: { date: string; completed_at: string | null }[], today: string): number {
   const done = new Set(sessions.filter(s => s.completed_at).map(s => s.date))
   let streak = 0
   const cursor = new Date(`${today}T00:00:00Z`)
@@ -34,12 +33,11 @@ export async function loadPrepData(supabase: SupabaseClient, userId: string) {
   const user = { id: userId }
   const today = todayIST()
 
-  const [mockRes, storiesRes, rehearsalsRes, codingRes, activePicks, sessionsRes, focusRes, forecastRes, nextRoundRes] = await Promise.all([
+  const [mockRes, storiesRes, rehearsalsRes, codingRes, sessionsRes, focusRes, forecastRes, nextRoundRes] = await Promise.all([
     supabase.from('mock_rounds').select('id, format, items, duration_seconds, created_at, review').eq('user_id', user.id).order('created_at', { ascending: false }).limit(500),
     supabase.from('stories').select('*').eq('user_id', user.id).order('updated_at', { ascending: false }),
     supabase.from('story_rehearsals').select('id, story_id, competency, prompt, answer, critique, created_at').eq('user_id', user.id).order('created_at', { ascending: false }).limit(10),
     supabase.from('coding_daily_questions').select('completed, outcome, completed_at, question:coding_questions(category, topics)').eq('user_id', user.id).eq('completed', true).gte('completed_at', istMidnightUtc(90)),
-    getTodayAssignmentRows(supabase, user.id),
     supabase.from('prep_sessions').select('*').eq('user_id', user.id).gte('date', daysAgoIST(60)).order('date', { ascending: false }),
     supabase.from('prep_focus_sessions').select('*').eq('user_id', user.id).gte('date', daysAgoIST(6)).order('started_at', { ascending: true }),
     supabase.from('prep_forecasts').select('date, forecast, created_at').eq('user_id', user.id).order('date', { ascending: false }).limit(1).maybeSingle(),
@@ -84,7 +82,6 @@ export async function loadPrepData(supabase: SupabaseClient, userId: string) {
     }) : buildPrepPlan(today, {
       weakestTopic: weakQuizArea ? { area: weakQuizArea.label, topic: (weakQuizArea.quizTopics as readonly string[])[0] } : null,
       uncoveredCompetency: uncovered?.label ?? null,
-      codingPicks: activePicks.filter(p => !p.completed).map(p => ({ category: p.question.category, title: p.question.title })),
     })
     const { data: inserted } = await supabase.from('prep_sessions')
       .upsert({ user_id: user.id, date: today, focus: plan.focus, blocks: plan.blocks }, { onConflict: 'user_id,date', ignoreDuplicates: true })
@@ -146,7 +143,7 @@ export async function getQuestionBank(supabase: SupabaseClient, userId: string):
     supabase.from('coding_daily_questions').select('question_id, completed_at').eq('user_id', userId).eq('completed', true),
   ])
   // Last practiced = the newer of a Question Bank / Mock Round answer and a
-  // completed Coding pick, so Coding work counts as covered.
+  // completed pick from the old Coding module (history), so that work counts as covered.
   const lastSeen = new Map<string, string>()
   const answers = new Map<string, string | null>()
   const ratings = new Map<string, { last_rating: number | null; last_rated_at: string | null }>()

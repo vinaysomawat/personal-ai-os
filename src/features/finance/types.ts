@@ -21,6 +21,8 @@ export interface FinanceProfile {
   user_id: string
   monthly_salary: number | null
   emergency_fund_months: number
+  // Cash you could live on (savings, liquid funds) — the Runway stat.
+  liquid_savings?: number | null
   updated_at: string
 }
 

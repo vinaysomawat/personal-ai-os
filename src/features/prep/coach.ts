@@ -76,3 +76,24 @@ export function eveningMessage(d: PrepData): string {
     `_${coachLine(pace, 23)}_`,
   ].filter(l => l !== null).join('\n')
 }
+
+// ---------------- Still open (absorbed from the evening check-in) ----------------
+
+// One compact line for the 9:30pm message: no expense logged today, a daily
+// workout still open, and health metrics stale for 3+ days. null when
+// nothing is open.
+export async function stillOpenLine(db: SupabaseClient, userId: string, today: string): Promise<string | null> {
+  const { getActiveWorkout } = await import('@/features/health/workout-core')
+  const { computeStaleMetrics } = await import('@/features/health/stale-metrics')
+  const [{ data: expenses }, workout, stale] = await Promise.all([
+    db.from('expenses').select('id').eq('user_id', userId).eq('date', today).limit(1),
+    getActiveWorkout(db, userId),
+    computeStaleMetrics(db, userId, today),
+  ])
+  const items = [
+    (expenses ?? []).length === 0 ? 'no expenses logged today' : null,
+    workout ? `workout open (${workout.workout.name})` : null,
+    stale.length ? `not logged: ${stale.join(', ')}` : null,
+  ].filter(Boolean)
+  return items.length ? `📌 *Still open:* ${items.join(' · ')}` : null
+}

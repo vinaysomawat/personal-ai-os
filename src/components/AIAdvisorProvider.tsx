@@ -60,8 +60,8 @@ export function AIAdvisorProvider({ children }: { children: ReactNode }) {
           attaches on Provider's first render — otherwise the ref never
           captures a node and panelBody stays null forever. Visibility is
           purely CSS-driven instead.
-          Design specifies every module advisor (Career Mentor, Money Advisor,
-          Health Coach, Study Coach, Code Mentor) as a full-height right-side
+          Design specifies every module advisor (Money Advisor, Health
+          Coach, Ask Brain) as a full-height right-side
           drawer — `top:0 right:0 bottom:0 width:min(400px,100vw)` — not a
           small top-right dropdown. Matches the same drawer pattern already
           used for Ask Brain. Ask Brain's own design

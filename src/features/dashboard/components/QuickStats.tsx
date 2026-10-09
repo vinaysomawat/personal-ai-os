@@ -1,8 +1,8 @@
 import Link from 'next/link'
 
 interface QuickStatsProps {
-  codingStreak: number
-  codingQuestionPending: boolean
+  prepStreak: number
+  prepToday: { done: number; total: number } | null
   workoutStreak: number
   workoutCategory: string | null
   budgetRemaining: number
@@ -20,9 +20,9 @@ const plural = (n: number) => `${n} day${n === 1 ? '' : 's'}`
 // Dashboard page itself instead. Protein/Steps Remaining (also listed in the
 // PRD) would need a new health_profile fetch + target calculation to
 // compute, a bigger lift than this widget's scope justifies.
-export default function QuickStats({ codingStreak, codingQuestionPending, workoutStreak, workoutCategory, budgetRemaining, budgetTotal, workoutDoneToday }: QuickStatsProps) {
+export default function QuickStats({ prepStreak, prepToday, workoutStreak, workoutCategory, budgetRemaining, budgetTotal, workoutDoneToday }: QuickStatsProps) {
   const stats = [
-    { label: 'Coding Streak', value: `🔥 ${plural(codingStreak)}`, sub: codingQuestionPending ? "today still open" : "today solved", to: '/coding', color: 'text-fg-primary' },
+    { label: 'Prep Streak', value: `🔥 ${plural(prepStreak)}`, sub: prepToday ? `today ${prepToday.done}/${prepToday.total} blocks` : 'no plan yet today', to: '/prep', color: 'text-fg-primary' },
     { label: 'Workout Streak', value: `🏋️ ${plural(workoutStreak)}`, sub: workoutDoneToday ? 'Logged today' : workoutCategory ? `${workoutCategory} today` : 'Not yet today', to: '/health', color: 'text-fg-primary' },
     // Over budget reads "Over ₹X" rather than a "₹-X" with the sign after
     // the currency symbol; no budget set shows a dash instead of NaN tiers.

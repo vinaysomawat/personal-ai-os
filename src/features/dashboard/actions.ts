@@ -4,19 +4,18 @@ import { after } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createServiceClient } from '@/lib/supabase/service'
 import { todayIST, daysAgoIST, istMidnightUtc, istDateStrToUtcMidnight, toISTDateStr } from '@/lib/date'
-import { getTodayAssignmentRows, getStaleRevisionCount } from '@/features/coding/daily-core'
 import { getActiveWorkout, computeWorkoutStats } from '@/features/health/workout-core'
 import { computeHealthPlan } from '@/features/health/calculations'
 import type { Workout } from '@/features/health/types'
 import { rankSignals, type Signal } from '@/lib/signals'
 import { checkUnscheduledProcess, checkUpcomingInterview } from '@/features/career/signals'
 import { checkBudget } from '@/features/finance/signals'
-import { checkQuestionPending, checkStaleRevision, checkCodingWeakArea } from '@/features/coding/signals'
-import { computeWeakAreas, type WeakArea } from '@/features/coding/daily-core'
-import { getInsightsHistory } from '@/features/coding/daily'
+import { checkRevisionDue } from '@/features/prep/signals'
+import { revisionQueue, type RevisionItem } from '@/features/prep/war'
+import { prepStreak } from '@/features/prep/core'
+import type { BankQuestion } from '@/features/prep/types'
 import { checkWorkoutPending, checkNoMetricsToday } from '@/features/health/signals'
 import { computeTodayProgress } from './daily-progress'
-import { getRecentPatterns, type RecentPattern } from '@/features/brain/signals'
 import type { ScoreModule } from '@/features/brain/types'
 import { getCurrentDasha } from '@/features/astrology/chart-calculations'
 import type { NatalChart } from '@/features/astrology/types'
@@ -38,10 +37,8 @@ interface TopActionInput {
   monthSpend: number
   monthBudget: number
   todayMetric: Record<string, unknown> | null
-  codingQuestionPending: boolean
-  codingStaleRevisionCount: number
   workoutPending: boolean
-  codingWeakAreas: WeakArea[]
+  revision: RevisionItem[]
   nextRound: { company: string; kind: string; scheduled_at: string } | null
   scheduledCompanies: Set<string>
 }
@@ -52,17 +49,15 @@ interface TopActionInput {
 // module's signals.ts (see src/lib/signals.ts) rather than being hand-rolled
 // here, so new modules can plug into Today's Focus without touching this file.
 function computeTopActions(input: TopActionInput): TopAction[] {
-  const { applications, monthSpend, monthBudget, todayMetric, codingQuestionPending, codingStaleRevisionCount, workoutPending, codingWeakAreas, nextRound, scheduledCompanies } = input
+  const { applications, monthSpend, monthBudget, todayMetric, workoutPending, revision, nextRound, scheduledCompanies } = input
 
   const signals = [
     checkUpcomingInterview(nextRound),
     checkUnscheduledProcess((applications as { company: string; status: string }[]).filter(a => a.status === 'screening' || a.status === 'interview'), scheduledCompanies),
     checkBudget(monthSpend, monthBudget),
-    checkQuestionPending(codingQuestionPending),
+    checkRevisionDue(revision),
     checkWorkoutPending(workoutPending),
     checkNoMetricsToday(todayMetric),
-    checkStaleRevision(codingStaleRevisionCount),
-    checkCodingWeakArea(codingWeakAreas),
   ].filter((s): s is Signal => s !== null)
 
   return rankSignals(signals, 5).map(s => ({ id: s.id, emoji: s.emoji, text: s.message, href: s.href }))
@@ -77,7 +72,7 @@ export async function getDashboardData() {
   const since30 = daysAgoIST(30)
 
   if (!user) return {
-    recentApplications: [], botActivity: [],
+    recentApplications: [],
     scores: { health: 0, finance: 50, career: 0, projects: 0, life: 0 },
     scoreTips: { health: '', finance: '', career: '', projects: '' },
     scoreBreakdown: {
@@ -89,25 +84,24 @@ export async function getDashboardData() {
     lifeDelta: null as number | null,
     todayHealth: null,
     scoreHistory: [] as { date: string; life: number; health: number; finance: number; career: number; projects: number }[],
-    stats: { activeApplications: 0, workoutsToday: 0, monthSpend: 0, monthBudget: 0, codingSolved30d: 0, workoutStreak: 0 },
-    codingQuestionPending: false,
+    stats: { activeApplications: 0, workoutsToday: 0, monthSpend: 0, monthBudget: 0, practiced30d: 0, workoutStreak: 0, prepStreak: 0 },
+    prepToday: null as { done: number; total: number } | null,
     workoutCategory: null as string | null,
     aiBudget: { callsToday: 0, costTodayUsd: 0, callsMonth: 0, costMonthUsd: 0, cacheHitRateMonth: 0 },
     topActions: [] as TopAction[],
     todayProgress: { items: [], completed: 0, total: 0, score: 100 } as ReturnType<typeof computeTodayProgress>,
     careerMemory: { currentRole: null, currentCompany: null, targetRole: null, currentSalary: null, bio: null } as { currentRole: string | null; currentCompany: string | null; targetRole: string | null; currentSalary: number | null; bio: string | null },
     financialGoals: [] as { name: string; targetAmount: number; currentAmount: number; targetDate: string | null }[],
-    recentPatterns: [] as RecentPattern[],
     astrology: null as { dashaLord: string; antardashaLord: string; tithi: string | null; nakshatra: string | null } | null,
   }
 
   const [
     appsRes, workoutsRes,
     expensesRes, budgetsRes,
-    botLogsRes, healthMetricRes, careerProfileRes, mockRounds30dRes,
-    aiUsageMonthRes, codingTodayRows, activeWorkout, codingSolved30dRes,
-    codingCompletionsRes, questions30dRes, workoutCompletedTodayRes,
-    recentPatterns, financialGoalsRes, codingHistoryForWeakAreas,
+    healthMetricRes, careerProfileRes, mockRounds30dRes,
+    aiUsageMonthRes, prepSessionsRes, activeWorkout,
+    questions30dRes, workoutCompletedTodayRes,
+    financialGoalsRes, progressRes,
     workoutStats, astrologyProfileRes, panchangTodayRes, roundsRes,
     healthProfileRes, healthMetricsHistoryRes,
     { data: historyData },
@@ -116,20 +110,18 @@ export async function getDashboardData() {
     supabase.from('workouts').select('id').eq('user_id', user.id).eq('date', today),
     supabase.from('expenses').select('amount, date').eq('user_id', user.id).gte('date', monthStart),
     supabase.from('budgets').select('amount').eq('user_id', user.id).eq('month', today.slice(0, 7)),
-    supabase.from('telegram_logs').select('module, message, response, created_at').order('created_at', { ascending: false }).limit(50),
     supabase.from('health_metrics').select('*').eq('user_id', user.id).eq('date', today).single(),
     supabase.from('career_profile').select('current_role, target_role, current_company, current_salary, bio').eq('user_id', user.id).single(),
     supabase.from('mock_rounds').select('id', { count: 'exact', head: true }).eq('user_id', user.id).gte('created_at', istMidnightUtc(30)),
     supabase.from('ai_usage_logs').select('estimated_cost_usd, cache_hit, created_at').eq('user_id', user.id).gte('created_at', istDateStrToUtcMidnight(monthStart)),
-    getTodayAssignmentRows(supabase, user.id),
+    // Prep sessions (today's plan for Daily Mission + the prep streak).
+    supabase.from('prep_sessions').select('date, blocks, completed_at').eq('user_id', user.id).gte('date', daysAgoIST(60)).order('date', { ascending: false }),
     getActiveWorkout(supabase, user.id),
-    supabase.from('coding_daily_questions').select('id', { count: 'exact', head: true }).eq('user_id', user.id).eq('completed', true).gte('assigned_date', since30),
-    supabase.from('coding_daily_questions').select('question_id, completed, completed_at').eq('user_id', user.id).eq('completed', true),
     supabase.from('interview_questions').select('id', { count: 'exact', head: true }).eq('user_id', user.id).gte('created_at', istMidnightUtc(30)),
     supabase.from('daily_workouts').select('id').eq('user_id', user.id).eq('status', 'completed').gte('completed_at', istMidnightUtc()).limit(1),
-    getRecentPatterns(supabase, user.id),
     supabase.from('financial_goals').select('name, target_amount, current_amount, target_date').eq('user_id', user.id).order('priority', { ascending: true }),
-    getInsightsHistory(),
+    // Question Bank activity — the Practice sub-score and the revision queue.
+    supabase.from('question_progress').select('last_seen_at, last_rating, last_rated_at, question:coding_questions(category, topics)').eq('user_id', user.id).gte('last_seen_at', istMidnightUtc(60)),
     computeWorkoutStats(supabase, user.id),
     // Astrology strip (3.4): reuses the already-computed natal_chart jsonb
     // (dasha math is pure/deterministic, no ephemeris recompute) and today's
@@ -220,20 +212,21 @@ export async function getDashboardData() {
     Math.min(25, questions30d * 5)
   )
 
-  // Coding: weighted by category over the last 30 days instead of a flat
-  // count — algorithm and system-design questions take meaningfully longer
-  // than a quiz/JS-function/UI-coding pick, so they're worth more. Reuses
-  // codingHistoryForWeakAreas (already fetched for Weak Areas) — no new query.
-  // Both halves key on completed_at (when the work was done), not
-  // assigned_date — a bulk catch-up of old picks used to count as recent.
-  const codingSolved30d = codingSolved30dRes.count ?? 0
-  const codingCompleted30d = codingHistoryForWeakAreas.filter(r => r.completed && r.completed_at && r.completed_at >= istMidnightUtc(30))
-  const codingWeighted30d = codingCompleted30d
-    .reduce((sum, r) => sum + (LIFE_SCORE_THRESHOLDS.codingCategoryWeight[r.question.category] ?? 1.0), 0)
-  const codingPracticeDays30d = new Set(codingCompleted30d.map(r => toISTDateStr(r.completed_at!))).size
-  const codingVolume = Math.min(100, Math.round(codingWeighted30d * LIFE_SCORE_THRESHOLDS.codingWeightedMultiplier))
-  const codingConsistency = Math.min(100, Math.round((codingPracticeDays30d / LIFE_SCORE_THRESHOLDS.codingPracticeDaysTarget) * 100))
-  const projectsScore = Math.round(codingVolume * 0.5 + codingConsistency * 0.5)
+  // Practice (the projects_score column; was Coding until Coding was folded
+  // into Prep, 2026-10-10): Question Bank / Mock answers in the last 30 days
+  // by question_progress.last_seen_at — category-weighted volume × 0.5 +
+  // consistency (distinct practice days ÷ target) × 0.5, same formula as the
+  // old Coding sub-score.
+  type ProgressRow = { last_seen_at: string; last_rating: number | null; last_rated_at: string | null; question: { category: string; topics: string[] | null } | null }
+  const progress = (progressRes.data ?? []) as unknown as ProgressRow[]
+  const practiced30 = progress.filter(r => r.last_seen_at >= istMidnightUtc(30))
+  const practiced30d = practiced30.length
+  const practiceWeighted30d = practiced30.reduce((sum, r) => sum + ((LIFE_SCORE_THRESHOLDS.codingCategoryWeight as Record<string, number>)[r.question?.category ?? ''] ?? 1.0), 0)
+  const practiceDays30d = new Set(practiced30.map(r => toISTDateStr(r.last_seen_at))).size
+  const practiceVolume = Math.min(100, Math.round(practiceWeighted30d * LIFE_SCORE_THRESHOLDS.codingWeightedMultiplier))
+  const practiceConsistency = Math.min(100, Math.round((practiceDays30d / LIFE_SCORE_THRESHOLDS.codingPracticeDaysTarget) * 100))
+  const projectsScore = Math.round(practiceVolume * 0.5 + practiceConsistency * 0.5)
+  const revision = revisionQueue(progress.filter(r => r.question).map(r => ({ category: r.question!.category, topics: r.question!.topics ?? [], last_rating: r.last_rating, last_rated_at: r.last_rated_at } as unknown as BankQuestion)), today)
 
   // --- Score tips ---
   // Deterministic, no AI call — each tip names the single highest-point-value
@@ -265,14 +258,14 @@ export async function getDashboardData() {
     [25 - Math.min(25, questions30d * 5), 'Log the questions interviewers asked you — up to 25 points'],
   ]
   const topCareerDeficit = careerDeficits.reduce((a, b) => (b[0] > a[0] ? b : a))
-  const careerTip = topCareerDeficit[0] > 0 ? topCareerDeficit[1] : 'Career basics maxed — check the AI Mentor for what\'s next'
+  const careerTip = topCareerDeficit[0] > 0 ? topCareerDeficit[1] : 'Career basics maxed — keep the interview pipeline moving'
 
-  const projectsTip = codingWeighted30d === 0
-    ? 'No coding questions solved in the last 30 days — start today\'s question'
-    : codingConsistency < codingVolume
-      ? `${codingPracticeDays30d} practice days in 30 — a little most days beats batching`
+  const projectsTip = practiceWeighted30d === 0
+    ? 'No questions practiced in the last 30 days — start today\'s Prep plan'
+    : practiceConsistency < practiceVolume
+      ? `${practiceDays30d} practice days in 30 — a little most days beats batching`
       : projectsScore < 100
-        ? 'Keep solving — algorithm and system-design questions count for more'
+        ? 'Keep practicing — system-design and coding questions count for more'
         : 'Maxed out — consistent practice'
 
   const scoreTips = { health: healthTip, finance: financeTip, career: careerTip, projects: projectsTip }
@@ -392,8 +385,6 @@ export async function getDashboardData() {
     cacheHitRateMonth: aiUsageMonth.length ? Math.round((aiUsageMonth.filter(r => r.cache_hit).length / aiUsageMonth.length) * 100) : 0,
   }
 
-  const codingQuestionPending = codingTodayRows.length > 0 && codingTodayRows.some(r => !r.completed)
-  const codingStaleRevisionCount = getStaleRevisionCount(codingCompletionsRes.data ?? [])
   const workoutPending = !!activeWorkout
 
   const workoutStatus: 'completed' | 'pending' | 'none' =
@@ -401,14 +392,15 @@ export async function getDashboardData() {
   const metricsLoggedToday = !!todayMetric && ['weight_kg', 'calories', 'protein_g', 'steps'].some(f => (todayMetric as Record<string, unknown>)[f] !== null)
   const expenseLoggedToday = (expensesRes.data ?? []).some(e => (e as { date: string }).date === today)
 
+  const prepSessions = (prepSessionsRes.data ?? []) as { date: string; blocks: { done: boolean }[]; completed_at: string | null }[]
+  const todaySession = prepSessions.find(p => p.date === today) ?? null
   const todayProgress = computeTodayProgress({
     metricsLoggedToday,
     workoutStatus,
-    codingPicks: codingTodayRows.map(r => ({ completed: r.completed, completedToday: !!r.completed_at && toISTDateStr(r.completed_at) === today })),
+    prepBlocks: todaySession ? { done: todaySession.blocks.filter(b => b.done).length, total: todaySession.blocks.length } : null,
     expenseLoggedToday,
   })
 
-  const codingWeakAreas = computeWeakAreas(codingHistoryForWeakAreas)
 
   // Claude Design source's Dashboard strip only shows dasha lord names +
   // today's tithi/nakshatra (no until-date, no Yogini) — kept minimal here
@@ -429,13 +421,11 @@ export async function getDashboardData() {
 
   const topActions = computeTopActions({
     applications, monthSpend, monthBudget, todayMetric, workoutPending,
-    codingQuestionPending, codingStaleRevisionCount,
-    codingWeakAreas, nextRound, scheduledCompanies,
+    revision, nextRound, scheduledCompanies,
   })
 
   return {
     recentApplications: applications.slice(0, 3),
-    botActivity: botLogsRes.data ?? [],
     todayHealth: todayMetric,
     scoreHistory,
     // The blended (daily×0.6 + weekly×0.4) figure per module — what the
@@ -455,10 +445,11 @@ export async function getDashboardData() {
       activeApplications: activeApps,
       workoutsToday: workoutsToday.length,
       monthSpend, monthBudget,
-      codingSolved30d,
+      practiced30d,
       workoutStreak: workoutStats.currentStreakDays,
+      prepStreak: prepStreak(prepSessions, today),
     },
-    codingQuestionPending,
+    prepToday: todaySession ? { done: todaySession.blocks.filter(b => b.done).length, total: todaySession.blocks.length } : null,
     workoutCategory: activeWorkout?.workout?.category ?? null,
     aiBudget,
     topActions,
@@ -478,7 +469,6 @@ export async function getDashboardData() {
       currentAmount: Number(g.current_amount),
       targetDate: g.target_date as string | null,
     })),
-    recentPatterns,
     astrology,
   }
 }

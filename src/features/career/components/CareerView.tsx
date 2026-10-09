@@ -10,17 +10,16 @@ import Modal, { modalLabelClass, modalInputClass, modalSelectClass, modalCancelB
 import PageTabs from '@/components/PageTabs'
 import PageHeader, { HeaderChip } from '@/components/PageHeader'
 import StatCard from '@/components/StatCard'
-import { useAIAdvisor } from '@/components/AIAdvisorProvider'
 import { useEscapeKey } from '@/lib/use-escape-key'
 import {
   addCompany, addQuestion, addRound, deleteApplication, deleteQuestion, deleteRound,
   saveApplicationJD, updateCompany, updateQuestion, updateRound, upsertCareerProfile,
 } from '../actions'
-import { askCareerMentor, analyzeJobDescription, getCompanyInsights } from '@/features/ai/career-mentor'
+import { analyzeJobDescription, getCompanyInsights } from '@/features/ai/career-mentor'
 import { READINESS_AREAS } from '@/features/prep/types'
 import {
   ACTIVE_STATUSES, QUESTION_CATEGORIES, ROUND_KINDS, STAGES, STAGE_CONFIG, categoryLabel, roundLabel,
-  type Application, type AppStatus, type CareerProfile, type CompanyInsights, type InterviewQuestion, type InterviewRound, type QuestionCategory, type RoundKind, type Skill,
+  type Application, type AppStatus, type CareerProfile, type CompanyInsights, type InterviewQuestion, type InterviewRound, type QuestionCategory, type RoundKind,
 } from '../types'
 
 const WENT: Record<string, { label: string; cls: string }> = {
@@ -79,10 +78,8 @@ function ProfileField({ label, value, onSave, type = 'text', placeholder, masked
 interface Props {
   applications: Application[]
   profile: CareerProfile | null
-  skills: Skill[]
   rounds: InterviewRound[]
   questions: InterviewQuestion[]
-  codingStreak: number
 }
 
 type Tab = 'companies' | 'questions' | 'profile'
@@ -125,39 +122,11 @@ export default function CareerView(props: Props) {
     startTransition(() => upsertCareerProfile({ [field]: value }))
   }
 
-  // ---- Career Mentor (header advisor) ----
-  const [mentorQ, setMentorQ] = useState('')
-  const [mentorA, setMentorA] = useState<string | null>(null)
-  const [mentorLoading, setMentorLoading] = useState(false)
-  const ask = async () => {
-    if (!mentorQ.trim() || mentorLoading) return
-    setMentorLoading(true); setMentorA(null)
-    try { setMentorA(await askCareerMentor(mentorQ, { profile, skills: props.skills, applications: apps, rounds, questions, codingStreak: props.codingStreak })) }
-    finally { setMentorLoading(false) }
-  }
-  const advisorPortal = useAIAdvisor('Career Mentor', Sparkles, (
-    <div className="space-y-3">
-      <div className="flex flex-wrap gap-2">
-        {['How do I answer the questions that went badly?', 'What should I prep for my next round?', 'How do I negotiate an offer?'].map(q => (
-          <button key={q} onClick={() => setMentorQ(q)} className="text-xs text-fg-quaternary px-2 py-1 rounded-lg bg-surface-2 hover:bg-surface-3 hover:text-fg-secondary">{q}</button>
-        ))}
-      </div>
-      <div className="flex gap-2">
-        <input value={mentorQ} onChange={e => setMentorQ(e.target.value)} onKeyDown={e => e.key === 'Enter' && ask()} disabled={mentorLoading}
-          placeholder="Ask about your interviews, offers, salary…" className="flex-1 bg-surface-2 border border-surface-3 rounded-lg px-3 py-2 text-sm text-fg-primary outline-none focus:border-accent" />
-        <button onClick={ask} disabled={mentorLoading || !mentorQ.trim()} className="px-4 py-2 rounded-lg bg-accent text-white text-sm font-medium disabled:opacity-50">{mentorLoading ? '…' : 'Ask'}</button>
-      </div>
-      {mentorLoading && <div className="space-y-2">{[90, 75, 85].map((w, i) => <div key={i} className="h-3 rounded bg-surface-2 animate-pulse" style={{ width: `${w}%` }} />)}</div>}
-      {mentorA && <p className="text-sm text-fg-secondary whitespace-pre-wrap leading-relaxed">{mentorA}</p>}
-    </div>
-  ))
-
   const activeCount = apps.filter(a => ACTIVE_STATUSES.includes(a.status)).length
   const badly = questions.filter(q => q.went === 'badly').length
 
   return (
     <div className="space-y-3">
-      {advisorPortal}
       <PageHeader title="Interviews" chips={<>
         <HeaderChip tone="accent">🎯 {activeCount} active</HeaderChip>
         {next && <HeaderChip>📅 Next: {companyOf(next.application_id)?.company} · {roundLabel(next.kind)} · {when(next.scheduled_at)}</HeaderChip>}
@@ -215,7 +184,7 @@ export default function CareerView(props: Props) {
       {tab === 'questions' && <QuestionLog questions={questions} apps={apps} rounds={rounds} onQuestions={fn => setQuestions(fn)} />}
 
       {tab === 'profile' && (
-        <Card title="Career Profile" action={props.codingStreak > 0 ? <span className="text-[11px] text-fg-tertiary">🔥 {props.codingStreak}-day coding streak</span> : undefined}>
+        <Card title="Career Profile">
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
             <ProfileField label="Current Role" value={profile?.current_role ?? ''} onSave={v => saveProfile('current_role', v)} placeholder="Senior Frontend Engineer" />
             <ProfileField label="Company" value={profile?.current_company ?? ''} onSave={v => saveProfile('current_company', v)} />
@@ -224,7 +193,7 @@ export default function CareerView(props: Props) {
             <ProfileField label="Years of Experience" value={profile?.years_experience?.toString() ?? ''} onSave={v => saveProfile('years_experience', v)} type="number" />
             <ProfileField label="Bio / Focus" value={profile?.bio ?? ''} onSave={v => saveProfile('bio', v)} />
           </div>
-          <p className="text-[11px] text-fg-tertiary mt-3">Used by the JD analysis and the Career Mentor.</p>
+          <p className="text-[11px] text-fg-tertiary mt-3">Used by the JD analysis.</p>
         </Card>
       )}
 

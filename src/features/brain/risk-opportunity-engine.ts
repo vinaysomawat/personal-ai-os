@@ -1,13 +1,10 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { daysAgoIST, todayIST } from '@/lib/date'
-import { computeHealthPlan } from '@/features/health/calculations'
-import { computeCodingStats, getTodayAssignmentRows } from '@/features/coding/daily-core'
-import type { HealthProfile, HealthMetric } from '@/features/health/types'
 import { projectMonthSpend } from '@/features/finance/calculations'
-import { RISK_THRESHOLDS, AUTOMATION_RULE_THRESHOLDS, OPPORTUNITY_THRESHOLDS } from '@/lib/thresholds'
+import { RISK_THRESHOLDS, OPPORTUNITY_THRESHOLDS } from '@/lib/thresholds'
 
 export interface Risk {
-  kind: 'budget_pace' | 'protein_decline' | 'coding_streak'
+  kind: 'budget_pace' | 'protein_decline'
   text: string
   impact: 'high' | 'medium' | 'low'
   action: string
@@ -21,21 +18,16 @@ export interface Opportunity {
 
 export const IMPACT_EMOJI: Record<Risk['impact'], string> = { high: '🔴', medium: '🟠', low: '🟡' }
 
-// Risk Engine (Phase 4 PRD) — forward-looking, deterministic-only (Product
-// Principle 2). No fabricated probability numbers: severity is expressed as
-// a plain impact tier grounded in real thresholds, never an invented
-// statistic. Shared by the daily-briefing cron (Telegram) and the Executive
-// Dashboard (in-app), so both surfaces agree — extracted here rather than
-// left inline in the cron route once the Dashboard needed the same checks.
+// Risk Engine — forward-looking, deterministic-only (Product Principle 2).
+// No fabricated probability numbers: severity is a plain impact tier
+// grounded in real thresholds. Consumed by the Dashboard's Needs Attention
+// (via getExecutiveData) and its Top Priority banner.
 export async function computeRiskEngine(supabase: SupabaseClient, userId: string): Promise<Risk[]> {
   const today = todayIST()
-  const [{ data: expenses }, { data: budgets }, { data: metrics }, todayCoding, codingStats] = await Promise.all([
+  const [{ data: expenses }, { data: budgets }, { data: metrics }] = await Promise.all([
     supabase.from('expenses').select('amount, category').eq('user_id', userId).gte('date', today.slice(0, 7) + '-01'),
     supabase.from('budgets').select('amount').eq('user_id', userId).eq('month', today.slice(0, 7)),
     supabase.from('health_metrics').select('date, protein_g').eq('user_id', userId).gte('date', daysAgoIST(RISK_THRESHOLDS.proteinDeclineLookbackDays)).not('protein_g', 'is', null),
-    // Active picks (carried-over included), not just rows assigned today.
-    getTodayAssignmentRows(supabase, userId),
-    computeCodingStats(supabase, userId),
   ])
 
   const risks: Risk[] = []
@@ -80,52 +72,7 @@ export async function computeRiskEngine(supabase: SupabaseClient, userId: string
     }
   }
 
-  // Risk: coding streak open for today.
-  const todayRows = (todayCoding ?? []) as { completed: boolean }[]
-  const todayOpen = todayRows.length > 0 && todayRows.every(r => !r.completed)
-  if (todayOpen && codingStats.currentStreak > 0) {
-    risks.push({
-      kind: 'coding_streak',
-      text: `You have a ${codingStats.currentStreak}-day coding streak, and today's question isn't solved yet.`,
-      impact: codingStats.currentStreak >= RISK_THRESHOLDS.codingStreakHighImpactDays ? 'high' : 'medium',
-      action: "Solve today's question to keep the streak alive.",
-    })
-  }
-
   return risks
-}
-
-// Automation Rules (Phase 3 PRD) — deterministic "if X then suggest Y"
-// checks. Same extraction/sharing rationale as computeRiskEngine above.
-export async function computeAutomationRules(supabase: SupabaseClient, userId: string): Promise<string[]> {
-  const yesterday = daysAgoIST(1)
-  const [{ data: profile }, { data: metrics }, { data: interviewApps }] = await Promise.all([
-    supabase.from('health_profile').select('*').eq('user_id', userId).maybeSingle(),
-    supabase.from('health_metrics').select('*').eq('user_id', userId).gte('date', daysAgoIST(AUTOMATION_RULE_THRESHOLDS.metricsLookbackDays)).order('date', { ascending: false }),
-    supabase.from('applications').select('id').eq('user_id', userId).eq('status', 'interview'),
-  ])
-
-  const lines: string[] = []
-
-  // Rule: high calorie yesterday → adjust today's guidance. Reuses the same
-  // computeHealthPlan the Health page and bot already use for daily targets —
-  // no separate calorie-target calculation.
-  const yesterdayMetric = (metrics ?? []).find((m): m is HealthMetric => m.date === yesterday)
-  const plan = computeHealthPlan(profile as HealthProfile | null, (metrics ?? []) as HealthMetric[], [], yesterday)
-  if (plan && yesterdayMetric?.calories) {
-    const target = plan.dailyTargets.dailyCalorieTarget
-    const overBy = yesterdayMetric.calories - target
-    if (target > 0 && overBy / target >= AUTOMATION_RULE_THRESHOLDS.calorieOverageMinRatio) {
-      lines.push(`🍽️ Yesterday you were ~${Math.round(overBy)} kcal over target (${yesterdayMetric.calories} vs ${target}) — lighter meals today will help stay on track this week.`)
-    }
-  }
-
-  // Rule: active interview-stage application → suggest lighter workout + more revision.
-  if ((interviewApps ?? []).length > 0) {
-    lines.push(`🎯 You have an active interview-stage application — consider a lighter workout and extra revision time today.`)
-  }
-
-  return lines
 }
 
 // Opportunity Engine (Phase 4 PRD) — the positive-signal counterpart to the
@@ -140,7 +87,7 @@ export async function computeOpportunityEngine(supabase: SupabaseClient, userId:
   const opportunities: Opportunity[] = []
   // Opportunity: interview-invite surge → capitalize with extra practice,
   // distinct from Automation Rules' single-application "lighter workout"
-  // suggestion — this is momentum to lean into, not a load to offset.
+  // suggestion was removed — this is momentum to lean into.
   if (count >= OPPORTUNITY_THRESHOLDS.interviewMomentumMinCount) {
     opportunities.push({
       kind: 'interview_momentum',

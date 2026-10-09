@@ -17,17 +17,6 @@ export const RISK_THRESHOLDS = {
   proteinDeclineMinRatio: 0.2,
   proteinDeclineLookbackDays: 6,
   proteinDeclineWindowDays: 3,
-
-  // Coding streak risk: streak length at/above which an unsolved today
-  // bumps from medium to high impact.
-  codingStreakHighImpactDays: 7,
-} as const
-
-export const AUTOMATION_RULE_THRESHOLDS = {
-  // Yesterday's logged calories over target, as a fraction, before the
-  // "lighter meals today" nudge fires.
-  calorieOverageMinRatio: 0.15,
-  metricsLookbackDays: 14,
 } as const
 
 export const OPPORTUNITY_THRESHOLDS = {
@@ -45,9 +34,9 @@ export const OPPORTUNITY_THRESHOLDS = {
 export const LIFE_SCORE_THRESHOLDS = {
   dailyWeight: 0.6,
   weeklyWeight: 0.4,
-  // Coding category weights for the Projects/Coding sub-score — algorithm and
-  // system-design questions count for more than the shorter quiz/JS-function/
-  // UI-coding picks.
+  // Category weights for the Practice (projects_score) sub-score — algorithm
+  // and system-design questions count for more than shorter theory /
+  // JS-function / UI-coding questions.
   codingCategoryWeight: {
     algorithm: 1.0,
     'system-design': 1.5,

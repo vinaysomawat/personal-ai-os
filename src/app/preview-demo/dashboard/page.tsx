@@ -8,10 +8,6 @@ const dummyData = {
     { id: '1', company: 'Acme Corp', role: 'Senior Frontend Engineer', status: 'interview', applied_at: today },
     { id: '2', company: 'Globex', role: 'Staff Engineer', status: 'applied', applied_at: today },
   ],
-  botActivity: [
-    { module: 'finance', message: 'spent 450 on groceries', response: '✅ Logged ₹450 under Food', created_at: new Date().toISOString() },
-    { module: 'health', message: '6000 steps', response: '✅ Steps updated: 6,000', created_at: new Date().toISOString() },
-  ],
   todayHealth: { weight_kg: 78, calories: 1850, protein_g: 120, steps: 6000 },
   scoreHistory: Array.from({ length: 14 }, (_, i) => ({
     date: daysAgoIST(13 - i),
@@ -29,37 +25,35 @@ const dummyData = {
   scoreTips: {
     health: 'Log today\'s steps for a full score',
     finance: 'Under budget — nothing to do here',
-    career: 'Add a few more skills to the tracker',
+    career: 'Run a Mock Round in Prep — up to 30 points',
     projects: 'Maxed out — consistent practice',
   },
   stats: {
     activeApplications: 2, workoutsToday: 1,
-    monthSpend: 32000, monthBudget: 45000, codingSolved30d: 19,
-    workoutStreak: 4,
+    monthSpend: 32000, monthBudget: 45000, practiced30d: 19,
+    workoutStreak: 4, prepStreak: 3,
   },
-  codingQuestionPending: true,
+  prepToday: { done: 2, total: 6 },
   workoutCategory: 'Push Day',
   aiBudget: { callsToday: 6, costTodayUsd: 0.042, callsMonth: 118, costMonthUsd: 1.86, cacheHitRateMonth: 41 },
   topActions: [
     { emoji: '🎯', text: '1 application in interview stage', href: '/interviews' },
-    { emoji: '💻', text: "Today's coding question still open", href: '/coding' },
+    { emoji: '🔁', text: '2 revision topics due: Async & Promises (5/10)', href: '/prep?tab=questions' },
   ],
   todayProgress: {
     items: [
       { key: 'health-metrics', label: "Log today's health metrics", done: true, href: '/health' },
-      { key: 'coding', label: "Solve today's coding question", done: false, href: '/coding' },
-      { key: 'coding-quiz', label: "Complete Today's Quiz", done: true, href: '/coding' },
+      { key: 'prep', label: 'Prep session: 2/6 blocks done', done: false, href: '/prep' },
       { key: 'expense', label: "Log today's expenses", done: false, href: '/finance' },
     ],
-    completed: 3, total: 5, score: 60,
+    completed: 1, total: 3, score: 33,
   },
   careerMemory: { currentRole: null, currentCompany: null, targetRole: null, currentSalary: null, bio: null },
   financialGoals: [],
-  recentPatterns: [],
   astrology: null,
 }
 
-const dummyExecutive = { brief: null, risks: [], opportunities: [], automationRules: [], whatsChanged: [], codingStreak: 0 }
+const dummyExecutive = { risks: [], opportunities: [] }
 
 export default function DashboardPreview() {
   return <DashboardView data={dummyData} executive={dummyExecutive} />

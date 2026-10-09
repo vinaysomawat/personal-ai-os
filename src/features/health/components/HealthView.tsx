@@ -1,12 +1,11 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { Sparkles, Settings2 } from 'lucide-react'
 import Card from '@/components/Card'
 import ModuleRecommendations from '@/components/ModuleRecommendations'
 import { useAIAdvisor, useAIAdvisorOpen } from '@/components/AIAdvisorProvider'
 import { upsertTodayMetric, upsertHealthProfile, deleteFoodEntry } from '../actions'
-import { getHealthReport } from '@/features/ai/health-report'
 import { computeHealthPlan, suggestActivityLevel, computeWeightTrend } from '../calculations'
 import { daysAgoIST } from '@/lib/date'
 import HealthProfileForm from './HealthProfileForm'
@@ -15,7 +14,6 @@ import DailyWorkoutCard from './DailyWorkoutCard'
 import WorkoutCalendar from './WorkoutCalendar'
 import WeightTrendCard from './WeightTrendCard'
 import TodaysFoodCard from './TodaysFoodCard'
-import { logAdvisorUsage } from '@/lib/advisor-usage'
 import { ACTIVITY_LEVELS } from '../types'
 import type { HealthMetric, MetricField, HealthProfile, Workout } from '../types'
 import type { FoodLogEntry } from '../food-log'
@@ -84,38 +82,10 @@ function MetricCard({ label, unit, decimals = 0, todayValue, weekAvg, onSave, sa
   )
 }
 
-// Merges the generic recommendations widget + the weekly report into one
-// tabbed panel registered as the "Health Coach" advisor (see AIAdvisorProvider).
-function HealthCoachContent({ isOpen, context, metrics }: { isOpen: boolean; context: string; metrics: HealthMetric[] }) {
-  const [tab, setTab] = useState<'recommendations' | 'report'>('recommendations')
-  const [report, setReport] = useState<string | null>(null)
-  const [reportLoading, setReportLoading] = useState(false)
-
-  useEffect(() => {
-    if (isOpen && tab === 'report' && !report && !reportLoading) {
-      setReportLoading(true)
-      getHealthReport(metrics).then(setReport).finally(() => setReportLoading(false))
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isOpen, tab])
-
-  return (
-    <div>
-      <div className="flex gap-1 mb-3 bg-surface-2 rounded-lg p-0.5">
-        <button onClick={() => { setTab('recommendations'); logAdvisorUsage('Health Coach', 'recommendations') }} className={`flex-1 text-xs py-1.5 rounded-md transition-colors ${tab === 'recommendations' ? 'bg-accent text-white' : 'text-fg-secondary hover:text-fg-secondary'}`}>Recommendations</button>
-        <button onClick={() => { setTab('report'); logAdvisorUsage('Health Coach', 'report') }} className={`flex-1 text-xs py-1.5 rounded-md transition-colors ${tab === 'report' ? 'bg-accent text-white' : 'text-fg-secondary hover:text-fg-secondary'}`}>Weekly Report</button>
-      </div>
-      {tab === 'recommendations' ? (
-        <ModuleRecommendations moduleLabel="Health" context={context} isOpen={isOpen && tab === 'recommendations'} />
-      ) : reportLoading ? (
-        <div className="space-y-2">
-          {[90, 70, 80, 60, 85].map((w, i) => <div key={i} className="h-3 rounded bg-surface-2 animate-pulse" style={{ width: `${w}%` }} />)}
-        </div>
-      ) : report ? (
-        <p className="text-sm text-fg-secondary leading-relaxed whitespace-pre-wrap">{report}</p>
-      ) : null}
-    </div>
-  )
+// The Health Coach advisor — Recommendations only (the Weekly Report tab
+// was removed 2026-10-10).
+function HealthCoachContent({ isOpen, context }: { isOpen: boolean; context: string; metrics: HealthMetric[] }) {
+  return <ModuleRecommendations moduleLabel="Health" context={context} isOpen={isOpen} />
 }
 
 interface Props {
@@ -124,7 +94,6 @@ interface Props {
   initialWorkouts: Workout[]
   initialDailyWorkout: DailyWorkout | null
   workoutStats: WorkoutStats
-  tip: string | null
   calendar: WorkoutCalendarDay[]
   initialFoodLog: FoodLogEntry[]
 }
@@ -132,7 +101,7 @@ interface Props {
 // Window for the activity check and Workouts / Week tile.
 const ACTIVITY_WINDOW_DAYS = 28
 
-export default function HealthView({ initialMetrics, initialProfile, initialWorkouts, initialDailyWorkout, workoutStats, tip, calendar, initialFoodLog }: Props) {
+export default function HealthView({ initialMetrics, initialProfile, initialWorkouts, initialDailyWorkout, workoutStats, calendar, initialFoodLog }: Props) {
   const workouts = initialWorkouts
   const [saving, setSaving] = useState<MetricField | null>(null)
   const [metrics, setMetrics] = useState<HealthMetric[]>(initialMetrics)
@@ -337,32 +306,9 @@ export default function HealthView({ initialMetrics, initialProfile, initialWork
         <TodaysFoodCard entries={foodLog} onDelete={handleDeleteFood} />
       </div>
 
-      {/* Health Tip of the Day + Workout Calendar side by side, matching the
-          design's shared calendar-widget pattern (same pairing as Coding's
-          Today's Question + Contribution Calendar). Health Tip moved here
-          2026-08-21 (was its own standalone card above), replacing the
-          ad-hoc Workouts log — that logging capability stays available via
-          the Daily Workout Planner above and the Health Telegram bot. */}
-      {tip ? (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-[var(--grid-gap)] items-start">
-          <Card>
-            <div className="flex items-start gap-3">
-              <div className="text-[22px] leading-none">💡</div>
-              <div>
-                <p className="text-[13px] font-bold text-fg-primary mb-1">Health Tip of the Day</p>
-                <p className="text-[12.5px] leading-[1.5] text-fg-secondary">{tip}</p>
-              </div>
-            </div>
-          </Card>
-          <Card>
-            <WorkoutCalendar days={calendar} title="Workout Calendar" currentStreak={workoutStats.currentStreakDays} weeklyPlan={profile?.workout_days_per_week ?? null} />
-          </Card>
-        </div>
-      ) : (
-        <Card>
-          <WorkoutCalendar days={calendar} title="Workout Calendar" currentStreak={workoutStats.currentStreakDays} weeklyPlan={profile?.workout_days_per_week ?? null} />
-        </Card>
-      )}
+      <Card>
+        <WorkoutCalendar days={calendar} title="Workout Calendar" currentStreak={workoutStats.currentStreakDays} weeklyPlan={profile?.workout_days_per_week ?? null} />
+      </Card>
     </div>
   )
 }

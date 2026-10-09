@@ -1,15 +1,14 @@
 import HealthView from '@/features/health/components/HealthView'
-import { getHealthMetrics, getHealthProfile, getTodaysWorkouts, getTodaysHealthTip, getHealthCalendarData, getTodaysFoodLog } from '@/features/health/actions'
+import { getHealthMetrics, getHealthProfile, getTodaysWorkouts, getHealthCalendarData, getTodaysFoodLog } from '@/features/health/actions'
 import { getActiveOrGenerateWorkout, getWorkoutStats } from '@/features/health/daily-workout'
 
 export default async function HealthPage() {
-  const [metrics, profile, workouts, dailyWorkout, workoutStats, tip, calendar, foodLog] = await Promise.all([
+  const [metrics, profile, workouts, dailyWorkout, workoutStats, calendar, foodLog] = await Promise.all([
     getHealthMetrics(30),
     getHealthProfile(),
     getTodaysWorkouts(),
     getActiveOrGenerateWorkout(),
     getWorkoutStats(),
-    getTodaysHealthTip(),
     getHealthCalendarData(),
     getTodaysFoodLog(),
   ])
@@ -20,7 +19,6 @@ export default async function HealthPage() {
       initialWorkouts={workouts}
       initialDailyWorkout={dailyWorkout}
       workoutStats={workoutStats}
-      tip={tip}
       calendar={calendar}
       initialFoodLog={foodLog}
     />

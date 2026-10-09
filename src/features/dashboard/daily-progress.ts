@@ -21,9 +21,8 @@ export interface TodayProgress {
 export interface TodayProgressInput {
   metricsLoggedToday: boolean
   workoutStatus: 'completed' | 'pending' | 'none'
-  // Every active coding pick (all slots, carried-over included), with
-  // whether it was completed today (IST).
-  codingPicks: { completed: boolean; completedToday: boolean }[]
+  // Today's Prep plan (prep_sessions), null when none is built yet.
+  prepBlocks: { done: number; total: number } | null
   expenseLoggedToday: boolean
 }
 
@@ -36,13 +35,10 @@ export function computeTodayProgress(input: TodayProgressInput): TodayProgress {
     items.push({ key: 'workout', label: "Complete today's workout", done: input.workoutStatus === 'completed', href: '/health' })
   }
 
-  // One coding item, not one per pick (was 4 of ~8 items — algorithm,
-  // quiz, JS function, UI coding — so coding alone decided the mission).
-  // Done once any pick is finished today: consistency over volume, same as
-  // the Coding sub-score and streak.
-  if (input.codingPicks.length > 0) {
-    const doneCount = input.codingPicks.filter(p => p.completed).length
-    items.push({ key: 'coding', label: `Coding practice — finish 1 of today's picks (${doneCount}/${input.codingPicks.length} done)`, done: input.codingPicks.some(p => p.completedToday), href: '/coding' })
+  // One Prep item for today's whole plan (replaced the Coding item when
+  // Coding was folded into Prep, 2026-10-10).
+  if (input.prepBlocks && input.prepBlocks.total > 0) {
+    items.push({ key: 'prep', label: `Prep session: ${input.prepBlocks.done}/${input.prepBlocks.total} blocks done`, done: input.prepBlocks.done >= input.prepBlocks.total, href: '/prep' })
   }
 
   items.push({ key: 'expense', label: "Log today's expenses", done: input.expenseLoggedToday, href: '/finance' })

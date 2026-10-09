@@ -11,12 +11,10 @@ export type PriorityItem =
 // risks lead, then Today's Focus signals, then opportunities — rather than
 // two components independently reimplementing the same ordering.
 // A risk and a Today's Focus signal can describe the same problem (budget
-// pace vs. "over budget by ₹X", an open coding streak vs. "today's question
-// is still open") — the signal is dropped when its risk is present, so one
+// pace vs. "over budget by ₹X") — the signal is dropped when its risk is present, so one
 // issue doesn't take two of Needs Attention's three slots.
 const SIGNALS_COVERED_BY_RISK: Record<Risk['kind'], string[]> = {
   budget_pace: ['finance.over_budget', 'finance.near_budget'],
-  coding_streak: ['coding.question_pending'],
   protein_decline: [],
 }
 
@@ -35,6 +33,5 @@ export function buildPriorityItems(risks: Risk[], topActions: TopAction[], oppor
 export const KIND_HREF: Record<Risk['kind'] | Opportunity['kind'], string> = {
   budget_pace: '/finance',
   protein_decline: '/health',
-  coding_streak: '/coding',
   interview_momentum: '/interviews',
 }

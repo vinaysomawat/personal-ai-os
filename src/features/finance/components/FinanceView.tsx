@@ -11,23 +11,19 @@ import { useAIAdvisor } from '@/components/AIAdvisorProvider'
 import { todayIST } from '@/lib/date'
 import {
   addExpense, deleteExpense, upsertBudget, upsertBudgets,
-  upsertProfile, addLoan, deleteLoan, updateLoanTerms,
+  upsertProfile, saveLiquidSavings, addLoan, deleteLoan, updateLoanTerms,
   addInvestment, updateInvestmentValue, updateInvestmentAmount, deleteInvestment,
   addGoal, updateGoalProgress, updateGoalTargetDate, deleteGoal,
 } from '../actions'
 import { askFinanceAdvisor } from '@/features/ai/finance-advisor'
-import ScenarioSimulator from './ScenarioSimulator'
 import SpendingHistory from './SpendingHistoryLazy'
-import PaymentCalendar from './PaymentCalendar'
 import { CATEGORIES, INVESTMENT_TYPES } from '../types'
-import { loanOutstanding, loanTotalPayable, loanPayoffMonth, goalMonthlyNeeded, projectMonthSpend, suggestBudgets, FIXED_MONTHLY_CATEGORIES } from '../calculations'
+import { loanOutstanding, loanTotalPayable, loanPayoffMonth, goalMonthlyNeeded, projectMonthSpend, suggestBudgets, FIXED_MONTHLY_CATEGORIES, runwayMonths, runwayTone } from '../calculations'
 import { FINANCE_THRESHOLDS } from '@/lib/thresholds'
 import type { Expense, Budget, FinanceProfile, Loan, Investment, FinancialGoal, InvestmentType, GoalPriority } from '../types'
-import type { PaymentCalendarDay } from '../actions'
 import { useEscapeKey } from '@/lib/use-escape-key'
 import { useFormValidation } from '@/lib/use-form-validation'
 import FieldError from '@/components/FieldError'
-import { logAdvisorUsage } from '@/lib/advisor-usage'
 import PageHeader, { HeaderChip } from '@/components/PageHeader'
 import StatCard from '@/components/StatCard'
 
@@ -94,18 +90,16 @@ interface Props {
   avgMonthlyExpense: number
   expenseHistory: { amount: number; category: string; date: string }[]
   month: string
-  calendar: PaymentCalendarDay[]
 }
 
-type FinanceTab = 'expenses' | 'portfolio' | 'calendar' | 'history'
+type FinanceTab = 'expenses' | 'portfolio' | 'history'
 const FINANCE_TABS: { key: FinanceTab; label: string }[] = [
   { key: 'expenses', label: 'Expenses' },
   { key: 'portfolio', label: 'Portfolio' },
-  { key: 'calendar', label: 'Calendar' },
   { key: 'history', label: 'History' },
 ]
 
-export default function FinanceView({ expenses, budgets, profile, loans, investments, goals, salaryHistory, avgMonthlyExpense, expenseHistory, month, calendar }: Props) {
+export default function FinanceView({ expenses, budgets, profile, loans, investments, goals, salaryHistory, avgMonthlyExpense, expenseHistory, month }: Props) {
   const [, startTransition] = useTransition()
   const [salaryVisible, setSalaryVisible] = useState(false)
   const [activeTab, setActiveTab] = useState<FinanceTab>('expenses')
@@ -133,7 +127,6 @@ export default function FinanceView({ expenses, budgets, profile, loans, investm
   const [pendingDelete, setPendingDelete] = useState<{ kind: 'loan' | 'investment' | 'goal' | 'expense'; id: string; label: string } | null>(null)
 
   // AI Advisor
-  const [advisorTab, setAdvisorTab] = useState<'ask' | 'simulate'>('ask')
   const [aiQuestion, setAiQuestion] = useState('')
   const [aiAnswer, setAiAnswer] = useState<string | null>(null)
   const [aiLoading, setAiLoading] = useState(false)
@@ -151,7 +144,8 @@ export default function FinanceView({ expenses, budgets, profile, loans, investm
   // every future interest payment and overstated debt/understated net worth.
   const totalDebt = localLoans.reduce((s, l) => s + loanOutstanding(l), 0)
   const totalPayable = localLoans.reduce((s, l) => s + loanTotalPayable(l), 0)
-  const netWorth = portfolio - totalDebt
+  const liquidSavings = localProfile?.liquid_savings != null ? Number(localProfile.liquid_savings) : null
+  const runway = runwayMonths(liquidSavings, avgMonthlyExpense)
   const totalSpent = localExpenses.reduce((s, e) => s + Number(e.amount), 0)
   const totalBudget = localBudgets.reduce((s, b) => s + Number(b.amount), 0)
   // EMI is already counted here if it's been logged as an expense (as it
@@ -212,6 +206,11 @@ export default function FinanceView({ expenses, budgets, profile, loans, investm
   }
 
   // Handlers
+  const handleLiquidSavings = (v: string) => {
+    const n = parseFloat(v) || null
+    setLocalProfile(p => p ? { ...p, liquid_savings: n } : { id: '', user_id: '', monthly_salary: null, emergency_fund_months: 6, liquid_savings: n, updated_at: new Date().toISOString() })
+    startTransition(() => saveLiquidSavings(n))
+  }
   const handleSalary = (v: string) => {
     const n = parseFloat(v) || 0
     setLocalProfile(p => p ? { ...p, monthly_salary: n } : { id: '', user_id: '', monthly_salary: n, emergency_fund_months: 6, updated_at: new Date().toISOString() })
@@ -349,15 +348,10 @@ export default function FinanceView({ expenses, budgets, profile, loans, investm
 
   const advisorPortal = useAIAdvisor('Money Advisor', Sparkles, (
     <div className="space-y-3">
-      <div className="flex gap-1 bg-surface-2 rounded-lg p-0.5">
-        <button onClick={() => { setAdvisorTab('ask'); logAdvisorUsage('Money Advisor', 'ask') }} className={`flex-1 text-xs py-1.5 rounded-md transition-colors ${advisorTab === 'ask' ? 'bg-accent text-white' : 'text-fg-secondary hover:text-fg-secondary'}`}>Ask</button>
-        <button onClick={() => { setAdvisorTab('simulate'); logAdvisorUsage('Money Advisor', 'simulate') }} className={`flex-1 text-xs py-1.5 rounded-md transition-colors ${advisorTab === 'simulate' ? 'bg-accent text-white' : 'text-fg-secondary hover:text-fg-secondary'}`}>Simulate</button>
-      </div>
-
-      {advisorTab === 'ask' ? (
+      {(
         <>
           <div className="flex gap-2 flex-wrap text-xs text-fg-tertiary">
-            {['Can I afford a car?', 'Should I prepay my loan?', 'How much should I invest?', 'When can I retire?'].map(q => (
+            {['How long can I job-hunt on my savings?', 'What should I cut while job hunting?', 'Should I pause SIPs until I land a role?', 'Should I prepay my loan?'].map(q => (
               <button key={q} onClick={() => setAiQuestion(q)} className="px-2 py-1 rounded-lg bg-surface-2 hover:bg-surface-3 hover:text-fg-secondary transition-colors">{q}</button>
             ))}
           </div>
@@ -381,8 +375,6 @@ export default function FinanceView({ expenses, budgets, profile, loans, investm
           )}
           {aiAnswer && <p className="text-sm text-fg-secondary leading-relaxed whitespace-pre-wrap border-l-2 border-accent/40 pl-3">{aiAnswer}</p>}
         </>
-      ) : (
-        <ScenarioSimulator profile={localProfile} goals={localGoals} avgMonthlyExpense={avgMonthlyExpense} />
       )}
     </div>
   ))
@@ -439,7 +431,16 @@ export default function FinanceView({ expenses, budgets, profile, loans, investm
         </div>
         <StatCard label="Portfolio" value={fmt(portfolio)} sub={<span className={portfolio >= invested ? 'text-good' : 'text-risk'}>{portfolio >= invested ? '+' : '-'}{fmt(Math.abs(portfolio - invested))} vs invested</span>} />
         <StatCard label="Total Debt" value={fmt(totalDebt)} valueClassName="text-risk" sub={`${fmt(totalEMIs)}/mo EMI · ${fmt(totalPayable)} payable incl. interest`} />
-        <StatCard label="Net Worth" value={fmt(netWorth)} valueClassName={netWorth >= 0 ? 'text-accent' : 'text-risk'} sub="portfolio − outstanding debt" />
+        {/* Runway replaced Net Worth (2026-10-10, job hunt): how long the
+            liquid savings last at the rolling 3-month average spend. */}
+        <div className="bg-surface-1 border border-surface-3 rounded-2xl shadow-card p-[var(--card-pad-sm)]">
+          <p className="text-[11px] text-fg-tertiary uppercase tracking-[0.4px]">Runway</p>
+          <p className={`text-[20px] font-bold mt-1 tabular-nums ${runwayTone(runway)}`}>{runway === null ? '—' : `${runway} months`}</p>
+          <div className="text-[11px] text-fg-tertiary mt-0.5 flex flex-wrap items-center gap-1">
+            <InlineEdit value={liquidSavings ? Math.round(liquidSavings).toString() : ''} placeholder="Set liquid savings" textSize="text-[11px]" inputWidth="w-24" onSave={handleLiquidSavings} />
+            <span>liquid ÷ {fmt(avgMonthlyExpense)}/mo avg spend</span>
+          </div>
+        </div>
       </div>
 
       <PageTabs tabs={FINANCE_TABS} active={activeTab} onChange={setActiveTab} />
@@ -685,10 +686,6 @@ export default function FinanceView({ expenses, budgets, profile, loans, investm
           )}
         </Card>
       </div>}
-
-      {activeTab === 'calendar' && <Card>
-        <PaymentCalendar days={calendar} title="Payment Calendar" />
-      </Card>}
 
       {activeTab === 'history' && <SpendingHistory expenseHistory={expenseHistory} currentMonth={month} />}
 

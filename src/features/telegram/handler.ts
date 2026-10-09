@@ -12,10 +12,9 @@ import * as planner   from './modules/planner'
 import * as career    from './modules/career'
 import * as finance   from './modules/finance'
 import * as health    from './modules/health'
-import * as coding    from './modules/coding'
 import * as astrology from './modules/astrology'
 
-const MODULES = { planner, career, finance, health, coding, astrology } as const
+const MODULES = { planner, career, finance, health, astrology } as const
 type ModuleName = keyof typeof MODULES
 
 const MODULE_TOKENS: Record<ModuleName, string | undefined> = {
@@ -23,7 +22,6 @@ const MODULE_TOKENS: Record<ModuleName, string | undefined> = {
   career:    process.env.TELEGRAM_BOT_TOKEN_CAREER,
   finance:   process.env.TELEGRAM_BOT_TOKEN_FINANCE,
   health:    process.env.TELEGRAM_BOT_TOKEN_HEALTH,
-  coding:    process.env.TELEGRAM_BOT_TOKEN_CODING,
   astrology: process.env.TELEGRAM_BOT_TOKEN_ASTROLOGY,
 }
 

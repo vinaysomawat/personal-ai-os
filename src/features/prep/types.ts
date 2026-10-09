@@ -41,7 +41,7 @@ export interface PrepSettings {
 }
 
 // A coding_questions row plus when it was last practiced (in the Question
-// Bank / a Mock Round, or completed as a Coding pick).
+// Bank / a Mock Round, or completed in the old Coding module — kept as history).
 export interface BankQuestion {
   id: string
   title: string
@@ -176,10 +176,10 @@ export const READINESS_AREAS = [
   { key: 'browser', label: 'Browser, network & security', quizTopics: ['Browser Internals', 'Web Security', 'APIs'], codingTopics: ['DOM & Browser APIs', 'Networking & APIs'], href: '/prep?tab=questions&cat=quiz' },
   { key: 'sysdesign', label: 'Frontend system design', quizTopics: ['System Design', 'Micro-frontends', 'Design Systems'], codingTopics: ['System Design'], href: '/prep?tab=questions&cat=system-design' },
   { key: 'ainative', label: 'AI-native engineering', quizTopics: [], codingTopics: [], href: '/prep?tab=questions&cat=ai-native' },
-  { key: 'uicoding', label: 'UI coding', quizTopics: [], codingTopics: ['UI Components'], href: '/coding' },
+  { key: 'uicoding', label: 'UI coding', quizTopics: [], codingTopics: ['UI Components'], href: '/prep?tab=questions&cat=ui-coding' },
   // Track A (2026-10-09): fed by the 'angular' Question Bank category.
   { key: 'angular', label: 'Angular', quizTopics: [], codingTopics: [], href: '/prep?tab=questions&cat=angular' },
-  { key: 'dsa', label: 'Algorithms (DSA)', quizTopics: [], codingTopics: ['Algorithms', 'Data Structures'], href: '/coding' },
+  { key: 'dsa', label: 'Algorithms (DSA)', quizTopics: [], codingTopics: ['Algorithms', 'Data Structures'], href: '/prep?tab=questions&cat=algorithm' },
   { key: 'behavioral', label: 'Behavioral', quizTopics: [], codingTopics: [], href: '/prep?tab=stories' },
   { key: 'leadership', label: 'Leadership', quizTopics: [], codingTopics: [], href: '/prep?tab=stories' },
 ] as const
