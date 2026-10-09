@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Personal OS is a single-user AI Operating System — a Next.js 15 web app backed by Supabase and deployed to Vercel. It covers Dashboard (Life Score + Today's Focus), Prep, Interviews (`/interviews`), Finance, Health, Coding, and Settings, all reachable from a per-module Telegram bot (plus a Daily bot for briefings/digests).
+Personal OS is a single-user AI Operating System — a Next.js 15 web app backed by Supabase and deployed to Vercel. Since v4.0 it is built around an active job hunt: Dashboard (Hunt Hero in Job Hunt Mode, Life Score otherwise), Prep, Interviews (`/interviews`), Finance, Health, Astrology and Settings, with per-module Telegram bots (Daily — the Prep Coach, drills, digests, reminders — plus Career, Finance, Health, Astrology).
 
 **For the full, current, module-by-module spec (exact fields, formulas, AI features, Telegram capabilities, cron jobs, complete DB schema) — read `README.md`, not this section.** This file covers workflow/conventions only; README.md is the single source of truth for what the app does, and per the checklist below it's kept current with every functional change.
 
@@ -74,6 +74,8 @@ Before ending **any** task that changes the app in a way a fresh reader would ne
 
 The **"## UI Reference (screen-by-screen)"** section at the bottom is exactly as easy to leave stale as the feature-behavior sections above it, and just as wrong when it drifts — check it specifically, not just the module's prose section, whenever a page's structure changes: a card that moved to a different grid/row, a dropdown that became a drawer (or vice versa), a section that got reordered, merged, or split, a card that's no longer paired with what the doc says it's paired with. Don't assume the prose section being current means the UI Reference entry for the same page is also current — verify both.
 
+**README describes the present, not history.** Don't add "(removed 2026-…)", "(was X until …)" or audit narratives to README.md — when something is removed, delete its mentions outright; the why/when goes in a dated `CHANGELOG.md` entry (one plain-language line per shipped change, written with the version bump) and the commit message.
+
 Pure copy/spacing/color tweaks that don't change a section's actual structure or behavior don't need a README update. But reordering cards, changing which cards share a grid row, swapping one UI pattern for another, or adding/removing a UI element **does** count as a real change requiring an update — even when no new data, table, or business logic was involved.
 
 ## Product Principles
@@ -85,7 +87,7 @@ This project is Vinay's personal execution system — not a CRUD app, not a dash
 1. **Automation over manual work.** If something can be automated, automate it.
 2. **Rule engine before AI.** Before calling AI, ask "can deterministic code solve this?" If yes, don't call AI. Never use AI for calculations, sorting, filtering, score math, dashboards, reminders, charts, or notifications — only for mentoring, coaching, reviewing, explaining, brainstorming, summarizing, and generating plans.
 3. **AI is a premium feature, not a default.** Every AI request must go through the single gateway (`askAI()` — see AI Gateway below). No module calls Anthropic directly. An unnecessary AI call is a bug.
-4. **Modules should connect, not stay isolated** — e.g. health data should eventually inform productivity signals, learning should feed career readiness. This is already built via the shared signals layer (`src/lib/signals.ts`'s `rankSignals()`, fed by each module's own `signals.ts`) and the Personal Brain's cross-module context (`src/features/brain/`) — see README.md §1 (Needs Attention / Today's Focus) and §12 (Personal Brain) for what's already wired. Extend the existing pattern for new cross-module connections; don't build a parallel mechanism.
+4. **Modules should connect, not stay isolated** — e.g. health data should eventually inform productivity signals, learning should feed career readiness. This is already built via the shared signals layer (`src/lib/signals.ts`'s `rankSignals()`, fed by each module's own `signals.ts`) and the Personal Brain's cross-module context (`src/features/brain/`) — see README.md §1 (Needs Attention, Ask Brain) for what's already wired. Extend the existing pattern for new cross-module connections; don't build a parallel mechanism.
 5. **Reduce decisions, don't just surface data.** Prefer "these are the 3 highest-impact actions" over a wall of 25 tasks.
 6. **Every page should answer:** what happened, why, and what to do next.
 7. **Telegram exists to eliminate manual entry** — logging a workout/expense/habit/note should never require opening the app; voice input should work naturally.
@@ -123,7 +125,7 @@ This project is Vinay's personal execution system — not a CRUD app, not a dash
 - **Budget enforcement** — `ai_usage_logs` table tracks cost per call; daily/monthly ceilings via `AI_DAILY_BUDGET_USD` / `AI_MONTHLY_BUDGET_USD` env vars; on exhaustion, calls return a friendly fallback string instead of erroring — no page or cron job can break from this
 - **Minimize Anthropic API usage.** Treat every call to `askAI()` as a real cost, not a free action. Before adding a new task, check whether an existing cached/computed result already answers it. For any task whose output only needs to reflect data that changes on a daily/weekly/monthly cadence (a cron-generated narrative, digest, or briefing — the kind of thing a user might also trigger on-demand the same day via Telegram), give it a non-null `cacheTTLSeconds` (`SIX_HOURS` is the default choice already used throughout this file) rather than leaving it uncached by default. Reserve `cacheTTLSeconds: null` for genuinely interactive tasks where each call's prompt is expected to differ (free-form Q&A, decision help, scenario simulation) — caching those wouldn't help anyway since the prompt text itself changes per call, and it's not worth the code complexity of trying.
 
-**AI features** (`src/features/ai/` and `src/features/brain/`) — see README.md §12 (AI Gateway) for the current file list and what each one does; don't maintain a second copy here, it drifts (same lesson as the Database Tables note below).
+**AI features** (`src/features/ai/` and `src/features/brain/`) — see README.md §10 (AI Gateway) for the current task table and file list; don't maintain a second copy here, it drifts (same lesson as the Database Tables note below).
 
 **Loading / error states:**
 - `src/app/[route]/loading.tsx` — skeleton shown by Next.js while server fetches data

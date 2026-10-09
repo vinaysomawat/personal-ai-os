@@ -11,9 +11,8 @@ alter table mock_rounds drop column if exists score;
 alter table question_progress drop column if exists status;
 alter table life_score_logs drop column if exists learning_score;
 
--- cascade only removes leftover FK constraints from other dead tables
--- (trending_readings.task_id, study_logs.resource_id); it drops no columns
--- or tables beyond these.
+-- cascade only removes FK constraints that still point at these tables from
+-- elsewhere (defensive — none are expected); it drops no other tables or columns.
 drop table if exists resource_quiz_attempts cascade;
 drop table if exists resources cascade;
 drop table if exists tasks cascade;
