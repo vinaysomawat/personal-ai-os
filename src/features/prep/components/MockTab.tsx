@@ -126,9 +126,19 @@ export function MockTab({ bank, readiness, covered, rounds, today, format: forma
             <p className="text-[10.5px] text-fg-tertiary mt-1">{left < 0 ? 'over time' : `of ${mmss(item.budget_seconds)}`}</p>
           </div>
         </div>
-        <textarea value={item.answer} onChange={e => setAnswer(e.target.value)} rows={run.format === 'system-design' ? 12 : 7} autoFocus
+        {run.format === 'machine-coding' && (
+          <div className="mt-2 text-[12.5px] text-fg-secondary">
+            {item.url
+              ? <a href={item.url} target="_blank" rel="noopener noreferrer" className="text-accent hover:underline">Open the problem spec ↗</a>
+              : item.hints && <p><span className="font-semibold text-fg-primary">Requirements:</span> {item.hints}</p>}
+            <p className="text-[11.5px] text-fg-tertiary mt-0.5">Build it in your editor (vanilla JS or React), then summarize below: component API, state, keyboard + ARIA, edge cases, trade-offs.</p>
+          </div>
+        )}
+        <textarea value={item.answer} onChange={e => setAnswer(e.target.value)} rows={run.format === 'system-design' || run.format === 'machine-coding' ? 12 : 7} autoFocus
           placeholder={run.format === 'system-design'
             ? 'Requirements → Architecture → Data model → Interface (API) → Optimizations (perf, a11y, i18n, offline). Talk it through as you write.'
+            : run.format === 'machine-coding'
+            ? 'Paste your key code or summarize your solution: structure, state, events, a11y, what you would do with more time.'
             : 'Say it out loud as if they\'re listening, then type the gist — or leave blank if you answered out loud.'}
           className="mt-3 w-full bg-surface-2 border border-surface-3 rounded-[8px] px-3 py-2 text-[13px] text-fg-primary outline-none focus:border-accent resize-y" />
         <div className="flex items-center justify-between gap-2 mt-2">
@@ -168,7 +178,7 @@ export function MockTab({ bank, readiness, covered, rounds, today, format: forma
     <div className="space-y-[var(--grid-gap)]">
     <div className="grid grid-cols-1 lg:grid-cols-[1fr_340px] gap-[var(--grid-gap)] items-start">
       <Card title="Mock Round" action={<span className="text-[11px] text-fg-tertiary">timed · no notes · AI review after</span>}>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-2">
           {MOCK_FORMATS.map(f => {
             const last = lastByFormat(f.key)
             return (

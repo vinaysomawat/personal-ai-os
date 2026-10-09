@@ -7,27 +7,33 @@ import { formatMinutes, formatOf, mockFormatForDay } from './mock'
 // quota is the smaller of "what fits in that time" and "what's needed to
 // cover the remaining questions by the target date".
 
-export type BankCategory = 'quiz' | 'ai-native' | 'behavioral' | 'javascript-functions' | 'ui-coding' | 'system-design' | 'algorithm'
+export type BankCategory = 'quiz' | 'angular' | 'ai-native' | 'behavioral' | 'javascript-functions' | 'ui-coding' | 'system-design' | 'algorithm'
 
+// Base shares re-balanced 2026-10-09 to the current market (machine coding
+// is the #1 round at Indian product companies, Angular is the fastest lane
+// to offers, DSA still appears in most product loops); relative weights —
+// computeQuotas scales them to the bank's minutes.
 export const BANK_CATEGORIES: { key: BankCategory; label: string; share: number; minutesPerQ: number }[] = [
-  { key: 'quiz', label: 'Theory', share: 0.17, minutesPerQ: 4 },
+  { key: 'quiz', label: 'Theory', share: 0.14, minutesPerQ: 5 },
+  // Track A: senior / lead Angular roles (banks, fintech, GCCs).
+  { key: 'angular', label: 'Angular', share: 0.10, minutesPerQ: 6 },
   // Answer from real experience + AI interviewer feedback (Apollo JD bar).
-  { key: 'ai-native', label: 'AI-native', share: 0.15, minutesPerQ: 10 },
+  { key: 'ai-native', label: 'AI-native', share: 0.10, minutesPerQ: 10 },
   // General/fit questions (tell me about yourself, the layoff, salary…).
   { key: 'behavioral', label: 'Behavioral Q&A', share: 0.04, minutesPerQ: 10 },
-  { key: 'javascript-functions', label: 'JS functions', share: 0.15, minutesPerQ: 25 },
-  { key: 'ui-coding', label: 'UI coding', share: 0.15, minutesPerQ: 45 },
-  { key: 'system-design', label: 'System design', share: 0.10, minutesPerQ: 60 },
-  // Lowest-signal pool for a senior FE loop — gave half its time to AI-native.
-  { key: 'algorithm', label: 'Algorithms', share: 0.03, minutesPerQ: 30 },
+  { key: 'javascript-functions', label: 'JS functions', share: 0.12, minutesPerQ: 25 },
+  // Machine coding: build a component from scratch, timed.
+  { key: 'ui-coding', label: 'UI coding', share: 0.20, minutesPerQ: 45 },
+  { key: 'system-design', label: 'System design', share: 0.12, minutesPerQ: 60 },
+  { key: 'algorithm', label: 'Algorithms', share: 0.06, minutesPerQ: 30 },
 ]
-// Rest of the day: a daily Mock Round (~5%, fixed by its format) and STAR
-// stories 6%. The Applications block (10%) was removed 2026-10-08 —
-// applying happens outside the app — and its time went to the bank.
-const BEHAVIORAL_SHARE = 0.06
-// Share of the day for Question Bank blocks (base shares sum to 0.79 and
-// are scaled up to this).
-const BANK_SHARE = 0.89
+// The day = the Mock Round (its format's minutes) + STAR stories + the
+// Question Bank blocks, which get whatever is left (2026-10-09 — they used to
+// take a fixed 89% on top of the mock, overrunning the day). The
+// Applications block was removed 2026-10-08 (applying happens outside).
+// STAR stories get 12% of the day while any competency has no solid story
+// (writing them is the job), 6% once all are covered.
+export const leadMinutes = (dayMinutes: number, storiesMissing: boolean) => Math.round(dayMinutes * (storiesMissing ? 0.12 : 0.06))
 
 export interface CategoryCoverage {
   key: BankCategory
@@ -54,13 +60,13 @@ export function daysLeft(today: string, targetDate: string): number {
 // old cap left most of a long runway's day empty. Each category's share is
 // scaled by its readiness gap (weights from war.ts's categoryWeights) and
 // renormalized, so weak areas get more of the same day.
-export function computeQuotas(coverage: CategoryCoverage[], hoursPerDay: number, days: number, weights: Record<string, number> = {}): CategoryQuota[] {
-  const dayMinutes = hoursPerDay * 60
+export function computeQuotas(coverage: CategoryCoverage[], hoursPerDay: number, days: number, weights: Record<string, number> = {}, reservedMinutes = 0): CategoryQuota[] {
+  const bankMinutes = Math.max(60, hoursPerDay * 60 - reservedMinutes)
   const weightedTotal = BANK_CATEGORIES.reduce((s, c) => s + c.share * (weights[c.key] ?? 1), 0)
   return BANK_CATEGORIES.map(cat => {
     const c = coverage.find(x => x.key === cat.key)!
-    const share = (cat.share * (weights[cat.key] ?? 1) * BANK_SHARE) / weightedTotal
-    const quota = Math.max(1, Math.floor((dayMinutes * share) / cat.minutesPerQ))
+    const share = (cat.share * (weights[cat.key] ?? 1)) / weightedTotal
+    const quota = Math.max(1, Math.floor((bankMinutes * share) / cat.minutesPerQ))
     return {
       ...c,
       quota,
@@ -96,7 +102,15 @@ export function buildHuntPlan(ctx: {
         ? `Answer ${q.quota} AI-native questions from real experience, get the AI rating, tighten the answer`
         : q.key === 'behavioral'
         ? `Say ${q.quota} answer${q.quota === 1 ? '' : 's'} out loud (tell me about yourself, the layoff, salary…), get rated, tighten`
-        : `Solve ${q.quota} ${cat.label} question${q.quota === 1 ? '' : 's'}, then hit Next`
+        : q.key === 'angular'
+        ? `Answer ${q.quota} Angular questions out loud (signals, change detection, RxJS, architecture), get the AI rating, re-answer anything ≤6`
+        : q.key === 'ui-coding'
+        ? `Machine coding: build ${q.quota} component${q.quota === 1 ? '' : 's'} from scratch in your editor, timed — working, keyboard + ARIA, then summarize the trade-offs`
+        : q.key === 'system-design'
+        ? `Design ${q.quota} frontend system${q.quota === 1 ? '' : 's'} end to end (Requirements → Architecture → Data → Interface → Optimizations), out loud, then get the AI rating`
+        : q.key === 'javascript-functions'
+        ? `Implement ${q.quota} JS function${q.quota === 1 ? '' : 's'} without looking anything up (polyfills, debounce, promise utilities), handle edge cases`
+        : `Solve ${q.quota} ${cat.label.toLowerCase()} problem${q.quota === 1 ? '' : 's'} (medium, pattern-first), talking through complexity`
       return {
         key: `bank:${q.key}`, label: `${cat.label} × ${q.quota}`, minutes: q.minutes,
         detail: `${base} (${pct(q.key)})`,
@@ -111,7 +125,7 @@ export function buildHuntPlan(ctx: {
   // Weakest two areas first, then the mock round, then the rest.
   const blocks: PrepBlock[] = [...bankBlocks.slice(0, 2), mock, ...bankBlocks.slice(2)]
   blocks.push({
-    key: 'lead', label: 'STAR stories', minutes: Math.round(dayMinutes * BEHAVIORAL_SHARE),
+    key: 'lead', label: 'STAR stories', minutes: leadMinutes(dayMinutes, !!ctx.uncoveredCompetency),
     detail: ctx.uncoveredCompetency ? `Write a STAR story for "${ctx.uncoveredCompetency}", then rehearse one out loud` : 'Rehearse 2 stories out loud and get feedback on one',
     href: '/prep?tab=stories', done: false,
   })

@@ -6,7 +6,7 @@ import { COMPETENCIES, REHEARSAL_PROMPTS, type BankQuestion, type CompetencyKey 
 // longest ago. Nothing already practiced today is picked, so a round never
 // repeats today's work.
 
-export type MockFormat = 'screen' | 'behavioral' | 'system-design'
+export type MockFormat = 'screen' | 'behavioral' | 'system-design' | 'machine-coding'
 
 interface Slot {
   // A Question Bank category, or 'star' for a "Tell me about a time…" prompt.
@@ -40,16 +40,22 @@ export const MOCK_FORMATS: { key: MockFormat; label: string; detail: string; slo
     key: 'system-design', label: 'System design', detail: '1 frontend design, requirements → optimizations',
     slots: [{ category: 'system-design', minutes: 45 }],
   },
+  {
+    // The #1 round at Indian product companies (Flipkart, Razorpay,
+    // Microsoft): build one production-style component from scratch.
+    key: 'machine-coding', label: 'Machine coding', detail: 'build 1 component from scratch in your editor — working, accessible, explained',
+    slots: [{ category: 'ui-coding', minutes: 90 }],
+  },
 ]
 
 export const formatOf = (key: string) => MOCK_FORMATS.find(f => f.key === key) ?? MOCK_FORMATS[0]
 export const formatMinutes = (key: string) => formatOf(key).slots.reduce((s, x) => s + x.minutes, 0)
 
-// Job Hunt Mode's daily mock: screens most days, behavioral twice a week,
-// system design on Saturday.
+// Job Hunt Mode's daily mock (2026-10-09): machine coding Mon / Wed / Fri,
+// behavioral Tue / Thu, system design Saturday, a frontend screen Sunday.
 export function mockFormatForDay(date: string): MockFormat {
   const weekday = new Date(`${date}T00:00:00Z`).getUTCDay()
-  return weekday === 6 ? 'system-design' : weekday === 2 || weekday === 4 ? 'behavioral' : 'screen'
+  return weekday === 6 ? 'system-design' : weekday === 2 || weekday === 4 ? 'behavioral' : weekday === 0 ? 'screen' : 'machine-coding'
 }
 
 export interface MockItem {

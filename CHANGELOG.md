@@ -3,6 +3,10 @@
 One line per shipped change, newest first. Sourced from commit messages —
 append here whenever you deploy, same cadence as the version bump.
 
+## 2026-10-09
+
+- **v3.5 — prep realigned to the market.** New Angular section in the Question Bank (40 questions: signals, change detection, RxJS, NgRx, SSR, architecture) with its own readiness gate. New 90-minute Machine coding Mock Round, now the daily mock on Mon/Wed/Fri. Readiness discounts small samples (fewer than 5 answers), so areas can't look ready on 2–3 results. The Job Hunt plan fits the day (6h): question blocks get what's left after the mock and STAR stories, STAR stories get double time until every competency has a story, and shares lean toward machine coding, system design and Angular.
+
 ## 2026-10-08
 
 - v3.4.1: Interviews moved to `/interviews` (`/career` and `/interview` redirect there). Prep's Job Hunt plan no longer has an Applications block — its hour goes to Question Bank practice, weighted toward the weakest areas.

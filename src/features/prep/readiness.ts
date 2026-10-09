@@ -9,9 +9,14 @@ export interface RatedAnswer {
 
 // Areas fed by a whole bank category, not just by topic.
 const AREA_CATEGORY: Partial<Record<string, string>> = {
-  uicoding: 'ui-coding', sysdesign: 'system-design', ainative: 'ai-native', behavioral: 'behavioral', dsa: 'algorithm',
+  uicoding: 'ui-coding', sysdesign: 'system-design', ainative: 'ai-native', behavioral: 'behavioral', dsa: 'algorithm', angular: 'angular',
 }
 const MIN_RATED_SAMPLE = 2
+// Small samples are shrunk toward 0 until they reach this size (2026-10-09):
+// 3 solved UI-coding questions at 77 used to read as nearly at its gate and
+// starve it of practice time. score × min(1, n / CONFIDENT_SAMPLE).
+const CONFIDENT_SAMPLE = 5
+const shrink = (score: number, n: number) => Math.round(score * Math.min(1, n / CONFIDENT_SAMPLE))
 
 export interface CodingHistoryRow {
   completed: boolean
@@ -55,7 +60,7 @@ export function computeReadinessMatrix(codingHistory: CodingHistoryRow[], storie
   // direct skill signal once ≥2 answers are rated.
   const ratingPart = (key: string, codingTopics: readonly string[]): { score: number; n: number } | null => {
     const rs = rated.filter(r => r.category === AREA_CATEGORY[key] || r.topics.some(t => codingTopics.includes(t)))
-    return rs.length >= MIN_RATED_SAMPLE ? { score: Math.round((rs.reduce((s, r) => s + r.rating, 0) / rs.length) * 10), n: rs.length } : null
+    return rs.length >= MIN_RATED_SAMPLE ? { score: shrink(Math.round((rs.reduce((s, r) => s + r.rating, 0) / rs.length) * 10), rs.length), n: rs.length } : null
   }
 
   return READINESS_AREAS.map(area => {
@@ -89,7 +94,7 @@ export function computeReadinessMatrix(codingHistory: CodingHistoryRow[], storie
       return (q.topics ?? []).some(t => (area.codingTopics as readonly string[]).includes(t))
     })
     const codingPart = codingRows.length >= MIN_CODING_SAMPLE
-      ? Math.round(codingRows.reduce((s, r) => s + (r.outcome ? OUTCOME_SCORE[r.outcome] ?? NO_OUTCOME_SCORE : NO_OUTCOME_SCORE), 0) / codingRows.length)
+      ? shrink(Math.round(codingRows.reduce((s, r) => s + (r.outcome ? OUTCOME_SCORE[r.outcome] ?? NO_OUTCOME_SCORE : NO_OUTCOME_SCORE), 0) / codingRows.length), codingRows.length)
       : null
 
     // The Career topic-quiz signal was dropped with the quiz (2026-10-08).

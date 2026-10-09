@@ -1,9 +1,9 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { todayIST, daysAgoIST, toISTDateStr, istMidnightUtc } from '@/lib/date'
 import { getTodayAssignmentRows } from '@/features/coding/daily-core'
-import type { MockRound } from './mock'
+import { formatMinutes, mockFormatForDay, type MockRound } from './mock'
 import { buildPrepPlan } from './plan'
-import { BANK_CATEGORIES, buildHuntPlan, computeQuotas, daysLeft, type CategoryCoverage } from './hunt'
+import { BANK_CATEGORIES, buildHuntPlan, computeQuotas, daysLeft, leadMinutes, type CategoryCoverage } from './hunt'
 import { computeReadinessMatrix, weakestAreas, type CodingHistoryRow } from './readiness'
 import { COMPETENCIES, READINESS_AREAS } from './types'
 import { categoryGap, categoryWeights, focusSeconds, nowBlock, revisionQueue, topicWeakness, warReadiness, type FocusSession, type Forecast } from './war'
@@ -55,8 +55,15 @@ export async function loadPrepData(supabase: SupabaseClient, userId: string) {
     bank.filter(q => q.last_rating !== null).map(q => ({ category: q.category, topics: q.topics, rating: q.last_rating! })))
   // Empty (not an error) until the mock_rounds migration has run.
   const mockRounds = (mockRes.data ?? []) as MockRound[]
-  // War Mode: quotas weighted toward the biggest readiness gaps.
-  const quotas = days !== null ? computeQuotas(coverage, settings.hours_per_day, days, categoryWeights(readiness)) : null
+  // War Mode: quotas weighted toward the biggest readiness gaps, sized to
+  // the time left after today's mock round and STAR-story block.
+  const storiesMissing = COMPETENCIES.some(c => !stories.some(s => (s.strength ?? 3) >= 3 && s.competencies.includes(c.key)))
+  const reserved = formatMinutes(mockFormatForDay(today)) + leadMinutes(settings.hours_per_day * 60, storiesMissing)
+  const quotas = days !== null
+    ? computeQuotas(coverage, settings.hours_per_day, days, categoryWeights(readiness), reserved)
+      // On machine-coding days the mock round IS the UI-coding practice.
+      .map(q => q.key === 'ui-coding' && mockFormatForDay(today) === 'machine-coding' ? { ...q, quota: 0, minutes: 0 } : q)
+    : null
   const weakness = topicWeakness(bank, today)
 
   let sessions = (sessionsRes.data ?? []) as PrepSession[]

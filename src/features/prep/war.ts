@@ -53,6 +53,7 @@ export const GATES: Record<ReadinessAreaKey, { gate: number; weight: number }> =
   sysdesign: { gate: 80, weight: 15 },
   ainative: { gate: 75, weight: 10 },
   uicoding: { gate: 80, weight: 10 },
+  angular: { gate: 80, weight: 8 },
   dsa: { gate: 70, weight: 5 },
   behavioral: { gate: 80, weight: 5 },
   leadership: { gate: 75, weight: 3 },
@@ -236,6 +237,7 @@ export const nowBlock = (blocks: PrepBlock[]) => blocks.find(b => !b.done) ?? nu
 // Which readiness areas each Question Bank category trains.
 const CATEGORY_AREAS: Record<string, ReadinessAreaKey[]> = {
   quiz: ['js', 'ts', 'react', 'css', 'a11y', 'perf', 'testing', 'browser'],
+  angular: ['angular'],
   'ai-native': ['ainative'],
   behavioral: ['behavioral'],
   'javascript-functions': ['js'],
