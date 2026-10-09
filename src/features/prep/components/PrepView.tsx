@@ -3,6 +3,7 @@
 import { useState, useTransition } from 'react'
 import { MessageSquareQuote, Plus, Shuffle, Sparkles } from 'lucide-react'
 import Card from '@/components/Card'
+import MicButton, { appendText } from '@/components/MicButton'
 import PageTabs from '@/components/PageTabs'
 import EmptyState from '@/components/EmptyState'
 import ConfirmDialog from '@/components/ConfirmDialog'
@@ -245,7 +246,10 @@ function StoriesTab({ stories, rehearsals, covered, onSaved, onDeleted, onRehear
           <textarea value={answer} onChange={e => setAnswer(e.target.value)} rows={7} placeholder="Answer as you would out loud — Situation, Task, your Actions, the Result (with numbers)."
             className="mt-2 w-full bg-surface-2 border border-surface-3 rounded-[8px] px-3 py-2 text-[13px] text-fg-primary outline-none focus:border-accent resize-y" />
           <div className="flex items-center justify-between mt-2 gap-2">
-            <span className="text-[11px] text-fg-tertiary tabular-nums">{answer.trim().split(/\s+/).filter(Boolean).length} words · aim for ~250</span>
+            <span className="inline-flex items-center gap-2 min-w-0">
+              <MicButton onText={text => setAnswer(prev => appendText(prev, text))} />
+              <span className="text-[11px] text-fg-tertiary tabular-nums truncate">{answer.trim().split(/\s+/).filter(Boolean).length} words · aim for ~250</span>
+            </span>
             <button onClick={submitRehearsal} disabled={busy || answer.trim().length < 40} className={`${modalSaveButtonClass} inline-flex items-center gap-1.5`}>
               <Sparkles size={13} /> {busy ? 'Reviewing…' : 'Get feedback'}
             </button>

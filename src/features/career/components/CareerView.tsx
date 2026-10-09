@@ -4,6 +4,7 @@ import { useMemo, useState, useTransition } from 'react'
 import { formatDistanceToNow } from 'date-fns'
 import { Check, ExternalLink, Pencil, Plus, Sparkles, Trash2, X } from 'lucide-react'
 import Card from '@/components/Card'
+import MicButton, { appendText } from '@/components/MicButton'
 import ConfirmDialog from '@/components/ConfirmDialog'
 import EmptyState from '@/components/EmptyState'
 import Modal, { modalLabelClass, modalInputClass, modalSelectClass, modalCancelButtonClass, modalSaveButtonClass } from '@/components/Modal'
@@ -388,6 +389,7 @@ function CompanyDetail({ app, profile, rounds, questions, onApp, onRounds, onQue
         }}>
           <textarea rows={2} value={q.question} onChange={e => setQ({ ...q, question: e.target.value })} placeholder="What did they ask? (exact wording if you can)" className={modalInputClass()} />
           <textarea rows={2} value={q.my_answer} onChange={e => setQ({ ...q, my_answer: e.target.value })} placeholder="What you answered (optional — so you can tighten it later)" className={modalInputClass()} />
+          <MicButton className="self-start" onText={text => setQ(prev => ({ ...prev, my_answer: appendText(prev.my_answer, text) }))} />
           <div className="flex flex-wrap gap-1.5">
             <select value={q.category} onChange={e => setQ({ ...q, category: e.target.value as QuestionCategory })} aria-label="Category" className={`${modalSelectClass} !w-auto`}>
               {QUESTION_CATEGORIES.map(c => <option key={c.key} value={c.key}>{c.label}</option>)}
@@ -439,7 +441,8 @@ function QuestionList({ questions, rounds, apps, onQuestions }: {
             </button>
             {open === q.id && (
               <div className="mt-2 flex flex-col gap-1.5">
-                <textarea rows={3} defaultValue={q.my_answer ?? ''} onBlur={e => patch(q, { my_answer: e.target.value || null })} placeholder="Your answer — refine it into the one you'll give next time" className={modalInputClass()} />
+                <textarea key={q.my_answer ?? ''} rows={3} defaultValue={q.my_answer ?? ''} onBlur={e => patch(q, { my_answer: e.target.value || null })} placeholder="Your answer — refine it into the one you'll give next time" className={modalInputClass()} />
+                <MicButton className="self-start" onText={text => patch(q, { my_answer: appendText(q.my_answer ?? '', text) })} />
                 <textarea rows={2} defaultValue={q.notes ?? ''} onBlur={e => patch(q, { notes: e.target.value || null })} placeholder="Notes: follow-ups they asked, what they seemed to want…" className={modalInputClass()} />
                 <div className="flex items-center gap-2">
                   <select value={q.went ?? ''} onChange={e => patch(q, { went: (e.target.value || null) as InterviewQuestion['went'] })} aria-label="How it went" className={`${modalSelectClass} !w-auto`}>

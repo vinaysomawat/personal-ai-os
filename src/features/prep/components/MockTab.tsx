@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState, useTransition } from 'react'
 import { Timer } from 'lucide-react'
 import Card from '@/components/Card'
+import MicButton, { appendText } from '@/components/MicButton'
 import ConfirmDialog from '@/components/ConfirmDialog'
 import { modalCancelButtonClass, modalSaveButtonClass } from '@/components/Modal'
 import { toISTDateStr } from '@/lib/date'
@@ -142,7 +143,10 @@ export function MockTab({ bank, readiness, covered, rounds, today, format: forma
             : 'Say it out loud as if they\'re listening, then type the gist — or leave blank if you answered out loud.'}
           className="mt-3 w-full bg-surface-2 border border-surface-3 rounded-[8px] px-3 py-2 text-[13px] text-fg-primary outline-none focus:border-accent resize-y" />
         <div className="flex items-center justify-between gap-2 mt-2">
-          <span className="text-[11px] text-fg-tertiary tabular-nums">{words} words · no notes, no hints until you finish</span>
+          <span className="inline-flex items-center gap-2 min-w-0">
+            <MicButton key={run.idx} onText={text => setAnswer(appendText(item.answer, text))} />
+            <span className="text-[11px] text-fg-tertiary tabular-nums truncate">{words} words · no notes, no hints until you finish</span>
+          </span>
           <div className="flex gap-2">
             <button onClick={() => next(true)} className={`${modalCancelButtonClass} !py-[7px]`}>Skip</button>
             <button onClick={() => next(false)} className={`${modalSaveButtonClass} !py-[7px]`}>{last ? 'Finish' : 'Next →'}</button>

@@ -4,6 +4,7 @@ import { useMemo, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { ExternalLink, Sparkles, Target } from 'lucide-react'
 import Card from '@/components/Card'
+import MicButton, { appendText } from '@/components/MicButton'
 import { modalInputClass, modalSaveButtonClass, modalCancelButtonClass } from '@/components/Modal'
 import { answerQuestion, critiqueAnswer, savePrepSettings } from '../actions'
 import { BANK_CATEGORIES, type BankCategory, type CategoryCoverage, type CategoryQuota } from '../hunt'
@@ -162,7 +163,10 @@ export function QuestionsTab({ bank, setBank, topic, onTopicChange: setTopic, co
               ) : current.answer_hints ? (
                 <button onClick={() => setShowHints(v => !v)} className="text-[11.5px] text-accent hover:underline">{showHints ? 'Hide' : 'Show'} {category === 'quiz' ? 'key points' : category === 'ui-coding' ? 'requirements' : 'expected areas'}</button>
               ) : <span />}
-              <span className="text-[11px] text-fg-tertiary tabular-nums">{answer.trim().split(/\s+/).filter(Boolean).length} words{verbal ? ' · aim for ~200' : ''}</span>
+              <span className="inline-flex items-center gap-2 min-w-0">
+                <MicButton key={current.id} onText={text => setAnswer(appendText(answer, text))} />
+                <span className="text-[11px] text-fg-tertiary tabular-nums shrink-0">{answer.trim().split(/\s+/).filter(Boolean).length} words{verbal ? ' · aim for ~200' : ''}</span>
+              </span>
             </div>
             {showHints && current.answer_hints && <p className="text-[12px] text-fg-secondary mt-1.5">Cover: {current.answer_hints}</p>}
             {reviewing && <div className="space-y-2 mt-3">{[90, 70, 80].map((w, i) => <div key={i} className="h-3 rounded bg-surface-2 animate-pulse" style={{ width: `${w}%` }} />)}</div>}

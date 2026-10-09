@@ -86,6 +86,10 @@ The global `coding_questions` pool (~1,170 + real interview questions): theory `
 - Each question: a typed answer prefilled with the last one, word count, **AI review** (≥40 chars; `critiqueAnswer()` → `critiqueQuestion()` in `critique.ts`): `ai_native_critique` for AI-native, otherwise `answer_critique` with a behavioral or technical rubric, Haiku, uncached. The response's first line `Rating: N` (1–10 hiring bar: 9–10 strong hire … 1–2 no real answer) is parsed into a colored badge. **Skip** (back of the queue) / **Next →** (`answerQuestion()` → `question_progress`: answer, attempts, `last_seen_at`, and the rating as `last_rating` / `last_rated_at`).
 - Coverage card: per-category seen/total, quota and projected coverage by the target date.
 
+### Voice mode (web)
+
+A **Speak** mic button (`src/components/MicButton.tsx`, `useDictation()`) sits beside the word count on every answer box: Question Bank, Mock Round, Story Bank rehearsal, and Interviews' "your answer" (add form and edit). Tap to record (`MediaRecorder`: webm/opus, mp4 on iPhone Safari; max 5 min), tap Stop; the audio is POSTed to **`/api/transcribe`** (route handler — server actions cap bodies at 1 MB; checks the Supabase session itself since `/api` is outside the auth middleware; ≤4 MB) → `transcribeAudio()` (`src/lib/transcribe.ts`, Groq `whisper-large-v3-turbo`, `language: en`, a frontend-vocabulary prompt so terms like useMemo come back spelled right). The text is appended to the box (typing and speaking mix); a line shows "m:ss spoken · N fillers" (`speechStats()` in `src/lib/speech-stats.ts`, shared with the voice drill). Nothing is stored but the text; no Claude call — the AI review still runs only on request. A recording in progress is dropped if its question changes (button keyed per question).
+
 ### Readiness, War Mode and revision
 
 - **Readiness matrix** (`readiness.ts`, 15 areas in `READINESS_AREAS`): JS, TS, React/Next.js, CSS, Accessibility, Performance, Testing, Browser/network/security, System design, AI-native, UI coding, Angular, Algorithms, Behavioral, Leadership. Each averages real signal: AI answer ratings ×10 on the area's topics/category (≥2), coding outcomes from older practice history (solved 100 / with help 60 / struggled 30). Samples under 5 are shrunk (`score × n/5`). Behavioral blends Story Bank coverage with behavioral ratings; Leadership is Story Bank coverage. `null` = blind spot.
@@ -109,7 +113,7 @@ STAR stories (`stories`: title, competencies[], situation/task/action/result, me
 
 `drill.ts`. Daily bot "drill" / "drill system design" / "drill behavioral" / "drill interview" / "drill ai" / "drill angular" / "drill theory" asks one spoken-answer question (`telegram_drills` row). Default category = the spoken category (behavioral, ai-native, system-design, quiz, angular) with the biggest readiness gap. Question pick: rated under 7 first, then never practiced, then practiced longest ago; skipping anything drilled in the last 7 days. System-design titles are framed as "Design the frontend for X — requirements, architecture, state, performance, trade-offs".
 
-The next Daily-bot message within 30 minutes (voice or text, not a bot command) is the answer (`answerPendingDrill()`, run by the handler's `preIntercept` hook before intent parsing). It is critiqued with the same rubric as the Question Bank plus a spoken-answer note, and the reply is "Rating N/10 · ~Xs (words ÷ 140 wpm) · Y fillers", the critique, "Reply DRILL for the next one". The rating goes to `question_progress` and ticks the bank block. **SKIP** closes the drill; a new drill supersedes an unanswered one.
+The next Daily-bot message within 30 minutes (voice or text, not a bot command) is the answer (`answerPendingDrill()`, run by the handler's `preIntercept` hook before intent parsing). It is critiqued with the same rubric as the Question Bank plus a spoken-answer note, and the reply is "Rating N/10 · ~Xs (words ÷ 140 wpm) · Y fillers" (`speechStats()`), the critique, "Reply DRILL for the next one". The rating goes to `question_progress` and ticks the bank block. **SKIP** closes the drill; a new drill supersedes an unanswered one.
 
 ## 3. Interviews (`/interviews`)
 
@@ -179,7 +183,7 @@ Vedic (sidereal) astrology. Charts are real astronomical calculation — Claude 
 
 One bot per module (`TELEGRAM_BOT_TOKEN_*`): **Daily** (module key `planner`, `TELEGRAM_BOT_TOKEN_PLANNER`, webhook `/api/telegram/planner`), **Career**, **Finance**, **Health**, **Astrology** — one webhook route (`src/app/api/telegram/[module]/route.ts` → `src/features/telegram/handler.ts`).
 
-**Pipeline:** only `TELEGRAM_ALLOWED_CHAT_ID` is accepted → voice is transcribed (Groq `whisper-large-v3-turbo`, `GROQ_API_KEY`) → photos go to Finance (receipt) / Health (meal) via `VISION_PROMPT` → a daily call cap (`TELEGRAM_DAILY_AI_CAP`, default 300, counted from `telegram_logs`) → the module's optional `preIntercept` (Daily: a pending drill answer) → intent parsing (`telegram_intent`, Haiku; today's IST date injected; may return an array of actions) → `execute()` per action → reply → `telegram_logs`. A budget-exhausted parse replies with a daily or monthly "budget used up" message instead of the help menu.
+**Pipeline:** only `TELEGRAM_ALLOWED_CHAT_ID` is accepted → voice is transcribed (`transcribeVoice()` → shared `transcribeAudio()`, Groq `whisper-large-v3-turbo`, `GROQ_API_KEY`) → photos go to Finance (receipt) / Health (meal) via `VISION_PROMPT` → a daily call cap (`TELEGRAM_DAILY_AI_CAP`, default 300, counted from `telegram_logs`) → the module's optional `preIntercept` (Daily: a pending drill answer) → intent parsing (`telegram_intent`, Haiku; today's IST date injected; may return an array of actions) → `execute()` per action → reply → `telegram_logs`. A budget-exhausted parse replies with a daily or monthly "budget used up" message instead of the help menu.
 
 **Undo:** `undo_last` per bot; "↩️ Undo" buttons on created rows encode the row id (`undo:<table>:<id>`, allowlist `UNDOABLE_TABLES` in `src/lib/telegram/buttons.ts`: applications, interview rounds and questions, outreach, expenses, loans, investments, workouts, food_log). Logging an expense warns when its category is over / ≥90% of budget.
 
@@ -256,7 +260,7 @@ AI feature files: `src/features/ai/` (`career-mentor.ts` — JD analysis + compa
 - **Optimistic UI**: mutations use `useOptimistic` / local state + `useTransition`.
 - **Supabase clients**: `lib/supabase/server.ts` (cookies, RLS), `client.ts` (browser), `service.ts` (service role — crons, bots, writes to global pools), `middleware.ts` (session refresh; `/login` redirect; `/api` excluded).
 - **Loading / error**: per-route `loading.tsx` (`PageSkeleton` matching the page) and `error.tsx` (Try again).
-- **Shared components** (`src/components/`): `TopNav`, `ProfileMenu`, `PageHeader` + `HeaderChip`, `Card`, `StatCard`, `PageTabs`, `Modal`, `ConfirmDialog`, `EmptyState`, `FilterPill`, `Skeleton`, `FormattedText`, `FieldError`, `ModuleRecommendations`, `ThemeProvider`, `AIAdvisorProvider`.
+- **Shared components** (`src/components/`): `MicButton` (voice mode), `TopNav`, `ProfileMenu`, `PageHeader` + `HeaderChip`, `Card`, `StatCard`, `PageTabs`, `Modal`, `ConfirmDialog`, `EmptyState`, `FilterPill`, `Skeleton`, `FormattedText`, `FieldError`, `ModuleRecommendations`, `ThemeProvider`, `AIAdvisorProvider`.
 - **Header advisors**: a View calls `useAIAdvisor(label, icon, content)`; `AIAdvisorProvider` portals the content into the TopNav panel (Ask Brain on Dashboard, Money Advisor, Health Coach). Opens and tab switches are logged to `advisor_usage_log`.
 - **Cross-module signals**: each module's `signals.ts` → `rankSignals()` (`src/lib/signals.ts`) → Needs Attention.
 - **Navigation** (`TopNav.tsx`): desktop pills Dashboard · Prep · Interviews · Finance · Health; Astrology and Settings in the profile menu. Mobile (<`md`): bottom bar Home · Prep · Health · Finance + More (Interviews, Astrology, Settings). The version string links to `/changelog` (renders `CHANGELOG.md`). Redirects: `/coding` → `/prep?tab=questions`, `/career` and `/interview` → `/interviews`.
@@ -373,9 +377,9 @@ App-wide: Quick Add FAB; Ask Brain in the header.
 2. Stat tiles (4) — Interview readiness (% + tier · blockers), Mock rounds this week, Story Bank, Focused today
 3. Tabs: Today / Questions / Mock Round / Story Bank
 4. **Today** — Interview War Mode strip (target date, hours/day, Outreach/week; on: D-N, quotas, Edit / Turn off) → War header (D-N, coach line, next-interview link, minutes, readiness % + tier label, up to 6 blocker chips) → `lg:grid-cols-[1fr_380px]`: left **Today's Mission** ("Do this now" + Start focus, progress, block rows with links) above **Revision Queue** + **Weakest Topics** (`sm:grid-cols-2`); right **Readiness Gates**, **Forecast**. Focus overlay / floating timer pill while focusing.
-5. **Questions** `lg:grid-cols-[1fr_340px]` — Sprint (category chips with today/quota, topic select, question, answer, key points / link, rating badge + critique, AI review · Skip · Next) + Coverage
-6. **Mock Round** — format picker (4) + Mock Interview Calendar; running round (progress, countdown, answer, Skip/Next); round detail (review box, every answer with rating + note)
-7. **Story Bank** — competency coverage → Rehearse + Stories; story modal
+5. **Questions** `lg:grid-cols-[1fr_340px]` — Sprint (category chips with today/quota, topic select, question, answer, key points / link · 🎙 Speak + word count, rating badge + critique, AI review · Skip · Next) + Coverage
+6. **Mock Round** — format picker (4) + Mock Interview Calendar; running round (progress, countdown, answer, 🎙 Speak + word count, Skip/Next); round detail (review box, every answer with rating + note)
+7. **Story Bank** — competency coverage → Rehearse (answer, 🎙 Speak + word count, Get feedback) + Stories; story modal
 
 ### Interviews (`/interviews`)
 
@@ -383,7 +387,7 @@ App-wide: Quick Add FAB; Ask Brain in the header.
 2. Stat tiles (4) — Active processes, Upcoming rounds (7d), Questions logged, Offers
 3. Tabs: Pipeline / Companies / Question Log / Profile
 4. **Pipeline** `lg:grid-cols-[1fr_360px] items-start` — left: **Funnel** table (5 weeks, conversion %, "This week N/target") + Bottleneck line, **Outreach** list (follow-ups due highlighted, Mark followed up, status select, delete); right: **Log outreach** form
-5. **Companies** `lg:grid-cols-[320px_1fr]` — companies list | company card (stage, link, notes, rounds + add-round row) → **Prep for this company** + **Interview guidance** (`xl:grid-cols-2`) → **Questions they asked** (form with topic select; rows with went badge and "in Prep →")
+5. **Companies** `lg:grid-cols-[320px_1fr]` — companies list | company card (stage, link, notes, rounds + add-round row) → **Prep for this company** + **Interview guidance** (`xl:grid-cols-2`) → **Questions they asked** (form with your-answer box + 🎙 Speak and topic select; rows with went badge and "in Prep →", expanded rows with answer + 🎙 Speak)
 6. **Question Log** — chips, Went badly toggle, search, expandable rows
 7. **Profile** — inline-edit fields
 

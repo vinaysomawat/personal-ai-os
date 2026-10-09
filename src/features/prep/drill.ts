@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { speechStats } from '@/lib/speech-stats'
 import { critiqueQuestion } from './critique'
 import { loadPrepData, syncBankBlocks } from './core'
 import { categoryGap } from './war'
@@ -20,8 +21,6 @@ const ALIASES: [RegExp, string][] = [
   [/theory|quiz|js|react|frontend/i, 'quiz'],
 ]
 const ANSWER_WINDOW_MS = 30 * 60_000
-const FILLERS = /\b(um+|uh+|erm|like|basically|actually|you know|sort of|kind of|i mean)\b/gi
-const WPM = 140
 
 export function drillCategory(text: string | undefined): string | null {
   if (!text) return null
@@ -73,9 +72,7 @@ export async function answerPendingDrill(db: SupabaseClient, userId: string, tex
     return '⏭️ Skipped. Reply *DRILL* for another.'
   }
 
-  const words = t.split(/\s+/).filter(Boolean).length
-  const fillers = (t.match(FILLERS) ?? []).length
-  const seconds = Math.round((words / WPM) * 60)
+  const { seconds, fillers } = speechStats(t)
   const note = spoken
     ? `This answer was spoken and transcribed (~${seconds}s, ${fillers} filler words). Ignore transcription typos; judge it as a spoken answer, and mention delivery (length, structure, fillers) in Fix next if it hurt the answer.`
     : ''
