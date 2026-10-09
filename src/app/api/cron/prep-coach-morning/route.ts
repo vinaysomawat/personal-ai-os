@@ -27,7 +27,7 @@ export async function GET(req: Request) {
   const [data, reminders] = await Promise.all([coachData(supabase, user.id), getReminderLines(supabase, user.id, 'morning')])
   const pipeline = data ? await loadPipelineStatus(supabase, user.id, data.settings.weekly_outreach_target) : undefined
   const text = data ? `${morningMessage(data, pipeline)}${reminders}` : reminders.trim()
-  if (!text) return NextResponse.json({ ok: true, sent: false, reason: 'Job Hunt Mode off, no reminders' })
+  if (!text) return NextResponse.json({ ok: true, sent: false, reason: 'Interview War Mode off, no reminders' })
   await sendMessage(BOT_TOKEN, Number(CHAT_ID), text)
   return NextResponse.json({ ok: true, sent: true, hunt: !!data, debriefs })
 }

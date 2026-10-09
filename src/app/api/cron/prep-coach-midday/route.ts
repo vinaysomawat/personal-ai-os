@@ -18,7 +18,7 @@ export async function GET(req: Request) {
   const user = users?.users?.[0]
   if (!user) return NextResponse.json({ error: 'No user' }, { status: 404 })
   const data = await coachData(supabase, user.id)
-  if (!data) return NextResponse.json({ ok: true, sent: false, reason: 'Job Hunt Mode off' })
+  if (!data) return NextResponse.json({ ok: true, sent: false, reason: 'Interview War Mode off' })
   const text = middayMessage(data)
   if (!text) return NextResponse.json({ ok: true, sent: false, reason: 'On pace' })
   await sendMessage(BOT_TOKEN, Number(CHAT_ID), text)

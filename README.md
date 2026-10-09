@@ -6,7 +6,7 @@
 
 A personal, single-user AI Operating System: one Next.js app for interview prep, the job hunt, money, health and a Vedic astrology module — with Claude used only where judgment is needed (answer reviews, coaching, narratives), a per-module Telegram bot for hands-free logging (text, voice or photo), scheduled Telegram coaching, and a daily Life Score.
 
-**Since v4.0 (2026-10-10) the app is built around an active job hunt.** When Prep's Job Hunt Mode is on (a target "interview-ready by" date is set), the Dashboard becomes a Hunt Hero, the Telegram coach runs the day, and non-essentials (astrology push, weekly/monthly digests) pause.
+**Since v4.0 (2026-10-10) the app is built around an active job hunt.** When Prep's Interview War Mode is on (a target "interview-ready by" date is set), the Dashboard becomes a Hunt Hero, the Telegram coach runs the day, and non-essentials (astrology push, weekly/monthly digests) pause.
 
 This document describes exactly what the app does today — module by module, field by field, formula by formula — so it can be pasted into a fresh AI chat and give complete understanding with no other context. It is kept current with every functional change (`CLAUDE.md`'s post-task checklist). **History lives in `CHANGELOG.md` and git, not here.**
 
@@ -20,7 +20,7 @@ To run your own instance: clone, `npm install`, `cp .env.example .env.local` and
 
 Server-computed on every load (`src/features/dashboard/actions.ts` `getDashboardData()` + `getHuntHero()`, brain `getExecutiveData()`).
 
-### Hunt Hero (Job Hunt Mode on)
+### Hunt Hero (Interview War Mode on)
 
 `loadHuntHero()` (`dashboard/hunt-hero.ts`, deterministic) returns null when `prep_settings.target_date` is null. Six tiles (`HuntHero.tsx`), each linking to where you act on it:
 
@@ -35,7 +35,7 @@ Server-computed on every load (`src/features/dashboard/actions.ts` `getDashboard
 
 The pipeline numbers come from `loadPipelineStatus()` (`career/pipeline-status.ts`, shared with the 7:30am coach message): this Monday-start IST week's funnel row (§3), follow-ups due, and debriefs prompted but not answered.
 
-### Life Score (Job Hunt Mode off)
+### Life Score (Interview War Mode off)
 
 Every module score blends today with the trailing week:
 `moduleScore = dailyRaw × 0.6 + weeklyAvg × 0.4` (`LIFE_SCORE_THRESHOLDS` in `src/lib/thresholds.ts`), then
@@ -48,12 +48,12 @@ Every module score blends today with the trailing week:
 - **Practice** (`projects_score` column) = `round(volume×0.5 + consistency×0.5)` over Question Bank / Mock answers in the last 30 days (`question_progress.last_seen_at`): volume = `min(100, Σ category weight × 3.2)` (system-design 1.5, algorithm 1.0, quiz / javascript-functions / ui-coding 0.6, anything else 1.0); consistency = `min(100, distinct practice days ÷ 20 × 100)`.
 - The upsert of today's raw sub-scores + blended life score runs after the response (`next/server` `after()`, service client).
 - **Explain My Score** — clicking the ring opens `ScoreExplainer.tsx`: per module "{today} today · {weeklyAvg} week avg → {blended}", the day-over-day delta of the blended figure, and a deterministic tip naming the biggest point gap, biggest movers first. No AI.
-- **Life Score Trend** (`LifeScoreTrend.tsx`, recharts, lazy-loaded) — Weekly/Monthly toggle over 30 days of `life_score_logs`. Hidden in Job Hunt Mode.
-- **Quick Stats** (`QuickStats.tsx`) — Prep Streak (+ today's blocks done/total), Workout Streak, Budget Remaining (3-tier color; "Over ₹X" in red when over; "—" without a budget), Workout Today. Replaced by the Hunt Hero in Job Hunt Mode.
+- **Life Score Trend** (`LifeScoreTrend.tsx`, recharts, lazy-loaded) — Weekly/Monthly toggle over 30 days of `life_score_logs`. Hidden in Interview War Mode.
+- **Quick Stats** (`QuickStats.tsx`) — Prep Streak (+ today's blocks done/total), Workout Streak, Budget Remaining (3-tier color; "Over ₹X" in red when over; "—" without a budget), Workout Today. Replaced by the Hunt Hero in Interview War Mode.
 
 ### Always shown
 
-- **Header line** — date + `{Mahadasha}/{Antardasha} dasha` link to Astrology when a chart exists, else a time-of-day greeting. The dasha segment is hidden in Job Hunt Mode.
+- **Header line** — date + `{Mahadasha}/{Antardasha} dasha` link to Astrology when a chart exists, else a time-of-day greeting. The dasha segment is hidden in Interview War Mode.
 - **Top Priority banner** — item 0 of the same ranked list Needs Attention renders (`buildPriorityItems()` in `dashboard/priority.ts`), whole row links to its module.
 - **Needs Attention** (`NeedsAttention.tsx`) — up to 3 items: risks first, then Today's Focus signals, then opportunities. A signal is dropped when a risk already covers it (`SIGNALS_COVERED_BY_RISK`: `budget_pace` covers `finance.over_budget`/`near_budget`). Risks/opportunities are dismissible for today (`decision_queue_dismissals`); signals are plain links.
   - **Signals** (each module's `signals.ts`, ranked by `rankSignals()` in `src/lib/signals.ts`): interview round within 48h (95), over budget (80), revision topics due in Prep (62, `prep.revision_due`), workout still open (60), company mid-process with no round scheduled (58), ≥90% of budget used (55), no health metric today (50).
@@ -67,15 +67,15 @@ Every module score blends today with the trailing week:
 
 The center of the app: *what do I practice today, and am I interview-ready?* for Senior / Lead Frontend roles. Code in `src/features/prep/`. `loadPrepData(db, userId)` (`core.ts`, a plain server module, not `'use server'`) is the one data path for the page, the crons and the Telegram bot. Tabs (`PageTabs`): **Today / Questions / Mock Round / Story Bank**, deep-linkable via `?tab=`, `&cat=<category>`, `&topic=`, `&format=screen|behavioral|system-design|machine-coding`.
 
-### Job Hunt Mode and the daily plan
+### Interview War Mode and the daily plan
 
-- **Settings** (`prep_settings`): `target_date` (null = off), `hours_per_day` (1–14, default 8), `weekly_outreach_target` (default 15). Set in the Today tab's Job Hunt Mode strip (target date, hours/day, Outreach/week). Saving or turning off deletes today's `prep_sessions` row so the plan rebuilds. `isHuntMode(db, userId)` (`hunt.ts`) is the shared check.
+- **Settings** (`prep_settings`): `target_date` (null = off), `hours_per_day` (1–14, default 8), `weekly_outreach_target` (default 15). Set in the Today tab's Interview War Mode strip (target date, hours/day, Outreach/week). Saving or turning off deletes today's `prep_sessions` row so the plan rebuilds. `isHuntMode(db, userId)` (`hunt.ts`) is the shared check — code identifiers (`hunt.ts`, `isHuntMode`, `HuntHero`) keep the older "hunt" name; every user-facing string says Interview War Mode.
 - **Plan** (`buildHuntPlan()`, deterministic), stored once per day in `prep_sessions.blocks` so it doesn't shift mid-day. Block order:
   1. **Company prep** (`company:{applicationId}`) — when a round is booked within 72h: 60 min if it's within 24h, else 40, on the JD's priority topics, the company's past questions and the matching mock format, with links (`companyPrepBlock()`).
   2. **Redo real interview questions × N** (`bank:interview`) — while any `interview` category question is rated under 7 (10 min each, max 4; `interviewRedoBlock()`).
   3. The two weakest Question Bank categories, then the **Mock round** (format by weekday, `mockFormatForDay()`: Mon/Wed/Fri machine coding, Tue/Thu behavioral, Sat system design, Sun frontend screen), then the remaining categories weakest first, then **STAR stories** (12% of the day while any competency lacks a solid story, 6% after).
 - **Quotas** (`computeQuotas()`): each category has a base share and minutes per question — Theory 14% / 5 min · Angular 10% / 6 · AI-native 10% / 10 · Behavioral Q&A 4% / 10 · JS functions 12% / 25 · UI coding 20% / 45 · System design 12% / 60 · Algorithms 6% / 30 · Asked in interviews 0% (redo block only). Shares are multiplied by `0.5 + gap` (`categoryWeights()`, gap 0 = at gate, 1 = blind spot), renormalized, and fill the minutes left after the mock, stories, company and redo blocks; quota = what fits (min 1). On machine-coding days the UI-coding bank block is dropped. Bank blocks auto-tick when today's answered count in the category reaches the quota; the mock block when a round is saved.
-- **Outside Job Hunt Mode** `buildPrepPlan()` makes a ~45-min weekday-focus session (main practice → 3-question concept rep on the weakest area → leadership rep).
+- **Outside Interview War Mode** `buildPrepPlan()` makes a ~45-min weekday-focus session (main practice → 3-question concept rep on the weakest area → leadership rep).
 - **Prep streak** = consecutive days with a completed session (today given grace).
 
 ### Question Bank (Questions tab)
@@ -158,7 +158,7 @@ Overall fitness: a gradual deficit toward a normal BMI, targets auto-computed (n
 
 ## 6. Astrology (`/astrology`)
 
-Vedic (sidereal) astrology. Charts are real astronomical calculation — Claude only narrates computed positions. Reached via the profile menu and the mobile More sheet. **Paused in Job Hunt Mode**: the daily push stops and Characteristics needs a Load click.
+Vedic (sidereal) astrology. Charts are real astronomical calculation — Claude only narrates computed positions. Reached via the profile menu and the mobile More sheet. **Paused in Interview War Mode**: the daily push stops and Characteristics needs a Load click.
 
 - **Ephemeris** (`ephemeris.ts`): `swisseph-wasm` (Swiss Ephemeris as WebAssembly — no native binding), Lahiri ayanamsa. `next.config.ts` bundles its wasm files for the route (`outputFileTracingIncludes`, `serverExternalPackages`).
 - **Natal chart** (`chart-calculations.ts`, computed once at save into `astrology_profile.natal_chart`): rashi, nakshatra + pada, whole-sign houses from the Lagna, **Vimshottari Dasha** (Mahadasha + Antardasha), **Yogini Dasha** (`(nakshatra + 3) mod 8`), **Navamsa (D9)**. Rendered as a North Indian SVG kundli with a D1/D9 toggle.
@@ -199,12 +199,12 @@ Daily-only schedules (Vercel Hobby). Every job checks `Authorization: Bearer $CR
 
 | Job | UTC / IST | Bot | What it does |
 | --- | --- | --- | --- |
-| `prep-coach-morning` | `0 2 * * *` / 7:30am | Daily (+ Career for debriefs) | Debrief prompts, then (Job Hunt Mode) the mission: D-N, readiness + tier, biggest risk, 🏢 company prep first, next interview, today's blocks, outreach this week X/target, follow-ups due, debriefs owed, revision due, "Start with…", "Reply DRILL for a spoken rep", + morning reminders. Off: reminders only, if any. No AI. |
+| `prep-coach-morning` | `0 2 * * *` / 7:30am | Daily (+ Career for debriefs) | Debrief prompts, then (Interview War Mode) the mission: D-N, readiness + tier, biggest risk, 🏢 company prep first, next interview, today's blocks, outreach this week X/target, follow-ups due, debriefs owed, revision due, "Start with…", "Reply DRILL for a spoken rep", + morning reminders. Off: reminders only, if any. No AI. |
 | `prep-coach-midday` | `30 7 * * *` / 1pm | Daily | Only when ≥30 min behind pace. |
 | `prep-coach-evening` | `0 16 * * *` / 9:30pm | Daily (+ Career) | Debrief prompts, then the day review (focus vs plan, interruptions, mocks, readiness, tomorrow's shift, coach line) + "📌 Still open" (no expense today, open workout, metrics stale ≥3 days via `computeStaleMetrics()`) + evening reminders; Sundays add the weekly forecast. Off: still sends open items / reminders. |
-| `weekly-digest` | `30 2 * * 0` / Sun 8am | Daily | 7-day module averages, best/worst day, a short AI review (`weekly_digest`, 6h cache), weekly spend by category. **No-op in Job Hunt Mode.** |
-| `monthly-digest` | `40 2 * * *` / 8:10am | Daily | Same over 30 days, sends only on the 1st (IST). **No-op in Job Hunt Mode.** |
-| `astrology-daily` | `0 4 * * *` / 9:30am | Astrology | Panchang + daily reading in Hindi. **No-op in Job Hunt Mode.** |
+| `weekly-digest` | `30 2 * * 0` / Sun 8am | Daily | 7-day module averages, best/worst day, a short AI review (`weekly_digest`, 6h cache), weekly spend by category. **No-op in Interview War Mode.** |
+| `monthly-digest` | `40 2 * * *` / 8:10am | Daily | Same over 30 days, sends only on the 1st (IST). **No-op in Interview War Mode.** |
+| `astrology-daily` | `0 4 * * *` / 9:30am | Astrology | Panchang + daily reading in Hindi. **No-op in Interview War Mode.** |
 | `cron-health-check` | `0 4 * * *` / 9:30am | Daily | Alerts on any stale job; silent when healthy. |
 
 ## 10. AI Gateway
@@ -267,8 +267,8 @@ Standard: `user_id uuid references auth.users` + select/insert/update/delete RLS
 
 | Table | Key columns |
 | --- | --- |
-| `prep_settings` | user_id (PK), target_date (null = Job Hunt Mode off), hours_per_day (1–14, default 8), weekly_outreach_target (default 15), updated_at |
-| `prep_sessions` | date (unique per user), focus, blocks jsonb `[{key, label, detail, minutes, href, done, links?}]` (keys: `company:<id>`, `bank:<category>` (incl. `bank:interview` redo), `mock`, `lead`, or main/concept outside Job Hunt Mode), completed_at |
+| `prep_settings` | user_id (PK), target_date (null = Interview War Mode off), hours_per_day (1–14, default 8), weekly_outreach_target (default 15), updated_at |
+| `prep_sessions` | date (unique per user), focus, blocks jsonb `[{key, label, detail, minutes, href, done, links?}]` (keys: `company:<id>`, `bank:<category>` (incl. `bank:interview` redo), `mock`, `lead`, or main/concept outside Interview War Mode), completed_at |
 | `prep_focus_sessions` | date, block_key, label, planned_minutes, started_at, paused_at, paused_seconds, interruptions, ended_at, actual_seconds, status (active/completed/abandoned) |
 | `prep_forecasts` | date (unique per user), forecast jsonb {strengths[], failures[{area, why}], riskQuestion, fixFirst[], confidence} |
 | `coding_questions` | title, difficulty, url (null for linkless rows), source, topics text[], category (algorithm / quiz / system-design / javascript-functions / ui-coding / ai-native / behavioral / angular / interview), sort_order, answer_hints — **global pool, no user_id** |
@@ -359,11 +359,11 @@ Top-to-bottom layout of every page.
 
 ### Dashboard (`/dashboard`)
 
-1. `PageHeader` "Dashboard" — right: date · dasha link (or greeting; greeting only in Job Hunt Mode)
+1. `PageHeader` "Dashboard" — right: date · dasha link (or greeting; greeting only in Interview War Mode)
 2. **Top Priority** banner (conditional, risk-tinted row link)
-3. Job Hunt Mode: **Hunt Hero** — 6 tiles `grid-cols-2 sm:grid-cols-3 lg:grid-cols-6` (Readiness, Target, Next interview, Outreach this week, Focused today, Runway). Otherwise: **Life Score** ring card + **Quick Stats** (4 tiles) `lg:grid-cols-[340px_1fr]`
+3. Interview War Mode: **Hunt Hero** — 6 tiles `grid-cols-2 sm:grid-cols-3 lg:grid-cols-6` (Readiness, Target, Next interview, Outreach this week, Focused today, Runway). Otherwise: **Life Score** ring card + **Quick Stats** (4 tiles) `lg:grid-cols-[340px_1fr]`
 4. **Needs Attention** + **Daily Mission** `lg:grid-cols-2 items-start`
-5. **Life Score Trend** (not in Job Hunt Mode)
+5. **Life Score Trend** (not in Interview War Mode)
 
 App-wide: Quick Add FAB; Ask Brain in the header.
 
@@ -372,7 +372,7 @@ App-wide: Quick Add FAB; Ask Brain in the header.
 1. Header — "Prep" + 🔥 streak, 🎯 today's focus, 📅 Interview-ready by {date}
 2. Stat tiles (4) — Interview readiness (% + tier · blockers), Mock rounds this week, Story Bank, Focused today
 3. Tabs: Today / Questions / Mock Round / Story Bank
-4. **Today** — Job Hunt Mode strip (target date, hours/day, Outreach/week; on: D-N, quotas, Edit / Turn off) → War header (D-N, coach line, next-interview link, minutes, readiness % + tier label, up to 6 blocker chips) → `lg:grid-cols-[1fr_380px]`: left **Today's Mission** ("Do this now" + Start focus, progress, block rows with links) above **Revision Queue** + **Weakest Topics** (`sm:grid-cols-2`); right **Readiness Gates**, **Forecast**. Focus overlay / floating timer pill while focusing.
+4. **Today** — Interview War Mode strip (target date, hours/day, Outreach/week; on: D-N, quotas, Edit / Turn off) → War header (D-N, coach line, next-interview link, minutes, readiness % + tier label, up to 6 blocker chips) → `lg:grid-cols-[1fr_380px]`: left **Today's Mission** ("Do this now" + Start focus, progress, block rows with links) above **Revision Queue** + **Weakest Topics** (`sm:grid-cols-2`); right **Readiness Gates**, **Forecast**. Focus overlay / floating timer pill while focusing.
 5. **Questions** `lg:grid-cols-[1fr_340px]` — Sprint (category chips with today/quota, topic select, question, answer, key points / link, rating badge + critique, AI review · Skip · Next) + Coverage
 6. **Mock Round** — format picker (4) + Mock Interview Calendar; running round (progress, countdown, answer, Skip/Next); round detail (review box, every answer with rating + note)
 7. **Story Bank** — competency coverage → Rehearse + Stories; story modal
@@ -411,7 +411,7 @@ App-wide: Quick Add FAB; Ask Brain in the header.
 1. Header + EN/हिं pill
 2. **Birth Details** (inline grid, one save)
 3. **Current Dasha** strip (Vimshottari + Yogini)
-4. **Your Characteristics** (collapsed `<details>`; Load button in Job Hunt Mode)
+4. **Your Characteristics** (collapsed `<details>`; Load button in Interview War Mode)
 5. **Natal Chart** (D1/D9 kundli) + **Horoscope** (Today / Month / Year) and **Remediation** `lg:grid-cols-[minmax(280px,380px)_1fr]`
 
 ### Settings (`/settings`)

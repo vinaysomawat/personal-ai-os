@@ -25,7 +25,7 @@ export async function GET(req: Request) {
   const user = users?.users?.[0]
   if (!user) return NextResponse.json({ error: 'No user' }, { status: 404 })
   // Paused during Job Hunt Mode (still logged above, so it reads as healthy).
-  if (await isHuntMode(supabase, user.id)) return NextResponse.json({ ok: true, notified: false, reason: 'Paused in Job Hunt Mode' })
+  if (await isHuntMode(supabase, user.id)) return NextResponse.json({ ok: true, notified: false, reason: 'Paused in Interview War Mode' })
 
   const { data: profile } = await supabase.from('astrology_profile').select('*').eq('user_id', user.id).maybeSingle()
   if (!profile) return NextResponse.json({ ok: true, notified: false, message: 'No birth chart saved yet' })

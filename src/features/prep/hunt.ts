@@ -143,7 +143,7 @@ export function buildHuntPlan(ctx: {
     detail: ctx.uncoveredCompetency ? `Write a STAR story for "${ctx.uncoveredCompetency}", then rehearse one out loud` : 'Rehearse 2 stories out loud and get feedback on one',
     href: '/prep?tab=stories', done: false,
   })
-  return { focus: `Job hunt · D-${ctx.days}`, blocks }
+  return { focus: `Interview War Mode · D-${ctx.days}`, blocks }
 }
 
 // Company Prep Mode (v4.0 §4.4): a round ≤72h away puts a block first —

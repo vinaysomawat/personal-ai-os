@@ -32,7 +32,7 @@ export async function GET(req: Request) {
   ])
   if (!data) {
     const text = [open, reminders.trim()].filter(Boolean).join('\n\n')
-    if (!text) return NextResponse.json({ ok: true, sent: false, reason: 'Job Hunt Mode off, nothing open' })
+    if (!text) return NextResponse.json({ ok: true, sent: false, reason: 'Interview War Mode off, nothing open' })
     await sendMessage(BOT_TOKEN, Number(CHAT_ID), text)
     return NextResponse.json({ ok: true, sent: true, hunt: false })
   }

@@ -108,7 +108,7 @@ export default function PipelineTab({ outreach, apps, rounds, target, onOutreach
           </div>
           <input value={f.notes} onChange={e => setF({ ...f, notes: e.target.value })} placeholder="Notes (optional)" className={modalInputClass()} />
           <button type="submit" disabled={busy || !f.company.trim()} className={modalSaveButtonClass}>{busy ? 'Saving…' : 'Log'}</button>
-          <p className="text-[10.5px] text-fg-tertiary">Referral / LinkedIn / recruiter outreach gets a follow-up date 5 days out. Use count for a batch of applications. Target {target}/week — set it in Prep&apos;s Job Hunt Mode strip.</p>
+          <p className="text-[10.5px] text-fg-tertiary">Referral / LinkedIn / recruiter outreach gets a follow-up date 5 days out. Use count for a batch of applications. Target {target}/week — set it in Prep&apos;s Interview War Mode strip.</p>
         </form>
       </Card>
     </div>
