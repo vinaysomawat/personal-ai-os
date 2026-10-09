@@ -1,3 +1,4 @@
+import type { SupabaseClient } from '@supabase/supabase-js'
 import type { PrepBlock } from './types'
 import { formatMinutes, formatOf, mockFormatForDay } from './mock'
 
@@ -130,4 +131,11 @@ export function buildHuntPlan(ctx: {
     href: '/prep?tab=stories', done: false,
   })
   return { focus: `Job hunt · D-${ctx.days}`, blocks }
+}
+
+// Job Hunt Mode = a target date is set (prep_settings.target_date). The one
+// shared check for everything that pauses or changes while hunting.
+export async function isHuntMode(db: SupabaseClient, userId: string): Promise<boolean> {
+  const { data } = await db.from('prep_settings').select('target_date').eq('user_id', userId).maybeSingle()
+  return !!data?.target_date
 }

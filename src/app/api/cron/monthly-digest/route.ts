@@ -3,6 +3,7 @@ import { createServiceClient } from '@/lib/supabase/service'
 import { generateMonthlyDigest } from '@/features/ai/weekly-digest'
 import { sendMessage } from '@/lib/telegram/send'
 import { logCronRun } from '@/lib/cron-log'
+import { isHuntMode } from '@/features/prep/hunt'
 
 const CHAT_ID   = process.env.TELEGRAM_ALLOWED_CHAT_ID!
 const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN_PLANNER!
@@ -28,6 +29,8 @@ export async function GET(req: Request) {
   const { data: users } = await supabase.auth.admin.listUsers()
   const user = users?.users?.[0]
   if (!user) return NextResponse.json({ error: 'No user' }, { status: 404 })
+  // Paused during Job Hunt Mode — the Sunday Prep forecast replaces it.
+  if (await isHuntMode(supabase, user.id)) return NextResponse.json({ ok: true, sent: false, reason: 'Paused in Job Hunt Mode' })
 
   const body = await generateMonthlyDigest(supabase, user.id)
 

@@ -93,6 +93,7 @@ export async function getDashboardData() {
     careerMemory: { currentRole: null, currentCompany: null, targetRole: null, currentSalary: null, bio: null } as { currentRole: string | null; currentCompany: string | null; targetRole: string | null; currentSalary: number | null; bio: string | null },
     financialGoals: [] as { name: string; targetAmount: number; currentAmount: number; targetDate: string | null }[],
     astrology: null as { dashaLord: string; antardashaLord: string; tithi: string | null; nakshatra: string | null } | null,
+    huntMode: false,
   }
 
   const [
@@ -102,7 +103,7 @@ export async function getDashboardData() {
     aiUsageMonthRes, prepSessionsRes, activeWorkout,
     questions30dRes, workoutCompletedTodayRes,
     financialGoalsRes, progressRes,
-    workoutStats, astrologyProfileRes, panchangTodayRes, roundsRes,
+    workoutStats, astrologyProfileRes, panchangTodayRes, roundsRes, prepSettingsRes,
     healthProfileRes, healthMetricsHistoryRes,
     { data: historyData },
   ] = await Promise.all([
@@ -130,6 +131,8 @@ export async function getDashboardData() {
     supabase.from('panchang_daily').select('tithi, nakshatra').eq('date', today).maybeSingle(),
     // Scheduled interview rounds from now on — the upcoming-interview signal.
     supabase.from('interview_rounds').select('kind, scheduled_at, application:applications(company)').eq('user_id', user.id).eq('status', 'scheduled').gte('scheduled_at', new Date().toISOString()).order('scheduled_at', { ascending: true }),
+    // Job Hunt Mode (target date set) — changes what the Dashboard shows.
+    supabase.from('prep_settings').select('target_date').eq('user_id', user.id).maybeSingle(),
     // Life Score v2's Health sub-score reuses the Health module's own
     // nutrition/activity calc instead of a separate presence-only formula —
     // needs the profile (for targets) and enough metric history for the
@@ -408,7 +411,9 @@ export async function getDashboardData() {
   // page itself.
   const natalChart = astrologyProfileRes.data?.natal_chart as NatalChart | undefined
   const currentDasha = natalChart ? getCurrentDasha(natalChart.vimshottariDasha, today) : null
-  const astrology = currentDasha ? {
+  const huntMode = !!prepSettingsRes.data?.target_date
+  // The dasha segment is paused during Job Hunt Mode (plain greeting instead).
+  const astrology = currentDasha && !huntMode ? {
     dashaLord: currentDasha.mahadasha.lord,
     antardashaLord: currentDasha.antardasha.lord,
     tithi: panchangTodayRes.data?.tithi ?? null,
@@ -470,5 +475,6 @@ export async function getDashboardData() {
       targetDate: g.target_date as string | null,
     })),
     astrology,
+    huntMode,
   }
 }

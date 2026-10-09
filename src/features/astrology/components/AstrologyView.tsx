@@ -141,7 +141,7 @@ function BirthDetailsCard({ profile, onSaved, t }: { profile: AstrologyProfile |
   )
 }
 
-export default function AstrologyView({ initialProfile }: { initialProfile: AstrologyProfile | null }) {
+export default function AstrologyView({ initialProfile, huntMode = false }: { initialProfile: AstrologyProfile | null; huntMode?: boolean }) {
   const [profile, setProfile] = useState(initialProfile)
   const [tab, setTab] = useState<ReadingPeriod>('daily')
   // Monthly/yearly stay prose (readings); daily is the structured
@@ -191,13 +191,18 @@ export default function AstrologyView({ initialProfile }: { initialProfile: Astr
   }, [lang])
 
   // Characteristics (astrology.md 3.8) is a stable, effectively-permanently-
-  // cached read off the chart alone — auto-loaded on view rather than
-  // click-to-load like the daily/monthly/yearly readings, since a repeat
-  // view costs nothing once cached.
-  useEffect(() => {
+  // cached read off the chart alone — auto-loaded on view, except in Job
+  // Hunt Mode, where Astrology makes no automatic AI calls (Load button).
+  const [characteristicsLoading, setCharacteristicsLoading] = useState(false)
+  const loadCharacteristics = () => {
     if (!profile) return
+    setCharacteristicsLoading(true)
+    getAstrologyCharacteristics(profile, lang).then(setCharacteristics).finally(() => setCharacteristicsLoading(false))
+  }
+  useEffect(() => {
+    if (!profile || huntMode) return
     getAstrologyCharacteristics(profile, lang).then(setCharacteristics)
-  }, [profile, lang])
+  }, [profile, lang, huntMode])
 
   const today = todayIST()
   const currentDasha = profile ? getCurrentDasha(profile.natal_chart.vimshottariDasha, today) : null
@@ -239,6 +244,14 @@ export default function AstrologyView({ initialProfile }: { initialProfile: Astr
             </div>
           )}
 
+          {!characteristics && huntMode && (
+            <Card>
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-[13px] font-bold text-fg-primary">{t('characteristics', 'Your Characteristics')}</p>
+                <button onClick={loadCharacteristics} disabled={characteristicsLoading} className="text-[12px] text-accent hover:underline disabled:opacity-50">{characteristicsLoading ? 'Loading…' : 'Load'}</button>
+              </div>
+            </Card>
+          )}
           {characteristics && (
             <Card>
               <details>

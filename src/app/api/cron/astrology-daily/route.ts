@@ -8,6 +8,7 @@ import { formatPanchangLines, formatDailyReading } from '@/features/astrology/te
 import { nowISTHHMM } from '@/lib/date'
 import { UI_HI } from '@/features/astrology/i18n/hi'
 import type { AstrologyProfile } from '@/features/astrology/types'
+import { isHuntMode } from '@/features/prep/hunt'
 
 const CHAT_ID = process.env.TELEGRAM_ALLOWED_CHAT_ID!
 const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN_ASTROLOGY!
@@ -23,6 +24,8 @@ export async function GET(req: Request) {
   const { data: users } = await supabase.auth.admin.listUsers()
   const user = users?.users?.[0]
   if (!user) return NextResponse.json({ error: 'No user' }, { status: 404 })
+  // Paused during Job Hunt Mode (still logged above, so it reads as healthy).
+  if (await isHuntMode(supabase, user.id)) return NextResponse.json({ ok: true, notified: false, reason: 'Paused in Job Hunt Mode' })
 
   const { data: profile } = await supabase.from('astrology_profile').select('*').eq('user_id', user.id).maybeSingle()
   if (!profile) return NextResponse.json({ ok: true, notified: false, message: 'No birth chart saved yet' })
