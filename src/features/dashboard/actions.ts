@@ -146,7 +146,7 @@ export async function getDashboardData() {
     // other query, so it runs in this same batch (was a separate sequential
     // round-trip after it, ~600ms).
     supabase.from('life_score_logs')
-      .select('date, life_score, health_score, finance_score, career_score, learning_score, projects_score')
+      .select('date, life_score, health_score, finance_score, career_score, projects_score')
       .eq('user_id', user.id).gte('date', daysAgoIST(30)).order('date', { ascending: true }),
   ])
 
@@ -352,7 +352,7 @@ export async function getDashboardData() {
   })) as Record<ScoreModule, ModuleBreakdown>
 
   // Reweighted 2026-10-08 when Learning was removed (was 25/20/20/20/15
-  // with Learning 20%); life_score_logs.learning_score now defaults to 0.
+  // with Learning 20%); life_score_logs.learning_score was dropped in v4.0.
   const lifeScore = Math.round(
     scoreBreakdown.health.blended    * 0.30 +
     scoreBreakdown.finance.blended   * 0.25 +

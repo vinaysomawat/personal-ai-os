@@ -110,19 +110,16 @@ export async function exportAllData() {
 
   const uid = user.id
   const [
-    tasks, applications, careerProfile, skills, quizAttempts,
+    applications, careerProfile, skills,
     expenses, budgets, financeProfile, salaryHistory, loans, investments, financialGoals,
     healthMetrics, healthProfile, workouts,
-    resources,
-    codingQuestions, codingSettings,
+    codingQuestions,
     reminders,
-    lifeScoreLogs, userXp,
+    lifeScoreLogs,
   ] = await Promise.all([
-    supabase.from('tasks').select('*').eq('user_id', uid),
     supabase.from('applications').select('*').eq('user_id', uid),
     supabase.from('career_profile').select('*').eq('user_id', uid).maybeSingle(),
     supabase.from('skills').select('*').eq('user_id', uid),
-    supabase.from('quiz_attempts').select('*').eq('user_id', uid),
     supabase.from('expenses').select('*').eq('user_id', uid),
     supabase.from('budgets').select('*').eq('user_id', uid),
     supabase.from('finance_profile').select('*').eq('user_id', uid).maybeSingle(),
@@ -133,22 +130,17 @@ export async function exportAllData() {
     supabase.from('health_metrics').select('*').eq('user_id', uid),
     supabase.from('health_profile').select('*').eq('user_id', uid).maybeSingle(),
     supabase.from('workouts').select('*').eq('user_id', uid),
-    supabase.from('resources').select('*').eq('user_id', uid),
     supabase.from('coding_daily_questions').select('*, question:coding_questions(*)').eq('user_id', uid),
-    supabase.from('coding_settings').select('*').eq('user_id', uid).maybeSingle(),
     supabase.from('reminders').select('*').eq('user_id', uid),
     supabase.from('life_score_logs').select('*').eq('user_id', uid),
-    supabase.from('user_xp').select('*').eq('user_id', uid).maybeSingle(),
   ])
 
   return {
     exported_at: new Date().toISOString(),
     account: { email: user.email },
-    // Planner was removed 2026-10-07; its tasks stay in the DB and the backup.
-    planner: { tasks: tasks.data ?? [] },
     career: {
       applications: applications.data ?? [], profile: careerProfile.data ?? null,
-      skills: skills.data ?? [], quiz_attempts: quizAttempts.data ?? [],
+      skills: skills.data ?? [],
     },
     finance: {
       expenses: expenses.data ?? [], budgets: budgets.data ?? [], profile: financeProfile.data ?? null,
@@ -158,9 +150,8 @@ export async function exportAllData() {
     health: {
       metrics: healthMetrics.data ?? [], profile: healthProfile.data ?? null, workouts: workouts.data ?? [],
     },
-    learning: { resources: resources.data ?? [] },
-    coding: { question_history: codingQuestions.data ?? [], settings: codingSettings.data ?? null },
+    coding: { question_history: codingQuestions.data ?? [] },
     reminders: reminders.data ?? [],
-    history: { life_score_logs: lifeScoreLogs.data ?? [], xp: userXp.data ?? null },
+    history: { life_score_logs: lifeScoreLogs.data ?? [] },
   }
 }

@@ -1,4 +1,4 @@
-export type ScoreLogRow = { date: string; life_score: number; health_score: number; finance_score: number; career_score: number; learning_score: number; projects_score: number }
+export type ScoreLogRow = { date: string; life_score: number; health_score: number; finance_score: number; career_score: number; projects_score: number }
 
 export interface ScoreStats {
   daysTracked: number

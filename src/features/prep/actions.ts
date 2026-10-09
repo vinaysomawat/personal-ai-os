@@ -96,7 +96,7 @@ export async function answerQuestion(questionId: string, answer: string | null, 
   ])
   if (!q) throw new Error('Question not found')
   const { error } = await supabase.from('question_progress').upsert({
-    user_id: user.id, question_id: questionId, status: null,
+    user_id: user.id, question_id: questionId,
     attempts: (prev?.attempts ?? 0) + 1, last_answer: answer || prev?.last_answer || null, last_seen_at: new Date().toISOString(),
     // The AI review's rating, when one was run before Next.
     ...(rating !== null ? { last_rating: rating, last_rated_at: new Date().toISOString() } : {}),
@@ -124,7 +124,7 @@ export async function saveMockRound(format: MockFormat, items: MockItem[], durat
     const { data: prev } = await supabase.from('question_progress').select('question_id, attempts, last_answer').eq('user_id', user.id).in('question_id', ids)
     const prevById = new Map((prev ?? []).map(p => [p.question_id, p]))
     const { error } = await supabase.from('question_progress').upsert(answered.map(i => ({
-      user_id: user.id, question_id: i.question_id!, status: null,
+      user_id: user.id, question_id: i.question_id!,
       attempts: (prevById.get(i.question_id!)?.attempts ?? 0) + 1,
       // An answer given out loud (blank here) keeps the last typed one.
       last_answer: i.answer.trim() || prevById.get(i.question_id!)?.last_answer || null,

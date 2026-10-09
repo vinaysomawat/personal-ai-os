@@ -6,7 +6,7 @@ import type { InlineButton } from './types'
 // arbitrary table delete.
 const UNDOABLE_TABLES = [
   'applications', 'interview_rounds', 'interview_questions', 'outreach', 'expenses', 'loans', 'investments',
-  'workouts', 'resources', 'food_log',
+  'workouts', 'food_log',
 ] as const
 export type UndoableTable = typeof UNDOABLE_TABLES[number]
 
@@ -31,6 +31,5 @@ export const UNDO_LABEL: Record<UndoableTable, (row: Record<string, unknown>) =>
   loans: r => String(r.name ?? 'loan'),
   investments: r => String(r.name ?? 'investment'),
   workouts: r => String(r.type ?? 'workout'),
-  resources: r => String(r.title ?? 'resource'),
   food_log: r => String(r.item ?? 'food entry'),
 }

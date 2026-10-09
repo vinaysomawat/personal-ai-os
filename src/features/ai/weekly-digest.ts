@@ -26,7 +26,7 @@ async function generateDigest(
 
   const [{ data: logs }, { data: expenses }] = await Promise.all([
     db.from('life_score_logs')
-      .select('date, life_score, health_score, finance_score, career_score, learning_score, projects_score')
+      .select('date, life_score, health_score, finance_score, career_score, projects_score')
       .eq('user_id', userId)
       .gte('date', since)
       .order('date', { ascending: true }),

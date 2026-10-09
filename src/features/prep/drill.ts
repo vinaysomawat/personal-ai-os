@@ -87,7 +87,7 @@ export async function answerPendingDrill(db: SupabaseClient, userId: string, tex
     db.from('coding_questions').select('category').eq('id', drill.question_id).single(),
   ])
   await db.from('question_progress').upsert({
-    user_id: userId, question_id: drill.question_id, status: null,
+    user_id: userId, question_id: drill.question_id,
     attempts: (prev?.attempts ?? 0) + 1, last_answer: t || prev?.last_answer || null, last_seen_at: now,
     ...(rating !== null ? { last_rating: rating, last_rated_at: now } : {}),
   }, { onConflict: 'user_id,question_id' })

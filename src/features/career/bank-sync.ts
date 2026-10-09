@@ -44,7 +44,7 @@ export async function syncInterviewQuestionToBank(db: SupabaseClient, userId: st
   const now = new Date().toISOString()
   const { data: prev } = await db.from('question_progress').select('attempts, last_answer').eq('user_id', userId).eq('question_id', bankId).maybeSingle()
   await db.from('question_progress').upsert({
-    user_id: userId, question_id: bankId, status: null,
+    user_id: userId, question_id: bankId,
     attempts: Math.max(1, prev?.attempts ?? 0), last_answer: q.my_answer || prev?.last_answer || null,
     last_seen_at: now, last_rating: SEED_RATING[q.went], last_rated_at: now,
   }, { onConflict: 'user_id,question_id' })
