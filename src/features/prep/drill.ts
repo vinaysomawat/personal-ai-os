@@ -49,7 +49,10 @@ export async function startDrill(db: SupabaseClient, userId: string, requested: 
   await db.from('telegram_drills').update({ answered_at: new Date().toISOString() }).eq('user_id', userId).is('answered_at', null)
   const { error } = await db.from('telegram_drills').insert({ user_id: userId, question_id: q.id })
   if (error) return `❌ ${error.message}`
-  return `🎙️ *Drill · ${category}*\n\n${q.title}\n\nAnswer with a voice note (aim for 60–120s) within 30 min. Reply *SKIP* to pass.`
+  const prompt = category === 'system-design'
+    ? `Design the frontend for *${q.title}* — requirements, component architecture, state and data flow, performance, trade-offs.`
+    : q.title
+  return `🎙️ *Drill · ${category}*\n\n${prompt}\n\nAnswer with a voice note (aim for 60–120s) within 30 min. Reply *SKIP* to pass.`
 }
 
 // Bot commands that must never be swallowed as a drill answer.
