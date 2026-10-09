@@ -5,6 +5,7 @@ import { logCronRun } from '@/lib/cron-log'
 import { getReminderLines } from '@/lib/reminders'
 import { todayIST } from '@/lib/date'
 import { coachData, eveningMessage, stillOpenLine } from '@/features/prep/coach'
+import { sendDebriefPrompts } from '@/features/prep/coach'
 import { generateForecast } from '@/features/prep/forecast'
 
 const CHAT_ID = process.env.TELEGRAM_ALLOWED_CHAT_ID!
@@ -24,6 +25,8 @@ export async function GET(req: Request) {
   const { data: users } = await supabase.auth.admin.listUsers()
   const user = users?.users?.[0]
   if (!user) return NextResponse.json({ error: 'No user' }, { status: 404 })
+  // Debrief prompts (Career bot) go out whether or not Job Hunt Mode is on.
+  const debriefs = await sendDebriefPrompts(supabase, user.id)
   const [data, reminders, open] = await Promise.all([
     coachData(supabase, user.id), getReminderLines(supabase, user.id, 'evening'), stillOpenLine(supabase, user.id, todayIST()),
   ])
@@ -45,5 +48,5 @@ export async function GET(req: Request) {
     }
   }
   await sendMessage(BOT_TOKEN, Number(CHAT_ID), text)
-  return NextResponse.json({ ok: true, sent: true, forecast: sunday })
+  return NextResponse.json({ ok: true, sent: true, forecast: sunday, debriefs })
 }

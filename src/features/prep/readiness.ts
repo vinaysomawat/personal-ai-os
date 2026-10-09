@@ -18,6 +18,43 @@ const MIN_RATED_SAMPLE = 2
 const CONFIDENT_SAMPLE = 5
 const shrink = (score: number, n: number) => Math.round(score * Math.min(1, n / CONFIDENT_SAMPLE))
 
+// A real interview round with a decided outcome (v4.0 §4.2).
+export interface DecidedRound {
+  kind: string
+  outcome: 'passed' | 'failed'
+}
+
+// Which readiness areas a round kind tests.
+export const ROUND_AREAS: Record<string, string[]> = {
+  system_design: ['sysdesign'],
+  coding: ['uicoding', 'js'],
+  technical: ['js', 'react'],
+  phone_screen: ['js', 'react'],
+  behavioral: ['behavioral'],
+  hiring_manager: ['behavioral', 'leadership'],
+  onsite: ['behavioral', 'leadership'],
+}
+const ROUND_SCORE = { passed: 85, failed: 35 }
+const ROUND_CONFIDENT_SAMPLE = 3
+
+// Real rounds outweigh practice: an area's round signal (mean of passed 85 /
+// failed 35, shrunk by n/3) counts double against its existing score —
+// (base + 2 × rounds) / 3 — or stands alone when the area had no data.
+function withRealRounds(cells: ReadinessCell[], rounds: DecidedRound[]): ReadinessCell[] {
+  return cells.map(c => {
+    const rs = rounds.filter(r => (ROUND_AREAS[r.kind] ?? []).includes(c.key))
+    if (rs.length === 0) return c
+    const mean = rs.reduce((s, r) => s + ROUND_SCORE[r.outcome], 0) / rs.length
+    const signal = Math.round(mean * Math.min(1, rs.length / ROUND_CONFIDENT_SAMPLE))
+    const passed = rs.filter(r => r.outcome === 'passed').length
+    return {
+      ...c,
+      score: c.score === null ? signal : Math.round((c.score + 2 * signal) / 3),
+      basis: `${c.basis === 'No data yet' ? '' : `${c.basis} · `}${rs.length} real round${rs.length === 1 ? '' : 's'}: ${passed} passed`,
+    }
+  })
+}
+
 export interface CodingHistoryRow {
   completed: boolean
   outcome: string | null
@@ -52,7 +89,11 @@ function storyCoverage(stories: Story[], group: 'behavioral' | 'leadership'): { 
 // self-reported coding outcomes
 // on matching topics over the last 90 days — or story coverage for the two
 // behavioral/leadership areas. null = no data yet.
-export function computeReadinessMatrix(codingHistory: CodingHistoryRow[], stories: Story[], aiNative: { total: number; seen: number } | null = null, rated: RatedAnswer[] = [], now = new Date()): ReadinessCell[] {
+export function computeReadinessMatrix(codingHistory: CodingHistoryRow[], stories: Story[], aiNative: { total: number; seen: number } | null = null, rated: RatedAnswer[] = [], rounds: DecidedRound[] = [], now = new Date()): ReadinessCell[] {
+  return withRealRounds(baseMatrix(codingHistory, stories, aiNative, rated, now), rounds)
+}
+
+function baseMatrix(codingHistory: CodingHistoryRow[], stories: Story[], aiNative: { total: number; seen: number } | null, rated: RatedAnswer[], now: Date): ReadinessCell[] {
   const since = new Date(now.getTime() - CODING_WINDOW_DAYS * 86400000).toISOString()
   const recentCoding = codingHistory.filter(r => r.completed && r.completed_at && r.completed_at >= since && r.question)
 

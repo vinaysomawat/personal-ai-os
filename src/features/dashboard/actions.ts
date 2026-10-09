@@ -13,6 +13,7 @@ import { checkBudget } from '@/features/finance/signals'
 import { checkRevisionDue } from '@/features/prep/signals'
 import { revisionQueue, type RevisionItem } from '@/features/prep/war'
 import { prepStreak } from '@/features/prep/core'
+import { weekStart } from '@/features/career/pipeline'
 import type { BankQuestion } from '@/features/prep/types'
 import { checkWorkoutPending, checkNoMetricsToday } from '@/features/health/signals'
 import { computeTodayProgress } from './daily-progress'
@@ -103,7 +104,7 @@ export async function getDashboardData() {
     aiUsageMonthRes, prepSessionsRes, activeWorkout,
     questions30dRes, workoutCompletedTodayRes,
     financialGoalsRes, progressRes,
-    workoutStats, astrologyProfileRes, panchangTodayRes, roundsRes, prepSettingsRes,
+    workoutStats, astrologyProfileRes, panchangTodayRes, roundsRes, prepSettingsRes, outreachWeekRes,
     healthProfileRes, healthMetricsHistoryRes,
     { data: historyData },
   ] = await Promise.all([
@@ -132,7 +133,9 @@ export async function getDashboardData() {
     // Scheduled interview rounds from now on — the upcoming-interview signal.
     supabase.from('interview_rounds').select('kind, scheduled_at, application:applications(company)').eq('user_id', user.id).eq('status', 'scheduled').gte('scheduled_at', new Date().toISOString()).order('scheduled_at', { ascending: true }),
     // Job Hunt Mode (target date set) — changes what the Dashboard shows.
-    supabase.from('prep_settings').select('target_date').eq('user_id', user.id).maybeSingle(),
+    supabase.from('prep_settings').select('target_date, weekly_outreach_target').eq('user_id', user.id).maybeSingle(),
+    // This week's outreach (Monday-start IST) — Career sub-score + Hunt Hero.
+    supabase.from('outreach').select('count, status').eq('user_id', user.id).gte('sent_at', weekStart(today)),
     // Life Score v2's Health sub-score reuses the Health module's own
     // nutrition/activity calc instead of a separate presence-only formula —
     // needs the profile (for targets) and enough metric history for the
@@ -202,17 +205,21 @@ export async function getDashboardData() {
     financeScore = 60
   }
 
-  // Career (Interviews, 2026-10-08): profile + live interview processes +
-  // practice that prepares for them — mock rounds and logged interview
-  // questions in the last 30 days. (Was quizzes + job-alert tracking.)
+  // Career (v4.0 Job Hunt Focus): profile 10 + this week's outreach vs the
+  // weekly target (≤25) + live processes ×10 (≤25) + mock rounds in 30 days
+  // ×4 (≤20) + interview questions logged in 30 days ×4 (≤20).
   const profileFilled = !!(careerProfileRes.data?.current_role && careerProfileRes.data?.target_role)
   const mockRounds30d = mockRounds30dRes.count ?? 0
   const questions30d = questions30dRes.count ?? 0
+  const outreachTarget = prepSettingsRes.data?.weekly_outreach_target ?? 15
+  const outreachWeek = (outreachWeekRes.data ?? []).reduce((s, r) => s + (r.count ?? 1), 0)
+  const outreachPoints = Math.min(25, Math.round((outreachWeek / outreachTarget) * 25))
   const careerScore = Math.min(100,
-    (profileFilled ? 15 : 0) +
-    Math.min(30, activeApps * 10) +
-    Math.min(30, mockRounds30d * 6) +
-    Math.min(25, questions30d * 5)
+    (profileFilled ? 10 : 0) +
+    outreachPoints +
+    Math.min(25, activeApps * 10) +
+    Math.min(20, mockRounds30d * 4) +
+    Math.min(20, questions30d * 4)
   )
 
   // Practice (the projects_score column; was Coding until Coding was folded
@@ -255,10 +262,11 @@ export async function getDashboardData() {
         : 'Under budget — nothing to do here'
 
   const careerDeficits: [number, string][] = [
-    [profileFilled ? 0 : 15, 'Fill in your career profile (current + target role) — worth 15 points'],
-    [30 - Math.min(30, activeApps * 10), 'No live interview process — add a company once a phone screen is booked'],
-    [30 - Math.min(30, mockRounds30d * 6), 'Run a Mock Round in Prep — up to 30 points'],
-    [25 - Math.min(25, questions30d * 5), 'Log the questions interviewers asked you — up to 25 points'],
+    [profileFilled ? 0 : 10, 'Fill in your career profile (current + target role) — worth 10 points'],
+    [25 - outreachPoints, `Outreach this week ${outreachWeek}/${outreachTarget} — referrals and recruiter DMs count`],
+    [25 - Math.min(25, activeApps * 10), 'No live interview process — add a company once a phone screen is booked'],
+    [20 - Math.min(20, mockRounds30d * 4), 'Run a Mock Round in Prep — up to 20 points'],
+    [20 - Math.min(20, questions30d * 4), 'Log the questions interviewers asked you — up to 20 points'],
   ]
   const topCareerDeficit = careerDeficits.reduce((a, b) => (b[0] > a[0] ? b : a))
   const careerTip = topCareerDeficit[0] > 0 ? topCareerDeficit[1] : 'Career basics maxed — keep the interview pipeline moving'

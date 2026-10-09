@@ -1,7 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { toISTDateStr } from '@/lib/date'
 import { loadPrepData } from './core'
-import { GATES, coachLine, dayPace, focusSeconds, hm, nowBlock } from './war'
+import { GATES, coachLine, dayPace, focusSeconds, hm, nowBlock, readinessTier } from './war'
 
 // Telegram Prep Coach (War Mode) — deterministic message builders for the
 // Daily bot's 7:30am / 1pm / 9:30pm crons and its START/DONE/"what now"
@@ -19,7 +19,8 @@ export async function coachData(db: SupabaseClient, userId: string): Promise<Pre
 const focusedToday = (d: PrepData) => Math.round(d.focusSessions.filter(f => f.date === d.today).reduce((s, f) => s + focusSeconds(f), 0) / 60)
 
 const readinessLine = (d: PrepData) =>
-  `Readiness *${d.war.overall}%* — ${d.war.ready ? '🔥 TOP 1% READY' : `❌ NOT READY (${d.war.blockers.length} blocker${d.war.blockers.length === 1 ? '' : 's'})`}`
+  `Readiness *${d.war.overall}%* — ${readinessTier(d.war).label}` +
+  (d.war.interviewReady && !d.war.ready && d.war.blockers[0] ? `\nInterview-ready. Keep closing: *${d.war.blockers[0].label}*` : '')
 
 export function morningMessage(d: PrepData): string {
   const blocks = d.session?.blocks ?? []
@@ -36,6 +37,7 @@ export function morningMessage(d: PrepData): string {
     ...blocks.map((b, i) => `${b.done ? '✅' : `${i + 1}.`} ${b.label} — ${hm(b.minutes)}`),
     due.length ? `\n🔁 Revision due: ${due.map(r => `${r.topic} (${r.avgRating}/10)`).join(', ')}` : null,
     now ? `\n👉 Start with: *${now.label}*\nReply *START* to begin a focus session.` : null,
+    `\n🎙️ Reply *DRILL* for a spoken rep.`,
   ].filter(l => l !== null).join('\n')
 }
 
@@ -96,4 +98,30 @@ export async function stillOpenLine(db: SupabaseClient, userId: string, today: s
     stale.length ? `not logged: ${stale.join(', ')}` : null,
   ].filter(Boolean)
   return items.length ? `📌 *Still open:* ${items.join(' · ')}` : null
+}
+
+// ---------------- Post-interview debrief (v4.0 §4.3) ----------------
+
+// Rounds that started 1–36h ago, are scheduled or done, have no questions
+// logged and no debrief sent yet get one Career-bot prompt each.
+export async function sendDebriefPrompts(db: SupabaseClient, userId: string, nowMs = Date.now()): Promise<number> {
+  const { sendMessage } = await import('@/lib/telegram/send')
+  const { data } = await db.from('interview_rounds')
+    .select('id, kind, scheduled_at, application:applications(company)')
+    .eq('user_id', userId).in('status', ['scheduled', 'done']).is('debrief_sent_at', null)
+    .gte('scheduled_at', new Date(nowMs - 36 * 3600_000).toISOString())
+    .lte('scheduled_at', new Date(nowMs - 3600_000).toISOString())
+  const rounds = (data ?? []) as unknown as { id: string; kind: string; scheduled_at: string; application: { company: string } | null }[]
+  let sent = 0
+  for (const r of rounds) {
+    const { count } = await db.from('interview_questions').select('id', { count: 'exact', head: true }).eq('round_id', r.id)
+    if (count) continue
+    // Claim first so a retry never double-sends.
+    const { data: claimed } = await db.from('interview_rounds').update({ debrief_sent_at: new Date(nowMs).toISOString() }).eq('id', r.id).is('debrief_sent_at', null).select('id')
+    if (!claimed?.length) continue
+    await sendMessage(process.env.TELEGRAM_BOT_TOKEN_CAREER!, Number(process.env.TELEGRAM_ALLOWED_CHAT_ID),
+      `📝 How did the *${r.application?.company ?? 'interview'}* ${r.kind.replace(/_/g, ' ')} round go?\n\nReply with what they asked (voice is fine): one question per line, plus how each went — e.g. "design an autocomplete — went ok".`)
+    sent++
+  }
+  return sent
 }

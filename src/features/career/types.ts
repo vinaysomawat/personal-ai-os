@@ -42,6 +42,14 @@ export const QUESTION_CATEGORIES: { key: QuestionCategory; label: string }[] = [
   { key: 'system_design', label: 'System design' }, { key: 'behavioral', label: 'Behavioral' },
   { key: 'ai_native', label: 'AI-native' }, { key: 'other', label: 'Other' },
 ]
+// Topic vocabulary for logged interview questions (shared with the Question
+// Bank's topics, so revision and weakness group them correctly).
+export const QUESTION_TOPICS = [
+  'JavaScript Fundamentals', 'Async & Promises', 'TypeScript', 'React & State Management', 'Next.js',
+  'CSS & Layout', 'DOM & Browser APIs', 'Performance', 'Accessibility', 'Testing', 'Networking & APIs',
+  'System Design', 'UI Components', 'Algorithms', 'Signals', 'RxJS', 'Behavioral', 'AI-native',
+] as const
+
 export const categoryLabel = (k: string) => QUESTION_CATEGORIES.find(c => c.key === k)?.label ?? k
 
 // Every question an interviewer asked — the interview experience, kept.
@@ -54,6 +62,10 @@ export interface InterviewQuestion {
   my_answer: string | null
   went: 'well' | 'ok' | 'badly' | null
   notes: string | null
+  // Optional topic from the Question Bank vocabulary (defaults by category).
+  topic: string | null
+  // The Question Bank copy ('interview' category), once it went badly / ok.
+  bank_question_id: string | null
   created_at: string
 }
 

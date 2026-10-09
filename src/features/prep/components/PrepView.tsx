@@ -107,7 +107,7 @@ export default function PrepView(props: Props) {
       </>} />
 
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-[var(--grid-gap-sm)]">
-        <StatCard label="Interview readiness" value={`${props.war.overall}%`} sub={props.war.ready ? 'all gates passed' : `not ready · ${props.war.blockers.length} blockers`} valueClassName={props.war.ready ? 'text-good' : props.war.overall >= 60 ? 'text-warn' : 'text-risk'} />
+        <StatCard label="Interview readiness" value={`${props.war.overall}%`} sub={props.war.ready ? 'all gates passed' : `${props.war.interviewReady ? 'interview-ready' : 'not ready'} · ${props.war.blockers.length} blockers`} valueClassName={props.war.ready || props.war.interviewReady ? 'text-good' : props.war.overall >= 60 ? 'text-warn' : 'text-risk'} />
         <StatCard label="Mock rounds" value={roundsThisWeek} sub={lastRound ? `this week · last ${formatOf(lastRound.format).label} ${toISTDateStr(lastRound.created_at).slice(5)}${lastRound.review?.score != null ? ` · ${lastRound.review.score}/10` : ''}` : 'this week · none yet'} />
         <StatCard label="Story Bank" value={stories.length} sub={`${coveredCompetencies.size}/${COMPETENCIES.length} competencies covered`} />
         <StatCard label="Focused today" value={hm(focusedToday)} sub={`${hm(Math.round(focusSessions.reduce((s, f) => s + focusSeconds(f), 0) / 60))} last 7 days · ${props.sessionsLast7}/7 full days`} />

@@ -187,6 +187,26 @@ export async function handleUpdate(moduleName: ModuleName, update: TelegramUpdat
     return
   }
 
+  // Module-level pre-intent hook (Daily bot: an answer to a pending voice drill).
+  const preIntercept = (mod as { preIntercept?: (t: string, db: ReturnType<typeof createServiceClient>, u: string, spoken: boolean) => Promise<string | null> }).preIntercept
+  if (preIntercept && !image) {
+    let reply: string | null = null
+    try {
+      reply = await preIntercept(text, db, userId, !!msg.voice)
+    } catch (err) {
+      reply = `❌ Error: ${err instanceof Error ? err.message : 'Unknown error'}`
+    }
+    if (reply) {
+      await sendMessage(token, chatId, reply)
+      try {
+        await db.from('telegram_logs').insert({ module: moduleName, telegram_chat_id: chatId, message: text, action_taken: { action: 'pre_intercept' }, response: reply })
+      } catch {
+        // Non-fatal: log failure shouldn't affect user
+      }
+      return
+    }
+  }
+
   let actions: Record<string, unknown>[] = [{ action: 'help' }]
   let budgetExhausted = false
   let budgetScope: 'daily' | 'monthly' | undefined

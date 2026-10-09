@@ -33,11 +33,15 @@ export interface PrepBlock {
   minutes: number
   href: string
   done: boolean
+  // Extra deep links shown under the block (Company Prep Mode, v4.0).
+  links?: { label: string; href: string }[]
 }
 
 export interface PrepSettings {
   target_date: string | null
   hours_per_day: number
+  // Weekly outreach target for the Interviews pipeline (v4.0).
+  weekly_outreach_target: number
 }
 
 // A coding_questions row plus when it was last practiced (in the Question

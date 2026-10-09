@@ -1,6 +1,7 @@
 import { toISTDateStr } from '@/lib/date'
 import type { BankQuestion, PrepBlock, ReadinessAreaKey, ReadinessCell } from './types'
 import type { MockRound } from './mock'
+import { ROUND_AREAS } from './readiness'
 
 // Interview War Mode (ROADMAP-v2 §10) — every number here is deterministic.
 // AI only writes answer reviews and the weekly forecast; it never scores,
@@ -70,12 +71,17 @@ export interface WarReadiness {
   blockers: { key: string; label: string; score: number | null; gate: number }[]
   mockAvg: number | null
   ready: boolean
+  // v4.0 §4.7: the tier below TOP 1% that means "go take real interviews" —
+  // overall ≥60, no blind spot in the areas the next round tests (every area
+  // if none is booked), mock average ≥7.
+  interviewReady: boolean
 }
+export const INTERVIEW_READY = { overall: 60, mockAvg: 7 }
 
 // Overall = weighted average × (0.5 + 0.5 × lowest/100): one weak area can
 // at most halve the score, so strength elsewhere can't hide it. Blind spots
 // (no data) count as 0 — an untested area is a risk, not a pass.
-export function warReadiness(cells: ReadinessCell[], rounds: MockRound[]): WarReadiness {
+export function warReadiness(cells: ReadinessCell[], rounds: MockRound[], nextRoundKind: string | null = null): WarReadiness {
   const reviewed = rounds.filter(r => r.review?.score != null).slice(0, 5)
   const mockAvg = reviewed.length ? Math.round((reviewed.reduce((s, r) => s + r.review!.score!, 0) / reviewed.length) * 10) / 10 : null
   let sum = 0, weights = 0
@@ -95,7 +101,17 @@ export function warReadiness(cells: ReadinessCell[], rounds: MockRound[]): WarRe
     ...cells.filter(c => GATES[c.key] && (c.score ?? 0) < GATES[c.key].gate).map(c => ({ key: c.key, label: c.label, score: c.score, gate: GATES[c.key].gate })),
     ...((mockAvg ?? 0) < MOCK_GATE ? [{ key: 'mock', label: 'Mock average', score: mockAvg === null ? null : mockAvg * 10, gate: MOCK_GATE * 10 }] : []),
   ].sort((a, b) => (b.gate - (b.score ?? 0)) - (a.gate - (a.score ?? 0)))
-  return { overall, weightedAvg, lowest, blockers, mockAvg, ready: blockers.length === 0 }
+  const tested = nextRoundKind && ROUND_AREAS[nextRoundKind] ? ROUND_AREAS[nextRoundKind] : null
+  const blindSpot = cells.some(c => GATES[c.key] && c.score === null && (!tested || tested.includes(c.key)))
+  const interviewReady = overall >= INTERVIEW_READY.overall && !blindSpot && (mockAvg ?? 0) >= INTERVIEW_READY.mockAvg
+  return { overall, weightedAvg, lowest, blockers, mockAvg, ready: blockers.length === 0, interviewReady }
+}
+
+export function readinessTier(w: WarReadiness): { label: string; tone: 'good' | 'warn' | 'risk' } {
+  if (w.ready) return { label: '🔥 TOP 1% READY', tone: 'good' }
+  const n = w.blockers.length
+  if (w.interviewReady) return { label: `✅ INTERVIEW-READY · ${n} blocker${n === 1 ? '' : 's'} to close`, tone: 'good' }
+  return { label: `❌ NOT READY · ${n} blocker${n === 1 ? '' : 's'}`, tone: 'risk' }
 }
 
 // ---------------- Topic weakness ----------------

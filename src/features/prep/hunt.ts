@@ -8,13 +8,16 @@ import { formatMinutes, formatOf, mockFormatForDay } from './mock'
 // quota is the smaller of "what fits in that time" and "what's needed to
 // cover the remaining questions by the target date".
 
-export type BankCategory = 'quiz' | 'angular' | 'ai-native' | 'behavioral' | 'javascript-functions' | 'ui-coding' | 'system-design' | 'algorithm'
+export type BankCategory = 'interview' | 'quiz' | 'angular' | 'ai-native' | 'behavioral' | 'javascript-functions' | 'ui-coding' | 'system-design' | 'algorithm'
 
 // Base shares re-balanced 2026-10-09 to the current market (machine coding
 // is the #1 round at Indian product companies, Angular is the fastest lane
 // to offers, DSA still appears in most product loops); relative weights —
 // computeQuotas scales them to the bank's minutes.
 export const BANK_CATEGORIES: { key: BankCategory; label: string; share: number; minutesPerQ: number }[] = [
+  // Questions real interviewers asked (v4.0 §4.1) — no quota share; they get
+  // their own "redo" block while any is rated under 7.
+  { key: 'interview', label: 'Asked in interviews', share: 0, minutesPerQ: 10 },
   { key: 'quiz', label: 'Theory', share: 0.14, minutesPerQ: 5 },
   // Track A: senior / lead Angular roles (banks, fintech, GCCs).
   { key: 'angular', label: 'Angular', share: 0.10, minutesPerQ: 6 },
@@ -67,7 +70,7 @@ export function computeQuotas(coverage: CategoryCoverage[], hoursPerDay: number,
   return BANK_CATEGORIES.map(cat => {
     const c = coverage.find(x => x.key === cat.key)!
     const share = (cat.share * (weights[cat.key] ?? 1)) / weightedTotal
-    const quota = Math.max(1, Math.floor((bankMinutes * share) / cat.minutesPerQ))
+    const quota = cat.share === 0 ? 0 : Math.max(1, Math.floor((bankMinutes * share) / cat.minutesPerQ))
     return {
       ...c,
       quota,
@@ -88,6 +91,10 @@ export function buildHuntPlan(ctx: {
   // Weakest theory topic, named in the Theory block.
   focusTopic?: string | null
   mockDoneToday?: boolean
+  // Interview-category questions rated under 7 (§4.1) — lead the day.
+  interviewRedo?: number
+  // A Company Prep block for a round ≤72h away (§4.4), placed first.
+  companyBlock?: PrepBlock | null
 }): { focus: string; blocks: PrepBlock[] } {
   const dayMinutes = ctx.hoursPerDay * 60
   const format = mockFormatForDay(ctx.date)
@@ -123,14 +130,71 @@ export function buildHuntPlan(ctx: {
     detail: 'Timed, no notes. Run the one-click AI review after.',
     href: `/prep?tab=mock&format=${format}`, done: !!ctx.mockDoneToday,
   }
-  // Weakest two areas first, then the mock round, then the rest.
-  const blocks: PrepBlock[] = [...bankBlocks.slice(0, 2), mock, ...bankBlocks.slice(2)]
+  // Company prep (round ≤72h) → redo real interview questions → weakest two
+  // areas → the mock round → the rest.
+  const redo = interviewRedoBlock(ctx.interviewRedo ?? 0)
+  const blocks: PrepBlock[] = [
+    ...(ctx.companyBlock ? [ctx.companyBlock] : []),
+    ...(redo ? [redo] : []),
+    ...bankBlocks.slice(0, 2), mock, ...bankBlocks.slice(2),
+  ]
   blocks.push({
     key: 'lead', label: 'STAR stories', minutes: leadMinutes(dayMinutes, !!ctx.uncoveredCompetency),
     detail: ctx.uncoveredCompetency ? `Write a STAR story for "${ctx.uncoveredCompetency}", then rehearse one out loud` : 'Rehearse 2 stories out loud and get feedback on one',
     href: '/prep?tab=stories', done: false,
   })
   return { focus: `Job hunt · D-${ctx.days}`, blocks }
+}
+
+// Company Prep Mode (v4.0 §4.4): a round ≤72h away puts a block first —
+// 60 min when it's ≤24h away, else 40. Ticked manually or by finishing a
+// focus session on it (no auto-tick).
+export interface UpcomingRound {
+  applicationId: string
+  company: string
+  kind: string
+  scheduledAt: string
+  priorityTopics: string[]
+  priorQuestions: number
+}
+const MOCK_FOR_KIND: Record<string, string> = {
+  system_design: 'system-design', coding: 'machine-coding', behavioral: 'behavioral', hiring_manager: 'behavioral',
+}
+export function companyPrepBlock(r: UpcomingRound | null, nowMs: number, topicHref: (t: string) => string): PrepBlock | null {
+  if (!r) return null
+  const hours = (new Date(r.scheduledAt).getTime() - nowMs) / 3600_000
+  if (hours < 0 || hours > 72) return null
+  const when = new Date(r.scheduledAt).toLocaleString('en-IN', { weekday: 'short', hour: 'numeric', minute: '2-digit', timeZone: 'Asia/Kolkata' })
+  const kind = r.kind.replace(/_/g, ' ')
+  const mock = MOCK_FOR_KIND[r.kind] ?? 'screen'
+  const behavioral = r.kind === 'behavioral' || r.kind === 'hiring_manager' || r.kind === 'onsite'
+  return {
+    key: `company:${r.applicationId}`, label: `Prep for ${r.company} · ${kind} · ${when}`, minutes: hours <= 24 ? 60 : 40,
+    detail: [
+      r.priorityTopics.length ? `JD priority topics: ${r.priorityTopics.join(', ')}` : 'No JD analysis yet — run it on the Interviews page',
+      r.priorQuestions ? `redo the ${r.priorQuestions} question${r.priorQuestions === 1 ? '' : 's'} they asked before` : null,
+      `then a ${mock.replace('-', ' ')} mock`,
+    ].filter(Boolean).join(' · '),
+    href: '/interviews', done: false,
+    links: [
+      ...r.priorityTopics.slice(0, 4).map(t => ({ label: t, href: topicHref(t) })),
+      { label: 'Mock round', href: `/prep?tab=mock&format=${mock}` },
+      ...(behavioral ? [{ label: 'Story Bank', href: '/prep?tab=stories' }] : []),
+      { label: `${r.company} page`, href: '/interviews' },
+    ],
+  }
+}
+
+// "Redo real interview questions × N": 10 min each, at most 4 a day.
+export const INTERVIEW_REDO_MAX = 4
+export function interviewRedoBlock(lowRated: number): PrepBlock | null {
+  const n = Math.min(INTERVIEW_REDO_MAX, lowRated)
+  if (n === 0) return null
+  return {
+    key: 'bank:interview', label: `Redo real interview questions × ${n}`, minutes: n * 10,
+    detail: 'Questions real interviewers asked you that went badly or ok — answer them again out loud, get the AI rating, aim for 7+',
+    href: '/prep?tab=questions&cat=interview', done: false,
+  }
 }
 
 // Job Hunt Mode = a target date is set (prep_settings.target_date). The one

@@ -2,7 +2,8 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import { todayIST, daysAgoIST, toISTDateStr, istMidnightUtc } from '@/lib/date'
 import { formatMinutes, mockFormatForDay, type MockRound } from './mock'
 import { buildPrepPlan } from './plan'
-import { BANK_CATEGORIES, buildHuntPlan, computeQuotas, daysLeft, leadMinutes, type CategoryCoverage } from './hunt'
+import { BANK_CATEGORIES, buildHuntPlan, companyPrepBlock, computeQuotas, daysLeft, interviewRedoBlock, leadMinutes, type CategoryCoverage, type UpcomingRound } from './hunt'
+import { topicHref } from './links'
 import { computeReadinessMatrix, weakestAreas, type CodingHistoryRow } from './readiness'
 import { COMPETENCIES, READINESS_AREAS } from './types'
 import { categoryGap, categoryWeights, focusSeconds, nowBlock, revisionQueue, topicWeakness, warReadiness, type FocusSession, type Forecast } from './war'
@@ -33,7 +34,7 @@ export async function loadPrepData(supabase: SupabaseClient, userId: string) {
   const user = { id: userId }
   const today = todayIST()
 
-  const [mockRes, storiesRes, rehearsalsRes, codingRes, sessionsRes, focusRes, forecastRes, nextRoundRes] = await Promise.all([
+  const [mockRes, storiesRes, rehearsalsRes, codingRes, sessionsRes, focusRes, forecastRes, nextRoundRes, decidedRoundsRes] = await Promise.all([
     supabase.from('mock_rounds').select('id, format, items, duration_seconds, created_at, review').eq('user_id', user.id).order('created_at', { ascending: false }).limit(500),
     supabase.from('stories').select('*').eq('user_id', user.id).order('updated_at', { ascending: false }),
     supabase.from('story_rehearsals').select('id, story_id, competency, prompt, answer, critique, created_at').eq('user_id', user.id).order('created_at', { ascending: false }).limit(10),
@@ -42,7 +43,9 @@ export async function loadPrepData(supabase: SupabaseClient, userId: string) {
     supabase.from('prep_focus_sessions').select('*').eq('user_id', user.id).gte('date', daysAgoIST(6)).order('started_at', { ascending: true }),
     supabase.from('prep_forecasts').select('date, forecast, created_at').eq('user_id', user.id).order('date', { ascending: false }).limit(1).maybeSingle(),
     // The next scheduled interview round (Interviews / Career page).
-    supabase.from('interview_rounds').select('kind, scheduled_at, application:applications(company)').eq('user_id', user.id).eq('status', 'scheduled').gte('scheduled_at', new Date().toISOString()).order('scheduled_at').limit(1).maybeSingle(),
+    supabase.from('interview_rounds').select('kind, scheduled_at, application:applications(id, company, jd_analysis)').eq('user_id', user.id).eq('status', 'scheduled').gte('scheduled_at', new Date().toISOString()).order('scheduled_at').limit(1).maybeSingle(),
+    // Decided real rounds (last 180 days) — a readiness signal (§4.2).
+    supabase.from('interview_rounds').select('kind, outcome').eq('user_id', user.id).eq('status', 'done').in('outcome', ['passed', 'failed']).gte('scheduled_at', istMidnightUtc(180)),
   ])
   const [settings, bank] = await Promise.all([getPrepSettings(supabase, user.id), getQuestionBank(supabase, user.id)])
   const days = settings.target_date ? daysLeft(today, settings.target_date) : null
@@ -50,13 +53,24 @@ export async function loadPrepData(supabase: SupabaseClient, userId: string) {
 
   const stories = (storiesRes.data ?? []) as Story[]
   const readiness = computeReadinessMatrix((codingRes.data ?? []) as unknown as CodingHistoryRow[], stories, coverage.find(c => c.key === 'ai-native') ?? null,
-    bank.filter(q => q.last_rating !== null).map(q => ({ category: q.category, topics: q.topics, rating: q.last_rating! })))
+    bank.filter(q => q.last_rating !== null).map(q => ({ category: q.category, topics: q.topics, rating: q.last_rating! })),
+    (decidedRoundsRes.data ?? []) as { kind: string; outcome: 'passed' | 'failed' }[])
   // Empty (not an error) until the mock_rounds migration has run.
   const mockRounds = (mockRes.data ?? []) as MockRound[]
   // War Mode: quotas weighted toward the biggest readiness gaps, sized to
   // the time left after today's mock round and STAR-story block.
   const storiesMissing = COMPETENCIES.some(c => !stories.some(s => (s.strength ?? 3) >= 3 && s.competencies.includes(c.key)))
+  // Company Prep Mode + the real-interview redo block take their time first.
+  const nextRow = nextRoundRes.data as unknown as { kind: string; scheduled_at: string; application: { id: string; company: string; jd_analysis: { priorityTopics?: string[] } | null } | null } | null
+  let upcoming: UpcomingRound | null = null
+  if (nextRow?.application) {
+    const { count } = await supabase.from('interview_questions').select('id', { count: 'exact', head: true }).eq('user_id', user.id).eq('application_id', nextRow.application.id)
+    upcoming = { applicationId: nextRow.application.id, company: nextRow.application.company, kind: nextRow.kind, scheduledAt: nextRow.scheduled_at, priorityTopics: nextRow.application.jd_analysis?.priorityTopics ?? [], priorQuestions: count ?? 0 }
+  }
+  const companyBlock = companyPrepBlock(upcoming, Date.now(), topicHref)
+  const interviewRedo = bank.filter(q => q.category === 'interview' && q.last_rating !== null && q.last_rating < 7).length
   const reserved = formatMinutes(mockFormatForDay(today)) + leadMinutes(settings.hours_per_day * 60, storiesMissing)
+    + (companyBlock?.minutes ?? 0) + (interviewRedoBlock(interviewRedo)?.minutes ?? 0)
   const quotas = days !== null
     ? computeQuotas(coverage, settings.hours_per_day, days, categoryWeights(readiness), reserved)
       // On machine-coding days the mock round IS the UI-coding practice.
@@ -79,6 +93,7 @@ export async function loadPrepData(supabase: SupabaseClient, userId: string) {
       gaps: Object.fromEntries(BANK_CATEGORIES.map(c => [c.key, categoryGap(c.key, readiness)])),
       focusTopic: weakness.find(w => w.category === 'quiz')?.topic ?? null,
       mockDoneToday: mockRounds.some(r => toISTDateStr(r.created_at) === today),
+      interviewRedo, companyBlock,
     }) : buildPrepPlan(today, {
       weakestTopic: weakQuizArea ? { area: weakQuizArea.label, topic: (weakQuizArea.quizTopics as readonly string[])[0] } : null,
       uncoveredCompetency: uncovered?.label ?? null,
@@ -101,11 +116,12 @@ export async function loadPrepData(supabase: SupabaseClient, userId: string) {
     sessionsLast7: sessions.filter(s => s.date >= daysAgoIST(6) && s.completed_at).length,
     mockRounds,
     // War Mode (all deterministic, war.ts).
-    war: warReadiness(readiness, mockRounds),
+    war: warReadiness(readiness, mockRounds, nextRow?.kind ?? null),
     weakness: weakness.slice(0, 8),
     revision: revisionQueue(bank, today),
     focusSessions: (focusRes.data ?? []) as FocusSession[],
-    nextInterview: nextRoundRes.data ? { company: (nextRoundRes.data as unknown as { application: { company: string } | null }).application?.company ?? 'Interview', kind: nextRoundRes.data.kind as string, scheduled_at: nextRoundRes.data.scheduled_at as string } : null,
+    nextInterview: nextRow ? { company: nextRow.application?.company ?? 'Interview', kind: nextRow.kind, scheduled_at: nextRow.scheduled_at } : null,
+    companyBlock,
     forecast: (forecastRes.data as { date: string; forecast: Forecast; created_at: string } | null) ?? null,
     stories,
     rehearsals: (rehearsalsRes.data ?? []) as StoryRehearsal[],
@@ -118,8 +134,8 @@ export async function loadPrepData(supabase: SupabaseClient, userId: string) {
 }
 
 export async function getPrepSettings(supabase: SupabaseClient, userId: string): Promise<PrepSettings> {
-  const { data } = await supabase.from('prep_settings').select('target_date, hours_per_day').eq('user_id', userId).maybeSingle()
-  return { target_date: data?.target_date ?? null, hours_per_day: data?.hours_per_day ?? 8 }
+  const { data } = await supabase.from('prep_settings').select('target_date, hours_per_day, weekly_outreach_target').eq('user_id', userId).maybeSingle()
+  return { target_date: data?.target_date ?? null, hours_per_day: data?.hours_per_day ?? 8, weekly_outreach_target: data?.weekly_outreach_target ?? 15 }
 }
 
 // PostgREST caps a response at 1,000 rows, and the bank is past that —

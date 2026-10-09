@@ -9,6 +9,8 @@ import EmptyState from '@/components/EmptyState'
 import Modal, { modalLabelClass, modalInputClass, modalSelectClass, modalCancelButtonClass, modalSaveButtonClass } from '@/components/Modal'
 import PageTabs from '@/components/PageTabs'
 import PageHeader, { HeaderChip } from '@/components/PageHeader'
+import PipelineTab from './PipelineTab'
+import type { Outreach } from '../pipeline'
 import StatCard from '@/components/StatCard'
 import { useEscapeKey } from '@/lib/use-escape-key'
 import {
@@ -16,9 +18,9 @@ import {
   saveApplicationJD, updateCompany, updateQuestion, updateRound, upsertCareerProfile,
 } from '../actions'
 import { analyzeJobDescription, getCompanyInsights } from '@/features/ai/career-mentor'
-import { READINESS_AREAS } from '@/features/prep/types'
+import { topicHref } from '@/features/prep/links'
 import {
-  ACTIVE_STATUSES, QUESTION_CATEGORIES, ROUND_KINDS, STAGES, STAGE_CONFIG, categoryLabel, roundLabel,
+  ACTIVE_STATUSES, QUESTION_CATEGORIES, QUESTION_TOPICS, ROUND_KINDS, STAGES, STAGE_CONFIG, categoryLabel, roundLabel,
   type Application, type AppStatus, type CareerProfile, type CompanyInsights, type InterviewQuestion, type InterviewRound, type QuestionCategory, type RoundKind,
 } from '../types'
 
@@ -35,14 +37,6 @@ const when = (iso: string | null) => iso
 // <input type="datetime-local"> ↔ ISO, in the browser's local time.
 const toLocalInput = (iso: string | null) => { if (!iso) return ''; const d = new Date(iso); return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16) }
 const fromLocalInput = (v: string) => v ? new Date(v).toISOString() : null
-
-// JD priority topic (QUIZ_TOPICS vocabulary) → a Prep Question Bank link.
-function prepHref(topic: string): string {
-  if (topic === 'System Design') return '/prep?tab=questions&cat=system-design'
-  const area = READINESS_AREAS.find(a => (a.quizTopics as readonly string[]).includes(topic))
-  const coding = area?.codingTopics[0]
-  return `/prep?tab=questions&cat=quiz${coding ? `&topic=${encodeURIComponent(coding)}` : ''}`
-}
 
 function ProfileField({ label, value, onSave, type = 'text', placeholder, masked = false }: {
   label: string; value: string; onSave: (v: string) => void; type?: string; placeholder?: string; masked?: boolean
@@ -80,20 +74,24 @@ interface Props {
   profile: CareerProfile | null
   rounds: InterviewRound[]
   questions: InterviewQuestion[]
+  outreach: Outreach[]
+  outreachTarget: number
 }
 
-type Tab = 'companies' | 'questions' | 'profile'
+type Tab = 'pipeline' | 'companies' | 'questions' | 'profile'
 const TABS: { key: Tab; label: string }[] = [
+  { key: 'pipeline', label: 'Pipeline' },
   { key: 'companies', label: 'Companies' },
   { key: 'questions', label: 'Question Log' },
   { key: 'profile', label: 'Profile' },
 ]
 
-const EMPTY_Q = { question: '', category: 'technical' as QuestionCategory, round_id: '', my_answer: '', went: '' as '' | 'well' | 'ok' | 'badly', notes: '' }
+const EMPTY_Q = { question: '', category: 'technical' as QuestionCategory, topic: '', round_id: '', my_answer: '', went: '' as '' | 'well' | 'ok' | 'badly', notes: '' }
 
 export default function CareerView(props: Props) {
   const [, startTransition] = useTransition()
-  const [tab, setTab] = useState<Tab>('companies')
+  const [tab, setTab] = useState<Tab>('pipeline')
+  const [outreach, setOutreach] = useState(props.outreach)
   const [apps, setApps] = useState(props.applications)
   const [rounds, setRounds] = useState(props.rounds)
   const [questions, setQuestions] = useState(props.questions)
@@ -140,6 +138,8 @@ export default function CareerView(props: Props) {
       </div>
 
       <PageTabs tabs={TABS} active={tab} onChange={setTab} />
+
+      {tab === 'pipeline' && <PipelineTab outreach={outreach} apps={apps} rounds={rounds} target={props.outreachTarget} onOutreach={fn => setOutreach(fn)} />}
 
       {tab === 'companies' && (
         <div className="grid grid-cols-1 lg:grid-cols-[320px_1fr] gap-[var(--grid-gap)] items-start">
@@ -344,7 +344,7 @@ function CompanyDetail({ app, profile, rounds, questions, onApp, onRounds, onQue
               <p className="text-fg-secondary"><span className="font-semibold text-fg-primary">JD match {app.jd_analysis.matchPercentage}%</span> · {app.jd_analysis.companyFocus}</p>
               <p className="text-[10.5px] font-bold uppercase tracking-[0.4px] text-fg-tertiary mt-2 mb-1">Practice these first</p>
               <div className="flex flex-wrap gap-1.5">
-                {app.jd_analysis.priorityTopics.map(t => <a key={t} href={prepHref(t)} className="text-[11.5px] rounded-full px-2 py-[2px] bg-accent-soft text-accent hover:underline">{t} →</a>)}
+                {app.jd_analysis.priorityTopics.map(t => <a key={t} href={topicHref(t)} className="text-[11.5px] rounded-full px-2 py-[2px] bg-accent-soft text-accent hover:underline">{t} →</a>)}
               </div>
               {app.jd_analysis.missingSkills.length > 0 && <p className="text-fg-secondary mt-2"><span className="font-semibold text-risk">Gaps: </span>{app.jd_analysis.missingSkills.join(', ')}</p>}
             </div>
@@ -381,7 +381,7 @@ function CompanyDetail({ app, profile, rounds, questions, onApp, onRounds, onQue
           e.preventDefault()
           if (!q.question.trim()) return
           start(async () => {
-            const created = await addQuestion({ application_id: app.id, round_id: q.round_id || null, question: q.question, category: q.category, my_answer: q.my_answer || null, went: q.went || null, notes: q.notes || null })
+            const created = await addQuestion({ application_id: app.id, round_id: q.round_id || null, question: q.question, category: q.category, topic: q.topic || null, my_answer: q.my_answer || null, went: q.went || null, notes: q.notes || null })
             onQuestions(prev => [created, ...prev])
             setQ({ ...EMPTY_Q, category: q.category, round_id: q.round_id })
           })
@@ -391,6 +391,10 @@ function CompanyDetail({ app, profile, rounds, questions, onApp, onRounds, onQue
           <div className="flex flex-wrap gap-1.5">
             <select value={q.category} onChange={e => setQ({ ...q, category: e.target.value as QuestionCategory })} aria-label="Category" className={`${modalSelectClass} !w-auto`}>
               {QUESTION_CATEGORIES.map(c => <option key={c.key} value={c.key}>{c.label}</option>)}
+            </select>
+            <select value={q.topic} onChange={e => setQ({ ...q, topic: e.target.value })} aria-label="Topic" className={`${modalSelectClass} !w-auto`}>
+              <option value="">Topic (auto)</option>
+              {QUESTION_TOPICS.map(t => <option key={t} value={t}>{t}</option>)}
             </select>
             <select value={q.round_id} onChange={e => setQ({ ...q, round_id: e.target.value })} aria-label="Round" className={`${modalSelectClass} !w-auto`}>
               <option value="">Any round</option>
@@ -429,6 +433,7 @@ function QuestionList({ questions, rounds, apps, onQuestions }: {
               <div className="flex items-start justify-between gap-2">
                 <p className="text-[12.5px] font-semibold text-fg-primary leading-snug">{q.question}</p>
                 {q.went && <span className={`text-[10.5px] font-semibold rounded-[5px] px-1.5 py-[1px] shrink-0 ${WENT[q.went].cls}`}>{WENT[q.went].label}</span>}
+                {q.bank_question_id && <a href="/prep?tab=questions&cat=interview" onClick={e => e.stopPropagation()} className="text-[10.5px] text-accent hover:underline shrink-0">in Prep →</a>}
               </div>
               <p className="text-[11px] text-fg-tertiary mt-0.5">{company ? `${company} · ` : ''}{categoryLabel(q.category)}{r ? ` · ${roundLabel(r.kind)}` : ''} · {new Date(q.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}</p>
             </button>

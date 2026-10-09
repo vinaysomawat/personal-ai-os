@@ -6,7 +6,7 @@ import Card from '@/components/Card'
 import { modalCancelButtonClass, modalSaveButtonClass } from '@/components/Modal'
 import { READINESS_CONFIG, type ReadinessTier } from '@/features/career/types'
 import { endFocusSession, generatePrepForecast, toggleFocusSessionPause } from '../actions'
-import { GATES, coachLine, dayPace, focusSeconds, hm, nowBlock, type FocusSession, type Forecast, type RevisionItem, type TopicWeakness, type WarReadiness } from '../war'
+import { GATES, coachLine, dayPace, focusSeconds, hm, nowBlock, readinessTier, type FocusSession, type Forecast, type RevisionItem, type TopicWeakness, type WarReadiness } from '../war'
 import type { PrepSession, ReadinessCell } from '../types'
 
 const mmss = (s: number) => `${s < 0 ? '-' : ''}${Math.floor(Math.abs(s) / 60)}:${String(Math.abs(s) % 60).padStart(2, '0')}`
@@ -44,8 +44,8 @@ export function WarHeader({ war, daysLeft, targetDate, session, focusedMinutes, 
           <p className="text-[11.5px] text-fg-tertiary mt-0.5 tabular-nums">Focused {hm(focusedMinutes)} / {hm(pace.plannedMinutes)} planned · done {hm(pace.doneMinutes)} · expected by now {hm(pace.expectedMinutes)}</p>
         </div>
         <div className="text-right shrink-0">
-          <p className={`text-[22px] font-bold leading-none tabular-nums ${war.ready ? 'text-good' : war.overall >= 60 ? 'text-warn' : 'text-risk'}`}>{war.overall}%</p>
-          <p className={`text-[11px] font-bold mt-1 ${war.ready ? 'text-good' : 'text-risk'}`}>{war.ready ? '🔥 TOP 1% READY' : `❌ NOT READY · ${war.blockers.length} blocker${war.blockers.length === 1 ? '' : 's'}`}</p>
+          <p className={`text-[22px] font-bold leading-none tabular-nums ${war.ready || war.interviewReady ? 'text-good' : war.overall >= 60 ? 'text-warn' : 'text-risk'}`}>{war.overall}%</p>
+          <p className={`text-[11px] font-bold mt-1 ${readinessTier(war).tone === 'good' ? 'text-good' : 'text-risk'}`}>{readinessTier(war).label}</p>
         </div>
       </div>
       {war.blockers.length > 0 && (
@@ -83,6 +83,11 @@ export function MissionCard({ session, focusSessions, onToggle, onStart, onOpen 
             <div className="min-w-0">
               <p className="text-[17px] font-bold text-fg-primary leading-tight">{now.label} <span className="text-[13px] font-semibold text-fg-tertiary tabular-nums">· {hm(now.minutes)}</span></p>
               <p className="text-[12px] text-fg-secondary mt-0.5">{now.detail}</p>
+              {now.links && (
+                <div className="flex flex-wrap gap-1.5 mt-1.5">
+                  {now.links.map(l => <button key={l.href + l.label} onClick={() => onOpen(l.href)} className="text-[11.5px] rounded-full px-2 py-[2px] bg-surface-1 border border-accent/40 text-accent hover:underline">{l.label} →</button>)}
+                </div>
+              )}
             </div>
             <button onClick={() => onStart(now.key)} disabled={!!active && active.block_key !== now.key}
               className={`${modalSaveButtonClass} inline-flex items-center gap-1.5 !px-5 !py-2.5 !text-[14px]`}>

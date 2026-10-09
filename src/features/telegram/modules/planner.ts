@@ -17,6 +17,7 @@ Actions:
 {"action":"pause_focus"}
 {"action":"finish_focus","finished":true|false}
 {"action":"prep_now"}
+{"action":"drill","category":"system design"|"behavioral"|"interview"|"ai"|"angular"|"theory"|null}
 {"action":"help"}
 
 Rules:
@@ -29,7 +30,15 @@ Rules:
 - For "pause", "break", "resume", "back" → pause_focus (toggles pause)
 - For "done", "finished", "finish", "block done" → finish_focus with finished true; "stop", "give up", "abandon" → finish_focus with finished false
 - For "what now", "what should I do", "status", "next" → prep_now
+- For "drill", "DRILL", "drill me", "drill system design", "drill behavioral", "drill interview" → drill (category = the words after "drill", or null)
 - If message is unclear, return {"action":"help"}`
+
+// Runs before intent parsing: a message within 30 min of a drill question is
+// its answer (voice or text), not a command.
+export async function preIntercept(text: string, db: SupabaseClient, userId: string, spoken: boolean): Promise<string | null> {
+  const { answerPendingDrill } = await import('@/features/prep/drill')
+  return answerPendingDrill(db, userId, text, spoken)
+}
 
 const mm = (s: number) => `${Math.floor(s / 60)}m`
 
@@ -66,6 +75,10 @@ export async function execute(action: Record<string, unknown>, db: SupabaseClien
       if (!data) return 'Job Hunt Mode is off — set a target date on the Prep page.'
       return middayMessage(data) ?? morningMessage(data)
     }
+    case 'drill': {
+      const { drillCategory, startDrill } = await import('@/features/prep/drill')
+      return startDrill(db, userId, drillCategory(action.category ? String(action.category) : undefined))
+    }
     case 'digest': {
       const { generateWeeklyDigest } = await import('@/features/ai/weekly-digest')
       const body = await generateWeeklyDigest(db, userId)
@@ -95,6 +108,6 @@ export async function execute(action: Record<string, unknown>, db: SupabaseClien
       return `🗑️ Removed reminder: "${reminder.label}"`
     }
     default:
-      return `*Daily Bot — What I can do:*\n• "how was my week" (digest)\n• "how was my month" (monthly digest)\n• "remind me to log weight every morning"\n• "show my reminders"\n• "start" / "pause" / "done" (Prep focus sessions)\n• "what now" (today\'s War Mode mission)\n\nI also send the Prep Coach: the 7:30am mission, a 1pm nudge if you\'re behind, and the 9:30pm review (with your reminders and anything still open).`
+      return `*Daily Bot — What I can do:*\n• "how was my week" (digest)\n• "how was my month" (monthly digest)\n• "remind me to log weight every morning"\n• "show my reminders"\n• "start" / "pause" / "done" (Prep focus sessions)\n• "what now" (today\'s War Mode mission)\n• "drill" / "drill system design" / "drill behavioral" / "drill interview" (a spoken-answer rep, rated)\n\nI also send the Prep Coach: the 7:30am mission, a 1pm nudge if you\'re behind, and the 9:30pm review (with your reminders and anything still open).`
   }
 }
