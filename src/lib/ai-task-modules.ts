@@ -10,8 +10,9 @@ import type { AITask } from './ai-gateway'
 // 'shared' is for tasks with no single-module owner (Telegram intent
 // parsing/vision run for every bot; module_recommendations is one generic
 // component reused across 5+ pages, so the task name alone can't say which
-// page triggered a given call).
-export type AITaskModule = 'career' | 'finance' | 'health' | 'coding' | 'astrology' | 'brain' | 'prep' | 'shared'
+// page triggered a given call). Usage rows from tasks removed in v4.0
+// (coding mentor, journals, briefings…) fall back to 'shared'.
+export type AITaskModule = 'career' | 'finance' | 'health' | 'astrology' | 'brain' | 'prep' | 'shared'
 
 export const TASK_MODULE: Record<AITask, AITaskModule> = {
   telegram_intent: 'shared',
@@ -36,7 +37,7 @@ export const TASK_MODULE: Record<AITask, AITaskModule> = {
 
 export const TASK_MODULE_LABEL: Record<AITaskModule, string> = {
   career: 'Career', finance: 'Finance', health: 'Health',
-  coding: 'Coding', astrology: 'Astrology', brain: 'Personal Brain', prep: 'Prep',
+  astrology: 'Astrology', brain: 'Personal Brain', prep: 'Prep',
   shared: 'Shared / cross-module',
 }
 

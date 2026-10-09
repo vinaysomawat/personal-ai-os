@@ -113,7 +113,13 @@ const MONTHLY_BUDGET_USD = Number(process.env.AI_MONTHLY_BUDGET_USD ?? 50)
 // the ceiling resets, indistinguishable from a bug in the bot itself (see
 // the recommend_daily_read web-search incident this guarded against — a
 // single call over 80k input tokens).
-const INTERACTIVE_TASKS: ReadonlySet<AITask> = new Set(['telegram_intent', 'telegram_vision'])
+// v4.0: the Prep answer reviews (Question Bank, voice drill, story
+// rehearsal, Mock Round) are the job-hunt feedback loop, so they share the
+// reserve too — a digest or forecast can't starve them.
+const INTERACTIVE_TASKS: ReadonlySet<AITask> = new Set([
+  'telegram_intent', 'telegram_vision',
+  'answer_critique', 'ai_native_critique', 'story_critique', 'mock_round_review',
+])
 const INTERACTIVE_RESERVE_FRACTION = 0.3
 
 // A "use server" file can only export async functions — Settings reads the
