@@ -2,7 +2,7 @@
 // and labels shared by the server grader (critique.ts) and the client review
 // card (AnswerReview).
 
-export type Rubric = 'technical' | 'behavioral' | 'ai-native' | 'story' | 'code-review'
+export type Rubric = 'technical' | 'behavioral' | 'ai-native' | 'story' | 'code-review' | 'ai-assisted'
 export type PointStatus = 'covered' | 'partial' | 'missing'
 
 export interface Scorecard {
@@ -24,4 +24,5 @@ export const CRITERIA: Record<Rubric, { correctness: string; depth: string; clar
   'ai-native': { correctness: 'Judgment', depth: 'Real example', clarity: 'Clarity' },
   story: { correctness: 'Own contribution', depth: 'Evidence', clarity: 'Concise' },
   'code-review': { correctness: 'Findings correct', depth: 'Severity & prioritization', clarity: 'Fix quality' },
+  'ai-assisted': { correctness: 'Verification', depth: 'AI judgment', clarity: 'Explanation' },
 }

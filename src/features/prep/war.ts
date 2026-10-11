@@ -299,6 +299,7 @@ const CATEGORY_AREAS: Record<string, ReadinessAreaKey[]> = {
   algorithm: ['dsa'],
   backend: ['backend'],
   'code-review': ['aiassisted', 'testing'],
+  'ai-assisted': ['aiassisted'],
 }
 
 // 0 (at/over gate) … 1 (blind spot) — how far a category's areas sit below

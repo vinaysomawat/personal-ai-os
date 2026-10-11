@@ -1,0 +1,6 @@
+body { font-family: system-ui, sans-serif; margin: 24px; color: #111; }
+table { border-collapse: collapse; width: 100%; max-width: 900px; }
+th, td { text-align: left; padding: 6px 10px; border-bottom: 1px solid #e5e7eb; font-size: 14px; }
+.sortable { cursor: pointer; user-select: none; }
+.toolbar { display: flex; gap: 12px; align-items: center; margin-bottom: 12px; }
+.pager { display: flex; gap: 8px; align-items: center; margin-top: 12px; }

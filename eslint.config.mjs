@@ -10,6 +10,8 @@ const compat = new FlatCompat({
 });
 
 const eslintConfig = [
+  // Standalone Vite practice kits with deliberately planted bugs — not app code.
+  { ignores: ["practice-kits/**"] },
   ...compat.extends("next/core-web-vitals", "next/typescript"),
 ];
 

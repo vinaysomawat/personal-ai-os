@@ -1,0 +1,8 @@
+body { font-family: system-ui, sans-serif; margin: 40px; color: #111; }
+.drop { border: 2px dashed #9ca3af; border-radius: 12px; padding: 32px; text-align: center; max-width: 480px; cursor: pointer; }
+.drop.over { border-color: #4f46e5; background: #eef2ff; }
+.files { list-style: none; padding: 0; max-width: 480px; }
+.files li { margin: 10px 0; }
+.bar { height: 6px; background: #e5e7eb; border-radius: 3px; overflow: hidden; }
+.bar > div { height: 100%; background: #4f46e5; transition: width 120ms linear; }
+.err { color: #b91c1c; font-size: 13px; }

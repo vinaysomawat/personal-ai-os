@@ -1,0 +1,7 @@
+body { font-family: system-ui, sans-serif; margin: 40px; color: #111; }
+.ac { position: relative; width: 320px; }
+.ac input { width: 100%; padding: 8px 10px; font-size: 15px; }
+.ac ul { position: absolute; left: 0; right: 0; margin: 2px 0 0; padding: 0; list-style: none; border: 1px solid #d1d5db; background: #fff; }
+.ac li { padding: 6px 10px; cursor: pointer; }
+.ac li.active { background: #eef2ff; }
+.hint { color: #6b7280; font-size: 13px; }

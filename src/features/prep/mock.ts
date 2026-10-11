@@ -7,7 +7,7 @@ import type { Scorecard } from './scorecard'
 // longest ago. Nothing already practiced today is picked, so a round never
 // repeats today's work.
 
-export type MockFormat = 'screen' | 'behavioral' | 'system-design' | 'machine-coding' | 'code-review'
+export type MockFormat = 'screen' | 'behavioral' | 'system-design' | 'machine-coding' | 'code-review' | 'ai-assisted'
 
 interface Slot {
   // A Question Bank category, or 'star' for a "Tell me about a time…" prompt.
@@ -53,7 +53,25 @@ export const MOCK_FORMATS: { key: MockFormat; label: string; detail: string; slo
     key: 'code-review', label: 'Code review', detail: '2 AI-generated PRs — find the planted issues, rank by severity, fix',
     slots: [{ category: 'code-review', minutes: 15 }, { category: 'code-review', minutes: 15 }],
   },
+  {
+    // Meta / Google 2026: an unfamiliar multi-file codebase with an AI
+    // assistant — fix bugs → add a feature → optimize (20 / 20 / 20 min).
+    key: 'ai-assisted', label: 'AI-assisted', detail: '1 practice kit in your editor with an AI tool — bugs → feature → optimize, verify everything',
+    slots: [{ category: 'ai-assisted', minutes: 60 }],
+  },
 ]
+
+// The AI-assisted round's write-up: three fields, joined into the item's
+// answer (which is what the scorecard grades).
+export const AI_ASSISTED_FIELDS = [
+  { key: 'changes', label: 'What changed per stage', placeholder: 'Stage 1 (bugs): …\nStage 2 (feature): …\nStage 3 (optimize / harden): …' },
+  { key: 'verified', label: 'Bugs found and how you verified each', placeholder: 'Root cause → fix → how you proved it (reproduced first, a test, the Network panel, a log)' },
+  { key: 'rejected', label: 'AI suggestions you rejected and why', placeholder: 'What the AI proposed, why it was wrong or risky, what you did instead' },
+] as const
+export const joinAiAssisted = (fields: Record<string, string>) =>
+  AI_ASSISTED_FIELDS.map(f => `## ${f.label}\n${(fields[f.key] ?? '').trim() || '(left blank)'}`).join('\n\n')
+// The 20-minute stage the clock is in (1–3).
+export const aiAssistedStage = (spentSeconds: number) => Math.min(3, Math.floor(spentSeconds / 1200) + 1)
 
 export const formatOf = (key: string) => MOCK_FORMATS.find(f => f.key === key) ?? MOCK_FORMATS[0]
 export const formatMinutes = (key: string) => formatOf(key).slots.reduce((s, x) => s + x.minutes, 0)
@@ -74,6 +92,8 @@ export interface MockItem {
   hints: string | null
   // Code shown with the prompt (code-review diffs).
   body?: string | null
+  // AI-assisted write-up fields (joined into `answer`).
+  fields?: Record<string, string>
   budget_seconds: number
   seconds: number
   answer: string

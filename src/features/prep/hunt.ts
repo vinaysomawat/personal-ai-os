@@ -8,7 +8,7 @@ import { formatMinutes, formatOf, mockFormatForDay } from './mock'
 // quota is the smaller of "what fits in that time" and "what's needed to
 // cover the remaining questions by the target date".
 
-export type BankCategory = 'interview' | 'quiz' | 'angular' | 'ai-native' | 'behavioral' | 'javascript-functions' | 'ui-coding' | 'system-design' | 'algorithm' | 'backend' | 'code-review'
+export type BankCategory = 'interview' | 'quiz' | 'angular' | 'ai-native' | 'behavioral' | 'javascript-functions' | 'ui-coding' | 'system-design' | 'algorithm' | 'backend' | 'code-review' | 'ai-assisted'
 
 // Base shares re-balanced 2026-10-09 to the current market (machine coding
 // is the #1 round at Indian product companies, Angular is the fastest lane
@@ -35,6 +35,9 @@ export const BANK_CATEGORIES: { key: BankCategory; label: string; share: number;
   { key: 'backend', label: 'Backend & APIs', share: 0.12, minutesPerQ: 8 },
   // Review an AI-generated PR: find the planted issues, rank them, fix them.
   { key: 'code-review', label: 'Code review', share: 0.05, minutesPerQ: 15 },
+  // Practice kits (practice-kits/): 60-minute AI-assisted codebase rounds —
+  // mock only, no daily quota.
+  { key: 'ai-assisted', label: 'AI-assisted', share: 0, minutesPerQ: 60 },
 ]
 // The day = the Mock Round (its format's minutes) + STAR stories + the
 // Question Bank blocks, which get whatever is left (2026-10-09 — they used to

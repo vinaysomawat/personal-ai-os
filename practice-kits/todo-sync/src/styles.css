@@ -1,0 +1,7 @@
+body { font-family: system-ui, sans-serif; margin: 40px; color: #111; }
+.filters { display: flex; gap: 8px; margin-bottom: 12px; }
+.filters button[aria-pressed='true'] { font-weight: 700; }
+ul { list-style: none; padding: 0; max-width: 520px; }
+li { display: flex; align-items: center; gap: 10px; padding: 6px 0; border-bottom: 1px solid #f3f4f6; }
+li .meta { margin-left: auto; color: #6b7280; font-size: 13px; }
+.done { text-decoration: line-through; color: #9ca3af; }
