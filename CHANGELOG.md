@@ -5,6 +5,7 @@ append here whenever you deploy, same cadence as the version bump.
 
 ## 2026-10-11
 
+- **Story Bank ratings and history.** Rehearsals now get a 1–10 rating from the same checklist scoring as the Question Bank (STAR points, your own contribution, numbers, length). Past rehearsals open to show the question, your answer and the full review, with "Retry this prompt" to improve it.
 - **Honest answer ratings.** The AI no longer picks the 1–10 number (it drifted to 4–6 whatever you said). It checks off each key point as covered, partial or missing and scores correctness, depth and clarity; the rating is calculated from that, so a thorough answer can reach 9–10 and a one-liner lands at 2–3. The review shows the checklist and the breakdown. Spoken answers are graded as spoken, ignoring transcription slips. Same scoring for Telegram drills.
 - **Focus without a separate screen.** Start focus now takes you straight to the work with the timer in a small floating bar (progress like 3/7, pause, finish, stop). The timer stops itself the moment the block's questions for today are done.
 - **Question Bank: pick, answer, get reviewed.** Every question in a category is listed so you choose what to answer (Skip is gone). Any real answer gets an AI review before Next. The review is now a structured card: rating and verdict, ✓ correct vs ✗ missing/wrong, numbered fixes, and the follow-up question set apart.

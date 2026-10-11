@@ -107,7 +107,7 @@ A **Speak** mic button (`src/components/MicButton.tsx`, `useDictation()`) sits b
 
 ### Story Bank
 
-STAR stories (`stories`: title, competencies[], situation/task/action/result, metrics, strength 1–5) across 10 competencies (`COMPETENCIES`: ownership, mentoring, influence, technical decision, raising the bar, conflict, ambiguity, failure, delivery under pressure, cross-team collaboration). Coverage grid ✓ / ◐ / ○. **Rehearse** a "Tell me about a time…" prompt (`REHEARSAL_PROMPTS`, 5 per competency) → AI critique (`story_critique`, Haiku, uncached) saved to `story_rehearsals`.
+STAR stories (`stories`: title, competencies[], situation/task/action/result, metrics, strength 1–5) across 10 competencies (`COMPETENCIES`: ownership, mentoring, influence, technical decision, raising the bar, conflict, ambiguity, failure, delivery under pressure, cross-team collaboration). Coverage grid ✓ / ◐ / ○. **Rehearse** a "Tell me about a time…" prompt (`REHEARSAL_PROMPTS`, 5 per competency; 🎙 Speak marks it spoken) → `rehearseStory()` → `critiqueStory()` (`story_critique`, Haiku, uncached): the same JSON scorecard + `scoreCard()` rating as the Question Bank, `story` rubric — fixed key points (situation and stakes · your task/role · your specific actions, I not we · a measurable result · shows <competency> · reflection), criteria Own contribution 0–2 · Evidence 0–2 · Concise (~2 min) 0–1. Saved to `story_rehearsals` with `rating`, `scorecard` and the text form in `critique`; shown as the `AnswerReview` card. **Recent rehearsals** (last 10): rows of date · competency · prompt · rating chip; click to expand the full prompt, your answer and its review card; **Retry this prompt** loads the prompt + old answer back into the editor. Pre-scorecard rows show their saved text with no rating.
 
 ### Voice drill (Telegram)
 
@@ -280,7 +280,7 @@ Standard: `user_id uuid references auth.users` + select/insert/update/delete RLS
 | `coding_daily_questions` | question_id, assigned_date, completed, completed_at, outcome, … — history from the retired Coding module, still read as practice/readiness signal |
 | `mock_rounds` | format (screen / behavioral / system-design / machine-coding), items jsonb, duration_seconds, review jsonb {verdict, outcome, summary, strengths[], fixes[], notes[], ratings[], score}, created_at |
 | `stories` | title, competencies text[], situation, task, action, result, metrics, strength (1–5), last_rehearsed_at |
-| `story_rehearsals` | story_id (nullable), competency, prompt, answer, critique |
+| `story_rehearsals` | story_id (nullable), competency, prompt, answer, critique (text), rating (1–10, computed), scorecard (jsonb `Scorecard`) |
 | `telegram_drills` | question_id → coding_questions, asked_at, answered_at, transcript, rating (1–10), critique |
 | `applications` | company, role, status (screening / interview / offer / rejected / withdrawn; `applied` legacy), salary_range, location, url, notes, applied_at, job_description, jd_analysis jsonb |
 | `interview_rounds` | application_id (cascade), kind, scheduled_at, status, outcome, interviewer, notes, debrief_sent_at |
@@ -379,7 +379,7 @@ App-wide: Quick Add FAB; Ask Brain in the header.
 4. **Today** — Interview War Mode strip (target date, hours/day, Outreach/week; on: D-N, quotas, Edit / Turn off) → War header (D-N, coach line, next-interview link, minutes, readiness % + tier label, up to 6 blocker chips) → `lg:grid-cols-[1fr_380px]`: left **Today's Mission** ("Do this now" + Start focus, progress, block rows with links) above **Revision Queue** + **Weakest Topics** (`sm:grid-cols-2`); right **Readiness Gates**, **Forecast**. Floating FocusBar (timer + progress + Pause / Finish / Stop) while focusing; no full-screen overlay.
 5. **Questions** `lg:grid-cols-[1fr_340px]` — Sprint (category chips with today/quota, topic select, then `xl:grid-cols-[272px_1fr]`: scrollable question list | answer panel — question, answer, key points / link · 🎙 Speak + word count, structured AI review card, Review → Next; below `xl` list and panel alternate with "← All questions") + Coverage
 6. **Mock Round** — format picker (4) + Mock Interview Calendar; running round (progress, countdown, answer, 🎙 Speak + word count, Skip/Next); round detail (review box, every answer with rating + note)
-7. **Story Bank** — competency coverage → Rehearse (answer, 🎙 Speak + word count, Get feedback) + Stories; story modal
+7. **Story Bank** — competency coverage → `lg:grid-cols-2`: Rehearse (prompt + shuffle, linked story, answer, 🎙 Speak + word count, Get feedback, review card; Recent rehearsals: expandable rows with rating chip → prompt, answer, review card, Retry this prompt) + Stories; story modal
 
 ### Interviews (`/interviews`)
 

@@ -9,7 +9,7 @@ import { COMPETENCIES } from './types'
 import type { PrepSession, Story, StoryRehearsal } from './types'
 import { endFocus, loadPrepData, startFocus, syncBankBlocks, toggleFocusPause, updateBlocks } from './core'
 import type { FocusSession } from './war'
-import { critiqueQuestion, SPOKEN_NOTE } from './critique'
+import { critiqueQuestion, critiqueStory, SPOKEN_NOTE } from './critique'
 import type { Scorecard } from './scorecard'
 import { speechStats } from '@/lib/speech-stats'
 
@@ -236,23 +236,18 @@ export async function deleteStory(id: string) {
   revalidatePath('/prep')
 }
 
-const CRITIQUE_SYSTEM = `You are a senior engineering manager interviewing a candidate for a Frontend Tech Lead / Senior UI Engineer role, giving candid coaching on one behavioral answer.
-Assess against: STAR structure (clear situation, their specific actions, a concrete result), specificity and numbers, "I" vs "we" (their own contribution must be clear), leadership signal (influence, judgment, trade-offs, growing others), and length (a spoken answer should be ~2 minutes).
-Respond in plain text (no markdown headings), under 180 words, in exactly this shape:
-Verdict: <Strong / Good / Needs work> — <one sentence why>
-What worked: <1-2 short points>
-Fix next: <2-3 specific, actionable points>
-Follow-up they'd ask: <one probing question an interviewer would likely ask next>`
-
-export async function rehearseStory(competency: string, prompt: string, answer: string, storyId: string | null): Promise<StoryRehearsal> {
+// Story Bank rehearsal: graded with the shared scorecard (critique.ts,
+// `story` rubric) and stored with its computed rating.
+export async function rehearseStory(competency: string, prompt: string, answer: string, storyId: string | null, spoken = false): Promise<StoryRehearsal> {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) throw new Error('Not authenticated')
   const label = COMPETENCIES.find(c => c.key === competency)?.label ?? competency
-  const critique = await askAI('story_critique', `Competency being assessed: ${label}\nInterview question: ${prompt}\n\nCandidate's answer:\n${answer}`, CRITIQUE_SYSTEM, { userId: user.id })
+  const { seconds, fillers } = speechStats(answer)
+  const { rating, feedback, card } = await critiqueStory(user.id, label, prompt, answer, spoken ? SPOKEN_NOTE(seconds, fillers) : '')
   const { data, error } = await supabase.from('story_rehearsals')
-    .insert({ user_id: user.id, story_id: storyId, competency, prompt, answer, critique })
-    .select('id, story_id, competency, prompt, answer, critique, created_at').single()
+    .insert({ user_id: user.id, story_id: storyId, competency, prompt, answer, critique: feedback, rating, scorecard: card })
+    .select('id, story_id, competency, prompt, answer, critique, rating, scorecard, created_at').single()
   if (error) throw new Error(error.message)
   if (storyId) await supabase.from('stories').update({ last_rehearsed_at: new Date().toISOString() }).eq('id', storyId)
   revalidatePath('/prep')

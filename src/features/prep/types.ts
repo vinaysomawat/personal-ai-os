@@ -1,3 +1,5 @@
+import type { Scorecard } from './scorecard'
+
 export interface Story {
   id: string
   user_id: string
@@ -21,6 +23,9 @@ export interface StoryRehearsal {
   prompt: string
   answer: string
   critique: string | null
+  // Computed 1–10 and the AI scorecard (null on pre-v4.0.3 rows).
+  rating: number | null
+  scorecard: Scorecard | null
   created_at: string
 }
 

@@ -37,7 +37,7 @@ export async function loadPrepData(supabase: SupabaseClient, userId: string) {
   const [mockRes, storiesRes, rehearsalsRes, codingRes, sessionsRes, focusRes, forecastRes, nextRoundRes, decidedRoundsRes] = await Promise.all([
     supabase.from('mock_rounds').select('id, format, items, duration_seconds, created_at, review').eq('user_id', user.id).order('created_at', { ascending: false }).limit(500),
     supabase.from('stories').select('*').eq('user_id', user.id).order('updated_at', { ascending: false }),
-    supabase.from('story_rehearsals').select('id, story_id, competency, prompt, answer, critique, created_at').eq('user_id', user.id).order('created_at', { ascending: false }).limit(10),
+    supabase.from('story_rehearsals').select('id, story_id, competency, prompt, answer, critique, rating, scorecard, created_at').eq('user_id', user.id).order('created_at', { ascending: false }).limit(10),
     supabase.from('coding_daily_questions').select('completed, outcome, completed_at, question:coding_questions(category, topics)').eq('user_id', user.id).eq('completed', true).gte('completed_at', istMidnightUtc(90)),
     supabase.from('prep_sessions').select('*').eq('user_id', user.id).gte('date', daysAgoIST(60)).order('date', { ascending: false }),
     supabase.from('prep_focus_sessions').select('*').eq('user_id', user.id).gte('date', daysAgoIST(6)).order('started_at', { ascending: true }),

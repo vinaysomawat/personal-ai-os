@@ -31,7 +31,11 @@ const AI_NATIVE_SYSTEM = `You are a senior engineer interviewing for a Senior Fr
 Scores: correctness ("judgment") — 2 = the candidate's judgment clearly leads and verification is explicit, 1 = some verification but vague ("I check it"), 0 = blind trust or generic "AI makes me faster". depth ("real example") — 2 = a concrete real example (tool, task, what went wrong or right), 1 = a thin or hypothetical example, 0 = none. clarity — 1 = structured, 0 = rambling.
 ${JSON_SHAPE}`
 
-const SYSTEMS: Record<Rubric, string> = { technical: TECHNICAL_SYSTEM, behavioral: BEHAVIORAL_SYSTEM, 'ai-native': AI_NATIVE_SYSTEM }
+const STORY_SYSTEM = `You are a senior engineering manager interviewing for a Frontend Tech Lead / Senior UI Engineer role, grading one STAR story told in answer to a behavioral question about a specific competency.
+Scores: correctness ("own contribution") — 2 = the candidate's own actions and decisions are unmistakable ("I"), 1 = mixed "I"/"we", 0 = only "we" or the team's work. depth ("evidence") — 2 = concrete outcomes with numbers (time, %, users, money, incidents), 1 = a concrete but unquantified result, 0 = vague or no result. clarity ("concise") — 1 = structured STAR that fits ~2 minutes spoken (≈200–330 words), 0 = rambling, far too long, or too thin.
+${JSON_SHAPE}`
+
+const SYSTEMS: Record<Rubric, string> = { technical: TECHNICAL_SYSTEM, behavioral: BEHAVIORAL_SYSTEM, 'ai-native': AI_NATIVE_SYSTEM, story: STORY_SYSTEM }
 
 // Coverage weighs most; a major error caps at 4, covering under a third of the
 // key points caps at 5. Correctness and clarity only earn full credit once
@@ -94,9 +98,21 @@ export async function critiqueQuestion(db: SupabaseClient, userId: string, quest
   const rubric: Rubric = q.category === 'ai-native' ? 'ai-native' : q.category === 'behavioral' ? 'behavioral' : 'technical'
   const hints = q.answer_hints ? `\nKey points: ${q.answer_hints}` : '\nKey points: (none listed — derive them)'
   const prompt = `Interview question: ${q.title}${hints}${note ? `\n\n${note}` : ''}\n\nCandidate's answer:\n${answer}`
-  const raw = await askAI(rubric === 'ai-native' ? 'ai_native_critique' : 'answer_critique', prompt, SYSTEMS[rubric], { userId })
+  return grade(rubric === 'ai-native' ? 'ai_native_critique' : 'answer_critique', rubric, prompt, userId)
+}
+
+// Story Bank rehearsal: a STAR answer to a competency prompt, graded against
+// fixed STAR key points plus the competency's own signal.
+export async function critiqueStory(userId: string, competency: string, question: string, answer: string, note = ''): Promise<{ rating: number | null; feedback: string; card: Scorecard | null }> {
+  const points = ['clear situation and stakes', 'your task or role', 'specific actions you took (I, not we)', 'a measurable result', `shows ${competency.toLowerCase()}`, 'reflection or what you would do differently']
+  const prompt = `Competency being assessed: ${competency}\nInterview question: ${question}\nKey points: ${points.join(' · ')}${note ? `\n\n${note}` : ''}\n\nCandidate's answer:\n${answer}`
+  return grade('story_critique', 'story', prompt, userId)
+}
+
+async function grade(task: 'answer_critique' | 'ai_native_critique' | 'story_critique', rubric: Rubric, prompt: string, userId: string): Promise<{ rating: number | null; feedback: string; card: Scorecard | null }> {
+  const raw = await askAI(task, prompt, SYSTEMS[rubric], { userId })
   const card = parseScorecard(raw, rubric)
-  if (!card) return { rating: null, feedback: raw.trim().startsWith('{') ? 'The review came back malformed — try Re-review.' : raw, card: null }
+  if (!card) return { rating: null, feedback: raw.trim().startsWith('{') ? 'The review came back malformed — try again.' : raw, card: null }
   const rating = scoreCard(card)
   card.verdict = rating >= 8 ? 'Strong' : rating >= 6 ? 'Good' : 'Needs work'
   return { rating, feedback: scorecardText(card), card }

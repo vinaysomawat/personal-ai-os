@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState, useTransition } from 'react'
-import { MessageSquareQuote, Plus, Shuffle, Sparkles } from 'lucide-react'
+import { ChevronRight, MessageSquareQuote, Plus, RotateCcw, Shuffle, Sparkles } from 'lucide-react'
 import Card from '@/components/Card'
 import MicButton, { appendText } from '@/components/MicButton'
 import PageTabs from '@/components/PageTabs'
@@ -16,6 +16,7 @@ import { COMPETENCIES, REHEARSAL_PROMPTS, type BankQuestion, type CompetencyKey,
 import type { CategoryCoverage, CategoryQuota } from '../hunt'
 import { HuntModeCard, QuestionsTab } from './QuestionsTab'
 import { MockTab } from './MockTab'
+import AnswerReview from './AnswerReview'
 import { FocusBar, ForecastCard, GatesCard, MissionCard, RevisionCard, WarHeader, WeaknessCard } from './WarRoom'
 import { focusSeconds, hm, type FocusSession, type Forecast, type RevisionItem, type TopicWeakness, type WarReadiness } from '../war'
 import PageHeader, { HeaderChip } from '@/components/PageHeader'
@@ -220,23 +221,33 @@ function StoriesTab({ stories, rehearsals, covered, onSaved, onDeleted, onRehear
   const [promptIdx, setPromptIdx] = useState(0)
   const [storyId, setStoryId] = useState<string>('')
   const [answer, setAnswer] = useState('')
-  const [critique, setCritique] = useState<string | null>(null)
+  // The rehearsal just graded (shown under the editor).
+  const [latest, setLatest] = useState<StoryRehearsal | null>(null)
+  // A past rehearsal's prompt loaded by "Retry this prompt".
+  const [retryPrompt, setRetryPrompt] = useState<string | null>(null)
+  const [spoken, setSpoken] = useState(false)
+  const [openRehearsal, setOpenRehearsal] = useState<string | null>(null)
   const [busy, startTransition] = useTransition()
 
   const prompts = REHEARSAL_PROMPTS[competency]
-  const prompt = prompts[promptIdx % prompts.length]
+  const prompt = retryPrompt ?? prompts[promptIdx % prompts.length]
   const tagged = (key: string) => stories.filter(s => s.competencies.includes(key))
 
-  const pickCompetency = (key: CompetencyKey) => { setCompetency(key); setPromptIdx(0); setCritique(null); setStoryId(tagged(key)[0]?.id ?? '') }
+  const pickCompetency = (key: CompetencyKey) => { setCompetency(key); setPromptIdx(0); setRetryPrompt(null); setLatest(null); setStoryId(tagged(key)[0]?.id ?? '') }
 
   const submitRehearsal = () => {
     if (answer.trim().length < 40) return
-    setCritique(null)
+    setLatest(null)
     startTransition(async () => {
-      const r = await rehearseStory(competency, prompt, answer.trim(), storyId || null)
-      setCritique(r.critique)
+      const r = await rehearseStory(competency, prompt, answer.trim(), storyId || null, spoken)
+      setLatest(r)
       onRehearsed(r)
     })
+  }
+  const retry = (r: StoryRehearsal) => {
+    setCompetency(r.competency as CompetencyKey); setRetryPrompt(r.prompt); setAnswer(r.answer)
+    setStoryId(r.story_id ?? ''); setSpoken(false); setLatest(null)
+    window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
   return (
@@ -265,7 +276,7 @@ function StoriesTab({ stories, rehearsals, covered, onSaved, onDeleted, onRehear
         <Card title="Rehearse" action={<span className="text-[11px] text-fg-tertiary">AI feedback on your answer</span>}>
           <div className="flex items-start gap-2">
             <p className="flex-1 text-[14px] font-semibold text-fg-primary leading-snug">&ldquo;{prompt}&rdquo;</p>
-            <button onClick={() => { setPromptIdx(i => i + 1); setCritique(null) }} aria-label="Another prompt" title="Another prompt" className="shrink-0 p-1.5 rounded-md border border-border-strong text-fg-secondary hover:bg-surface-2"><Shuffle size={13} /></button>
+            <button onClick={() => { setPromptIdx(i => i + 1); setRetryPrompt(null); setLatest(null) }} aria-label="Another prompt" title="Another prompt" className="shrink-0 p-1.5 rounded-md border border-border-strong text-fg-secondary hover:bg-surface-2"><Shuffle size={13} /></button>
           </div>
           <p className="text-[11px] text-fg-tertiary mt-1">{COMPETENCIES.find(c => c.key === competency)?.label}</p>
           <select value={storyId} onChange={e => setStoryId(e.target.value)} className="mt-2.5 w-full bg-surface-2 border border-surface-3 rounded-[8px] px-2.5 py-1.5 text-[12.5px] text-fg-primary outline-none">
@@ -276,7 +287,7 @@ function StoriesTab({ stories, rehearsals, covered, onSaved, onDeleted, onRehear
             className="mt-2 w-full bg-surface-2 border border-surface-3 rounded-[8px] px-3 py-2 text-[13px] text-fg-primary outline-none focus:border-accent resize-y" />
           <div className="flex items-center justify-between mt-2 gap-2">
             <span className="inline-flex items-center gap-2 min-w-0">
-              <MicButton onText={text => setAnswer(prev => appendText(prev, text))} />
+              <MicButton onText={text => { setAnswer(prev => appendText(prev, text)); setSpoken(true) }} />
               <span className="text-[11px] text-fg-tertiary tabular-nums truncate">{answer.trim().split(/\s+/).filter(Boolean).length} words · aim for ~250</span>
             </span>
             <button onClick={submitRehearsal} disabled={busy || answer.trim().length < 40} className={`${modalSaveButtonClass} inline-flex items-center gap-1.5`}>
@@ -284,16 +295,39 @@ function StoriesTab({ stories, rehearsals, covered, onSaved, onDeleted, onRehear
             </button>
           </div>
           {busy && <div className="space-y-2 mt-3">{[90, 70, 80].map((w, i) => <div key={i} className="h-3 rounded bg-surface-2 animate-pulse" style={{ width: `${w}%` }} />)}</div>}
-          {critique && <p className="mt-3 text-[13px] text-fg-secondary whitespace-pre-wrap leading-relaxed border-l-2 border-accent/40 pl-3">{critique}</p>}
+          {latest && !busy && <AnswerReview card={latest.scorecard} text={latest.critique ?? ''} rating={latest.rating} />}
           {rehearsals.length > 0 && (
             <div className="mt-4 pt-3 border-t border-surface-3">
-              <p className="text-[10.5px] font-bold uppercase tracking-[0.4px] text-fg-tertiary mb-1.5">Recent rehearsals</p>
-              <ul className="flex flex-col gap-1">
-                {rehearsals.slice(0, 5).map(r => (
-                  <li key={r.id} className="text-[12px] text-fg-secondary truncate">
-                    <span className="text-fg-tertiary">{r.created_at.slice(5, 10)}</span> · {COMPETENCIES.find(c => c.key === r.competency)?.label ?? r.competency} — <span className="text-fg-tertiary">{r.critique?.split('\n')[0]}</span>
-                  </li>
-                ))}
+              <p className="text-[10.5px] font-bold uppercase tracking-[0.4px] text-fg-tertiary mb-1.5">Recent rehearsals · {rehearsals.length}</p>
+              <ul className="flex flex-col rounded-[8px] border border-border divide-y divide-border">
+                {rehearsals.slice(0, 10).map(r => {
+                  const isOpen = openRehearsal === r.id
+                  return (
+                    <li key={r.id}>
+                      <button onClick={() => setOpenRehearsal(isOpen ? null : r.id)} aria-expanded={isOpen}
+                        className={`w-full text-left px-2.5 py-[7px] flex items-center gap-2 transition-colors ${isOpen ? 'bg-accent-soft' : 'hover:bg-surface-2'}`}>
+                        <ChevronRight size={12} className={`shrink-0 text-fg-tertiary transition-transform ${isOpen ? 'rotate-90' : ''}`} />
+                        <span className="text-[11px] text-fg-tertiary tabular-nums shrink-0">{toISTDateStr(r.created_at).slice(5)}</span>
+                        <span className="text-[12px] text-fg-primary min-w-0 flex-1 truncate">
+                          <span className="font-medium">{COMPETENCIES.find(c => c.key === r.competency)?.label ?? r.competency}</span>
+                          <span className="text-fg-tertiary"> · {r.prompt}</span>
+                        </span>
+                        {r.rating !== null
+                          ? <span className={`text-[10.5px] font-bold tabular-nums rounded-[4px] px-1 shrink-0 ${r.rating >= 8 ? 'text-good bg-good-soft' : r.rating >= 6 ? 'text-warn bg-warn-soft' : 'text-risk bg-risk-soft'}`}>{r.rating}</span>
+                          : <span className="text-[10.5px] text-fg-quaternary shrink-0">—</span>}
+                      </button>
+                      {isOpen && (
+                        <div className="px-2.5 pb-2.5 pt-1">
+                          <p className="text-[12.5px] font-semibold text-fg-primary leading-snug">&ldquo;{r.prompt}&rdquo;</p>
+                          <p className="text-[10.5px] font-bold uppercase tracking-[0.4px] text-fg-tertiary mt-2">Your answer · {r.answer.trim().split(/\s+/).length} words</p>
+                          <p className="text-[12.5px] text-fg-secondary whitespace-pre-wrap leading-relaxed mt-0.5">{r.answer}</p>
+                          <AnswerReview card={r.scorecard} text={r.critique ?? 'No feedback saved.'} rating={r.rating} />
+                          <button onClick={() => retry(r)} className="mt-2 text-[12px] text-accent hover:underline inline-flex items-center gap-1"><RotateCcw size={11} /> Retry this prompt</button>
+                        </div>
+                      )}
+                    </li>
+                  )
+                })}
               </ul>
             </div>
           )}
