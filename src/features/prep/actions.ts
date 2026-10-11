@@ -9,7 +9,9 @@ import { COMPETENCIES } from './types'
 import type { PrepSession, Story, StoryRehearsal } from './types'
 import { endFocus, loadPrepData, startFocus, syncBankBlocks, toggleFocusPause, updateBlocks } from './core'
 import type { FocusSession } from './war'
-import { critiqueQuestion } from './critique'
+import { critiqueQuestion, SPOKEN_NOTE } from './critique'
+import type { Scorecard } from './scorecard'
+import { speechStats } from '@/lib/speech-stats'
 
 export async function getPrepData() {
   const supabase = await createClient()
@@ -73,14 +75,16 @@ export async function savePrepSettings(targetDate: string | null, hoursPerDay: n
 }
 
 // AI interviewer feedback on a typed Question Bank answer (reviewing the
-// user's own work — uncached, every answer differs), with a 1–10 rating
-// parsed off its first line. The rubric depends on the category. Not
-// stored; the answer itself is saved when you hit Next.
-export async function critiqueAnswer(questionId: string, answer: string): Promise<{ rating: number | null; feedback: string }> {
+// user's own work — uncached, every answer differs): a scorecard whose 1–10
+// rating is computed in code (critique.ts). The rubric depends on the
+// category; `spoken` = dictated via Speak. Not stored; the answer and rating
+// are saved when you hit Next.
+export async function critiqueAnswer(questionId: string, answer: string, spoken = false): Promise<{ rating: number | null; feedback: string; card: Scorecard | null }> {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) throw new Error('Not authenticated')
-  return critiqueQuestion(supabase, user.id, questionId, answer)
+  const { seconds, fillers } = speechStats(answer)
+  return critiqueQuestion(supabase, user.id, questionId, answer, spoken ? SPOKEN_NOTE(seconds, fillers) : '')
 }
 
 // Records a Question Bank answer (the question counts as practiced); the

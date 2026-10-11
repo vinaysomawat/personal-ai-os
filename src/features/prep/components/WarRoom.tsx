@@ -1,9 +1,9 @@
 'use client'
 
 import { useEffect, useState, useTransition } from 'react'
-import { Check, Pause, Play, Sparkles, Square, Timer } from 'lucide-react'
+import { Check, Pause, Play, Sparkles, Timer, X } from 'lucide-react'
 import Card from '@/components/Card'
-import { modalCancelButtonClass, modalSaveButtonClass } from '@/components/Modal'
+import { modalSaveButtonClass } from '@/components/Modal'
 import { READINESS_CONFIG, type ReadinessTier } from '@/features/career/types'
 import { endFocusSession, generatePrepForecast, toggleFocusSessionPause } from '../actions'
 import { GATES, coachLine, dayPace, focusSeconds, hm, nowBlock, readinessTier, type FocusSession, type Forecast, type RevisionItem, type TopicWeakness, type WarReadiness } from '../war'
@@ -91,7 +91,7 @@ export function MissionCard({ session, focusSessions, onToggle, onStart, onOpen 
             </div>
             <button onClick={() => onStart(now.key)} disabled={!!active && active.block_key !== now.key}
               className={`${modalSaveButtonClass} inline-flex items-center gap-1.5 !px-5 !py-2.5 !text-[14px]`}>
-              <Timer size={15} /> {active?.block_key === now.key ? 'Resume focus' : 'Start focus'}
+              <Timer size={15} /> {active?.block_key === now.key ? 'Go to work' : 'Start focus'}
             </button>
           </div>
         </div>
@@ -119,7 +119,7 @@ export function MissionCard({ session, focusSessions, onToggle, onStart, onOpen 
                 <p className="text-[11.5px] text-fg-secondary mt-0.5 hidden sm:block">{b.detail}</p>
               </div>
               <div className="flex flex-col items-end gap-1 shrink-0">
-                {!b.done && <button onClick={() => onStart(b.key)} disabled={!!active && !isActive} className="text-[11.5px] font-semibold text-accent hover:underline disabled:opacity-40">{isActive ? 'Resume' : 'Start'}</button>}
+                {!b.done && <button onClick={() => onStart(b.key)} disabled={!!active && !isActive} className="text-[11.5px] font-semibold text-accent hover:underline disabled:opacity-40">{isActive ? 'Go' : 'Start'}</button>}
                 <button onClick={() => onOpen(b.href)} className="text-[11px] text-fg-tertiary hover:text-accent">Open →</button>
               </div>
             </li>
@@ -130,64 +130,52 @@ export function MissionCard({ session, focusSessions, onToggle, onStart, onOpen 
   )
 }
 
-// ---------------- Focus overlay ----------------
+// ---------------- Focus bar ----------------
 
-// Full-screen focus timer: everything else is hidden until Finish / Stop.
-export function FocusOverlay({ focus, block, onChange, onEnded, onOpen }: {
-  focus: FocusSession
-  block: { label: string; detail: string; href: string } | null
+// The whole focus timer: a floating bar over the page (no separate screen).
+// Label = jump to the work; question blocks show today's progress. After a
+// session ends on its own (quota met), `ended` shows the result briefly.
+export function FocusBar({ focus, progress, ended, onChange, onEnded, onGo }: {
+  focus: FocusSession | null
+  progress: string | null
+  ended: { label: string; seconds: number } | null
   onChange: (f: FocusSession) => void
   onEnded: (f: FocusSession | null, session: PrepSession | null) => void
-  onOpen: (href: string) => void
+  onGo: () => void
 }) {
-  const now = useNow(!focus.paused_at)
+  const now = useNow(!!focus && !focus.paused_at)
   const [busy, start] = useTransition()
-  const spent = focusSeconds(focus, now)
-  const left = focus.planned_minutes * 60 - spent
+  const shell = 'fixed bottom-[86px] md:bottom-7 left-1/2 -translate-x-1/2 z-[30] max-w-[calc(100vw-24px)] rounded-full shadow-[0_8px_24px_var(--shadow-lg)] text-[12.5px] font-semibold tabular-nums'
+  if (!focus) {
+    if (!ended) return null
+    return <div role="status" className={`${shell} bg-good text-on-good px-4 py-2 inline-flex items-center gap-1.5 whitespace-nowrap`}><Check size={14} strokeWidth={3} /> {ended.label} done · {mmss(ended.seconds)} focused</div>
+  }
+  const left = focus.planned_minutes * 60 - focusSeconds(focus, now)
   const paused = !!focus.paused_at
-  useEffect(() => {
-    const prev = document.body.style.overflow
-    document.body.style.overflow = 'hidden'
-    return () => { document.body.style.overflow = prev }
-  }, [])
+  const icon = 'w-[28px] h-[28px] rounded-full inline-flex items-center justify-center hover:bg-white/20 disabled:opacity-50 shrink-0'
   return (
-    <div className="fixed inset-0 z-[70] bg-background flex items-center justify-center p-4" role="dialog" aria-label="Focus session">
-      <div className="w-full max-w-[520px] text-center">
-        <p className="text-[11px] font-bold uppercase tracking-[0.6px] text-accent">🔒 Focus session{paused ? ' · paused' : ''}</p>
-        <p className="text-[22px] font-bold text-fg-primary mt-2 leading-tight">{focus.label}</p>
-        {block?.detail && <p className="text-[13px] text-fg-secondary mt-1.5">{block.detail}</p>}
-        <p className={`text-[64px] font-bold tabular-nums leading-none mt-6 ${left < 0 ? 'text-risk' : paused ? 'text-fg-tertiary' : 'text-fg-primary'}`}>{mmss(left)}</p>
-        <p className="text-[12px] text-fg-tertiary mt-2 tabular-nums">{left < 0 ? 'over planned time · ' : ''}focused {mmss(spent)} of {focus.planned_minutes}:00 · {focus.interruptions} interruption{focus.interruptions === 1 ? '' : 's'}</p>
-        <div className="flex flex-wrap justify-center gap-2 mt-7">
-          <button disabled={busy} onClick={() => start(async () => { const f = await toggleFocusSessionPause(focus.id); if (f) onChange(f) })} className={`${modalCancelButtonClass} inline-flex items-center gap-1.5`}>
-            {paused ? <><Play size={14} /> Resume</> : <><Pause size={14} /> Pause</>}
-          </button>
-          <button disabled={busy} onClick={() => start(async () => { const r = await endFocusSession(focus.id, true); onEnded(r.focus, r.session) })} className={`${modalSaveButtonClass} inline-flex items-center gap-1.5`}>
-            <Check size={14} /> Finish block
-          </button>
-        </div>
-        <div className="flex justify-center gap-4 mt-4">
-          {block?.href && <button onClick={() => onOpen(block.href)} className="text-[12px] text-accent hover:underline">Open the work →</button>}
-          <button disabled={busy} onClick={() => start(async () => { const r = await endFocusSession(focus.id, false); onEnded(r.focus, null) })} className="text-[12px] text-fg-tertiary hover:text-risk inline-flex items-center gap-1">
-            <Square size={11} /> Stop without finishing
-          </button>
-        </div>
-      </div>
+    <div role="timer" aria-label="Focus session" className={`${shell} ${left < 0 ? 'bg-risk' : 'bg-accent'} ${paused ? 'opacity-75' : ''} text-white pl-3 pr-1 py-1 flex items-center gap-1`}>
+      <button onClick={onGo} title="Go to the work" className="inline-flex items-center gap-1.5 min-w-0 py-1">
+        <Timer size={14} className="shrink-0" />
+        <span className="truncate">{focus.label}</span>
+        {progress && <span className="font-normal opacity-85 shrink-0">· {progress}</span>}
+        <span className="shrink-0">· {mmss(left)}</span>
+        {paused && <span className="font-normal opacity-85 shrink-0">· paused</span>}
+      </button>
+      <span className="w-px h-4 bg-white/30 mx-1 shrink-0" aria-hidden />
+      <button disabled={busy} onClick={() => start(async () => { const f = await toggleFocusSessionPause(focus.id); if (f) onChange(f) })} title={paused ? 'Resume' : 'Pause'} aria-label={paused ? 'Resume' : 'Pause'} className={icon}>
+        {paused ? <Play size={13} /> : <Pause size={13} />}
+      </button>
+      <button disabled={busy} onClick={() => start(async () => { const r = await endFocusSession(focus.id, true); onEnded(r.focus, r.session) })} title="Finish block" aria-label="Finish block" className={icon}>
+        <Check size={14} strokeWidth={3} />
+      </button>
+      <button disabled={busy} onClick={() => start(async () => { const r = await endFocusSession(focus.id, false); onEnded(r.focus, null) })} title="Stop without finishing" aria-label="Stop without finishing" className={icon}>
+        <X size={14} />
+      </button>
     </div>
   )
 }
 
-// Compact bar shown while a focus session runs and the overlay is hidden
-// (e.g. after "Open the work").
-export function FocusBar({ focus, onShow }: { focus: FocusSession; onShow: () => void }) {
-  const now = useNow(!focus.paused_at)
-  const left = focus.planned_minutes * 60 - focusSeconds(focus, now)
-  return (
-    <button onClick={onShow} className="fixed bottom-[86px] md:bottom-7 left-1/2 -translate-x-1/2 z-[30] rounded-full bg-accent text-white text-[12.5px] font-semibold px-4 py-2 shadow-[0_8px_24px_var(--shadow-lg)] inline-flex items-center gap-2 tabular-nums">
-      <Timer size={14} /> {focus.label} · {mmss(left)}{focus.paused_at ? ' · paused' : ''}
-    </button>
-  )
-}
 
 // ---------------- Readiness gates ----------------
 

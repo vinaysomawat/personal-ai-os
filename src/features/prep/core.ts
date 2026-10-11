@@ -189,7 +189,15 @@ export function bankCoverage(bank: BankQuestion[], today: string): CategoryCover
 export async function updateBlocks(supabase: SupabaseClient, userId: string, date: string, fn: (blocks: PrepBlock[]) => PrepBlock[]): Promise<PrepSession | null> {
   const { data } = await supabase.from('prep_sessions').select('*').eq('user_id', userId).eq('date', date).maybeSingle()
   if (!data) return null
-  const blocks = fn(data.blocks as PrepBlock[])
+  const prev = data.blocks as PrepBlock[]
+  const blocks = fn(prev)
+  // A block turning done (quota met, ticked, Finish) completes the focus
+  // session running on it, from any path — web, Telegram drill, mock round.
+  const newlyDone = blocks.filter(b => b.done && !prev.find(p => p.key === b.key)?.done).map(b => b.key)
+  if (newlyDone.length > 0) {
+    const active = await getActiveFocus(supabase, userId)
+    if (active && active.date === date && newlyDone.includes(active.block_key)) await closeFocus(supabase, active, 'completed')
+  }
   const allDone = blocks.length > 0 && blocks.every(b => b.done)
   const { data: updated } = await supabase.from('prep_sessions')
     .update({ blocks, completed_at: allDone ? (data.completed_at ?? new Date().toISOString()) : null })
@@ -262,9 +270,14 @@ export async function toggleFocusPause(supabase: SupabaseClient, userId: string,
 export async function endFocus(supabase: SupabaseClient, userId: string, id: string, finished: boolean): Promise<{ focus: FocusSession | null; session: PrepSession | null }> {
   const { data: f } = await supabase.from('prep_focus_sessions').select('*').eq('id', id).eq('user_id', userId).single()
   if (!f || f.status !== 'active') return { focus: (f as FocusSession | null) ?? null, session: null }
-  const { data } = await supabase.from('prep_focus_sessions')
-    .update({ status: finished ? 'completed' : 'abandoned', ended_at: new Date().toISOString(), actual_seconds: focusSeconds(f as FocusSession), paused_at: null })
-    .eq('id', id).select('*').single()
+  const focus = await closeFocus(supabase, f as FocusSession, finished ? 'completed' : 'abandoned')
   const session = finished ? await updateBlocks(supabase, userId, f.date, blocks => blocks.map(b => b.key === f.block_key ? { ...b, done: true } : b)) : null
-  return { focus: (data as FocusSession | null) ?? null, session }
+  return { focus, session }
+}
+
+async function closeFocus(supabase: SupabaseClient, f: FocusSession, status: 'completed' | 'abandoned'): Promise<FocusSession | null> {
+  const { data } = await supabase.from('prep_focus_sessions')
+    .update({ status, ended_at: new Date().toISOString(), actual_seconds: focusSeconds(f), paused_at: null })
+    .eq('id', f.id).eq('status', 'active').select('*').maybeSingle()
+  return (data as FocusSession | null) ?? null
 }

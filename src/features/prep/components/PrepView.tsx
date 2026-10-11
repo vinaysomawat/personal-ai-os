@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useEffect, useState, useTransition } from 'react'
 import { MessageSquareQuote, Plus, Shuffle, Sparkles } from 'lucide-react'
 import Card from '@/components/Card'
 import MicButton, { appendText } from '@/components/MicButton'
@@ -16,7 +16,7 @@ import { COMPETENCIES, REHEARSAL_PROMPTS, type BankQuestion, type CompetencyKey,
 import type { CategoryCoverage, CategoryQuota } from '../hunt'
 import { HuntModeCard, QuestionsTab } from './QuestionsTab'
 import { MockTab } from './MockTab'
-import { FocusBar, FocusOverlay, ForecastCard, GatesCard, MissionCard, RevisionCard, WarHeader, WeaknessCard } from './WarRoom'
+import { FocusBar, ForecastCard, GatesCard, MissionCard, RevisionCard, WarHeader, WeaknessCard } from './WarRoom'
 import { focusSeconds, hm, type FocusSession, type Forecast, type RevisionItem, type TopicWeakness, type WarReadiness } from '../war'
 import PageHeader, { HeaderChip } from '@/components/PageHeader'
 import StatCard from '@/components/StatCard'
@@ -67,7 +67,8 @@ export default function PrepView(props: Props) {
 
   const [focusSessions, setFocusSessions] = useState(props.focusSessions)
   const [bankTopic, setBankTopic] = useState(props.initialTopic ?? '')
-  const [overlayHidden, setOverlayHidden] = useState(false)
+  // Shown briefly after a session ends itself (its block got done).
+  const [focusEnded, setFocusEnded] = useState<{ label: string; seconds: number } | null>(null)
   const todayFocus = focusSessions.filter(f => f.date === props.today)
   const focusedToday = Math.round(todayFocus.reduce((s, f) => s + focusSeconds(f), 0) / 60)
   const activeFocus = focusSessions.find(f => f.status === 'active') ?? null
@@ -81,13 +82,44 @@ export default function PrepView(props: Props) {
     setTab(p.get('tab') as PrepTab)
     if (p.get('cat')) { setBankCategory(p.get('cat')); setBankTopic(p.get('topic') ?? '') }
     if (p.get('format')) setMockFormat(p.get('format'))
-    setOverlayHidden(true)
   }
   const openTopic = (category: string, topic: string) => { setBankCategory(category); setBankTopic(topic); setTab('questions') }
-  const startFocus = (key: string) => {
-    if (activeFocus?.block_key === key) { setOverlayHidden(false); return }
-    startTransition(async () => { const f = await startFocusSession(key); if (f) { upsertFocus(f); setOverlayHidden(false) } })
+  // Start (or return to) a block's focus session and go straight to its work;
+  // the timer is the floating FocusBar, not a separate screen.
+  const goToWork = (key: string) => {
+    const href = session?.blocks.find(b => b.key === key)?.href
+    if (href?.startsWith('/prep')) openHref(href)
   }
+  const startFocus = (key: string) => {
+    goToWork(key)
+    if (activeFocus?.block_key === key) return
+    setFocusEnded(null)
+    startTransition(async () => { const f = await startFocusSession(key); if (f) upsertFocus(f) })
+  }
+  // The server completes the session when its block turns done (quota met,
+  // ticked); mirror that locally the moment the plan comes back done.
+  const activeBlock = activeFocus ? session?.blocks.find(b => b.key === activeFocus.block_key) ?? null : null
+  useEffect(() => {
+    if (!activeFocus || !activeBlock?.done) return
+    const seconds = focusSeconds(activeFocus)
+    upsertFocus({ ...activeFocus, status: 'completed', ended_at: new Date().toISOString(), actual_seconds: seconds, paused_at: null })
+    setFocusEnded({ label: activeFocus.label, seconds })
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- fires on the block turning done
+  }, [activeFocus?.id, activeBlock?.done])
+  useEffect(() => {
+    if (!focusEnded) return
+    const t = setTimeout(() => setFocusEnded(null), 5000)
+    return () => clearTimeout(t)
+  }, [focusEnded])
+  // "3/7 done" for a question block (quota = the label's "× N").
+  const focusProgress = (() => {
+    if (!activeFocus?.block_key.startsWith('bank:')) return null
+    const quota = Number(activeFocus.label.match(/× (\d+)$/)?.[1] ?? 0)
+    if (!quota) return null
+    const cat = activeFocus.block_key.slice(5)
+    const done = bank.filter(q => q.category === cat && q.last_seen_at && toISTDateStr(q.last_seen_at) === props.today).length
+    return `${Math.min(done, quota)}/${quota}`
+  })()
 
   const lastRound = rounds[0] ?? null
   const roundsThisWeek = rounds.filter(r => toISTDateStr(r.created_at) >= daysAgoIST(6)).length
@@ -165,12 +197,9 @@ export default function PrepView(props: Props) {
           onRehearsed={r => setRehearsals(prev => [r, ...prev])}
         />
       )}
-      {activeFocus && !overlayHidden && (
-        <FocusOverlay focus={activeFocus} block={session?.blocks.find(b => b.key === activeFocus.block_key) ?? null}
-          onChange={upsertFocus} onOpen={openHref}
-          onEnded={(f, s) => { if (f) upsertFocus(f); if (s) setSession(s) }} />
-      )}
-      {activeFocus && overlayHidden && <FocusBar focus={activeFocus} onShow={() => setOverlayHidden(false)} />}
+      <FocusBar focus={activeFocus} progress={focusProgress} ended={focusEnded} onChange={upsertFocus}
+        onGo={() => activeFocus && goToWork(activeFocus.block_key)}
+        onEnded={(f, s) => { if (f) upsertFocus(f); if (s) setSession(s) }} />
     </div>
   )
 }

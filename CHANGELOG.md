@@ -3,6 +3,12 @@
 One line per shipped change, newest first. Sourced from commit messages —
 append here whenever you deploy, same cadence as the version bump.
 
+## 2026-10-11
+
+- **Honest answer ratings.** The AI no longer picks the 1–10 number (it drifted to 4–6 whatever you said). It checks off each key point as covered, partial or missing and scores correctness, depth and clarity; the rating is calculated from that, so a thorough answer can reach 9–10 and a one-liner lands at 2–3. The review shows the checklist and the breakdown. Spoken answers are graded as spoken, ignoring transcription slips. Same scoring for Telegram drills.
+- **Focus without a separate screen.** Start focus now takes you straight to the work with the timer in a small floating bar (progress like 3/7, pause, finish, stop). The timer stops itself the moment the block's questions for today are done.
+- **Question Bank: pick, answer, get reviewed.** Every question in a category is listed so you choose what to answer (Skip is gone). Any real answer gets an AI review before Next. The review is now a structured card: rating and verdict, ✓ correct vs ✗ missing/wrong, numbered fixes, and the follow-up question set apart.
+
 ## 2026-10-10
 
 - **Voice mode**: a 🎙 Speak button on every answer box (Question Bank, Mock Round, Story Bank rehearsal, Interviews' answers). Record, stop, and your words appear as text (Groq Whisper, tuned for frontend terms), with how long you spoke and a filler-word count. No AI-budget cost; only the text is kept.

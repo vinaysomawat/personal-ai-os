@@ -1,6 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { speechStats } from '@/lib/speech-stats'
-import { critiqueQuestion } from './critique'
+import { critiqueQuestion, SPOKEN_NOTE } from './critique'
 import { loadPrepData, syncBankBlocks } from './core'
 import { categoryGap } from './war'
 import type { BankQuestion } from './types'
@@ -73,9 +73,7 @@ export async function answerPendingDrill(db: SupabaseClient, userId: string, tex
   }
 
   const { seconds, fillers } = speechStats(t)
-  const note = spoken
-    ? `This answer was spoken and transcribed (~${seconds}s, ${fillers} filler words). Ignore transcription typos; judge it as a spoken answer, and mention delivery (length, structure, fillers) in Fix next if it hurt the answer.`
-    : ''
+  const note = spoken ? SPOKEN_NOTE(seconds, fillers) : ''
   const { rating, feedback } = await critiqueQuestion(db, userId, drill.question_id, t, note)
 
   await db.from('telegram_drills').update({ answered_at: now, transcript: t, rating, critique: feedback }).eq('id', drill.id)
