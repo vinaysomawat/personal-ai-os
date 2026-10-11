@@ -1,0 +1,54 @@
+PR #590 — "Infinite scroll for the activity feed" (AI-generated)
+
+diff --git a/src/features/feed/ActivityFeed.tsx b/src/features/feed/ActivityFeed.tsx
+--- a/src/features/feed/ActivityFeed.tsx
++++ b/src/features/feed/ActivityFeed.tsx
+@@ -1,22 +1,52 @@
+-import { useState } from 'react'
++import { useEffect, useState } from 'react'
+ import { FeedItem } from './FeedItem'
+ 
+ const PAGE_SIZE = 20
+ 
+ export function ActivityFeed() {
+   const [items, setItems] = useState<Activity[]>([])
+-  const [page, setPage] = useState(0)
++  const [page, setPage] = useState(0)
++  const [loading, setLoading] = useState(false)
++  const [done, setDone] = useState(false)
+ 
+-  async function loadMore() {
+-    const res = await fetch(`/api/activity?offset=${page * PAGE_SIZE}&limit=${PAGE_SIZE}`)
+-    const next = await res.json()
+-    setItems(prev => [...prev, ...next])
+-    setPage(p => p + 1)
+-  }
++  useEffect(() => {
++    async function loadMore() {
++      if (loading || done) return
++      setLoading(true)
++      const res = await fetch(`/api/activity?offset=${page * PAGE_SIZE}&limit=${PAGE_SIZE}`)
++      const next: Activity[] = await res.json()
++      setItems(prev => [...prev, ...next])
++      setPage(page + 1)
++      setDone(next.length === 0)
++      setLoading(false)
++    }
++
++    function onScroll() {
++      const nearBottom = window.innerHeight + window.scrollY >= document.body.offsetHeight - 200
++      if (nearBottom) loadMore()
++    }
++
++    window.addEventListener('scroll', onScroll)
++    loadMore()
++  }, [])
+ 
+   return (
+     <section>
+       {items.map(item => <FeedItem key={item.id} item={item} />)}
+-      <button onClick={loadMore}>Load more</button>
++      {loading && <p>Loading…</p>}
+     </section>
+   )
+ }

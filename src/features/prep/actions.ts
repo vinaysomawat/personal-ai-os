@@ -186,8 +186,9 @@ Respond with ONLY a JSON object, no prose before or after:
 
 const parseList = (v: unknown) => Array.isArray(v) ? v.map(String).filter(Boolean) : []
 
-// One AI review for a whole saved round (all answers in a single call, Haiku,
-// uncached), stored on the row so the calendar can show it again for free.
+// The AI review of a saved round, stored on the row so the calendar can show
+// it again for free: one Haiku call for the whole round, or (code-review and
+// ai-assisted) one scorecard per answer.
 export async function reviewMockRound(roundId: string): Promise<{ review: MockReview | null; error: string | null }> {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -197,30 +198,11 @@ export async function reviewMockRound(roundId: string): Promise<{ review: MockRe
   if (round.review) return { review: round.review as MockReview, error: null }
 
   const items = round.items as MockItem[]
-  const mm = (s: number) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`
-  const prompt = `Round: ${formatOf(round.format).label}, ${items.length} questions.\n\n` + items.map((it, i) => [
-    `Q${i + 1} [${it.category === 'star' ? 'STAR story' : it.category}] ${it.prompt}`,
-    it.hints ? `Key points: ${it.hints}` : null,
-    `Time: ${mm(it.seconds)} of ${mm(it.budget_seconds)}`,
-    `Answer: ${it.skipped ? '[skipped]' : it.answer.trim() || '[answered out loud — not typed]'}`,
-  ].filter(Boolean).join('\n')).join('\n\n')
-
-  const raw = await askAI('mock_round_review', prompt, MOCK_REVIEW_SYSTEM, { userId: user.id })
-  const json = raw.slice(raw.indexOf('{'), raw.lastIndexOf('}') + 1)
-  let parsed: Record<string, unknown>
-  try { parsed = JSON.parse(json) } catch { return { review: null, error: raw.startsWith('{') ? 'The review came back malformed — try again.' : raw } }
-  const rawRatings = Array.isArray(parsed.ratings) ? parsed.ratings : []
-  // Clamp to 1–10; skipped / untyped answers are never rated, whatever the AI says.
-  const ratings = items.map((it, i) => {
-    const n = Number(rawRatings[i])
-    return it.skipped || !it.answer.trim() || !Number.isFinite(n) || rawRatings[i] === null ? null : Math.min(10, Math.max(1, Math.round(n)))
-  })
-  const review: MockReview = {
-    verdict: String(parsed.verdict ?? ''), outcome: String(parsed.outcome ?? ''), summary: String(parsed.summary ?? ''),
-    strengths: parseList(parsed.strengths), fixes: parseList(parsed.fixes),
-    notes: items.map((_, i) => parseList(parsed.notes)[i] ?? ''),
-    ratings, score: roundScore(ratings),
-  }
+  const review = SCORECARD_FORMATS.has(round.format)
+    ? await scorecardRoundReview(supabase, user.id, items)
+    : await wholeRoundReview(user.id, round.format, items)
+  if (typeof review === 'string') return { review: null, error: review }
+  const { ratings } = review
   const { error } = await supabase.from('mock_rounds').update({ review }).eq('id', roundId)
   if (error) throw new Error(error.message)
   // Each rated bank answer's rating also lands on its question, so topic
@@ -231,6 +213,57 @@ export async function reviewMockRound(roundId: string): Promise<{ review: MockRe
     : null))
   revalidatePath('/prep')
   return { review, error: null }
+}
+
+// Code-review and AI-assisted rounds are graded answer by answer with the
+// shared scorecard (their key points are planted issues / kit stages), and
+// the round's verdict is derived from the computed ratings.
+const SCORECARD_FORMATS = new Set(['code-review', 'ai-assisted'])
+
+async function scorecardRoundReview(supabase: Awaited<ReturnType<typeof createClient>>, userId: string, items: MockItem[]): Promise<MockReview | string> {
+  const graded = await Promise.all(items.map(it => it.question_id && !it.skipped && it.answer.trim() ? critiqueQuestion(supabase, userId, it.question_id, it.answer.trim()) : null))
+  if (graded.every(g => g === null)) return 'Nothing typed to review — type your answers next time.'
+  const cards = graded.map(g => g?.card ?? null)
+  const ratings = graded.map(g => g?.rating ?? null)
+  const score = roundScore(ratings)
+  const got = cards.filter((c): c is Scorecard => c !== null)
+  return {
+    verdict: score === null ? 'Needs work' : score >= 8 ? 'Strong' : score >= 6 ? 'Good' : 'Needs work',
+    outcome: score === null ? 'Borderline' : score >= 7 ? 'Likely pass' : score >= 5 ? 'Borderline' : 'Likely no',
+    summary: got.map(c => c.summary).join(' '),
+    strengths: got.flatMap(c => c.points.filter(p => p.status === 'covered').map(p => p.point)).slice(0, 2),
+    fixes: got.flatMap(c => c.fixes).slice(0, 3),
+    notes: graded.map((g, i) => g ? (g.card ? `${g.card.verdict} — ${g.card.summary}` : g.feedback) : items[i].skipped ? 'Skipped.' : 'Not typed — can\'t be graded.'),
+    ratings, score, cards,
+  }
+}
+
+// Every other format: one Haiku call reviews the whole round.
+async function wholeRoundReview(userId: string, format: string, items: MockItem[]): Promise<MockReview | string> {
+  const mm = (s: number) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`
+  const prompt = `Round: ${formatOf(format).label}, ${items.length} questions.\n\n` + items.map((it, i) => [
+    `Q${i + 1} [${it.category === 'star' ? 'STAR story' : it.category}] ${it.prompt}`,
+    it.hints ? `Key points: ${it.hints}` : null,
+    `Time: ${mm(it.seconds)} of ${mm(it.budget_seconds)}`,
+    `Answer: ${it.skipped ? '[skipped]' : it.answer.trim() || '[answered out loud — not typed]'}`,
+  ].filter(Boolean).join('\n')).join('\n\n')
+
+  const raw = await askAI('mock_round_review', prompt, MOCK_REVIEW_SYSTEM, { userId })
+  const json = raw.slice(raw.indexOf('{'), raw.lastIndexOf('}') + 1)
+  let parsed: Record<string, unknown>
+  try { parsed = JSON.parse(json) } catch { return raw.startsWith('{') ? 'The review came back malformed — try again.' : raw }
+  const rawRatings = Array.isArray(parsed.ratings) ? parsed.ratings : []
+  // Clamp to 1–10; skipped / untyped answers are never rated, whatever the AI says.
+  const ratings = items.map((it, i) => {
+    const n = Number(rawRatings[i])
+    return it.skipped || !it.answer.trim() || !Number.isFinite(n) || rawRatings[i] === null ? null : Math.min(10, Math.max(1, Math.round(n)))
+  })
+  return {
+    verdict: String(parsed.verdict ?? ''), outcome: String(parsed.outcome ?? ''), summary: String(parsed.summary ?? ''),
+    strengths: parseList(parsed.strengths), fixes: parseList(parsed.fixes),
+    notes: items.map((_, i) => parseList(parsed.notes)[i] ?? ''),
+    ratings, score: roundScore(ratings),
+  }
 }
 
 export type StoryInput = Pick<Story, 'title' | 'competencies' | 'situation' | 'task' | 'action' | 'result' | 'metrics' | 'strength'>

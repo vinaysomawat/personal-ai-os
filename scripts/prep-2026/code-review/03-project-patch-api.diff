@@ -1,0 +1,42 @@
+PR #530 — "PATCH endpoint for project settings" (AI-generated)
+
+diff --git a/app/api/projects/[id]/route.ts b/app/api/projects/[id]/route.ts
+new file mode 100644
+--- /dev/null
++++ b/app/api/projects/[id]/route.ts
+@@ -0,0 +1,44 @@
++import { NextResponse } from 'next/server'
++import { db } from '@/lib/db'
++import { getSession } from '@/lib/auth'
++
++export async function PATCH(req: Request, { params }: { params: { id: string } }) {
++  const session = await getSession()
++  if (!session) {
++    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
++  }
++
++  const body = await req.json()
++  console.log('PATCH project', params.id, body, req.headers.get('authorization'))
++
++  const project = await db.project.findUnique({ where: { id: params.id } })
++  if (!project) {
++    return NextResponse.json({ ok: true })
++  }
++
++  // Update whatever fields the client sent
++  const updated = await db.project.update({
++    where: { id: params.id },
++    data: { ...body, updatedAt: new Date() },
++  })
++
++  return NextResponse.json(updated)
++}
++
++export async function DELETE(req: Request, { params }: { params: { id: string } }) {
++  const session = await getSession()
++  if (!session) {
++    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
++  }
++  await db.project.delete({ where: { id: params.id } })
++  return NextResponse.json({ deleted: true })
++}

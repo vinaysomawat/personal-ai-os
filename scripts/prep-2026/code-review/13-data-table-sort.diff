@@ -1,0 +1,53 @@
+PR #668 — "Sortable columns for the invoices table" (AI-generated)
+
+diff --git a/src/features/invoices/InvoicesTable.tsx b/src/features/invoices/InvoicesTable.tsx
+--- a/src/features/invoices/InvoicesTable.tsx
++++ b/src/features/invoices/InvoicesTable.tsx
+@@ -1,28 +1,54 @@
+-import { useMemo } from 'react'
++import { useMemo, useState } from 'react'
+ 
+ type Invoice = { id: string; customer: string; amount: number; dueDate: string }
++type SortKey = keyof Invoice
+ 
+ export function InvoicesTable({ invoices }: { invoices: Invoice[] }) {
++  const [sortKey, setSortKey] = useState<SortKey>('dueDate')
++  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc')
++
++  const rows = useMemo(() => {
++    return invoices.sort((a, b) => {
++      const r = a[sortKey] > b[sortKey]
++      return sortDir === 'asc' ? r : !r
++    })
++  }, [invoices, sortKey])
++
++  function toggle(key: SortKey) {
++    if (key === sortKey) setSortDir(sortDir === 'asc' ? 'desc' : 'asc')
++    else setSortKey(key)
++  }
++
+   return (
+     <table>
+       <thead>
+         <tr>
+-          <th>Customer</th>
+-          <th>Amount</th>
+-          <th>Due</th>
++          <th><div className="sortable" onClick={() => toggle('customer')}>Customer</div></th>
++          <th><div className="sortable" onClick={() => toggle('amount')}>Amount</div></th>
++          <th><div className="sortable" onClick={() => toggle('dueDate')}>Due</div></th>
+         </tr>
+       </thead>
+       <tbody>
+-        {invoices.map(inv => (
++        {rows.map(inv => (
+           <tr key={inv.id}>
+             <td>{inv.customer}</td>
+             <td>{inv.amount}</td>
+             <td>{inv.dueDate}</td>
+           </tr>
+         ))}
+       </tbody>
+     </table>
+   )
+ }

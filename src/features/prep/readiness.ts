@@ -7,10 +7,14 @@ export interface RatedAnswer {
   rating: number
 }
 
-// Areas fed by a whole bank category, not just by topic.
-const AREA_CATEGORY: Partial<Record<string, string>> = {
-  uicoding: 'ui-coding', sysdesign: 'system-design', ainative: 'ai-native', behavioral: 'behavioral', dsa: 'algorithm', angular: 'angular', backend: 'backend',
+// Areas fed by whole bank categories, not just by topic. Code review also
+// counts toward Testing (reviewing is how a senior catches what tests miss).
+const AREA_CATEGORIES: Partial<Record<string, string[]>> = {
+  uicoding: ['ui-coding'], sysdesign: ['system-design'], ainative: ['ai-native'], behavioral: ['behavioral'], dsa: ['algorithm'], angular: ['angular'], backend: ['backend'],
+  testing: ['code-review'],
 }
+// AI-assisted coding = the mean of these two halves (each needs its own sample).
+const AI_ASSISTED_HALVES = ['ai-assisted', 'code-review']
 const MIN_RATED_SAMPLE = 2
 // Small samples are shrunk toward 0 until they reach this size (2026-10-09):
 // 3 solved UI-coding questions at 77 used to read as nearly at its gate and
@@ -100,7 +104,11 @@ function baseMatrix(codingHistory: CodingHistoryRow[], stories: Story[], aiNativ
   // AI answer ratings (×10) on this area's category or topics — the most
   // direct skill signal once ≥2 answers are rated.
   const ratingPart = (key: string, codingTopics: readonly string[]): { score: number; n: number } | null => {
-    const rs = rated.filter(r => r.category === AREA_CATEGORY[key] || r.topics.some(t => codingTopics.includes(t)))
+    const rs = rated.filter(r => (AREA_CATEGORIES[key] ?? []).includes(r.category) || r.topics.some(t => codingTopics.includes(t)))
+    return rs.length >= MIN_RATED_SAMPLE ? { score: shrink(Math.round((rs.reduce((s, r) => s + r.rating, 0) / rs.length) * 10), rs.length), n: rs.length } : null
+  }
+  const categoryPart = (category: string): { score: number; n: number } | null => {
+    const rs = rated.filter(r => r.category === category)
     return rs.length >= MIN_RATED_SAMPLE ? { score: shrink(Math.round((rs.reduce((s, r) => s + r.rating, 0) / rs.length) * 10), rs.length), n: rs.length } : null
   }
 
@@ -114,6 +122,18 @@ function baseMatrix(codingHistory: CodingHistoryRow[], stories: Story[], aiNativ
         key: area.key, label: area.label, href: area.href,
         score: parts.length ? Math.round(parts.reduce((s, v) => s + v, 0) / parts.length) : null,
         basis: [`${cov.covered}/${cov.total} competencies with a solid story`, area.key === 'behavioral' && rp ? `${rp.n} rated answers` : null].filter(Boolean).join(' · '),
+      }
+    }
+
+    // AI-assisted coding: 50% ai-assisted mock ratings, 50% code-review
+    // ratings; one half alone stands in until the other has data.
+    if (area.key === 'aiassisted') {
+      const halves = AI_ASSISTED_HALVES.map(categoryPart)
+      const have = halves.filter((h): h is { score: number; n: number } => h !== null)
+      return {
+        key: area.key, label: area.label, href: area.href,
+        score: have.length ? Math.round(have.reduce((s, h) => s + h.score, 0) / have.length) : null,
+        basis: [halves[0] ? `${halves[0].n} AI-assisted rounds` : null, halves[1] ? `${halves[1].n} code reviews` : null].filter(Boolean).join(' · ') || 'No data yet',
       }
     }
 

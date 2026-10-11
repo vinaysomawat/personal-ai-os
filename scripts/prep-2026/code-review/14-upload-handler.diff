@@ -1,0 +1,44 @@
+PR #682 — "Avatar upload endpoint" (AI-generated)
+
+diff --git a/server/routes/upload.ts b/server/routes/upload.ts
+new file mode 100644
+--- /dev/null
++++ b/server/routes/upload.ts
+@@ -0,0 +1,56 @@
++import { Router } from 'express'
++import fs from 'node:fs'
++import path from 'node:path'
++import multer from 'multer'
++import { requireUser } from '../auth'
++
++const upload = multer({ storage: multer.memoryStorage() })
++export const uploads = Router()
++
++const AVATAR_DIR = path.join(process.cwd(), 'public', 'avatars')
++
++uploads.post('/avatar', requireUser, upload.single('file'), (req, res) => {
++  const file = req.file
++  if (!file) return res.status(400).json({ error: 'No file' })
++
++  if (!file.mimetype.startsWith('image/')) {
++    return res.status(400).json({ error: 'Only images allowed' })
++  }
++
++  const target = path.join(AVATAR_DIR, file.originalname)
++  fs.writeFileSync(target, file.buffer)
++
++  res.json({ url: `/avatars/${file.originalname}` })
++})
++
++// DELETE /avatar?name=me.png
++uploads.delete('/avatar', requireUser, (req, res) => {
++  const name = String(req.query.name)
++  const target = path.join(AVATAR_DIR, name)
++  if (fs.existsSync(target)) {
++    fs.unlinkSync(target)
++  }
++  res.json({ deleted: name })
++})
++
++// Avatars are served statically from /public/avatars with a 1-year cache:
++// app.use('/avatars', express.static(AVATAR_DIR, { maxAge: '365d' }))

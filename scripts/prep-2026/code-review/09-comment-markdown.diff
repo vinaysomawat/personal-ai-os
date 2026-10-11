@@ -1,0 +1,43 @@
+PR #618 — "Render comments as Markdown" (AI-generated)
+
+diff --git a/src/features/comments/Comment.tsx b/src/features/comments/Comment.tsx
+--- a/src/features/comments/Comment.tsx
++++ b/src/features/comments/Comment.tsx
+@@ -1,24 +1,40 @@
++import { marked } from 'marked'
++
+ type Comment = { id: string; author: string; body: string; createdAt: string; authorUrl?: string }
+ 
++function formatDate(iso: string) {
++  const d = new Date(iso.slice(0, 10))
++  return `${d.getDate()}/${d.getMonth()}/${d.getFullYear()}`
++}
++
+ export function CommentView({ comment }: { comment: Comment }) {
++  const html = marked.parse(comment.body) as string
++
+   return (
+     <article className="comment">
+       <header>
+-        <strong>{comment.author}</strong>
+-        <time>{comment.createdAt}</time>
++        <a href={comment.authorUrl} target="_blank">
++          <strong>{comment.author}</strong>
++        </a>
++        <time>{formatDate(comment.createdAt)}</time>
+       </header>
+-      <p>{comment.body}</p>
++      <div className="markdown" dangerouslySetInnerHTML={{ __html: html }} />
+     </article>
+   )
+ }
+ 
+ export function CommentList({ comments }: { comments: Comment[] }) {
++  const sorted = comments.sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1))
+   return (
+     <div>
+-      {comments.map(c => <CommentView key={c.id} comment={c} />)}
++      {sorted.map(c => <CommentView key={c.id} comment={c} />)}
+     </div>
+   )
+ }

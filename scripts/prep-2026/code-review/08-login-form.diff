@@ -1,0 +1,50 @@
+PR #603 — "Login form with remember me" (AI-generated)
+
+diff --git a/src/features/auth/LoginForm.tsx b/src/features/auth/LoginForm.tsx
+new file mode 100644
+--- /dev/null
++++ b/src/features/auth/LoginForm.tsx
+@@ -0,0 +1,62 @@
++import { useState } from 'react'
++import { useRouter } from 'next/navigation'
++
++export function LoginForm() {
++  const router = useRouter()
++  const [email, setEmail] = useState('')
++  const [password, setPassword] = useState('')
++  const [remember, setRemember] = useState(true)
++  const [error, setError] = useState('')
++
++  async function submit() {
++    console.debug('login attempt', { email, password })
++    const res = await fetch('/api/login', {
++      method: 'POST',
++      headers: { 'Content-Type': 'application/json' },
++      body: JSON.stringify({ email, password }),
++    })
++    const data = await res.json()
++    if (res.status === 404) {
++      setError('No account exists for this email')
++      return
++    }
++    if (res.status === 401) {
++      setError('Wrong password for ' + email)
++      return
++    }
++    if (remember) localStorage.setItem('accessToken', data.token)
++    else sessionStorage.setItem('accessToken', data.token)
++    router.push('/dashboard')
++  }
++
++  return (
++    <div className="login">
++      <input placeholder="Email" value={email} onChange={e => setEmail(e.target.value)} />
++      <input placeholder="Password" type="text" value={password} onChange={e => setPassword(e.target.value)} />
++      <label>
++        <input type="checkbox" checked={remember} onChange={e => setRemember(e.target.checked)} /> Remember me
++      </label>
++      {error && <p className="error">{error}</p>}
++      <div className="btn btn-primary" onClick={submit}>Sign in</div>
++    </div>
++  )
++}

@@ -1,0 +1,54 @@
+PR #482 — "Add live user search to the admin header" (AI-generated)
+
+diff --git a/src/components/UserSearch.tsx b/src/components/UserSearch.tsx
+new file mode 100644
+--- /dev/null
++++ b/src/components/UserSearch.tsx
+@@ -0,0 +1,58 @@
++import { useEffect, useState } from 'react'
++
++type User = { id: string; name: string; email: string }
++
++function highlight(text: string, query: string) {
++  if (!query) return text
++  return text.replace(new RegExp(query, 'gi'), m => `<mark>${m}</mark>`)
++}
++
++export function UserSearch({ onSelect }: { onSelect: (u: User) => void }) {
++  const [query, setQuery] = useState('')
++  const [results, setResults] = useState<User[]>([])
++  const [loading, setLoading] = useState(false)
++
++  useEffect(() => {
++    if (query.length < 2) {
++      setResults([])
++      return
++    }
++    setLoading(true)
++    fetch(`/api/users?q=${query}`)
++      .then(res => res.json())
++      .then(data => {
++        setResults(data.users)
++        setLoading(false)
++      })
++  }, [query])
++
++  return (
++    <div className="user-search">
++      <input
++        value={query}
++        placeholder="Search users"
++        onChange={e => setQuery(e.target.value)}
++      />
++      {loading && <span className="spinner" />}
++      <ul>
++        {results.map((u, i) => (
++          <li key={i} onClick={() => onSelect(u)}>
++            <span dangerouslySetInnerHTML={{ __html: highlight(u.name, query) }} />
++            <small>{u.email}</small>
++          </li>
++        ))}
++      </ul>
++    </div>
++  )
++}

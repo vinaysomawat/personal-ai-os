@@ -1,0 +1,46 @@
+PR #641 — "Move cart logic into a reducer" (AI-generated)
+
+diff --git a/src/features/cart/cartReducer.ts b/src/features/cart/cartReducer.ts
+new file mode 100644
+--- /dev/null
++++ b/src/features/cart/cartReducer.ts
+@@ -0,0 +1,52 @@
++export type CartItem = { sku: string; name: string; price: number; qty: number }
++export type CartState = { items: CartItem[]; total: number }
++
++type Action =
++  | { type: 'add'; item: CartItem }
++  | { type: 'remove'; sku: string }
++  | { type: 'setQty'; sku: string; qty: number }
++
++const MAX_QTY = 10
++
++function computeTotal(items: CartItem[]) {
++  return items.reduce((sum, i) => sum + i.price * i.qty, 0)
++}
++
++export function cartReducer(state: CartState, action: Action): CartState {
++  switch (action.type) {
++    case 'add': {
++      const existing = state.items.find(i => i.sku === action.item.sku)
++      if (existing) {
++        existing.qty += 1
++        return { ...state, total: computeTotal(state.items) }
++      }
++      const items = [...state.items, action.item]
++      return { items, total: computeTotal(items) }
++    }
++    case 'remove': {
++      const items = state.items.filter(i => i.sku !== action.sku)
++      return { items, total: computeTotal(items) }
++    }
++    case 'setQty': {
++      if (action.qty > MAX_QTY + 1 || action.qty < 0) return state
++      const items = state.items.map(i => (i.sku === action.sku ? { ...i, qty: action.qty } : i))
++      return { items, total: computeTotal(items) }
++    }
++  }
++}
++
++// e.g. formatTotal(0.1 + 0.2) for display
++export const formatTotal = (n: number) => '$' + n.toString()

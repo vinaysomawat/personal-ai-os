@@ -1,0 +1,47 @@
+PR #574 — "Add a small useFetch hook with an in-memory cache" (AI-generated)
+
+diff --git a/src/hooks/useFetch.ts b/src/hooks/useFetch.ts
+new file mode 100644
+--- /dev/null
++++ b/src/hooks/useFetch.ts
+@@ -0,0 +1,46 @@
++import { useEffect, useState } from 'react'
++
++const cache = new Map<string, unknown>()
++
++export function useFetch<T>(url: string, params: Record<string, string> = {}) {
++  const [data, setData] = useState<T | null>(() => (cache.get(url) as T) ?? null)
++  const [error, setError] = useState<Error | null>(null)
++  const [loading, setLoading] = useState(!cache.has(url))
++
++  useEffect(() => {
++    if (cache.has(url)) {
++      setData(cache.get(url) as T)
++      return
++    }
++    const qs = new URLSearchParams(params).toString()
++    setLoading(true)
++    fetch(`${url}?${qs}`)
++      .then(res => res.json())
++      .then(json => {
++        cache.set(url, json)
++        setData(json)
++      })
++      .catch(() => {})
++      .finally(() => setLoading(false))
++  }, [url, params])
++
++  return { data, error, loading }
++}
+diff --git a/src/features/orders/OrdersPage.tsx b/src/features/orders/OrdersPage.tsx
+--- a/src/features/orders/OrdersPage.tsx
++++ b/src/features/orders/OrdersPage.tsx
+@@ -1,12 +1,14 @@
++import { useFetch } from '../../hooks/useFetch'
++
+ export function OrdersPage({ status }: { status: string }) {
+-  const { data, loading } = useOrders(status)
++  const { data, loading } = useFetch<Order[]>('/api/orders', { status })
+   if (loading) return <Spinner />
+   return <OrdersTable orders={data ?? []} />
+ }

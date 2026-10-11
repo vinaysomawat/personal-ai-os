@@ -1,12 +1,13 @@
 import { toISTDateStr } from '@/lib/date'
 import { COMPETENCIES, REHEARSAL_PROMPTS, type BankQuestion, type CompetencyKey } from './types'
+import type { Scorecard } from './scorecard'
 
 // Mock Round (Prep tab) — a timed interview simulation over the Question
 // Bank. Deterministic: unseen questions first, then the ones you practiced
 // longest ago. Nothing already practiced today is picked, so a round never
 // repeats today's work.
 
-export type MockFormat = 'screen' | 'behavioral' | 'system-design' | 'machine-coding'
+export type MockFormat = 'screen' | 'behavioral' | 'system-design' | 'machine-coding' | 'code-review'
 
 interface Slot {
   // A Question Bank category, or 'star' for a "Tell me about a time…" prompt.
@@ -47,6 +48,11 @@ export const MOCK_FORMATS: { key: MockFormat; label: string; detail: string; slo
     key: 'machine-coding', label: 'Machine coding', detail: 'build 1 component from scratch in your editor — working, accessible, explained',
     slots: [{ category: 'ui-coding', minutes: 90 }],
   },
+  {
+    // Code review rounds are replacing trivia: two AI-generated PRs.
+    key: 'code-review', label: 'Code review', detail: '2 AI-generated PRs — find the planted issues, rank by severity, fix',
+    slots: [{ category: 'code-review', minutes: 15 }, { category: 'code-review', minutes: 15 }],
+  },
 ]
 
 export const formatOf = (key: string) => MOCK_FORMATS.find(f => f.key === key) ?? MOCK_FORMATS[0]
@@ -66,6 +72,8 @@ export interface MockItem {
   prompt: string
   url: string | null
   hints: string | null
+  // Code shown with the prompt (code-review diffs).
+  body?: string | null
   budget_seconds: number
   seconds: number
   answer: string
@@ -85,6 +93,9 @@ export interface MockReview {
   notes: string[]
   ratings: (number | null)[]
   score: number | null
+  // Per-answer scorecards (code-review and ai-assisted rounds, graded one
+  // answer at a time with the shared scorecard).
+  cards?: (Scorecard | null)[]
 }
 
 export const roundScore = (ratings: (number | null)[]): number | null => {
@@ -146,7 +157,7 @@ export function buildMockRound(format: MockFormat, bank: BankQuestion[], ctx: {
     if (!q) continue
     picked.add(q.id)
     items.push({
-      question_id: q.id, category: q.category, competency: null, prompt: q.title, url: q.url, hints: q.answer_hints,
+      question_id: q.id, category: q.category, competency: null, prompt: q.title, url: q.url, hints: q.answer_hints, body: q.body,
       budget_seconds: slot.minutes * 60, seconds: 0, answer: '', skipped: false,
     })
   }

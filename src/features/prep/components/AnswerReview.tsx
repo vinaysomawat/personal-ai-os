@@ -16,6 +16,18 @@ const POINT: Record<PointStatus, { mark: string; cls: string }> = {
 }
 const scoreCls = (v: number, max: number) => v === max ? 'text-good' : v === 0 ? 'text-risk' : 'text-warn'
 
+// A diff or code body (code-review questions): monospace, scrolls inside its
+// own box, +/- lines tinted. No syntax-highlighting dependency.
+export function CodeBlock({ code }: { code: string }) {
+  return (
+    <pre className="mt-2.5 max-h-[420px] overflow-auto rounded-[8px] border border-border bg-surface-2 py-2 text-[11.5px] leading-[1.45] font-mono">
+      {code.split('\n').map((line, i) => (
+        <div key={i} className={`px-2.5 whitespace-pre ${line.startsWith('+') && !line.startsWith('+++') ? 'bg-good-soft' : line.startsWith('-') && !line.startsWith('---') ? 'bg-risk-soft' : line.startsWith('@@') ? 'text-accent' : 'text-fg-primary'}`}>{line || ' '}</div>
+      ))}
+    </pre>
+  )
+}
+
 // ```fenced``` → code block; `code` → monospace chip; *emphasis* dropped.
 export function Rich({ text }: { text: string }) {
   if (text.includes('```')) {

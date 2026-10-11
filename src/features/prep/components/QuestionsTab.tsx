@@ -4,7 +4,7 @@ import { useMemo, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { ArrowLeft, BookOpen, Check, ExternalLink, Sparkles, Target } from 'lucide-react'
 import Card from '@/components/Card'
-import AnswerReview, { Rich } from './AnswerReview'
+import AnswerReview, { CodeBlock, Rich } from './AnswerReview'
 import MicButton, { appendText } from '@/components/MicButton'
 import { modalInputClass, modalSaveButtonClass, modalCancelButtonClass } from '@/components/Modal'
 import { answerQuestion, critiqueAnswer, revealModelAnswer, savePrepSettings } from '../actions'
@@ -40,6 +40,7 @@ const PLACEHOLDER: Record<string, string> = {
   'ai-native': 'Answer from real experience: the tool, the task, what the AI got wrong or right, and how YOU verified it. Saved when you hit Next.',
   angular: 'Answer out loud as if in the interview: the concept, how it works under the hood, when you use it, a trade-off or example from your Angular apps. Saved when you hit Next.',
   behavioral: 'Say it out loud first (60–120 s), then type it. Lead with the direct answer; no blame. Saved when you hit Next.',
+  'code-review': 'Review it like a senior on your team: list the issues by severity (security, correctness, a11y, perf, naming), why each matters, and the fix. Saved when you hit Next.',
   backend: 'Answer out loud as a full-stack engineer: the approach, how it works, a concrete example (schema, endpoint, header), the trade-off. Saved when you hit Next.',
 }
 // Linkless (Prep-added) questions are answered in the app: a typed answer,
@@ -224,7 +225,8 @@ export function QuestionsTab({ bank, setBank, topic, onTopicChange: setTopic, co
                 <button onClick={() => setOpen(false)} className="xl:hidden text-[11.5px] text-accent inline-flex items-center gap-1 shrink-0"><ArrowLeft size={12} /> All questions</button>
               </div>
               <p className="text-[15px] font-semibold text-fg-primary leading-snug">{current.title}</p>
-              <textarea value={answer} onChange={e => setAnswer(e.target.value)} rows={verbal ? 7 : category === 'quiz' ? 4 : 3}
+              {current.body && <CodeBlock code={current.body} />}
+              <textarea value={answer} onChange={e => setAnswer(e.target.value)} rows={category === 'code-review' ? 9 : verbal ? 7 : category === 'quiz' ? 4 : 3}
                 placeholder={PLACEHOLDER[category] ?? (verbal ? VERBAL_PLACEHOLDER[category] : null) ?? 'Approach / complexity / trade-offs (optional)'}
                 className="mt-3 w-full bg-surface-2 border border-surface-3 rounded-[8px] px-3 py-2 text-[13px] text-fg-primary outline-none focus:border-accent resize-y" />
               <div className="flex items-center justify-between gap-2 mt-2">

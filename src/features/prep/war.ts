@@ -57,6 +57,7 @@ export const GATES: Record<ReadinessAreaKey, { gate: number; weight: number }> =
   angular: { gate: 80, weight: 8 },
   dsa: { gate: 70, weight: 5 },
   backend: { gate: 70, weight: 8 },
+  aiassisted: { gate: 75, weight: 8 },
   behavioral: { gate: 80, weight: 5 },
   leadership: { gate: 75, weight: 3 },
 }
@@ -297,6 +298,7 @@ const CATEGORY_AREAS: Record<string, ReadinessAreaKey[]> = {
   'system-design': ['sysdesign'],
   algorithm: ['dsa'],
   backend: ['backend'],
+  'code-review': ['aiassisted', 'testing'],
 }
 
 // 0 (at/over gate) … 1 (blind spot) — how far a category's areas sit below

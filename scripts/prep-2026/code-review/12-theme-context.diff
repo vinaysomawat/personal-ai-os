@@ -1,0 +1,48 @@
+PR #655 — "App-wide settings context" (AI-generated)
+
+diff --git a/src/app/SettingsProvider.tsx b/src/app/SettingsProvider.tsx
+new file mode 100644
+--- /dev/null
++++ b/src/app/SettingsProvider.tsx
+@@ -0,0 +1,50 @@
++import { createContext, useContext, useEffect, useState } from 'react'
++
++type Settings = { theme: 'light' | 'dark'; locale: string; cursor: { x: number; y: number } }
++
++const SettingsContext = createContext<any>(null)
++
++export function SettingsProvider({ children }: { children: React.ReactNode }) {
++  const [theme, setTheme] = useState<'light' | 'dark'>('light')
++  const [locale, setLocale] = useState('en')
++  const [cursor, setCursor] = useState({ x: 0, y: 0 })
++
++  useEffect(() => {
++    const onMove = (e: MouseEvent) => setCursor({ x: e.clientX, y: e.clientY })
++    window.addEventListener('mousemove', onMove)
++    return () => window.removeEventListener('mousemove', onMove)
++  }, [])
++
++  useEffect(() => {
++    setTheme(localStorage.getItem('theme') === 'dark' ? 'dark' : 'light')
++  }, [])
++
++  const data = { theme, setTheme, locale, setLocale, cursor }
++
++  return <SettingsContext.Provider value={data}>{children}</SettingsContext.Provider>
++}
++
++export const useSettings = () => useContext(SettingsContext)
+diff --git a/src/app/layout.tsx b/src/app/layout.tsx
+--- a/src/app/layout.tsx
++++ b/src/app/layout.tsx
+@@ -8,7 +8,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) {
+   return (
+     <html lang="en">
+       <body>
+-        {children}
++        <SettingsProvider>
++          {children}
++        </SettingsProvider>
+       </body>
+     </html>
+   )

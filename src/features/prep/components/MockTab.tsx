@@ -11,6 +11,7 @@ import { saveMockRound } from '../actions'
 import { weakestAreas } from '../readiness'
 import { MOCK_FORMATS, buildMockRound, formatMinutes, formatOf, type MockFormat, type MockItem, type MockRound } from '../mock'
 import { MockCalendar, RoundDetail, categoryLabel, mmss } from './MockHistory'
+import { CodeBlock } from './AnswerReview'
 import { COMPETENCIES, READINESS_AREAS, type BankQuestion, type CompetencyKey, type PrepSession, type ReadinessCell } from '../types'
 
 // Topics the fixed Frontend-screen slots already cover — the "weakest area"
@@ -135,9 +136,12 @@ export function MockTab({ bank, readiness, covered, rounds, today, format: forma
             <p className="text-[11.5px] text-fg-tertiary mt-0.5">Build it in your editor (vanilla JS or React), then summarize below: component API, state, keyboard + ARIA, edge cases, trade-offs.</p>
           </div>
         )}
-        <textarea value={item.answer} onChange={e => setAnswer(e.target.value)} rows={run.format === 'system-design' || run.format === 'machine-coding' ? 12 : 7} autoFocus
+        {item.body && <CodeBlock code={item.body} />}
+        <textarea value={item.answer} onChange={e => setAnswer(e.target.value)} rows={run.format === 'system-design' || run.format === 'machine-coding' || run.format === 'code-review' ? 12 : 7} autoFocus
           placeholder={run.format === 'system-design'
             ? 'Requirements → Architecture → Data model → Interface (API) → Optimizations (perf, a11y, i18n, offline). Talk it through as you write.'
+            : run.format === 'code-review'
+            ? 'Issues by severity: what, where, why it matters, the fix. Type the review — it is graded on what you found.'
             : run.format === 'machine-coding'
             ? 'Paste your key code or summarize your solution: structure, state, events, a11y, what you would do with more time.'
             : 'Say it out loud as if they\'re listening, then type the gist — or leave blank if you answered out loud.'}

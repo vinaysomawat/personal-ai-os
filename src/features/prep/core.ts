@@ -142,10 +142,10 @@ export async function getPrepSettings(supabase: SupabaseClient, userId: string):
 // page through it so no category gets silently truncated.
 async function fetchAllQuestions(supabase: SupabaseClient) {
   const PAGE = 1000
-  const rows: { id: string; title: string; difficulty: string; url: string | null; category: string; topics: string[] | null; sort_order: number | null; answer_hints: string | null }[] = []
+  const rows: { id: string; title: string; difficulty: string; url: string | null; category: string; topics: string[] | null; sort_order: number | null; answer_hints: string | null; body: string | null }[] = []
   for (let from = 0; ; from += PAGE) {
     const { data, error } = await supabase.from('coding_questions')
-      .select('id, title, difficulty, url, category, topics, sort_order, answer_hints').order('id').range(from, from + PAGE - 1)
+      .select('id, title, difficulty, url, category, topics, sort_order, answer_hints, body').order('id').range(from, from + PAGE - 1)
     if (error) throw new Error(error.message)
     rows.push(...(data ?? []))
     if (!data || data.length < PAGE) return rows

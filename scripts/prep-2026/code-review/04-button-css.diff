@@ -1,0 +1,58 @@
+PR #547 — "Refresh button styles to match the new brand" (AI-generated)
+
+diff --git a/src/styles/button.css b/src/styles/button.css
+--- a/src/styles/button.css
++++ b/src/styles/button.css
+@@ -1,38 +1,46 @@
+ .btn {
+   display: inline-flex;
+   align-items: center;
+   gap: 6px;
+-  padding: 8px 14px;
++  height: 32px;
++  padding: 0 14px;
++  white-space: nowrap;
++  overflow: hidden;
+   border-radius: 8px;
+   font-size: 14px;
+   font-weight: 600;
+   cursor: pointer;
+-  transition: background-color 120ms ease;
++  transition: all 300ms ease;
+ }
+ 
+-.btn:focus-visible {
+-  outline: 2px solid var(--focus-ring);
+-  outline-offset: 2px;
++.btn:focus {
++  outline: none;
+ }
+ 
+ .btn-primary {
+-  background: #4f46e5;
++  background: #6366f1;
+   color: #fff;
+ }
+ 
+ .btn-secondary {
+-  background: #f3f4f6;
+-  color: #111827;
++  background: #f9fafb;
++  color: #b0b4bb;
+ }
+ 
+ .btn-ghost {
+   background: transparent;
+   color: var(--text);
+ }
+ 
++.btn:hover {
++  transform: scale(1.04);
++  width: 110%;
++}
++
+ .btn[disabled] {
+-  opacity: 0.5;
+-  cursor: not-allowed;
++  display: none;
+ }

@@ -8,6 +8,7 @@ import { todayIST, toISTDateStr } from '@/lib/date'
 import { reviewMockRound } from '../actions'
 import { BANK_CATEGORIES } from '../hunt'
 import { formatOf, type MockItem, type MockRound } from '../mock'
+import AnswerReview, { CodeBlock } from './AnswerReview'
 
 export const categoryLabel = (c: string) => c === 'star' ? 'STAR story' : BANK_CATEGORIES.find(b => b.key === c)?.label ?? c
 export const mmss = (s: number) => `${s < 0 ? '-' : ''}${Math.floor(Math.abs(s) / 60)}:${String(Math.floor(Math.abs(s) % 60)).padStart(2, '0')}`
@@ -92,10 +93,12 @@ export function RoundDetail({ round, saving = false, onReviewed, action }: {
               </span>
             </div>
             <p className="text-[13px] font-semibold text-fg-primary leading-snug mt-0.5">{it.prompt}</p>
+            {it.body && <CodeBlock code={it.body} />}
             {!it.skipped && <p className={`text-[12.5px] whitespace-pre-wrap mt-1.5 ${it.answer.trim() ? 'text-fg-secondary' : 'text-fg-tertiary italic'}`}>{it.answer.trim() || 'Answered out loud'}</p>}
             {it.hints && <p className="text-[12px] text-fg-secondary mt-1.5 border-l-2 border-border-strong pl-2"><span className="font-semibold">Cover:</span> {it.hints}</p>}
             {it.url && <a href={it.url} target="_blank" rel="noopener noreferrer" className="mt-1.5 text-[12px] text-accent hover:underline inline-flex items-center gap-1">Check the answer <ExternalLink size={11} /></a>}
-            {review?.notes[idx] && <p className="mt-1.5 text-[12.5px] text-fg-secondary leading-relaxed border-l-2 border-accent/50 pl-2"><Sparkles size={11} className="inline -mt-0.5 mr-1 text-accent" />{review.notes[idx]}</p>}
+            {review?.cards?.[idx] ? <AnswerReview card={review.cards[idx]} text={review.notes[idx] ?? ''} rating={review.ratings[idx] ?? null} question={it.prompt} />
+              : review?.notes[idx] && <p className="mt-1.5 text-[12.5px] text-fg-secondary leading-relaxed border-l-2 border-accent/50 pl-2"><Sparkles size={11} className="inline -mt-0.5 mr-1 text-accent" />{review.notes[idx]}</p>}
           </li>
         ))}
       </ol>

@@ -1,0 +1,43 @@
+PR #627 — "Orders list endpoint with customer details" (AI-generated)
+
+diff --git a/server/routes/orders.ts b/server/routes/orders.ts
+new file mode 100644
+--- /dev/null
++++ b/server/routes/orders.ts
+@@ -0,0 +1,58 @@
++import { Router } from 'express'
++import { pool } from '../db'
++import { requireUser } from '../auth'
++
++export const orders = Router()
++
++// GET /orders?status=paid&sort=created_at
++orders.get('/orders', requireUser, async (req, res) => {
++  const status = req.query.status ?? 'paid'
++  const sort = req.query.sort ?? 'created_at'
++
++  const { rows } = await pool.query(
++    `SELECT * FROM orders WHERE status = '${status}' ORDER BY ${sort} DESC`,
++  )
++
++  const result = []
++  for (const order of rows) {
++    const customer = await pool.query('SELECT * FROM customers WHERE id = $1', [order.customer_id])
++    const items = await pool.query('SELECT * FROM order_items WHERE order_id = $1', [order.id])
++    result.push({ ...order, customer: customer.rows[0], items: items.rows })
++  }
++
++  res.json(result)
++})
++
++// POST /orders/:id/cancel
++orders.post('/orders/:id/cancel', requireUser, async (req, res) => {
++  const { rows } = await pool.query('SELECT * FROM orders WHERE id = $1', [req.params.id])
++  const order = rows[0]
++  if (order.status === 'shipped') {
++    return res.status(200).json({ error: 'Already shipped' })
++  }
++  await pool.query('UPDATE orders SET status = $1 WHERE id = $2', ['cancelled', req.params.id])
++  await pool.query('UPDATE inventory SET stock = stock + 1 WHERE sku IN (SELECT sku FROM order_items WHERE order_id = $1)', [req.params.id])
++  res.json({ ok: true })
++})

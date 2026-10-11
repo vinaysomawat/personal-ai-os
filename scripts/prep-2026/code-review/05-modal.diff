@@ -1,0 +1,44 @@
+PR #561 — "Reusable Modal component" (AI-generated)
+
+diff --git a/src/components/Modal.tsx b/src/components/Modal.tsx
+new file mode 100644
+--- /dev/null
++++ b/src/components/Modal.tsx
+@@ -0,0 +1,48 @@
++import { useEffect } from 'react'
++import { createPortal } from 'react-dom'
++
++type Props = {
++  open: boolean
++  title: string
++  onClose: () => void
++  children: React.ReactNode
++}
++
++export function Modal({ open, title, onClose, children }: Props) {
++  useEffect(() => {
++    if (open) document.body.style.overflow = 'hidden'
++  }, [open])
++
++  useEffect(() => {
++    const onKey = (e: KeyboardEvent) => {
++      if (e.key === 'Escape') onClose()
++    }
++    document.addEventListener('keydown', onKey)
++  }, [])
++
++  if (!open) return null
++
++  return createPortal(
++    <div className="overlay" onClick={onClose}>
++      <div className="modal">
++        <div className="modal-header">
++          <h2>{title}</h2>
++          <div className="close" onClick={onClose}>×</div>
++        </div>
++        {children}
++      </div>
++    </div>,
++    document.body,
++  )
++}

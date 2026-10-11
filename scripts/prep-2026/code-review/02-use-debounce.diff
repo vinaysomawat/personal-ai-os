@@ -1,0 +1,57 @@
+PR #511 — "Extract a reusable useDebouncedCallback hook" (AI-generated)
+
+diff --git a/src/hooks/useDebouncedCallback.ts b/src/hooks/useDebouncedCallback.ts
+new file mode 100644
+--- /dev/null
++++ b/src/hooks/useDebouncedCallback.ts
+@@ -0,0 +1,24 @@
++import { useCallback, useRef } from 'react'
++
++// Returns a debounced version of `fn` that waits `delay` ms after the last call.
++export function useDebouncedCallback<A extends unknown[]>(fn: (...args: A) => void, delay = 300) {
++  const timer = useRef<number>()
++
++  return useCallback((...args: A) => {
++    window.clearTimeout(timer.current)
++    timer.current = window.setTimeout(() => fn(...args), delay)
++  }, [])
++}
+diff --git a/src/features/products/ProductFilters.tsx b/src/features/products/ProductFilters.tsx
+--- a/src/features/products/ProductFilters.tsx
++++ b/src/features/products/ProductFilters.tsx
+@@ -1,30 +1,34 @@
+-import { useEffect, useState } from 'react'
++import { useState } from 'react'
++import { useDebouncedCallback } from '../../hooks/useDebouncedCallback'
+ 
+ export function ProductFilters({ category, onChange }: { category: string; onChange: (f: Filters) => void }) {
+   const [search, setSearch] = useState('')
+   const [maxPrice, setMaxPrice] = useState(1000)
+ 
+-  useEffect(() => {
+-    const t = setTimeout(() => onChange({ category, search, maxPrice }), 300)
+-    return () => clearTimeout(t)
+-  }, [category, search, maxPrice, onChange])
++  const emit = useDebouncedCallback((s: string, p: number) => {
++    onChange({ category, search: s, maxPrice: p })
++  }, 300)
+ 
+   return (
+     <form>
+       <input
+         value={search}
+-        onChange={e => setSearch(e.target.value)}
++        onChange={e => { setSearch(e.target.value); emit(e.target.value, maxPrice) }}
+         aria-label="Search products"
+       />
+       <input
+         type="range"
+         min={0}
+         max={1000}
+         value={maxPrice}
+-        onChange={e => setMaxPrice(Number(e.target.value))}
++        onChange={e => { setMaxPrice(Number(e.target.value)); emit(search, Number(e.target.value)) }}
+       />
+     </form>
+   )
+ }

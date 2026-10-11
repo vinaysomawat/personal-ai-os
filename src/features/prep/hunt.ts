@@ -8,7 +8,7 @@ import { formatMinutes, formatOf, mockFormatForDay } from './mock'
 // quota is the smaller of "what fits in that time" and "what's needed to
 // cover the remaining questions by the target date".
 
-export type BankCategory = 'interview' | 'quiz' | 'angular' | 'ai-native' | 'behavioral' | 'javascript-functions' | 'ui-coding' | 'system-design' | 'algorithm' | 'backend'
+export type BankCategory = 'interview' | 'quiz' | 'angular' | 'ai-native' | 'behavioral' | 'javascript-functions' | 'ui-coding' | 'system-design' | 'algorithm' | 'backend' | 'code-review'
 
 // Base shares re-balanced 2026-10-09 to the current market (machine coding
 // is the #1 round at Indian product companies, Angular is the fastest lane
@@ -33,6 +33,8 @@ export const BANK_CATEGORIES: { key: BankCategory; label: string; share: number;
   // Full-stack "product engineer" loops: API design, Node/Next server, auth,
   // data, caching, AI backend.
   { key: 'backend', label: 'Backend & APIs', share: 0.12, minutesPerQ: 8 },
+  // Review an AI-generated PR: find the planted issues, rank them, fix them.
+  { key: 'code-review', label: 'Code review', share: 0.05, minutesPerQ: 15 },
 ]
 // The day = the Mock Round (its format's minutes) + STAR stories + the
 // Question Bank blocks, which get whatever is left (2026-10-09 — they used to
@@ -121,6 +123,8 @@ export function buildHuntPlan(ctx: {
         ? `Design ${q.quota} frontend system${q.quota === 1 ? '' : 's'} end to end (Requirements → Architecture → Data → Interface → Optimizations), out loud, then get the AI rating`
         : q.key === 'backend'
         ? `Answer ${q.quota} backend & API questions out loud (API design, auth, data, caching, AI backend), get the AI rating`
+        : q.key === 'code-review'
+        ? `Review ${q.quota} AI-generated PR${q.quota === 1 ? '' : 's'}: find the planted issues, rank them by severity, give the fix`
         : q.key === 'javascript-functions'
         ? `Implement ${q.quota} JS function${q.quota === 1 ? '' : 's'} without looking anything up (polyfills, debounce, promise utilities), handle edge cases`
         : `Solve ${q.quota} ${cat.label.toLowerCase()} problem${q.quota === 1 ? '' : 's'} (medium, pattern-first), talking through complexity`

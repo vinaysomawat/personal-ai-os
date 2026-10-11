@@ -5,6 +5,7 @@ append here whenever you deploy, same cadence as the version bump.
 
 ## 2026-10-12
 
+- **Code review practice.** 15 AI-generated pull requests with planted bugs (XSS, auth holes, races, stale closures, accessibility, N+1 queries) in the Question Bank and as a 2-PR Mock round. Each is graded on which issues you found, how you ranked them and how good your fixes are. A new readiness area, AI-assisted coding (gate 75), counts code review now and the AI-assisted round once it lands; code review also feeds Testing.
 - **Backend & APIs.** A new Question Bank category with 45 questions for full-stack loops (API design, Node/Next.js server, auth, data, caching, AI backend), its own readiness gate (70), a daily quota, "drill backend" on Telegram, and one backend question in every Frontend screen mock (replacing the TypeScript slot).
 
 ## 2026-10-11

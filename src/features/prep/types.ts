@@ -64,6 +64,8 @@ export interface BankQuestion {
   sort_order: number | null
   // Expected areas an answer should cover (AI-native scenarios).
   answer_hints: string | null
+  // Code shown above the answer box (code-review diffs).
+  body: string | null
   // Latest AI rating (1–10) of your answer, from a Question Bank or Mock
   // Round review.
   last_rating: number | null
@@ -190,6 +192,9 @@ export const READINESS_AREAS = [
   { key: 'angular', label: 'Angular', quizTopics: [], codingTopics: [], href: '/prep?tab=questions&cat=angular' },
   // Full-stack loops (2026): fed by the 'backend' category and the Networking & APIs topic.
   { key: 'backend', label: 'Backend & APIs', quizTopics: ['APIs', 'Node.js'], codingTopics: ['Networking & APIs'], href: '/prep?tab=questions&cat=backend' },
+  // AI-assisted coding rounds (Meta / Google 2026): 50% the ai-assisted mock
+  // (verifying AI output in an unfamiliar codebase), 50% code review.
+  { key: 'aiassisted', label: 'AI-assisted coding', quizTopics: [], codingTopics: [], href: '/prep?tab=questions&cat=code-review' },
   { key: 'dsa', label: 'Algorithms (DSA)', quizTopics: [], codingTopics: ['Algorithms', 'Data Structures'], href: '/prep?tab=questions&cat=algorithm' },
   { key: 'behavioral', label: 'Behavioral', quizTopics: [], codingTopics: [], href: '/prep?tab=stories' },
   { key: 'leadership', label: 'Leadership', quizTopics: [], codingTopics: [], href: '/prep?tab=stories' },

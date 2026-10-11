@@ -35,7 +35,12 @@ const STORY_SYSTEM = `You are a senior engineering manager interviewing for a Fr
 Scores: correctness ("own contribution") — 2 = the candidate's own actions and decisions are unmistakable ("I"), 1 = mixed "I"/"we", 0 = only "we" or the team's work. depth ("evidence") — 2 = concrete outcomes with numbers (time, %, users, money, incidents), 1 = a concrete but unquantified result, 0 = vague or no result. clarity ("concise") — 1 = structured STAR that fits ~2 minutes spoken (≈200–330 words), 0 = rambling, far too long, or too thin.
 ${JSON_SHAPE}`
 
-const SYSTEMS: Record<Rubric, string> = { technical: TECHNICAL_SYSTEM, behavioral: BEHAVIORAL_SYSTEM, 'ai-native': AI_NATIVE_SYSTEM, story: STORY_SYSTEM }
+const CODE_REVIEW_SYSTEM = `You are a staff frontend engineer grading a candidate's review of an AI-generated pull request (the diff is included). The key points are the issues planted in the diff.
+A point is "covered" only if the candidate names the issue and why it matters; "partial" if they point at the right line but misdiagnose it or only half-explain it; "missing" otherwise. Valid extra findings are fine; do not count them as points.
+Scores: correctness ("findings correct") — 2 = every claim is right, 1 = some wrong or nitpick-as-bug claims, 0 = major misreads of the code. depth ("severity & prioritization") — 2 = issues ranked by impact (security and correctness before style) with the impact explained, 1 = partly, 0 = a flat list or nitpicks first. clarity ("fix quality") — 1 = concrete, correct fixes, 0 = vague or wrong fixes.
+${JSON_SHAPE}`
+
+const SYSTEMS: Record<Rubric, string> = { technical: TECHNICAL_SYSTEM, behavioral: BEHAVIORAL_SYSTEM, 'ai-native': AI_NATIVE_SYSTEM, story: STORY_SYSTEM, 'code-review': CODE_REVIEW_SYSTEM }
 
 // Coverage weighs most; a major error caps at 4, covering under a third of the
 // key points caps at 5. Correctness and clarity only earn full credit once
@@ -93,13 +98,17 @@ export function scorecardText(c: Scorecard): string {
 // answer was spoken"). A reply that isn't a valid scorecard (budget
 // fallback, malformed JSON) comes back as plain feedback with no rating.
 export async function critiqueQuestion(db: SupabaseClient, userId: string, questionId: string, answer: string, note = ''): Promise<{ rating: number | null; feedback: string; card: Scorecard | null }> {
-  const { data: q } = await db.from('coding_questions').select('title, answer_hints, category').eq('id', questionId).single()
+  const { data: q } = await db.from('coding_questions').select('title, answer_hints, category, body').eq('id', questionId).single()
   if (!q) throw new Error('Question not found')
-  const rubric: Rubric = q.category === 'ai-native' ? 'ai-native' : q.category === 'behavioral' ? 'behavioral' : 'technical'
+  const rubric = rubricFor(q.category)
   const hints = q.answer_hints ? `\nKey points: ${q.answer_hints}` : '\nKey points: (none listed — derive them)'
-  const prompt = `Interview question: ${q.title}${hints}${note ? `\n\n${note}` : ''}\n\nCandidate's answer:\n${answer}`
+  const body = q.body ? `\n\nCode under review:\n${q.body}` : ''
+  const prompt = `Interview question: ${q.title}${hints}${body}${note ? `\n\n${note}` : ''}\n\nCandidate's answer:\n${answer}`
   return grade(rubric === 'ai-native' ? 'ai_native_critique' : 'answer_critique', rubric, prompt, userId)
 }
+
+export const rubricFor = (category: string): Rubric =>
+  category === 'ai-native' ? 'ai-native' : category === 'behavioral' ? 'behavioral' : category === 'code-review' ? 'code-review' : 'technical'
 
 // Story Bank rehearsal: a STAR answer to a competency prompt, graded against
 // fixed STAR key points plus the competency's own signal.
@@ -136,9 +145,9 @@ Cover every listed key point. Be technically precise and current as of React 19 
 // prompt every time for a question, so the gateway caches it (model_answer,
 // one year) and only the first reveal costs anything.
 export async function modelAnswer(db: SupabaseClient, userId: string, questionId: string): Promise<string> {
-  const { data: q } = await db.from('coding_questions').select('title, answer_hints, category').eq('id', questionId).single()
+  const { data: q } = await db.from('coding_questions').select('title, answer_hints, category, body').eq('id', questionId).single()
   if (!q) throw new Error('Question not found')
-  const prompt = `Category: ${q.category}\nInterview question: ${q.title}${q.answer_hints ? `\nKey points to cover: ${q.answer_hints}` : ''}`
+  const prompt = `Category: ${q.category}\nInterview question: ${q.title}${q.answer_hints ? `\nKey points to cover: ${q.answer_hints}` : ''}${q.body ? `\n\nCode under review:\n${q.body}\n\nWrite the review a strong senior would give: issues ranked by severity, each with why it matters and the fix.` : ''}`
   return (await askAI('model_answer', prompt, MODEL_ANSWER_SYSTEM, { userId })).trim()
 }
 
