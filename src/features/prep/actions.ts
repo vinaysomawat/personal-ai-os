@@ -188,7 +188,7 @@ const parseList = (v: unknown) => Array.isArray(v) ? v.map(String).filter(Boolea
 
 // The AI review of a saved round, stored on the row so the calendar can show
 // it again for free: one Haiku call for the whole round, or (code-review and
-// ai-assisted) one scorecard per answer.
+// code-review) one scorecard per answer.
 export async function reviewMockRound(roundId: string): Promise<{ review: MockReview | null; error: string | null }> {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -215,10 +215,10 @@ export async function reviewMockRound(roundId: string): Promise<{ review: MockRe
   return { review, error: null }
 }
 
-// Code-review and AI-assisted rounds are graded answer by answer with the
-// shared scorecard (their key points are planted issues / kit stages), and
+// Code-review rounds are graded answer by answer with the shared scorecard
+// (their key points are the planted issues), and
 // the round's verdict is derived from the computed ratings.
-const SCORECARD_FORMATS = new Set(['code-review', 'ai-assisted'])
+const SCORECARD_FORMATS = new Set(['code-review'])
 
 async function scorecardRoundReview(supabase: Awaited<ReturnType<typeof createClient>>, userId: string, items: MockItem[]): Promise<MockReview | string> {
   const graded = await Promise.all(items.map(it => it.question_id && !it.skipped && it.answer.trim() ? critiqueQuestion(supabase, userId, it.question_id, it.answer.trim()) : null))

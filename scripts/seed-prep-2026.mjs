@@ -4,17 +4,15 @@
  * matched on (category, title); missing rows are inserted, existing rows get
  * their answer_hints / body / url / sort_order / topics refreshed.
  *
- *   node --env-file=.env.local scripts/seed-prep-2026.mjs [backend|code-review|ai-assisted|system-design ...]
+ *   node --env-file=.env.local scripts/seed-prep-2026.mjs [backend|code-review|system-design ...]
  *
- * No args = every set. Rows are linkless (url null) except the ai-assisted
- * kits, whose url points at the kit on GitHub.
+ * No args = every set. Rows are linkless (url null).
  */
 import { createClient } from '@supabase/supabase-js'
 
 const SETS = {
   backend: () => import('./prep-2026/backend.mjs'),
   'code-review': () => import('./prep-2026/code-review.mjs'),
-  'ai-assisted': () => import('./prep-2026/ai-assisted.mjs'),
   'system-design': () => import('./prep-2026/system-design.mjs'),
 }
 

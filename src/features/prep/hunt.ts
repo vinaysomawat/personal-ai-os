@@ -8,7 +8,7 @@ import { formatMinutes, formatOf, mockFormatForDay } from './mock'
 // quota is the smaller of "what fits in that time" and "what's needed to
 // cover the remaining questions by the target date".
 
-export type BankCategory = 'interview' | 'quiz' | 'angular' | 'ai-native' | 'behavioral' | 'javascript-functions' | 'ui-coding' | 'system-design' | 'algorithm' | 'backend' | 'code-review' | 'ai-assisted'
+export type BankCategory = 'interview' | 'quiz' | 'angular' | 'ai-native' | 'behavioral' | 'javascript-functions' | 'ui-coding' | 'system-design' | 'algorithm' | 'backend' | 'code-review'
 
 // Base shares for a broad 2026 search (big tech, Indian product companies,
 // startups, AI companies, services, remote) — relative weights; computeQuotas
@@ -35,9 +35,6 @@ export const BANK_CATEGORIES: { key: BankCategory; label: string; share: number;
   { key: 'behavioral', label: 'Behavioral Q&A', share: 0.06, minutesPerQ: 10 },
   // Review an AI-generated PR: find the planted issues, rank them, fix them.
   { key: 'code-review', label: 'Code review', share: 0.05, minutesPerQ: 15 },
-  // Practice kits (practice-kits/): 60-minute AI-assisted codebase rounds —
-  // mock only, no daily quota.
-  { key: 'ai-assisted', label: 'AI-assisted', share: 0, minutesPerQ: 60 },
 ]
 // The day = the Mock Round (its format's minutes) + STAR stories + the
 // Question Bank blocks, which get whatever is left (2026-10-09 — they used to
@@ -178,13 +175,13 @@ const MOCK_FOR_KIND: Record<string, string> = {
 // the Question Bank areas to drill. A round kind that names its own format
 // (system design, coding, behavioral) still picks the mock.
 const SEGMENT_PREP: Record<string, { mock: string; why: string; links: { label: string; href: string }[] }> = {
-  big_tech: { mock: 'ai-assisted', why: 'big tech: AI-assisted coding, algorithms, system design', links: [
+  big_tech: { mock: 'code-review', why: 'big tech: reviewing AI-generated code, algorithms, system design', links: [
     { label: 'Algorithms', href: '/prep?tab=questions&cat=algorithm' }, { label: 'System design', href: '/prep?tab=questions&cat=system-design' } ] },
   product_india: { mock: 'machine-coding', why: 'Indian product company: machine coding, web fundamentals, algorithms', links: [
     { label: 'Web fundamentals', href: '/prep?tab=questions&cat=quiz&topic=DOM%20%26%20Browser%20APIs' }, { label: 'Algorithms', href: '/prep?tab=questions&cat=algorithm' } ] },
   startup: { mock: 'system-design', why: 'startup: backend, full-stack system design, a project deep-dive story', links: [
     { label: 'Backend & APIs', href: '/prep?tab=questions&cat=backend' }, { label: 'Full-stack design', href: '/prep?tab=questions&cat=system-design&topic=Full-stack' }, { label: 'Deep-dive story', href: '/prep?tab=stories' } ] },
-  ai_company: { mock: 'ai-assisted', why: 'AI company: AI-native, streaming UI, AI backend', links: [
+  ai_company: { mock: 'code-review', why: 'AI company: AI-native, streaming UI, AI backend', links: [
     { label: 'AI-native', href: '/prep?tab=questions&cat=ai-native' }, { label: 'Streaming UI', href: '/prep?tab=questions&cat=system-design&topic=AI' }, { label: 'AI backend', href: '/prep?tab=questions&cat=backend&topic=AI%20backend' } ] },
 }
 const DEFAULT_PREP = { mock: 'machine-coding', why: 'theory, machine coding, behavioral', links: [

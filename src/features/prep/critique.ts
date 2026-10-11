@@ -40,12 +40,7 @@ A point is "covered" only if the candidate names the issue and why it matters; "
 Scores: correctness ("findings correct") — 2 = every claim is right, 1 = some wrong or nitpick-as-bug claims, 0 = major misreads of the code. depth ("severity & prioritization") — 2 = issues ranked by impact (security and correctness before style) with the impact explained, 1 = partly, 0 = a flat list or nitpicks first. clarity ("fix quality") — 1 = concrete, correct fixes, 0 = vague or wrong fixes.
 ${JSON_SHAPE}`
 
-const AI_ASSISTED_SYSTEM = `You are a senior engineer grading an AI-assisted coding round (the Meta / Google 2026 format): the candidate worked in an unfamiliar multi-file codebase with an AI assistant through three stages — fix the planted bugs, add a feature, optimize/harden — and wrote up what changed per stage, the bugs they found and how they verified each, and the AI suggestions they rejected and why. The key points are the planted bugs, the expected feature and the expected optimizations.
-A bug point is "covered" only if they name the root cause (not just the symptom) and a correct fix; "partial" for the right area with a vague or symptom-only fix. Feature / optimization points are "covered" when what they built matches.
-Scores: correctness ("verification") — 2 = every claimed fix comes with concrete evidence (reproduced first, a test, the Network panel, a log, a manual repro with steps), 1 = some verification, 0 = fixes asserted with no evidence. depth ("AI judgment") — 2 = they caught at least one wrong, risky or incomplete AI suggestion and explain why they rejected it, 1 = generic caution, 0 = accepted AI output wholesale or says nothing about it. clarity ("explanation") — 1 = clear per-stage account, 0 = vague. Penalize accepting AI output without verification: when the write-up shows no verification at all, correctness must be 0.
-${JSON_SHAPE}`
-
-const SYSTEMS: Record<Rubric, string> = { technical: TECHNICAL_SYSTEM, behavioral: BEHAVIORAL_SYSTEM, 'ai-native': AI_NATIVE_SYSTEM, story: STORY_SYSTEM, 'code-review': CODE_REVIEW_SYSTEM, 'ai-assisted': AI_ASSISTED_SYSTEM }
+const SYSTEMS: Record<Rubric, string> = { technical: TECHNICAL_SYSTEM, behavioral: BEHAVIORAL_SYSTEM, 'ai-native': AI_NATIVE_SYSTEM, story: STORY_SYSTEM, 'code-review': CODE_REVIEW_SYSTEM }
 
 // Coverage weighs most; a major error caps at 4, covering under a third of the
 // key points caps at 5. Correctness and clarity only earn full credit once
@@ -117,7 +112,7 @@ export async function critiqueQuestion(db: SupabaseClient, userId: string, quest
 }
 
 export const rubricFor = (category: string): Rubric =>
-  category === 'ai-native' ? 'ai-native' : category === 'behavioral' ? 'behavioral' : category === 'code-review' ? 'code-review' : category === 'ai-assisted' ? 'ai-assisted' : 'technical'
+  category === 'ai-native' ? 'ai-native' : category === 'behavioral' ? 'behavioral' : category === 'code-review' ? 'code-review' : 'technical'
 
 // Story Bank rehearsal: a STAR answer to a competency prompt, graded against
 // fixed STAR key points plus the competency's own signal.

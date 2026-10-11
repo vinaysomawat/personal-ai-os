@@ -1,8 +1,0 @@
-body { font-family: system-ui, sans-serif; margin: 32px; color: #111; }
-.tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; max-width: 900px; }
-.tile { border: 1px solid #e5e7eb; border-radius: 12px; padding: 12px 14px; }
-.tile .label { font-size: 12px; color: #6b7280; text-transform: uppercase; }
-.tile .value { font-size: 24px; font-weight: 700; }
-.bad { color: #dc2626; }
-.ok { color: #16a34a; }
-.toolbar { display: flex; gap: 8px; align-items: center; margin-bottom: 16px; }

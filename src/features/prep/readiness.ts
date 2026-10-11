@@ -13,8 +13,6 @@ const AREA_CATEGORIES: Partial<Record<string, string[]>> = {
   uicoding: ['ui-coding'], sysdesign: ['system-design'], ainative: ['ai-native'], behavioral: ['behavioral'], dsa: ['algorithm'], angular: ['angular'], backend: ['backend'],
   testing: ['code-review'],
 }
-// AI-assisted coding = the mean of these two halves (each needs its own sample).
-const AI_ASSISTED_HALVES = ['ai-assisted', 'code-review']
 const MIN_RATED_SAMPLE = 2
 // Small samples are shrunk toward 0 until they reach this size (2026-10-09):
 // 3 solved UI-coding questions at 77 used to read as nearly at its gate and
@@ -125,16 +123,10 @@ function baseMatrix(codingHistory: CodingHistoryRow[], stories: Story[], aiNativ
       }
     }
 
-    // AI-assisted coding: 50% ai-assisted mock ratings, 50% code-review
-    // ratings; one half alone stands in until the other has data.
+    // AI-assisted coding: code-review ratings (reviewing AI-generated PRs).
     if (area.key === 'aiassisted') {
-      const halves = AI_ASSISTED_HALVES.map(categoryPart)
-      const have = halves.filter((h): h is { score: number; n: number } => h !== null)
-      return {
-        key: area.key, label: area.label, href: area.href,
-        score: have.length ? Math.round(have.reduce((s, h) => s + h.score, 0) / have.length) : null,
-        basis: [halves[0] ? `${halves[0].n} AI-assisted rounds` : null, halves[1] ? `${halves[1].n} code reviews` : null].filter(Boolean).join(' · ') || 'No data yet',
-      }
+      const cr = categoryPart('code-review')
+      return { key: area.key, label: area.label, href: area.href, score: cr?.score ?? null, basis: cr ? `${cr.n} code reviews` : 'No data yet' }
     }
 
     // AI-native: average AI rating once ≥2 answers are rated, else the share

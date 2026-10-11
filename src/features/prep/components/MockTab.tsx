@@ -9,7 +9,7 @@ import { modalCancelButtonClass, modalSaveButtonClass } from '@/components/Modal
 import { toISTDateStr } from '@/lib/date'
 import { saveMockRound } from '../actions'
 import { weakestAreas } from '../readiness'
-import { AI_ASSISTED_FIELDS, MOCK_FORMATS, aiAssistedStage, buildMockRound, formatMinutes, formatOf, joinAiAssisted, type MockFormat, type MockItem, type MockRound } from '../mock'
+import { MOCK_FORMATS, buildMockRound, formatMinutes, formatOf, type MockFormat, type MockItem, type MockRound } from '../mock'
 import { MockCalendar, RoundDetail, categoryLabel, mmss } from './MockHistory'
 import { CodeBlock } from './AnswerReview'
 import { COMPETENCIES, READINESS_AREAS, type BankQuestion, type CompetencyKey, type PrepSession, type ReadinessCell } from '../types'
@@ -104,12 +104,6 @@ export function MockTab({ bank, readiness, covered, rounds, today, format: forma
     const left = item.budget_seconds - spent
     const last = run.idx === run.items.length - 1
     const setAnswer = (answer: string) => setRun({ ...run, items: run.items.map((x, i) => i === run.idx ? { ...x, answer } : x) })
-    // AI-assisted: three write-up fields, joined into the graded answer.
-    const setField = (key: string, value: string) => setRun({ ...run, items: run.items.map((x, i) => {
-      if (i !== run.idx) return x
-      const fields = { ...x.fields, [key]: value }
-      return { ...x, fields, answer: Object.values(fields).some(v => v.trim()) ? joinAiAssisted(fields) : '' }
-    }) })
     const next = (skipped: boolean) => {
       const items = run.items.map((x, i) => i === run.idx ? { ...x, seconds: spent, skipped } : x)
       if (!last) { setRun({ ...run, items, idx: run.idx + 1, qStartedAt: Date.now() }); return }
@@ -142,31 +136,7 @@ export function MockTab({ bank, readiness, covered, rounds, today, format: forma
             <p className="text-[11.5px] text-fg-tertiary mt-0.5">Build it in your editor (vanilla JS or React), then summarize below: component API, state, keyboard + ARIA, edge cases, trade-offs.</p>
           </div>
         )}
-        {run.format === 'ai-assisted' && (
-          <div className="mt-2 text-[12.5px] text-fg-secondary">
-            <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-              {item.url && <a href={item.url} target="_blank" rel="noopener noreferrer" className="text-accent hover:underline">Open the kit ↗</a>}
-              <span className="inline-flex gap-1">
-                {['Fix bugs', 'Add feature', 'Optimize'].map((s, i) => (
-                  <span key={s} className={`text-[11px] rounded-full px-2 py-[1px] tabular-nums ${aiAssistedStage(spent) === i + 1 ? 'bg-accent text-white' : aiAssistedStage(spent) > i + 1 ? 'bg-good-soft text-good' : 'bg-surface-2 text-fg-tertiary'}`}>{i + 1}. {s} · 20m</span>
-                ))}
-              </span>
-            </div>
-            <p className="text-[11.5px] text-fg-tertiary mt-1">Clone the repo, run the kit in your editor with your AI tool, follow its README. Don&apos;t open SOLUTION.md. Verify every fix — the write-up below is what gets graded.</p>
-          </div>
-        )}
         {item.body && <CodeBlock code={item.body} />}
-        {run.format === 'ai-assisted' ? (
-          <div className="mt-3 flex flex-col gap-2">
-            {AI_ASSISTED_FIELDS.map(f => (
-              <label key={f.key} className="block">
-                <span className="text-[11.5px] font-semibold text-fg-primary">{f.label}</span>
-                <textarea value={item.fields?.[f.key] ?? ''} onChange={e => setField(f.key, e.target.value)} rows={4} placeholder={f.placeholder}
-                  className="mt-1 w-full bg-surface-2 border border-surface-3 rounded-[8px] px-3 py-2 text-[13px] text-fg-primary outline-none focus:border-accent resize-y" />
-              </label>
-            ))}
-          </div>
-        ) : (
         <textarea value={item.answer} onChange={e => setAnswer(e.target.value)} rows={run.format === 'system-design' || run.format === 'machine-coding' || run.format === 'code-review' ? 12 : 7} autoFocus
           placeholder={run.format === 'system-design'
             ? 'Requirements → Architecture → Data model → Interface (API) → Optimizations (perf, a11y, i18n, offline). Talk it through as you write.'
@@ -176,11 +146,10 @@ export function MockTab({ bank, readiness, covered, rounds, today, format: forma
             ? 'Paste your key code or summarize your solution: structure, state, events, a11y, what you would do with more time.'
             : 'Say it out loud as if they\'re listening, then type the gist — or leave blank if you answered out loud.'}
           className="mt-3 w-full bg-surface-2 border border-surface-3 rounded-[8px] px-3 py-2 text-[13px] text-fg-primary outline-none focus:border-accent resize-y" />
-        )}
         <div className="flex items-center justify-between gap-2 mt-2">
           <span className="inline-flex items-center gap-2 min-w-0">
-            {run.format !== 'ai-assisted' && <MicButton key={run.idx} onText={text => setAnswer(appendText(item.answer, text))} />}
-            <span className="text-[11px] text-fg-tertiary tabular-nums truncate">{words} words · {run.format === 'ai-assisted' ? `stage ${aiAssistedStage(spent)} of 3 · AI tools allowed, SOLUTION.md not` : 'no notes, no hints until you finish'}</span>
+            <MicButton key={run.idx} onText={text => setAnswer(appendText(item.answer, text))} />
+            <span className="text-[11px] text-fg-tertiary tabular-nums truncate">{words} words · no notes, no hints until you finish</span>
           </span>
           <div className="flex gap-2">
             <button onClick={() => next(true)} className={`${modalCancelButtonClass} !py-[7px]`}>Skip</button>

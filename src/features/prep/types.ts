@@ -195,8 +195,8 @@ export const READINESS_AREAS = [
   { key: 'angular', label: 'Angular', quizTopics: [], codingTopics: [], href: '/prep?tab=questions&cat=angular' },
   // Full-stack loops (2026): fed by the 'backend' category and the Networking & APIs topic.
   { key: 'backend', label: 'Backend & APIs', quizTopics: ['APIs', 'Node.js'], codingTopics: ['Networking & APIs'], href: '/prep?tab=questions&cat=backend' },
-  // AI-assisted coding rounds (Meta / Google 2026): 50% the ai-assisted mock
-  // (verifying AI output in an unfamiliar codebase), 50% code review.
+  // AI-assisted coding (Meta / Google 2026 rounds score verifying AI
+  // output): fed by code-review ratings on AI-generated PRs.
   { key: 'aiassisted', label: 'AI-assisted coding', quizTopics: [], codingTopics: [], href: '/prep?tab=questions&cat=code-review' },
   { key: 'dsa', label: 'Algorithms (DSA)', quizTopics: [], codingTopics: ['Algorithms', 'Data Structures'], href: '/prep?tab=questions&cat=algorithm' },
   { key: 'behavioral', label: 'Behavioral', quizTopics: [], codingTopics: [], href: '/prep?tab=stories' },

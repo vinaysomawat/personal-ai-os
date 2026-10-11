@@ -33,14 +33,13 @@ const rateCls = (r: number) => r >= 8 ? 'text-good bg-good-soft' : r >= 6 ? 'tex
 // Answers shorter than this are "solved elsewhere" — no review needed.
 const REVIEW_MIN = 40
 // Coding problems keep their "Open the problem" link; no prose model answer.
-const NO_MODEL_ANSWER = new Set(['algorithm', 'javascript-functions', 'ui-coding', 'ai-assisted'])
+const NO_MODEL_ANSWER = new Set(['algorithm', 'javascript-functions', 'ui-coding'])
 
 const PLACEHOLDER: Record<string, string> = {
   quiz: 'Answer out loud first, then type it to get feedback (optional — saved when you hit Next)',
   'ai-native': 'Answer from real experience: the tool, the task, what the AI got wrong or right, and how YOU verified it. Saved when you hit Next.',
   angular: 'Answer out loud as if in the interview: the concept, how it works under the hood, when you use it, a trade-off or example from your Angular apps. Saved when you hit Next.',
   behavioral: 'Say it out loud first (60–120 s), then type it. Lead with the direct answer; no blame. Saved when you hit Next.',
-  'ai-assisted': 'Best run as a timed Mock round. Here: what changed per stage · bugs found and how you verified each · AI suggestions you rejected and why.',
   'code-review': 'Review it like a senior on your team: list the issues by severity (security, correctness, a11y, perf, naming), why each matters, and the fix. Saved when you hit Next.',
   backend: 'Answer out loud as a full-stack engineer: the approach, how it works, a concrete example (schema, endpoint, header), the trade-off. Saved when you hit Next.',
 }
@@ -234,7 +233,7 @@ export function QuestionsTab({ bank, setBank, topic, onTopicChange: setTopic, co
                 {current.url ? (
                   <a href={current.url} target="_blank" rel="noopener noreferrer"
                     className="text-[12px] text-accent hover:underline inline-flex items-center gap-1">
-                    {category === 'quiz' ? 'Check the answer' : category === 'ai-assisted' ? 'Open the kit' : 'Open the problem'} <ExternalLink size={11} />
+                    {category === 'quiz' ? 'Check the answer' : 'Open the problem'} <ExternalLink size={11} />
                   </a>
                 ) : current.answer_hints ? (
                   <button onClick={() => setShowHints(v => !v)} className="text-[11.5px] text-accent hover:underline">{showHints ? 'Hide' : 'Show'} {category === 'quiz' ? 'key points' : category === 'ui-coding' ? 'requirements' : 'expected areas'}</button>

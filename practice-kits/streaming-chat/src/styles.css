@@ -1,9 +1,0 @@
-body { font-family: system-ui, sans-serif; margin: 0; color: #111; }
-main { max-width: 680px; margin: 0 auto; padding: 24px; display: flex; flex-direction: column; height: 100vh; box-sizing: border-box; }
-.log { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; padding-bottom: 12px; }
-.msg { padding: 8px 12px; border-radius: 10px; max-width: 85%; line-height: 1.45; }
-.msg.user { align-self: flex-end; background: #4f46e5; color: #fff; }
-.msg.assistant { align-self: flex-start; background: #f3f4f6; }
-form { display: flex; gap: 8px; }
-form input { flex: 1; padding: 8px 10px; font-size: 15px; }
-header { display: flex; justify-content: space-between; align-items: center; }
