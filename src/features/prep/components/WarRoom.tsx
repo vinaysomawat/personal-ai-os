@@ -6,12 +6,10 @@ import Card from '@/components/Card'
 import { modalSaveButtonClass } from '@/components/Modal'
 import { READINESS_CONFIG, type ReadinessTier } from '@/features/career/types'
 import { endFocusSession, generatePrepForecast, toggleFocusSessionPause } from '../actions'
-import { GATES, coachLine, dayPace, focusSeconds, hm, nowBlock, readinessTier, type FocusSession, type Forecast, type RevisionItem, type TopicWeakness, type WarReadiness } from '../war'
+import { GATES, blockQuota, coachLine, focusSeconds, hm, nowBlock, paceLabel, paceStatus, readinessTier, type DayPace, type FocusSession, type Forecast, type RevisionItem, type TopicWeakness, type WarReadiness } from '../war'
 import type { PrepSession, ReadinessCell } from '../types'
 
 const mmss = (s: number) => `${s < 0 ? '-' : ''}${Math.floor(Math.abs(s) / 60)}:${String(Math.abs(s) % 60).padStart(2, '0')}`
-// IST wall-clock hour as a float (the prep day is judged in IST).
-const istHour = () => { const d = new Date(Date.now() + 5.5 * 3600_000); return d.getUTCHours() + d.getUTCMinutes() / 60 }
 const scoreCls = (s: number | null, gate: number) => s === null ? 'text-fg-tertiary' : s >= gate ? 'text-good' : s >= gate - 15 ? 'text-warn' : 'text-risk'
 
 function useNow(active: boolean) {
@@ -26,22 +24,21 @@ function useNow(active: boolean) {
 
 // ---------------- Header ----------------
 
-export function WarHeader({ war, daysLeft, targetDate, session, focusedMinutes, nextInterview }: {
-  war: WarReadiness; daysLeft: number | null; targetDate: string | null; session: PrepSession | null; focusedMinutes: number
+export function WarHeader({ war, daysLeft, targetDate, pace, nextInterview }: {
+  war: WarReadiness; daysLeft: number | null; targetDate: string | null; pace: DayPace
   nextInterview: { company: string; kind: string; scheduled_at: string } | null
 }) {
-  const hour = istHour()
-  const pace = dayPace(session?.blocks ?? [], focusedMinutes, hour)
+  const status = paceStatus(pace)
   return (
     <Card padding="p-[var(--card-pad-sm)]">
       <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2">
         <div className="min-w-0">
           <p className="text-[13px] font-bold text-fg-primary">🔥 Interview War Mode{daysLeft !== null && <span className="font-semibold text-accent"> · D-{daysLeft}</span>}{targetDate && <span className="font-normal text-fg-tertiary"> · target {targetDate}</span>}</p>
-          <p className={`text-[12.5px] mt-1 ${pace.behindMinutes >= 30 || (pace.blocksDone === 0 && hour >= 10) ? 'text-risk' : 'text-fg-secondary'}`}>{coachLine(pace, hour)}</p>
+          <p className={`text-[12.5px] mt-1 ${status === 'behind' ? 'text-risk' : status === 'ahead' ? 'text-good' : 'text-fg-secondary'}`}>{coachLine(pace)}</p>
           {nextInterview && (
             <a href="/interviews" className="block text-[12px] font-semibold text-accent mt-0.5 hover:underline">📅 Next interview: {nextInterview.company} · {nextInterview.kind.replace(/_/g, ' ')} · {new Date(nextInterview.scheduled_at).toLocaleString('en-IN', { weekday: 'short', day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit', timeZone: 'Asia/Kolkata' })} →</a>
           )}
-          <p className="text-[11.5px] text-fg-tertiary mt-0.5 tabular-nums">Focused {hm(focusedMinutes)} / {hm(pace.plannedMinutes)} planned · done {hm(pace.doneMinutes)} · expected by now {hm(pace.expectedMinutes)}</p>
+          <p className="text-[11.5px] text-fg-tertiary mt-0.5 tabular-nums"><span className={`font-semibold ${status === 'behind' ? 'text-risk' : status === 'ahead' ? 'text-good' : 'text-fg-secondary'}`}>{paceLabel(pace)}</span> · {pace.donePct}% of plan done · {pace.dayPct}% of 8am–10pm gone · blocks {pace.blocksDone}/{pace.blocksTotal}</p>
         </div>
         <div className="text-right shrink-0">
           <p className={`text-[22px] font-bold leading-none tabular-nums ${war.ready || war.interviewReady ? 'text-good' : war.overall >= 60 ? 'text-warn' : 'text-risk'}`}>{war.overall}%</p>
@@ -62,9 +59,11 @@ export function WarHeader({ war, daysLeft, targetDate, session, focusedMinutes, 
 
 // ---------------- Mission ----------------
 
-export function MissionCard({ session, focusSessions, onToggle, onStart, onOpen }: {
+export function MissionCard({ session, focusSessions, doneToday, onToggle, onStart, onOpen }: {
   session: PrepSession | null
   focusSessions: FocusSession[]
+  // Questions practiced today per category — "3/7" on bank blocks.
+  doneToday: Record<string, number>
   onToggle: (key: string) => void
   onStart: (key: string) => void
   onOpen: (href: string) => void
@@ -72,7 +71,6 @@ export function MissionCard({ session, focusSessions, onToggle, onStart, onOpen 
   if (!session) return <Card title="Today's Mission"><p className="text-[12.5px] text-fg-tertiary">Couldn&apos;t build today&apos;s plan — reload.</p></Card>
   const now = nowBlock(session.blocks)
   const active = focusSessions.find(f => f.status === 'active')
-  const minutesOn = (key: string) => Math.round(focusSessions.filter(f => f.block_key === key).reduce((s, f) => s + focusSeconds(f), 0) / 60)
   const done = session.blocks.filter(b => b.done).length
   return (
     <Card title="Today's Mission" action={<span className="text-[11px] text-fg-tertiary tabular-nums">{done}/{session.blocks.length} done · {hm(session.blocks.reduce((s, b) => s + b.minutes, 0))}</span>}>
@@ -104,7 +102,7 @@ export function MissionCard({ session, focusSessions, onToggle, onStart, onOpen 
       <ol className="flex flex-col gap-1.5">
         {session.blocks.map((b, i) => {
           const isActive = active?.block_key === b.key
-          const spent = minutesOn(b.key)
+          const quota = b.key.startsWith('bank:') ? blockQuota(b) : 0
           return (
             <li key={b.key} className={`flex items-start gap-2.5 rounded-[9px] px-2.5 py-2 ${b.done ? 'bg-good-soft' : isActive ? 'bg-accent-soft' : 'bg-surface-2'}`}>
               <button onClick={() => onToggle(b.key)} aria-label={b.done ? `Mark ${b.label} not done` : `Mark ${b.label} done`} aria-pressed={b.done}
@@ -114,7 +112,7 @@ export function MissionCard({ session, focusSessions, onToggle, onStart, onOpen 
               <div className="flex-1 min-w-0">
                 <div className="flex items-baseline justify-between gap-2">
                   <p className={`text-[12.5px] font-semibold ${b.done ? 'text-fg-tertiary line-through' : 'text-fg-primary'}`}>{i + 1}. {b.label}{isActive && <span className="text-accent font-bold"> ● focusing</span>}</p>
-                  <span className="text-[11px] text-fg-tertiary tabular-nums shrink-0">{spent > 0 ? `${hm(spent)} / ` : ''}{hm(b.minutes)}</span>
+                  <span className="text-[11px] text-fg-tertiary tabular-nums shrink-0">{quota && !b.done ? `${Math.min(quota, doneToday[b.key.slice(5)] ?? 0)}/${quota} · ` : ''}{hm(b.minutes)}</span>
                 </div>
                 <p className="text-[11.5px] text-fg-secondary mt-0.5 hidden sm:block">{b.detail}</p>
               </div>

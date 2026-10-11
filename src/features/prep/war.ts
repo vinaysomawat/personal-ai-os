@@ -208,40 +208,74 @@ export function revisionQueue(bank: BankQuestion[], today: string): RevisionItem
 
 // ---------------- Pace + tone ----------------
 
-// The prep day runs 09:00–21:00 IST; by a given time, that share of the
-// planned minutes "should" be done.
-const DAY_START = 9, DAY_END = 21
+// Pace: share of today's plan done vs share of the 08:00–22:00 IST window
+// gone. Question blocks earn partial credit (answered today ÷ quota), so it
+// moves with every answer; other blocks count when done. Ahead/behind is that
+// gap in window time.
+const DAY_START = 8, DAY_END = 22
+const WINDOW_MINUTES = (DAY_END - DAY_START) * 60
+const ON_PACE_MINUTES = 10
 
 export interface DayPace {
   plannedMinutes: number
   doneMinutes: number
-  focusedMinutes: number
-  expectedMinutes: number
-  behindMinutes: number
+  donePct: number
+  dayPct: number
+  // + ahead, − behind (window minutes); within ±10 counts as on pace.
+  deltaMinutes: number
   blocksDone: number
   blocksTotal: number
 }
 
-export function dayPace(blocks: PrepBlock[], focusedMinutes: number, istHourFloat: number): DayPace {
+// Questions practiced today per category (feeds partial block credit).
+export function practicedToday(bank: Pick<BankQuestion, 'category' | 'last_seen_at'>[], today: string): Record<string, number> {
+  const out: Record<string, number> = {}
+  for (const q of bank) if (q.last_seen_at && toISTDateStr(q.last_seen_at) === today) out[q.category] = (out[q.category] ?? 0) + 1
+  return out
+}
+
+// A bank block's quota is its label's "× N".
+export const blockQuota = (b: Pick<PrepBlock, 'label'>) => Number(b.label.match(/× (\d+)$/)?.[1] ?? 0)
+
+export function dayPace(blocks: PrepBlock[], istHourFloat: number, doneToday: Record<string, number> = {}): DayPace {
+  const progress = (b: PrepBlock) => {
+    if (b.done) return 1
+    const quota = b.key.startsWith('bank:') ? blockQuota(b) : 0
+    return quota ? Math.min(1, (doneToday[b.key.slice(5)] ?? 0) / quota) : 0
+  }
   const plannedMinutes = blocks.reduce((s, b) => s + b.minutes, 0)
-  const doneMinutes = blocks.filter(b => b.done).reduce((s, b) => s + b.minutes, 0)
-  const frac = Math.min(1, Math.max(0, (istHourFloat - DAY_START) / (DAY_END - DAY_START)))
-  const expectedMinutes = Math.round(plannedMinutes * frac)
+  const doneMinutes = Math.round(blocks.reduce((s, b) => s + b.minutes * progress(b), 0))
+  const done = plannedMinutes ? doneMinutes / plannedMinutes : 0
+  const day = Math.min(1, Math.max(0, (istHourFloat - DAY_START) / (DAY_END - DAY_START)))
   return {
-    plannedMinutes, doneMinutes, focusedMinutes, expectedMinutes,
-    behindMinutes: Math.max(0, expectedMinutes - doneMinutes),
+    plannedMinutes, doneMinutes,
+    donePct: Math.round(done * 100), dayPct: Math.round(day * 100),
+    deltaMinutes: Math.round((done - day) * WINDOW_MINUTES),
     blocksDone: blocks.filter(b => b.done).length, blocksTotal: blocks.length,
   }
 }
 
+export type PaceStatus = 'ahead' | 'on' | 'behind'
+export const paceStatus = (p: Pick<DayPace, 'deltaMinutes'>): PaceStatus =>
+  p.deltaMinutes > ON_PACE_MINUTES ? 'ahead' : p.deltaMinutes < -ON_PACE_MINUTES ? 'behind' : 'on'
+export const paceLabel = (p: Pick<DayPace, 'deltaMinutes'>) => {
+  const s = paceStatus(p)
+  return s === 'on' ? 'On pace' : `${s === 'ahead' ? 'Ahead' : 'Behind'} ${hm(Math.abs(p.deltaMinutes))}`
+}
+
+// IST wall-clock hour as a float (the prep day is judged in IST).
+export const istHourNow = () => { const d = new Date(Date.now() + 5.5 * 3600_000); return d.getUTCHours() + d.getUTCMinutes() / 60 }
+
 export const hm = (min: number) => min >= 60 ? `${Math.floor(min / 60)}h${min % 60 ? ` ${min % 60}m` : ''}` : `${min}m`
 
 // Brutal coach copy — no praise for partial work.
-export function coachLine(p: DayPace, istHourFloat: number): string {
+export function coachLine(p: DayPace): string {
   if (p.blocksTotal > 0 && p.blocksDone === p.blocksTotal) return 'All blocks done. It only counts if tomorrow looks the same.'
-  if (p.blocksDone === 0 && istHourFloat >= 10) return `0 of ${p.blocksTotal} blocks done and ${Math.round(((istHourFloat - DAY_START) / (DAY_END - DAY_START)) * 100)}% of the day is gone. Start the next block now.`
-  if (p.behindMinutes >= 30) return `${p.blocksDone}/${p.blocksTotal} blocks. You're ${hm(p.behindMinutes)} behind plan. Don't add random work — do the next block.`
-  return `${p.blocksDone}/${p.blocksTotal} blocks, on pace. Readiness only moves with reps.`
+  if (p.dayPct >= 100) return `Day over: ${p.donePct}% of the plan done, ${100 - p.donePct}% left undone (${hm(-p.deltaMinutes)} short).`
+  if (p.doneMinutes === 0 && p.dayPct >= 14) return `Nothing done and ${p.dayPct}% of the day is gone. Start the next block now.`
+  if (paceStatus(p) === 'behind') return `${p.donePct}% done, ${p.dayPct}% of the day gone — ${hm(-p.deltaMinutes)} behind. Don't add random work — do the next block.`
+  if (paceStatus(p) === 'ahead') return `${p.donePct}% done, ${p.dayPct}% of the day gone — ${hm(p.deltaMinutes)} ahead. Bank it: keep going.`
+  return `${p.donePct}% done, on pace. Readiness only moves with reps.`
 }
 
 // The one thing to do now: the first unfinished block (plan order is

@@ -1,7 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { daysAgoIST } from '@/lib/date'
 import { loadPrepData } from '@/features/prep/core'
-import { focusSeconds, readinessTier } from '@/features/prep/war'
+import { dayPace, istHourNow, practicedToday, readinessTier, type DayPace } from '@/features/prep/war'
 import { loadPipelineStatus, type PipelineStatus } from '@/features/career/pipeline-status'
 import { runwayMonths } from '@/features/finance/calculations'
 
@@ -14,7 +14,8 @@ export interface HuntHero {
   daysLeft: number | null
   nextInterview: { company: string; kind: string; scheduled_at: string } | null
   pipeline: PipelineStatus
-  focusedMinutes: number
+  // Today's plan done vs the 8am–10pm window (computed at request time).
+  pace: DayPace
   blocks: { done: number; total: number }
   runway: number | null
 }
@@ -37,7 +38,7 @@ export async function loadHuntHero(db: SupabaseClient, userId: string): Promise<
     daysLeft: prep.daysLeft,
     nextInterview: prep.nextInterview,
     pipeline,
-    focusedMinutes: Math.round(prep.focusSessions.filter(f => f.date === prep.today).reduce((s, f) => s + focusSeconds(f), 0) / 60),
+    pace: dayPace(blocks, istHourNow(), practicedToday(prep.bank, prep.today)),
     blocks: { done: blocks.filter(b => b.done).length, total: blocks.length },
     // liquid_savings may not exist before the Phase 1 migration — null then.
     runway: runwayMonths((profileRes.data as { liquid_savings?: number | null } | null)?.liquid_savings, avgSpend),

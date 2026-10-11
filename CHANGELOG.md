@@ -5,6 +5,7 @@ append here whenever you deploy, same cadence as the version bump.
 
 ## 2026-10-11
 
+- **Pace instead of hours.** The day is 8am–10pm; the dashboard and Prep now show how far ahead or behind you are (e.g. "Behind 1h 16m — 5% done, 14% of day gone"), with partial credit for every question answered. Focused minutes are no longer shown or scored; the focus timer stays as a work aid. Hours/day is now "Daily load" and only sizes the plan.
 - **Story Bank ratings and history.** Rehearsals now get a 1–10 rating from the same checklist scoring as the Question Bank (STAR points, your own contribution, numbers, length). Past rehearsals open to show the question, your answer and the full review, with "Retry this prompt" to improve it.
 - **Honest answer ratings.** The AI no longer picks the 1–10 number (it drifted to 4–6 whatever you said). It checks off each key point as covered, partial or missing and scores correctness, depth and clarity; the rating is calculated from that, so a thorough answer can reach 9–10 and a one-liner lands at 2–3. The review shows the checklist and the breakdown. Spoken answers are graded as spoken, ignoring transcription slips. Same scoring for Telegram drills.
 - **Focus without a separate screen.** Start focus now takes you straight to the work with the timer in a small floating bar (progress like 3/7, pause, finish, stop). The timer stops itself the moment the block's questions for today are done.

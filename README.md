@@ -30,7 +30,7 @@ Server-computed on every load (`src/features/dashboard/actions.ts` `getDashboard
 | Target | `D-{days to target}` (red at ≤3) | "days to target date" |
 | Next interview | company of the next scheduled round | round kind · IST date-time, or "outreach is the lever" |
 | Outreach this week | `sent/target` (green when met) | replies · screens · onsites this week (+ "N follow-ups due") |
-| Focused today | focus-timer minutes today | blocks done/total |
+| Pace today | Ahead / Behind Xh Ym / On pace (green / red / neutral) | % of plan done · % of 8am–10pm gone, plus a bar with a tick where you should be |
 | Runway | `liquid_savings ÷ avg monthly spend (last 90 days ÷ 3)` months | "at 90-day avg spend" or "set liquid savings" |
 
 The pipeline numbers come from `loadPipelineStatus()` (`career/pipeline-status.ts`, shared with the 7:30am coach message): this Monday-start IST week's funnel row (§3), follow-ups due, and debriefs prompted but not answered.
@@ -69,7 +69,7 @@ The center of the app: *what do I practice today, and am I interview-ready?* for
 
 ### Interview War Mode and the daily plan
 
-- **Settings** (`prep_settings`): `target_date` (null = off), `hours_per_day` (1–14, default 8), `weekly_outreach_target` (default 15). Set in the Today tab's Interview War Mode strip (target date, hours/day, Outreach/week). Saving or turning off deletes today's `prep_sessions` row so the plan rebuilds. `isHuntMode(db, userId)` (`hunt.ts`) is the shared check — code identifiers (`hunt.ts`, `isHuntMode`, `HuntHero`) keep the older "hunt" name; every user-facing string says Interview War Mode.
+- **Settings** (`prep_settings`): `target_date` (null = off), `hours_per_day` (1–14, default 8; shown as **Daily load** — it only sizes the plan's quotas, pace is judged against the 8am–10pm window), `weekly_outreach_target` (default 15). Set in the Today tab's Interview War Mode strip (target date, Daily load (h), Outreach/week). Saving or turning off deletes today's `prep_sessions` row so the plan rebuilds. `isHuntMode(db, userId)` (`hunt.ts`) is the shared check — code identifiers (`hunt.ts`, `isHuntMode`, `HuntHero`) keep the older "hunt" name; every user-facing string says Interview War Mode.
 - **Plan** (`buildHuntPlan()`, deterministic), stored once per day in `prep_sessions.blocks` so it doesn't shift mid-day. Block order:
   1. **Company prep** (`company:{applicationId}`) — when a round is booked within 72h: 60 min if it's within 24h, else 40, on the JD's priority topics, the company's past questions and the matching mock format, with links (`companyPrepBlock()`).
   2. **Redo real interview questions × N** (`bank:interview`) — while any `interview` category question is rated under 7 (10 min each, max 4; `interviewRedoBlock()`).
@@ -98,7 +98,7 @@ A **Speak** mic button (`src/components/MicButton.tsx`, `useDictation()`) sits b
 - **Tiers** (`readinessTier()`): 🔥 TOP 1% READY (no blockers) → ✅ INTERVIEW-READY (overall ≥60, no blind spot in the areas the next booked round tests — every area if none is booked — and mock average ≥7) → ❌ NOT READY.
 - **Topic weakness** (`topicWeakness()`): struggle rate ×40 + (1 − avg rating/10) ×25 + days idle (/14, capped) ×15 + interview importance ×20.
 - **Revision queue** (`revisionQueue()`): a topic whose rated answers average under 7 comes back after 1 day (<5), 2 (<6) or 4 (<7); overdue/today 🔴, tomorrow 🟠, later 🟡.
-- **Focus sessions** (`prep_focus_sessions`): Start on a block starts the timer and jumps straight to the block's work (its in-page `href`: Questions category, Mock format, Stories). No separate screen: the timer is a floating **FocusBar** (bottom centre, above the mobile nav): label (tap = go to the work) · `done/quota` for `bank:` blocks · countdown (bar turns red past the plan) · Pause (+1 interruption) / Finish (ticks the block) / Stop (keeps the time, block stays open). While focusing, the Mission button reads "Go to work". **Auto-stop:** `updateBlocks()` completes the active session the moment its block turns done from any path (quota met by Question Bank Next, Telegram drill or Mock Round, or ticked by hand); the page mirrors it locally and the bar shows "✓ <block> done · m:ss focused" for 5 s. One active session, shared with Telegram. The day runs 09:00–21:00 IST; `dayPace()` / `coachLine()` compare done vs expected minutes, never praising partial work.
+- **Focus sessions** (`prep_focus_sessions`): Start on a block starts the timer and jumps straight to the block's work (its in-page `href`: Questions category, Mock format, Stories). No separate screen: the timer is a floating **FocusBar** (bottom centre, above the mobile nav): label (tap = go to the work) · `done/quota` for `bank:` blocks · countdown (bar turns red past the plan) · Pause (+1 interruption) / Finish (ticks the block) / Stop (keeps the time, block stays open). While focusing, the Mission button reads "Go to work". **Auto-stop:** `updateBlocks()` completes the active session the moment its block turns done from any path (quota met by Question Bank Next, Telegram drill or Mock Round, or ticked by hand); the page mirrors it locally and the bar shows "✓ <block> done · m:ss focused" for 5 s. One active session, shared with Telegram. Focus time is not a scored measure. **Pace** (`dayPace()`, `war.ts`): the window is **08:00–22:00 IST** (14 h). Work done = Σ(block minutes × progress) ÷ planned minutes, where a `bank:` block's progress is questions practiced today in its category ÷ its "× N" quota (`practicedToday()`, `blockQuota()`) and other blocks are 0 or 1. Time used = share of the window gone. `deltaMinutes` = (done − time used) × 840; within ±10 min = On pace, else **Ahead / Behind Xh Ym** (`paceStatus()`, `paceLabel()`). `coachLine()` words it (behind → do the next block; ahead → keep going; after 22:00 → "Day over: N% done, M% undone"), never praising partial work. Mission block rows show `done/quota` on unfinished bank blocks.
 - **Weekly forecast** (`forecast.ts`, `prep_forecast`, Sonnet, 6h cache): "if you interviewed tomorrow" — strengths, up to 4 likely failures, the riskiest question, 3 fixes; confidence = readiness. Stored in `prep_forecasts`; generated Sunday night by the evening coach or on demand.
 
 ### Mock Round
@@ -204,8 +204,8 @@ Daily-only schedules (Vercel Hobby). Every job checks `Authorization: Bearer $CR
 | Job | UTC / IST | Bot | What it does |
 | --- | --- | --- | --- |
 | `prep-coach-morning` | `0 2 * * *` / 7:30am | Daily (+ Career for debriefs) | Debrief prompts, then (Interview War Mode) the mission: D-N, readiness + tier, biggest risk, 🏢 company prep first, next interview, today's blocks, outreach this week X/target, follow-ups due, debriefs owed, revision due, "Start with…", "Reply DRILL for a spoken rep", + morning reminders. Off: reminders only, if any. No AI. |
-| `prep-coach-midday` | `30 7 * * *` / 1pm | Daily | Only when ≥30 min behind pace. |
-| `prep-coach-evening` | `0 16 * * *` / 9:30pm | Daily (+ Career) | Debrief prompts, then the day review (focus vs plan, interruptions, mocks, readiness, tomorrow's shift, coach line) + "📌 Still open" (no expense today, open workout, metrics stale ≥3 days via `computeStaleMetrics()`) + evening reminders; Sundays add the weekly forecast. Off: still sends open items / reminders. |
+| `prep-coach-midday` | `30 7 * * *` / 1pm | Daily | Only when ≥30 min behind pace (8am–10pm window): "N% done · M% of the day gone", next block. |
+| `prep-coach-evening` | `0 16 * * *` / 9:30pm | Daily (+ Career) | Debrief prompts, then the day review (% of plan done and how far short, interruptions, mocks, readiness, tomorrow's shift, coach line) + "📌 Still open" (no expense today, open workout, metrics stale ≥3 days via `computeStaleMetrics()`) + evening reminders; Sundays add the weekly forecast. Off: still sends open items / reminders. |
 | `weekly-digest` | `30 2 * * 0` / Sun 8am | Daily | 7-day module averages, best/worst day, a short AI review (`weekly_digest`, 6h cache), weekly spend by category. **No-op in Interview War Mode.** |
 | `monthly-digest` | `40 2 * * *` / 8:10am | Daily | Same over 30 days, sends only on the 1st (IST). **No-op in Interview War Mode.** |
 | `astrology-daily` | `0 4 * * *` / 9:30am | Astrology | Panchang + daily reading in Hindi. **No-op in Interview War Mode.** |
@@ -365,7 +365,7 @@ Top-to-bottom layout of every page.
 
 1. `PageHeader` "Dashboard" — right: date · dasha link (or greeting; greeting only in Interview War Mode)
 2. **Top Priority** banner (conditional, risk-tinted row link)
-3. Interview War Mode: **Hunt Hero** — 6 tiles `grid-cols-2 sm:grid-cols-3 lg:grid-cols-6` (Readiness, Target, Next interview, Outreach this week, Focused today, Runway). Otherwise: **Life Score** ring card + **Quick Stats** (4 tiles) `lg:grid-cols-[340px_1fr]`
+3. Interview War Mode: **Hunt Hero** — 6 tiles `grid-cols-2 sm:grid-cols-3 lg:grid-cols-6` (Readiness, Target, Next interview, Outreach this week, Pace today, Runway). Otherwise: **Life Score** ring card + **Quick Stats** (4 tiles) `lg:grid-cols-[340px_1fr]`
 4. **Needs Attention** + **Daily Mission** `lg:grid-cols-2 items-start`
 5. **Life Score Trend** (not in Interview War Mode)
 
@@ -374,9 +374,9 @@ App-wide: Quick Add FAB; Ask Brain in the header.
 ### Prep (`/prep`)
 
 1. Header — "Prep" + 🔥 streak, 🎯 today's focus, 📅 Interview-ready by {date}
-2. Stat tiles (4) — Interview readiness (% + tier · blockers), Mock rounds this week, Story Bank, Focused today
+2. Stat tiles (4) — Interview readiness (% + tier · blockers), Mock rounds this week, Story Bank, Pace (Ahead/Behind · % done · % of day gone · full days of 7)
 3. Tabs: Today / Questions / Mock Round / Story Bank
-4. **Today** — Interview War Mode strip (target date, hours/day, Outreach/week; on: D-N, quotas, Edit / Turn off) → War header (D-N, coach line, next-interview link, minutes, readiness % + tier label, up to 6 blocker chips) → `lg:grid-cols-[1fr_380px]`: left **Today's Mission** ("Do this now" + Start focus, progress, block rows with links) above **Revision Queue** + **Weakest Topics** (`sm:grid-cols-2`); right **Readiness Gates**, **Forecast**. Floating FocusBar (timer + progress + Pause / Finish / Stop) while focusing; no full-screen overlay.
+4. **Today** — Interview War Mode strip (target date, hours/day, Outreach/week; on: D-N, quotas, Edit / Turn off) → War header (D-N, pace-colored coach line, next-interview link, pace line: Ahead/Behind · % of plan done · % of 8am–10pm gone · blocks, readiness % + tier label, up to 6 blocker chips) → `lg:grid-cols-[1fr_380px]`: left **Today's Mission** ("Do this now" + Start focus, progress, block rows with links) above **Revision Queue** + **Weakest Topics** (`sm:grid-cols-2`); right **Readiness Gates**, **Forecast**. Floating FocusBar (timer + progress + Pause / Finish / Stop) while focusing; no full-screen overlay.
 5. **Questions** `lg:grid-cols-[1fr_340px]` — Sprint (category chips with today/quota, topic select, then `xl:grid-cols-[272px_1fr]`: scrollable question list | answer panel — question, answer, key points / link · 🎙 Speak + word count, structured AI review card, Review → Next; below `xl` list and panel alternate with "← All questions") + Coverage
 6. **Mock Round** — format picker (4) + Mock Interview Calendar; running round (progress, countdown, answer, 🎙 Speak + word count, Skip/Next); round detail (review box, every answer with rating + note)
 7. **Story Bank** — competency coverage → `lg:grid-cols-2`: Rehearse (prompt + shuffle, linked story, answer, 🎙 Speak + word count, Get feedback, review card; Recent rehearsals: expandable rows with rating chip → prompt, answer, review card, Retry this prompt) + Stories; story modal

@@ -6,7 +6,7 @@ import { BANK_CATEGORIES, buildHuntPlan, companyPrepBlock, computeQuotas, daysLe
 import { topicHref } from './links'
 import { computeReadinessMatrix, weakestAreas, type CodingHistoryRow } from './readiness'
 import { COMPETENCIES, READINESS_AREAS } from './types'
-import { categoryGap, categoryWeights, focusSeconds, nowBlock, revisionQueue, topicWeakness, warReadiness, type FocusSession, type Forecast } from './war'
+import { blockQuota, categoryGap, categoryWeights, focusSeconds, nowBlock, revisionQueue, topicWeakness, warReadiness, type FocusSession, type Forecast } from './war'
 import type { BankQuestion, PrepBlock, PrepSession, PrepSettings, Story, StoryRehearsal } from './types'
 
 // Prep's data layer — plain server module (not 'use server', so none of
@@ -222,7 +222,7 @@ export async function syncBankBlocks(supabase: SupabaseClient, userId: string, c
     if (extra(b)) return { ...b, done: true }
     const cat = b.key.startsWith('bank:') ? b.key.slice(5) : null
     if (!cat || !categories.includes(cat)) return b
-    const quota = Number(b.label.match(/× (\d+)$/)?.[1] ?? 0)
+    const quota = blockQuota(b)
     return quota > 0 && (counts.get(cat) ?? 0) >= quota ? { ...b, done: true } : b
   }))
 }

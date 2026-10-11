@@ -21,7 +21,7 @@ export async function generateForecast(db: SupabaseClient, userId: string): Prom
   const focusMin = Math.round(data.focusSessions.reduce((s, f) => s + focusSeconds(f), 0) / 60)
   const { data: apps } = await db.from('applications').select('company, role, status, jd_analysis').eq('user_id', userId).in('status', ['screening', 'interview'])
   const prompt = [
-    `Target: interview-ready by ${data.settings.target_date ?? 'not set'} (${data.daysLeft ?? '?'} days left), ${data.settings.hours_per_day}h/day.`,
+    `Target: interview-ready by ${data.settings.target_date ?? 'not set'} (${data.daysLeft ?? '?'} days left), ${data.settings.hours_per_day}h daily load.`,
     `Readiness (deterministic, 0-100, gate in brackets): ${data.readiness.map(c => `${c.label} ${c.score ?? 'no data'}`).join('; ')}.`,
     `Overall War readiness ${data.war.overall}% (bottleneck-penalized). Blockers below gate: ${data.war.blockers.map(b => `${b.label} ${b.score ?? 'no data'}/${b.gate}`).join(', ') || 'none'}.`,
     `Weakest topics: ${data.weakness.map(w => `${w.topic} (weakness ${w.score}, avg rating ${w.avgRating ?? 'unrated'}, ${w.struggles} struggles, last practiced ${w.daysSince ?? 'never'} days ago)`).join('; ')}.`,

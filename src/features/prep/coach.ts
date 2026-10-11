@@ -2,7 +2,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import { toISTDateStr } from '@/lib/date'
 import { loadPrepData } from './core'
 import type { PipelineStatus } from '@/features/career/pipeline-status'
-import { GATES, coachLine, dayPace, focusSeconds, hm, nowBlock, readinessTier } from './war'
+import { GATES, coachLine, dayPace, hm, istHourNow, nowBlock, practicedToday, readinessTier } from './war'
 
 // Telegram Prep Coach (War Mode) — deterministic message builders for the
 // Daily bot's 7:30am / 1pm / 9:30pm crons and its START/DONE/"what now"
@@ -10,14 +10,13 @@ import { GATES, coachLine, dayPace, focusSeconds, hm, nowBlock, readinessTier } 
 
 type PrepData = NonNullable<Awaited<ReturnType<typeof loadPrepData>>>
 
-const istHourNow = () => { const d = new Date(Date.now() + 5.5 * 3600_000); return d.getUTCHours() + d.getUTCMinutes() / 60 }
 
 export async function coachData(db: SupabaseClient, userId: string): Promise<PrepData | null> {
   const data = await loadPrepData(db, userId)
   return data.settings.target_date ? data : null
 }
 
-const focusedToday = (d: PrepData) => Math.round(d.focusSessions.filter(f => f.date === d.today).reduce((s, f) => s + focusSeconds(f), 0) / 60)
+const paceAt = (d: PrepData, hour: number) => dayPace(d.session?.blocks ?? [], hour, practicedToday(d.bank, d.today))
 
 const readinessLine = (d: PrepData) =>
   `Readiness *${d.war.overall}%* — ${readinessTier(d.war).label}` +
@@ -48,14 +47,14 @@ export function morningMessage(d: PrepData, pipeline?: PipelineStatus): string {
   ].filter(l => l !== null).join('\n')
 }
 
-// Only when ≥30 min behind the 9am–9pm pace — otherwise silent.
+// Only when ≥30 min behind the 8am–10pm pace — otherwise silent.
 export function middayMessage(d: PrepData): string | null {
-  const pace = dayPace(d.session?.blocks ?? [], focusedToday(d), istHourNow())
-  if (pace.behindMinutes < 30) return null
+  const pace = paceAt(d, istHourNow())
+  if (pace.deltaMinutes > -30) return null
   const now = nowBlock(d.session?.blocks ?? [])
   return [
-    `⚠️ *You're ${hm(pace.behindMinutes)} behind today's plan.*`,
-    `Done ${hm(pace.doneMinutes)} · expected by now ${hm(pace.expectedMinutes)} · focused ${hm(pace.focusedMinutes)}`,
+    `⚠️ *You're ${hm(-pace.deltaMinutes)} behind today's pace.*`,
+    `Done ${pace.donePct}% of the plan · ${pace.dayPct}% of the day gone`,
     `Blocks ${pace.blocksDone}/${pace.blocksTotal}.`,
     '',
     `Don't catch up with random work.`,
@@ -64,16 +63,15 @@ export function middayMessage(d: PrepData): string | null {
 }
 
 export function eveningMessage(d: PrepData): string {
-  const blocks = d.session?.blocks ?? []
   const today = d.focusSessions.filter(f => f.date === d.today)
-  const pace = dayPace(blocks, focusedToday(d), 23)
+  const pace = paceAt(d, 23)
   const interruptions = today.reduce((s, f) => s + f.interruptions, 0)
   const mocks = d.mockRounds.filter(r => toISTDateStr(r.created_at) === d.today && r.review?.score != null)
   const strong = d.readiness.filter(c => c.score !== null && c.score >= GATES[c.key].gate)
   const weak = d.war.blockers.slice(0, 3)
   return [
     `🌙 *DAY REVIEW — D-${d.daysLeft}*`,
-    `Focused: *${hm(pace.focusedMinutes)}* / ${hm(pace.plannedMinutes)} planned${interruptions ? ` · ${interruptions} interruption${interruptions === 1 ? '' : 's'}` : ''}`,
+    `Done: *${pace.donePct}%* of the plan${pace.donePct < 100 ? ` · ${hm(-pace.deltaMinutes)} short` : ''}${interruptions ? ` · ${interruptions} interruption${interruptions === 1 ? '' : 's'}` : ''}`,
     `Blocks: ${pace.blocksDone}/${pace.blocksTotal} (${pace.blocksTotal ? Math.round((pace.blocksDone / pace.blocksTotal) * 100) : 0}%)`,
     mocks.length ? `Mock: ${mocks.map(r => `${r.review!.score}/10`).join(', ')}` : `Mock: none reviewed today`,
     readinessLine(d),
@@ -82,7 +80,7 @@ export function eveningMessage(d: PrepData): string {
     weak.length ? `Needs work: ${weak.map(b => `🔴 ${b.label} ${b.score ?? '—'}/${b.gate}`).join(' ')}` : null,
     weak.length ? `\nTomorrow shifts time toward: ${weak.map(b => b.label).join(', ')}.` : null,
     '',
-    `_${coachLine(pace, 23)}_`,
+    `_${coachLine(pace)}_`,
   ].filter(l => l !== null).join('\n')
 }
 

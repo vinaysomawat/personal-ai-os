@@ -63,7 +63,7 @@ const dummyHunt = {
   daysLeft: 5,
   nextInterview: { company: 'Acme Corp', kind: 'system_design', scheduled_at: new Date(Date.now() + 2 * 86400_000).toISOString() },
   pipeline: { week: { week: today, sent: 9, replies: 2, screens: 1, onsites: 0, offers: 0 }, target: 15, followUps: [{ company: 'Globex', person: 'Priya' }], debriefsOwed: [] },
-  focusedMinutes: 185,
+  pace: { plannedMinutes: 420, doneMinutes: 150, donePct: 36, dayPct: 43, deltaMinutes: -59, blocksDone: 3, blocksTotal: 7 },
   blocks: { done: 3, total: 7 },
   runway: 5.4,
 }

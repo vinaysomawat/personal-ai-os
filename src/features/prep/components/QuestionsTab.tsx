@@ -289,7 +289,7 @@ export function HuntModeCard({ settings, daysLeft, coverage }: { settings: PrepS
       <Card padding="p-[var(--card-pad-sm)]">
         <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5">
           <span className="inline-flex items-center gap-1.5 text-[13px] font-semibold text-fg-primary"><Target size={14} className="text-accent" /> Interview War Mode</span>
-          <span className="text-[12px] text-fg-secondary tabular-nums"><span className="font-semibold text-accent">D-{daysLeft}</span> to {settings.target_date} · {settings.hours_per_day}h/day · {perDay} questions/day · outreach {settings.weekly_outreach_target}/week</span>
+          <span className="text-[12px] text-fg-secondary tabular-nums"><span className="font-semibold text-accent">D-{daysLeft}</span> to {settings.target_date} · {settings.hours_per_day}h daily load · {perDay} questions/day · outreach {settings.weekly_outreach_target}/week</span>
           <span className="text-[11.5px] text-fg-tertiary tabular-nums">{quotas.map(c => `${c.label} ${c.quota}`).join(' · ')}</span>
           <button onClick={() => setEditing(true)} className="ml-auto text-[11.5px] text-accent hover:underline">Edit</button>
         </div>
@@ -303,7 +303,7 @@ export function HuntModeCard({ settings, daysLeft, coverage }: { settings: PrepS
         <span className="inline-flex items-center gap-1.5 text-[13px] font-semibold text-fg-primary mr-1"><Target size={14} className="text-accent" /> Interview War Mode</span>
         <label className="text-[11.5px] text-fg-tertiary">Interview-ready by</label>
         <input type="date" value={date} min={new Date().toISOString().slice(0, 10)} onChange={e => setDate(e.target.value)} required className={`${modalInputClass()} !w-auto`} />
-        <label className="text-[11.5px] text-fg-tertiary">Hours/day</label>
+        <label className="text-[11.5px] text-fg-tertiary" title="Sizes the plan (question quotas). Pace is judged against 8am–10pm.">Daily load (h)</label>
         <input type="number" min={1} max={14} value={hours} onChange={e => setHours(Number(e.target.value))} className={`${modalInputClass()} !w-[64px]`} />
         <label className="text-[11.5px] text-fg-tertiary">Outreach/week</label>
         <input type="number" min={1} max={200} value={outreachTarget} onChange={e => setOutreachTarget(Number(e.target.value))} className={`${modalInputClass()} !w-[64px]`} />

@@ -18,7 +18,7 @@ import { HuntModeCard, QuestionsTab } from './QuestionsTab'
 import { MockTab } from './MockTab'
 import AnswerReview from './AnswerReview'
 import { FocusBar, ForecastCard, GatesCard, MissionCard, RevisionCard, WarHeader, WeaknessCard } from './WarRoom'
-import { focusSeconds, hm, type FocusSession, type Forecast, type RevisionItem, type TopicWeakness, type WarReadiness } from '../war'
+import { blockQuota, dayPace, focusSeconds, istHourNow, paceLabel, paceStatus, practicedToday, type FocusSession, type Forecast, type RevisionItem, type TopicWeakness, type WarReadiness } from '../war'
 import PageHeader, { HeaderChip } from '@/components/PageHeader'
 import StatCard from '@/components/StatCard'
 
@@ -71,7 +71,11 @@ export default function PrepView(props: Props) {
   // Shown briefly after a session ends itself (its block got done).
   const [focusEnded, setFocusEnded] = useState<{ label: string; seconds: number } | null>(null)
   const todayFocus = focusSessions.filter(f => f.date === props.today)
-  const focusedToday = Math.round(todayFocus.reduce((s, f) => s + focusSeconds(f), 0) / 60)
+  // Pace vs the 8am–10pm window, re-read every minute.
+  const [, setTick] = useState(0)
+  useEffect(() => { const t = setInterval(() => setTick(x => x + 1), 60_000); return () => clearInterval(t) }, [])
+  const doneToday = practicedToday(bank, props.today)
+  const pace = dayPace(session?.blocks ?? [], istHourNow(), doneToday)
   const activeFocus = focusSessions.find(f => f.status === 'active') ?? null
   const upsertFocus = (f: FocusSession) => setFocusSessions(prev => [...prev.filter(x => x.id !== f.id), f])
 
@@ -112,14 +116,11 @@ export default function PrepView(props: Props) {
     const t = setTimeout(() => setFocusEnded(null), 5000)
     return () => clearTimeout(t)
   }, [focusEnded])
-  // "3/7 done" for a question block (quota = the label's "× N").
+  // "3/7" for a question block.
   const focusProgress = (() => {
     if (!activeFocus?.block_key.startsWith('bank:')) return null
-    const quota = Number(activeFocus.label.match(/× (\d+)$/)?.[1] ?? 0)
-    if (!quota) return null
-    const cat = activeFocus.block_key.slice(5)
-    const done = bank.filter(q => q.category === cat && q.last_seen_at && toISTDateStr(q.last_seen_at) === props.today).length
-    return `${Math.min(done, quota)}/${quota}`
+    const quota = blockQuota(activeFocus)
+    return quota ? `${Math.min(doneToday[activeFocus.block_key.slice(5)] ?? 0, quota)}/${quota}` : null
   })()
 
   const lastRound = rounds[0] ?? null
@@ -144,7 +145,7 @@ export default function PrepView(props: Props) {
         <StatCard label="Interview readiness" value={`${props.war.overall}%`} sub={props.war.ready ? 'all gates passed' : `${props.war.interviewReady ? 'interview-ready' : 'not ready'} · ${props.war.blockers.length} blockers`} valueClassName={props.war.ready || props.war.interviewReady ? 'text-good' : props.war.overall >= 60 ? 'text-warn' : 'text-risk'} />
         <StatCard label="Mock rounds" value={roundsThisWeek} sub={lastRound ? `this week · last ${formatOf(lastRound.format).label} ${toISTDateStr(lastRound.created_at).slice(5)}${lastRound.review?.score != null ? ` · ${lastRound.review.score}/10` : ''}` : 'this week · none yet'} />
         <StatCard label="Story Bank" value={stories.length} sub={`${coveredCompetencies.size}/${COMPETENCIES.length} competencies covered`} />
-        <StatCard label="Focused today" value={hm(focusedToday)} sub={`${hm(Math.round(focusSessions.reduce((s, f) => s + focusSeconds(f), 0) / 60))} last 7 days · ${props.sessionsLast7}/7 full days`} />
+        <StatCard label="Pace" value={paceLabel(pace)} valueClassName={PACE_CLS[paceStatus(pace)]} sub={`${pace.donePct}% done · ${pace.dayPct}% of day gone · ${props.sessionsLast7}/7 full days`} />
       </div>
 
       <PageTabs tabs={TABS} active={tab} onChange={setTab} />
@@ -153,10 +154,10 @@ export default function PrepView(props: Props) {
 
       {tab === 'today' && (
         <>
-          <WarHeader war={props.war} daysLeft={props.daysLeft} targetDate={props.settings.target_date} session={session} focusedMinutes={focusedToday} nextInterview={props.nextInterview} />
+          <WarHeader war={props.war} daysLeft={props.daysLeft} targetDate={props.settings.target_date} pace={pace} nextInterview={props.nextInterview} />
           <div className="grid grid-cols-1 lg:grid-cols-[1fr_380px] gap-[var(--grid-gap)] items-start">
             <div className="space-y-[var(--grid-gap)]">
-              <MissionCard session={session} focusSessions={todayFocus} onToggle={handleToggle} onStart={startFocus} onOpen={openHref} />
+              <MissionCard session={session} focusSessions={todayFocus} doneToday={doneToday} onToggle={handleToggle} onStart={startFocus} onOpen={openHref} />
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-[var(--grid-gap)] items-start">
                 <RevisionCard items={props.revision} onOpen={openTopic} />
                 <WeaknessCard items={props.weakness} onOpen={openTopic} />
@@ -204,6 +205,8 @@ export default function PrepView(props: Props) {
     </div>
   )
 }
+
+const PACE_CLS = { ahead: 'text-good', on: 'text-fg-primary', behind: 'text-risk' } as const
 
 // ---------------- Story Bank ----------------
 
