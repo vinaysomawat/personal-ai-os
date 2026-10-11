@@ -72,7 +72,7 @@ export async function execute(action: Record<string, unknown>, db: SupabaseClien
     case 'prep_now': {
       const { coachData, middayMessage, morningMessage } = await import('@/features/prep/coach')
       const data = await coachData(db, userId)
-      if (!data) return 'Interview War Mode is off — set a target date on the Prep page.'
+      if (!data) return 'Couldn\'t load today\'s plan — open the Prep page once.'
       return middayMessage(data) ?? morningMessage(data)
     }
     case 'drill': {

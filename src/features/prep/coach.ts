@@ -3,17 +3,18 @@ import { toISTDateStr } from '@/lib/date'
 import { loadPrepData } from './core'
 import type { PipelineStatus } from '@/features/career/pipeline-status'
 import { GATES, coachLine, dayPace, hm, istHourNow, nowBlock, practicedToday, readinessTier } from './war'
+import { levelOf } from './hunt'
 
 // Telegram Prep Coach (War Mode) — deterministic message builders for the
 // Daily bot's 7:30am / 1pm / 9:30pm crons and its START/DONE/"what now"
-// replies. Silent (null) when Job Hunt Mode is off.
+// replies. War Mode is always on, so coachData always returns the data.
 
 type PrepData = NonNullable<Awaited<ReturnType<typeof loadPrepData>>>
 
 
 export async function coachData(db: SupabaseClient, userId: string): Promise<PrepData | null> {
   const data = await loadPrepData(db, userId)
-  return data.settings.target_date ? data : null
+  return data
 }
 
 const paceAt = (d: PrepData, hour: number) => dayPace(d.session?.blocks ?? [], hour, practicedToday(d.bank, d.today))
@@ -30,7 +31,7 @@ export function morningMessage(d: PrepData, pipeline?: PipelineStatus): string {
   const due = d.revision.filter(r => r.status === 'overdue' || r.status === 'today')
   const now = nowBlock(blocks)
   return [
-    `🎯 *INTERVIEW WAR MODE — D-${d.daysLeft}*`,
+    `🎯 *INTERVIEW WAR MODE — ${levelOf(d.settings.hours_per_day).label} (${d.settings.hours_per_day}h)*`,
     readinessLine(d),
     risk ? `🔴 Biggest risk: *${risk.label}* ${risk.score ?? 'no data'}/${risk.gate}` : null,
     d.companyBlock ? `🏢 *Company prep first:* ${d.companyBlock.label}` : null,
@@ -70,7 +71,7 @@ export function eveningMessage(d: PrepData): string {
   const strong = d.readiness.filter(c => c.score !== null && c.score >= GATES[c.key].gate)
   const weak = d.war.blockers.slice(0, 3)
   return [
-    `🌙 *DAY REVIEW — D-${d.daysLeft}*`,
+    `🌙 *DAY REVIEW — ${levelOf(d.settings.hours_per_day).label}*`,
     `Done: *${pace.donePct}%* of the plan${pace.donePct < 100 ? ` · ${hm(-pace.deltaMinutes)} short` : ''}${interruptions ? ` · ${interruptions} interruption${interruptions === 1 ? '' : 's'}` : ''}`,
     `Blocks: ${pace.blocksDone}/${pace.blocksTotal} (${pace.blocksTotal ? Math.round((pace.blocksDone / pace.blocksTotal) * 100) : 0}%)`,
     mocks.length ? `Mock: ${mocks.map(r => `${r.review!.score}/10`).join(', ')}` : `Mock: none reviewed today`,

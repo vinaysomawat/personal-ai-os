@@ -60,7 +60,7 @@ const dummyHunt = {
   overall: 64,
   tier: { label: '✅ INTERVIEW-READY · 4 blockers to close', tone: 'good' as const },
   topBlocker: { label: 'System design', score: 58, gate: 80 },
-  daysLeft: 5,
+  score: { today: 54, level: 'Intense', recent: [{ date: '2026-10-05', score: 40 }, { date: '2026-10-06', score: 72 }, { date: '2026-10-07', score: null }, { date: '2026-10-08', score: 91 }, { date: '2026-10-09', score: 60 }, { date: '2026-10-10', score: 83 }] },
   nextInterview: { company: 'Acme Corp', kind: 'system_design', scheduled_at: new Date(Date.now() + 2 * 86400_000).toISOString() },
   pipeline: { week: { week: today, sent: 9, replies: 2, screens: 1, onsites: 0, offers: 0 }, target: 15, followUps: [{ company: 'Globex', person: 'Priya' }], debriefsOwed: [] },
   pace: { plannedMinutes: 420, doneMinutes: 150, donePct: 36, dayPct: 43, deltaMinutes: -59, blocksDone: 3, blocksTotal: 7 },

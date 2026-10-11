@@ -43,7 +43,7 @@ export interface PrepBlock {
 }
 
 export interface PrepSettings {
-  target_date: string | null
+  // Daily load level hours (hunt.ts LEVELS: 4 / 6 / 8 / 12).
   hours_per_day: number
   // Weekly outreach target for the Interviews pipeline (v4.0).
   weekly_outreach_target: number

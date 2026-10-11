@@ -1,13 +1,15 @@
 'use client'
 
 import { useEffect, useState, useTransition } from 'react'
+import { useRouter } from 'next/navigation'
 import { Check, Pause, Play, Sparkles, Timer, X } from 'lucide-react'
 import Card from '@/components/Card'
 import { modalSaveButtonClass } from '@/components/Modal'
 import { READINESS_CONFIG, type ReadinessTier } from '@/features/career/types'
-import { endFocusSession, generatePrepForecast, toggleFocusSessionPause } from '../actions'
+import { endFocusSession, generatePrepForecast, savePrepSettings, toggleFocusSessionPause } from '../actions'
+import { LEVELS, levelOf } from '../hunt'
 import { GATES, blockQuota, coachLine, focusSeconds, hm, nowBlock, paceLabel, paceStatus, readinessTier, type DayPace, type FocusSession, type Forecast, type RevisionItem, type TopicWeakness, type WarReadiness } from '../war'
-import type { PrepSession, ReadinessCell } from '../types'
+import type { PrepSession, PrepSettings, ReadinessCell } from '../types'
 
 const mmss = (s: number) => `${s < 0 ? '-' : ''}${Math.floor(Math.abs(s) / 60)}:${String(Math.abs(s) % 60).padStart(2, '0')}`
 const scoreCls = (s: number | null, gate: number) => s === null ? 'text-fg-tertiary' : s >= gate ? 'text-good' : s >= gate - 15 ? 'text-warn' : 'text-risk'
@@ -24,16 +26,43 @@ function useNow(active: boolean) {
 
 // ---------------- Header ----------------
 
-export function WarHeader({ war, daysLeft, targetDate, pace, nextInterview }: {
-  war: WarReadiness; daysLeft: number | null; targetDate: string | null; pace: DayPace
+export function WarHeader({ war, settings, questionsPerDay, pace, nextInterview }: {
+  war: WarReadiness; settings: PrepSettings; questionsPerDay: number; pace: DayPace
   nextInterview: { company: string; kind: string; scheduled_at: string } | null
 }) {
   const status = paceStatus(pace)
+  const router = useRouter()
+  const [saving, startSave] = useTransition()
+  const [outreach, setOutreach] = useState(String(settings.weekly_outreach_target))
+  const level = levelOf(settings.hours_per_day)
+  // A new level (or outreach target) rebuilds today's plan.
+  const save = (hours: number, target: number) => startSave(async () => { await savePrepSettings(hours, target); router.refresh() })
+  const saveOutreach = () => {
+    const n = Math.min(200, Math.max(1, Math.round(Number(outreach) || 0)))
+    setOutreach(String(n))
+    if (n !== settings.weekly_outreach_target) save(settings.hours_per_day, n)
+  }
   return (
     <Card padding="p-[var(--card-pad-sm)]">
       <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2">
         <div className="min-w-0">
-          <p className="text-[13px] font-bold text-fg-primary">🔥 Interview War Mode{daysLeft !== null && <span className="font-semibold text-accent"> · D-{daysLeft}</span>}{targetDate && <span className="font-normal text-fg-tertiary"> · target {targetDate}</span>}</p>
+          <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1.5">
+            <p className="text-[13px] font-bold text-fg-primary">🔥 Interview War Mode</p>
+            <div role="radiogroup" aria-label="Daily load" className={`inline-flex rounded-[8px] border border-border-strong overflow-hidden ${saving ? 'opacity-60' : ''}`}>
+              {LEVELS.map(l => (
+                <button key={l.key} role="radio" aria-checked={level.key === l.key} disabled={saving} onClick={() => level.key !== l.key && save(l.hours, settings.weekly_outreach_target)}
+                  className={`text-[11.5px] px-2 py-[3px] tabular-nums border-l first:border-l-0 border-border-strong ${level.key === l.key ? 'bg-accent text-white font-semibold' : 'text-fg-secondary hover:bg-surface-2'}`}>
+                  {l.label} <span className={level.key === l.key ? 'opacity-80' : 'text-fg-tertiary'}>{l.hours}h</span>
+                </button>
+              ))}
+            </div>
+            <span className="text-[11px] text-fg-tertiary tabular-nums">{questionsPerDay} questions/day</span>
+            <label className="text-[11px] text-fg-tertiary inline-flex items-center gap-1">
+              Outreach
+              <input type="number" min={1} max={200} value={outreach} onChange={e => setOutreach(e.target.value)} onBlur={saveOutreach} onKeyDown={e => e.key === 'Enter' && saveOutreach()} disabled={saving}
+                className="w-[46px] bg-surface-2 border border-surface-3 rounded-[6px] px-1 py-[1px] text-[11.5px] text-fg-primary tabular-nums" />/wk
+            </label>
+          </div>
           <p className={`text-[12.5px] mt-1 ${status === 'behind' ? 'text-risk' : status === 'ahead' ? 'text-good' : 'text-fg-secondary'}`}>{coachLine(pace)}</p>
           {nextInterview && (
             <a href="/interviews" className="block text-[12px] font-semibold text-accent mt-0.5 hover:underline">📅 Next interview: {nextInterview.company} · {nextInterview.kind.replace(/_/g, ' ')} · {new Date(nextInterview.scheduled_at).toLocaleString('en-IN', { weekday: 'short', day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit', timeZone: 'Asia/Kolkata' })} →</a>

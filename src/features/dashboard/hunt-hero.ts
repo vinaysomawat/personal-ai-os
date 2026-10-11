@@ -2,16 +2,19 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import { daysAgoIST } from '@/lib/date'
 import { loadPrepData } from '@/features/prep/core'
 import { dayPace, istHourNow, practicedToday, readinessTier, type DayPace } from '@/features/prep/war'
+import { levelOf } from '@/features/prep/hunt'
 import { loadPipelineStatus, type PipelineStatus } from '@/features/career/pipeline-status'
 import { runwayMonths } from '@/features/finance/calculations'
 
-// Dashboard Hunt Hero (v4.0 §3): replaces Life Score + Quick Stats while Job
-// Hunt Mode is on. All deterministic — reuses Prep's own readiness/plan data.
+// Dashboard Hunt Hero (v4.0 §3): replaces Life Score + Quick Stats (Interview
+// War Mode is always on). All deterministic — reuses Prep's own readiness/plan data.
 export interface HuntHero {
   overall: number
   tier: { label: string; tone: 'good' | 'warn' | 'risk' }
   topBlocker: { label: string; score: number | null; gate: number } | null
-  daysLeft: number | null
+  // Today's daily score (= % of today's plan done, partial credit per
+  // question), the level, and the 6 days before (whole blocks only).
+  score: { today: number; level: string; recent: { date: string; score: number | null }[] }
   nextInterview: { company: string; kind: string; scheduled_at: string } | null
   pipeline: PipelineStatus
   // Today's plan done vs the 8am–10pm window (computed at request time).
@@ -21,24 +24,24 @@ export interface HuntHero {
 }
 
 export async function loadHuntHero(db: SupabaseClient, userId: string): Promise<HuntHero | null> {
-  const { data: settings } = await db.from('prep_settings').select('target_date, weekly_outreach_target').eq('user_id', userId).maybeSingle()
-  if (!settings?.target_date) return null
+  const { data: settings } = await db.from('prep_settings').select('weekly_outreach_target').eq('user_id', userId).maybeSingle()
   const [prep, pipeline, profileRes, expensesRes] = await Promise.all([
     loadPrepData(db, userId),
-    loadPipelineStatus(db, userId, settings.weekly_outreach_target ?? 25),
+    loadPipelineStatus(db, userId, settings?.weekly_outreach_target ?? 25),
     db.from('finance_profile').select('liquid_savings').eq('user_id', userId).maybeSingle(),
     db.from('expenses').select('amount').eq('user_id', userId).gte('date', daysAgoIST(90)),
   ])
   const blocks = prep.session?.blocks ?? []
+  const pace = dayPace(blocks, istHourNow(), practicedToday(prep.bank, prep.today))
   const avgSpend = Math.round((expensesRes.data ?? []).reduce((s, e) => s + Number(e.amount), 0) / 3)
   return {
     overall: prep.war.overall,
     tier: readinessTier(prep.war),
     topBlocker: prep.war.blockers[0] ?? null,
-    daysLeft: prep.daysLeft,
     nextInterview: prep.nextInterview,
     pipeline,
-    pace: dayPace(blocks, istHourNow(), practicedToday(prep.bank, prep.today)),
+    pace,
+    score: { today: pace.donePct, level: levelOf(prep.settings.hours_per_day).label, recent: prep.recentScores },
     blocks: { done: blocks.filter(b => b.done).length, total: blocks.length },
     // liquid_savings may not exist before the Phase 1 migration — null then.
     runway: runwayMonths((profileRes.data as { liquid_savings?: number | null } | null)?.liquid_savings, avgSpend),

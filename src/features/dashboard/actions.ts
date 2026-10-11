@@ -133,7 +133,7 @@ export async function getDashboardData() {
     // Scheduled interview rounds from now on — the upcoming-interview signal.
     supabase.from('interview_rounds').select('kind, scheduled_at, application:applications(company)').eq('user_id', user.id).eq('status', 'scheduled').gte('scheduled_at', new Date().toISOString()).order('scheduled_at', { ascending: true }),
     // Job Hunt Mode (target date set) — changes what the Dashboard shows.
-    supabase.from('prep_settings').select('target_date, weekly_outreach_target').eq('user_id', user.id).maybeSingle(),
+    supabase.from('prep_settings').select('weekly_outreach_target').eq('user_id', user.id).maybeSingle(),
     // This week's outreach (Monday-start IST) — Career sub-score + Hunt Hero.
     supabase.from('outreach').select('count, status').eq('user_id', user.id).gte('sent_at', weekStart(today)),
     // Life Score v2's Health sub-score reuses the Health module's own
@@ -419,7 +419,8 @@ export async function getDashboardData() {
   // page itself.
   const natalChart = astrologyProfileRes.data?.natal_chart as NatalChart | undefined
   const currentDasha = natalChart ? getCurrentDasha(natalChart.vimshottariDasha, today) : null
-  const huntMode = !!prepSettingsRes.data?.target_date
+  // Interview War Mode is always on (no target date since v4.0.8).
+  const huntMode = true
   // The dasha segment is paused during Job Hunt Mode (plain greeting instead).
   const astrology = currentDasha && !huntMode ? {
     dashaLord: currentDasha.mahadasha.lord,

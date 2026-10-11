@@ -1,12 +1,10 @@
-import type { SupabaseClient } from '@supabase/supabase-js'
 import type { PrepBlock } from './types'
 import { formatMinutes, formatOf, mockFormatForDay } from './mock'
 
-// Job Hunt Mode (ROADMAP-v2 §9) — deterministic full-day plan sized to the
-// user's daily hours and days left before the target date. Each question
-// category gets a share of the day and a per-question time cost; the daily
-// quota is the smaller of "what fits in that time" and "what's needed to
-// cover the remaining questions by the target date".
+// Interview War Mode — a deterministic full-day plan sized to the daily load
+// level (Light 4h · Steady 6h · Intense 8h · Max 12h). Each question category
+// gets a share of the day and a per-question time cost; its quota is what
+// fits in that time.
 
 export type BankCategory = 'interview' | 'quiz' | 'angular' | 'ai-native' | 'behavioral' | 'javascript-functions' | 'ui-coding' | 'system-design' | 'algorithm' | 'backend' | 'code-review'
 
@@ -55,39 +53,49 @@ export interface CategoryCoverage {
 export interface CategoryQuota extends CategoryCoverage {
   quota: number
   minutes: number
-  projectedSeen: number
 }
 
-export function daysLeft(today: string, targetDate: string): number {
-  const ms = new Date(`${targetDate}T00:00:00Z`).getTime() - new Date(`${today}T00:00:00Z`).getTime()
-  // Today counts as a prep day, so the target date itself is day 1 when equal.
-  return Math.max(1, Math.round(ms / 86400000) + 1)
-}
+// Daily load level (prep_settings.hours_per_day): sizes the day's plan —
+// quotas, blocks and the STAR-story share. Pace is judged against the plan.
+export const LEVELS = [
+  { key: 'light', label: 'Light', hours: 4 },
+  { key: 'steady', label: 'Steady', hours: 6 },
+  { key: 'intense', label: 'Intense', hours: 8 },
+  { key: 'max', label: 'Max', hours: 12 },
+] as const
+export type Level = typeof LEVELS[number]
+// The level for a stored hours value (nearest; older rows may hold any 1–14).
+export const levelOf = (hours: number): Level =>
+  LEVELS.reduce((best, l) => Math.abs(l.hours - hours) < Math.abs(best.hours - hours) ? l : best, LEVELS[2] as Level)
 
-// War Mode (2026-10-07): quotas are sized by time, not by "unseen ÷ days
-// left" — the hours are fixed, re-answering weak questions counts, and the
-// old cap left most of a long runway's day empty. Each category's share is
-// scaled by its readiness gap (weights from war.ts's categoryWeights) and
+// Quotas are sized by time (the level's hours); re-answering weak questions
+// counts too. Each category's share is scaled by its readiness gap (weights from war.ts's categoryWeights) and
 // renormalized, so weak areas get more of the same day.
-export function computeQuotas(coverage: CategoryCoverage[], hoursPerDay: number, days: number, weights: Record<string, number> = {}, reservedMinutes = 0): CategoryQuota[] {
+export function computeQuotas(coverage: CategoryCoverage[], hoursPerDay: number, weights: Record<string, number> = {}, reservedMinutes = 0): CategoryQuota[] {
   const bankMinutes = Math.max(60, hoursPerDay * 60 - reservedMinutes)
   const weightedTotal = BANK_CATEGORIES.reduce((s, c) => s + c.share * (weights[c.key] ?? 1), 0)
-  return BANK_CATEGORIES.map(cat => {
-    const c = coverage.find(x => x.key === cat.key)!
+  const rows = BANK_CATEGORIES.map(cat => {
     const share = (cat.share * (weights[cat.key] ?? 1)) / weightedTotal
-    const quota = cat.share === 0 ? 0 : Math.max(1, Math.floor((bankMinutes * share) / cat.minutesPerQ))
-    return {
-      ...c,
-      quota,
-      minutes: quota * cat.minutesPerQ,
-      projectedSeen: Math.min(c.total, c.seen - c.doneToday + quota * days),
-    }
+    // Every category gets at least one question from Steady (6h) up; on a
+    // Light day the ones whose share can't fit a single question drop out.
+    const quota = cat.share === 0 ? 0 : Math.max(hoursPerDay >= 6 ? 1 : 0, Math.floor((bankMinutes * share) / cat.minutesPerQ))
+    return { cat, share, quota }
   })
+  // Flooring leaves minutes unspent: hand them out one question at a time to
+  // the category furthest below its share that still fits.
+  let left = bankMinutes - rows.reduce((s, r) => s + r.quota * r.cat.minutesPerQ, 0)
+  for (;;) {
+    const next = rows.filter(r => r.share > 0 && r.cat.minutesPerQ <= left)
+      .sort((a, b) => (a.quota * a.cat.minutesPerQ) / (a.share * bankMinutes) - (b.quota * b.cat.minutesPerQ) / (b.share * bankMinutes))[0]
+    if (!next) break
+    next.quota++
+    left -= next.cat.minutesPerQ
+  }
+  return rows.map(({ cat, quota }) => ({ ...coverage.find(x => x.key === cat.key)!, quota, minutes: quota * cat.minutesPerQ }))
 }
 
 export function buildHuntPlan(ctx: {
   hoursPerDay: number
-  days: number
   date: string
   quotas: CategoryQuota[]
   uncoveredCompetency: string | null
@@ -152,7 +160,7 @@ export function buildHuntPlan(ctx: {
     detail: ctx.uncoveredCompetency ? `Write a STAR story for "${ctx.uncoveredCompetency}", then rehearse one out loud` : 'Rehearse 2 stories out loud and get feedback on one',
     href: '/prep?tab=stories', done: false,
   })
-  return { focus: `Interview War Mode · D-${ctx.days}`, blocks }
+  return { focus: `Interview War Mode · ${levelOf(ctx.hoursPerDay).label}`, blocks }
 }
 
 // Company Prep Mode (v4.0 §4.4): a round ≤72h away puts a block first —
@@ -227,9 +235,9 @@ export function interviewRedoBlock(lowRated: number): PrepBlock | null {
   }
 }
 
-// Job Hunt Mode = a target date is set (prep_settings.target_date). The one
-// shared check for everything that pauses or changes while hunting.
-export async function isHuntMode(db: SupabaseClient, userId: string): Promise<boolean> {
-  const { data } = await db.from('prep_settings').select('target_date').eq('user_id', userId).maybeSingle()
-  return !!data?.target_date
+// Interview War Mode is always on (there is no target date to switch it off
+// since v4.0.8). Kept as the one shared check for everything that pauses or
+// changes while hunting, so turning it back into a setting is one place.
+export async function isHuntMode(): Promise<boolean> {
+  return true
 }

@@ -1,16 +1,15 @@
 'use client'
 
 import { useMemo, useState, useTransition } from 'react'
-import { useRouter } from 'next/navigation'
-import { ArrowLeft, BookOpen, Check, ExternalLink, Sparkles, Target } from 'lucide-react'
+import { ArrowLeft, BookOpen, Check, ExternalLink, Sparkles } from 'lucide-react'
 import Card from '@/components/Card'
 import AnswerReview, { CodeBlock, Rich } from './AnswerReview'
 import MicButton, { appendText } from '@/components/MicButton'
-import { modalInputClass, modalSaveButtonClass, modalCancelButtonClass } from '@/components/Modal'
-import { answerQuestion, critiqueAnswer, revealModelAnswer, savePrepSettings } from '../actions'
+import { modalSaveButtonClass, modalCancelButtonClass } from '@/components/Modal'
+import { answerQuestion, critiqueAnswer, revealModelAnswer } from '../actions'
 import { BANK_CATEGORIES, type BankCategory, type CategoryCoverage, type CategoryQuota } from '../hunt'
 import { toISTDateStr } from '@/lib/date'
-import type { BankQuestion, PrepSession, PrepSettings } from '../types'
+import type { BankQuestion, PrepSession } from '../types'
 import type { Scorecard } from '../scorecard'
 
 const DIFFICULTY_ORDER: Record<string, number> = { medium: 0, easy: 1, hard: 2 }
@@ -296,7 +295,7 @@ export function QuestionsTab({ bank, setBank, topic, onTopicChange: setTopic, co
                   <div className="h-[5px] rounded-[3px] bg-border mt-1 flex overflow-hidden">
                     <div className="h-full bg-good" style={{ width: `${s.total ? (s.seen / s.total) * 100 : 0}%` }} />
                   </div>
-                  {cq && <p className="text-[10.5px] text-fg-tertiary mt-0.5 tabular-nums">{cq.quota}/day · ~{cq.projectedSeen}/{s.total} seen by target ({s.total ? Math.round((cq.projectedSeen / s.total) * 100) : 0}%)</p>}
+                  {cq && cq.quota > 0 && <p className="text-[10.5px] text-fg-tertiary mt-0.5 tabular-nums">{cq.quota}/day today</p>}
                 </button>
               </li>
             )
@@ -305,56 +304,5 @@ export function QuestionsTab({ bank, setBank, topic, onTopicChange: setTopic, co
         <p className="text-[10.5px] text-fg-tertiary mt-3">Includes questions completed in Coding. Today: {today}.</p>
       </Card>
     </div>
-  )
-}
-
-// Job Hunt Mode toggle — a target date + daily hours that turn Today's Prep
-// into a full-day plan with per-category question quotas.
-export function HuntModeCard({ settings, daysLeft, coverage }: { settings: PrepSettings; daysLeft: number | null; coverage: (CategoryCoverage | CategoryQuota)[] }) {
-  const router = useRouter()
-  const [editing, setEditing] = useState(false)
-  const [date, setDate] = useState(settings.target_date ?? '')
-  const [hours, setHours] = useState(settings.hours_per_day)
-  const [outreachTarget, setOutreachTarget] = useState(settings.weekly_outreach_target)
-  const [busy, startTransition] = useTransition()
-  const on = settings.target_date !== null && daysLeft !== null
-  const quotas = coverage.filter(isQuota)
-  const perDay = quotas.reduce((s, c) => s + c.quota, 0)
-
-  const save = (targetDate: string | null) => startTransition(async () => {
-    await savePrepSettings(targetDate, hours, outreachTarget)
-    setEditing(false)
-    router.refresh()
-  })
-
-  if (on && !editing) {
-    return (
-      <Card padding="p-[var(--card-pad-sm)]">
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5">
-          <span className="inline-flex items-center gap-1.5 text-[13px] font-semibold text-fg-primary"><Target size={14} className="text-accent" /> Interview War Mode</span>
-          <span className="text-[12px] text-fg-secondary tabular-nums"><span className="font-semibold text-accent">D-{daysLeft}</span> to {settings.target_date} · {settings.hours_per_day}h daily load · {perDay} questions/day · outreach {settings.weekly_outreach_target}/week</span>
-          <span className="text-[11.5px] text-fg-tertiary tabular-nums">{quotas.map(c => `${c.label} ${c.quota}`).join(' · ')}</span>
-          <button onClick={() => setEditing(true)} className="ml-auto text-[11.5px] text-accent hover:underline">Edit</button>
-        </div>
-      </Card>
-    )
-  }
-
-  return (
-    <Card padding="p-[var(--card-pad-sm)]">
-      <form className="flex flex-wrap items-center gap-2" onSubmit={e => { e.preventDefault(); if (date) save(date) }}>
-        <span className="inline-flex items-center gap-1.5 text-[13px] font-semibold text-fg-primary mr-1"><Target size={14} className="text-accent" /> Interview War Mode</span>
-        <label className="text-[11.5px] text-fg-tertiary">Interview-ready by</label>
-        <input type="date" value={date} min={new Date().toISOString().slice(0, 10)} onChange={e => setDate(e.target.value)} required className={`${modalInputClass()} !w-auto`} />
-        <label className="text-[11.5px] text-fg-tertiary" title="Sizes the plan (question quotas). Pace is judged against 8am–10pm.">Daily load (h)</label>
-        <input type="number" min={1} max={14} value={hours} onChange={e => setHours(Number(e.target.value))} className={`${modalInputClass()} !w-[64px]`} />
-        <label className="text-[11.5px] text-fg-tertiary">Outreach/week</label>
-        <input type="number" min={1} max={200} value={outreachTarget} onChange={e => setOutreachTarget(Number(e.target.value))} className={`${modalInputClass()} !w-[64px]`} />
-        <button type="submit" disabled={busy || !date} className={modalSaveButtonClass}>{busy ? 'Saving…' : on ? 'Update plan' : 'Start'}</button>
-        {on && <button type="button" onClick={() => setEditing(false)} className={modalCancelButtonClass}>Cancel</button>}
-        {on && <button type="button" disabled={busy} onClick={() => save(null)} className="text-[11.5px] text-fg-tertiary hover:text-risk ml-auto">Turn off</button>}
-        {!on && <span className="text-[11.5px] text-fg-tertiary basis-full sm:basis-auto">Turns Today&apos;s Prep into a full-day plan with daily question quotas.</span>}
-      </form>
-    </Card>
   )
 }

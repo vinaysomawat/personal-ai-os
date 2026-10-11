@@ -5,10 +5,13 @@ import type { HuntHero as HuntHeroData } from '../hunt-hero'
 
 const TONE = { good: 'text-good', warn: 'text-warn', risk: 'text-risk' } as const
 const PACE = { ahead: 'text-good', on: 'text-fg-primary', behind: 'text-risk' } as const
+// Daily score (% of today's plan done): 90+ green, 70+ accent, 40+ amber, else red.
+const scoreTone = (n: number) => n >= 90 ? 'text-good' : n >= 70 ? 'text-accent' : n >= 40 ? 'text-warn' : 'text-risk'
+const scoreBar = (n: number) => n >= 90 ? 'bg-good' : n >= 70 ? 'bg-accent' : n >= 40 ? 'bg-warn' : 'bg-risk'
 const when = (iso: string) => new Date(iso).toLocaleString('en-IN', { weekday: 'short', day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit', timeZone: 'Asia/Kolkata' })
 
-// Job Hunt Mode hero (v4.0 §3) — replaces Life Score + Quick Stats while a
-// Prep target date is set. Six tiles, each linking to where you act on it.
+// Interview War Mode hero (v4.0 §3) — replaces Life Score + Quick Stats (War
+// Mode is always on). Six tiles, each linking to where you act on it.
 export default function HuntHero({ hero }: { hero: HuntHeroData }) {
   const { pipeline: p } = hero
   const tiles = [
@@ -19,9 +22,9 @@ export default function HuntHero({ hero }: { hero: HuntHeroData }) {
       extra: hero.topBlocker ? `Close: ${hero.topBlocker.label} ${hero.topBlocker.score ?? '—'}/${hero.topBlocker.gate}` : null,
     },
     {
-      label: 'Target', to: '/prep',
-      value: hero.daysLeft === null ? '—' : `D-${hero.daysLeft}`, color: hero.daysLeft !== null && hero.daysLeft <= 3 ? 'text-risk' : 'text-fg-primary',
-      sub: 'days to target date', extra: null,
+      label: "Today's score", to: '/prep',
+      value: hero.blocks.total ? String(hero.score.today) : '—', color: scoreTone(hero.score.today),
+      sub: `of 100 · ${hero.score.level}`, extra: null, history: hero.score.recent,
     },
     {
       label: 'Next interview', to: '/interviews',
@@ -55,6 +58,14 @@ export default function HuntHero({ hero }: { hero: HuntHeroData }) {
           <p className={`text-[20px] font-bold mt-1 tabular-nums truncate ${t.color}`}>{t.value}</p>
           <p className="text-[10.5px] text-fg-tertiary mt-0.5 truncate">{t.sub}</p>
           {t.extra && <p className="text-[10.5px] font-semibold text-warn mt-0.5 truncate">{t.extra}</p>}
+          {'history' in t && t.history && (
+            // The 6 days before today (whole blocks) + today, oldest first.
+            <div className="flex items-end gap-[3px] h-[16px] mt-1.5" aria-label={`Last 7 days: ${[...t.history.map(h => h.score ?? 0), hero.score.today].join(', ')}`}>
+              {[...t.history, { date: 'today', score: hero.score.today }].map(h => (
+                <span key={h.date} title={`${h.date}: ${h.score ?? 'no plan'}`} className={`flex-1 rounded-[1.5px] ${h.score === null ? 'bg-border' : scoreBar(h.score)} ${h.date === 'today' ? '' : 'opacity-70'}`} style={{ height: `${Math.max(12, h.score ?? 0)}%` }} />
+              ))}
+            </div>
+          )}
           {'bar' in t && t.bar && (
             // Done so far, with a tick where you should be by now.
             <div className="relative h-[4px] rounded-[2px] bg-border mt-1.5" aria-hidden>

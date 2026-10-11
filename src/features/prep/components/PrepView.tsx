@@ -14,7 +14,7 @@ import { formatOf, type MockRound } from '../mock'
 import { startFocusSession, togglePrepBlock, saveStory, deleteStory, rehearseStory, type StoryInput } from '../actions'
 import { COMPETENCIES, REHEARSAL_PROMPTS, type BankQuestion, type CompetencyKey, type PrepSession, type PrepSettings, type ReadinessCell, type Story, type StoryRehearsal } from '../types'
 import type { CategoryCoverage, CategoryQuota } from '../hunt'
-import { HuntModeCard, QuestionsTab } from './QuestionsTab'
+import { QuestionsTab } from './QuestionsTab'
 import { MockTab } from './MockTab'
 import AnswerReview from './AnswerReview'
 import { FocusBar, ForecastCard, GatesCard, MissionCard, RevisionCard, WarHeader, WeaknessCard } from './WarRoom'
@@ -50,7 +50,6 @@ interface Props {
   rehearsals: StoryRehearsal[]
   readiness: ReadinessCell[]
   settings: PrepSettings
-  daysLeft: number | null
   coverage: (CategoryCoverage | CategoryQuota)[]
   bank: BankQuestion[]
 }
@@ -138,7 +137,6 @@ export default function PrepView(props: Props) {
       <PageHeader title="Prep" chips={<>
         <HeaderChip>🔥 {props.streak}-day prep streak</HeaderChip>
         {session && <HeaderChip tone="accent">🎯 {session.focus}</HeaderChip>}
-        {props.daysLeft !== null && <HeaderChip>📅 Interview-ready by {props.settings.target_date}</HeaderChip>}
       </>} />
 
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-[var(--grid-gap-sm)]">
@@ -150,11 +148,10 @@ export default function PrepView(props: Props) {
 
       <PageTabs tabs={TABS} active={tab} onChange={setTab} />
 
-      {tab === 'today' && <HuntModeCard settings={props.settings} daysLeft={props.daysLeft} coverage={props.coverage} />}
 
       {tab === 'today' && (
         <>
-          <WarHeader war={props.war} daysLeft={props.daysLeft} targetDate={props.settings.target_date} pace={pace} nextInterview={props.nextInterview} />
+          <WarHeader war={props.war} settings={props.settings} questionsPerDay={props.coverage.reduce((s, c) => s + ('quota' in c ? c.quota : 0), 0)} pace={pace} nextInterview={props.nextInterview} />
           <div className="grid grid-cols-1 lg:grid-cols-[1fr_380px] gap-[var(--grid-gap)] items-start">
             <div className="space-y-[var(--grid-gap)]">
               <MissionCard session={session} focusSessions={todayFocus} doneToday={doneToday} onToggle={handleToggle} onStart={startFocus} onOpen={openHref} />

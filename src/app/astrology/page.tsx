@@ -6,6 +6,6 @@ import { isHuntMode } from '@/features/prep/hunt'
 export default async function AstrologyPage() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  const [profile, hunt] = await Promise.all([getAstrologyProfile(), user ? isHuntMode(supabase, user.id) : false])
+  const [profile, hunt] = await Promise.all([getAstrologyProfile(), user ? isHuntMode() : false])
   return <AstrologyView initialProfile={profile} huntMode={hunt} />
 }

@@ -6,7 +6,7 @@
 
 A personal, single-user AI Operating System: one Next.js app for interview prep, the job hunt, money, health and a Vedic astrology module — with Claude used only where judgment is needed (answer reviews, coaching, narratives), a per-module Telegram bot for hands-free logging (text, voice or photo), scheduled Telegram coaching, and a daily Life Score.
 
-**Since v4.0 (2026-10-10) the app is built around an active job hunt.** When Prep's Interview War Mode is on (a target "interview-ready by" date is set), the Dashboard becomes a Hunt Hero, the Telegram coach runs the day, and non-essentials (astrology push, weekly/monthly digests) pause.
+**Since v4.0 (2026-10-10) the app is built around an active job hunt.** Prep's Interview War Mode is always on: the Dashboard is a Hunt Hero, the Telegram coach runs the day, and non-essentials (astrology push, weekly/monthly digests) are paused. The day's size is a load level (Light 4h · Steady 6h · Intense 8h · Max 12h).
 
 This document describes exactly what the app does today — module by module, field by field, formula by formula — so it can be pasted into a fresh AI chat and give complete understanding with no other context. It is kept current with every functional change (`CLAUDE.md`'s post-task checklist). **History lives in `CHANGELOG.md` and git, not here.**
 
@@ -20,14 +20,14 @@ To run your own instance: clone, `npm install`, `cp .env.example .env.local` and
 
 Server-computed on every load (`src/features/dashboard/actions.ts` `getDashboardData()` + `getHuntHero()`, brain `getExecutiveData()`).
 
-### Hunt Hero (Interview War Mode on)
+### Hunt Hero
 
-`loadHuntHero()` (`dashboard/hunt-hero.ts`, deterministic) returns null when `prep_settings.target_date` is null. Six tiles (`HuntHero.tsx`), each linking to where you act on it:
+`loadHuntHero()` (`dashboard/hunt-hero.ts`, deterministic). Six tiles (`HuntHero.tsx`), each linking to where you act on it:
 
 | Tile | Value | Sub-line |
 | --- | --- | --- |
 | Readiness | Prep's gated readiness % (§2), colored by tier | tier label (🔥 TOP 1% READY / ✅ INTERVIEW-READY · N blockers to close / ❌ NOT READY · N blockers) + "Close: {top blocker} score/gate" |
-| Target | `D-{days to target}` (red at ≤3) | "days to target date" |
+| Today's score | 0–100 = % of today's plan done (`dayPace().donePct`: block minutes weighted, partial credit per answered question); 90+ green · 70+ accent · 40+ amber · else red | "of 100 · {level}" + a 7-bar strip: the 6 days before today (`recentScores` from `loadPrepData()`, whole blocks only — per-question partial credit isn't kept for past days; no plan = grey) and today |
 | Next interview | company of the next scheduled round | round kind · IST date-time, or "outreach is the lever" |
 | Outreach this week | `sent/target` (green when met) | replies · screens · onsites this week (+ "N follow-ups due") |
 | Pace today | Ahead / Behind Xh Ym / On pace (green / red / neutral) | % of plan done · % of 8am–10pm gone, plus a bar with a tick where you should be |
@@ -35,7 +35,7 @@ Server-computed on every load (`src/features/dashboard/actions.ts` `getDashboard
 
 The pipeline numbers come from `loadPipelineStatus()` (`career/pipeline-status.ts`, shared with the 7:30am coach message): this Monday-start IST week's funnel row (§3), follow-ups due, and debriefs prompted but not answered.
 
-### Life Score (Interview War Mode off)
+### Life Score (not shown while War Mode is always on — code kept)
 
 Every module score blends today with the trailing week:
 `moduleScore = dailyRaw × 0.6 + weeklyAvg × 0.4` (`LIFE_SCORE_THRESHOLDS` in `src/lib/thresholds.ts`), then
@@ -69,13 +69,13 @@ The center of the app: *what do I practice today, and am I interview-ready?* for
 
 ### Interview War Mode and the daily plan
 
-- **Settings** (`prep_settings`): `target_date` (null = off), `hours_per_day` (1–14, default 8; shown as **Daily load** — it only sizes the plan's quotas, pace is judged against the 8am–10pm window), `weekly_outreach_target` (default 25 for new rows and when unset). Set in the Today tab's Interview War Mode strip (target date, Daily load (h), Outreach/week). Saving or turning off deletes today's `prep_sessions` row so the plan rebuilds. `isHuntMode(db, userId)` (`hunt.ts`) is the shared check — code identifiers (`hunt.ts`, `isHuntMode`, `HuntHero`) keep the older "hunt" name; every user-facing string says Interview War Mode.
+- **Always on.** There is no target date and no off switch; `isHuntMode()` (`hunt.ts`) returns true and stays the one shared check.
+- **Settings** (`prep_settings`): `hours_per_day` = the **daily load level** (`LEVELS` in `hunt.ts`: Light 4 · Steady 6 · Intense 8 · Max 12; `levelOf()` maps any stored value to the nearest) — it sizes the plan; pace is judged against the 8am–10pm window. `weekly_outreach_target` (default 25 for new rows and when unset). Both are set in the War header (level switch, Outreach/wk field); `savePrepSettings(hours, outreach)` deletes today's `prep_sessions` row so the plan rebuilds. The `target_date` column is no longer read or written. `isHuntMode()` is the shared check — code identifiers (`hunt.ts`, `isHuntMode`, `HuntHero`) keep the older "hunt" name; every user-facing string says Interview War Mode.
 - **Plan** (`buildHuntPlan()`, deterministic), stored once per day in `prep_sessions.blocks` so it doesn't shift mid-day. Block order:
   1. **Company prep** (`company:{applicationId}`) — when a round is booked within 72h: 60 min if it's within 24h, else 40, on the JD's priority topics, the company's past questions and a mock + topics chosen by the company's **segment** (`SEGMENT_PREP` in `hunt.ts`: big_tech → code-review mock, Algorithms, System design · product_india → machine coding, Web fundamentals, Algorithms · startup → system-design mock, Backend & APIs, Full-stack design, a deep-dive story · ai_company → code-review mock, AI-native, Streaming UI, AI backend · service / remote_global / other → machine coding, Theory, Behavioral Q&A); a round kind with its own format (system design, coding, behavioral, hiring manager) still picks the mock (`companyPrepBlock()`).
   2. **Redo real interview questions × N** (`bank:interview`) — while any `interview` category question is rated under 7 (10 min each, max 4; `interviewRedoBlock()`).
   3. The two weakest Question Bank categories, then the **Mock round** (format by weekday, `mockFormatForDay()`: Mon machine coding · Tue behavioral · Wed and Thu code review · Fri machine coding · Sat system design · Sun frontend screen), then the remaining categories weakest first, then **STAR stories** (12% of the day while any competency lacks a solid story, 6% after).
-- **Quotas** (`computeQuotas()`): each category has a base share and minutes per question — UI coding 18% / 45 min · System design 13% / 60 · Theory 12% / 5 · Backend & APIs 12% / 8 · JS functions 10% / 25 · AI-native 9% / 10 · Algorithms 9% / 30 · Angular 6% / 6 · Behavioral Q&A 6% / 10 · Code review 5% / 15 · Asked in interviews 0% (redo block only). Shares are multiplied by `0.5 + gap` (`categoryWeights()`, gap 0 = at gate, 1 = blind spot), renormalized, and fill the minutes left after the mock, stories, company and redo blocks; quota = what fits (min 1). On machine-coding days the UI-coding bank block is dropped, and on code-review days the code-review block (the mock is that practice). Bank blocks auto-tick when today's answered count in the category reaches the quota; the mock block when a round is saved.
-- **Outside Interview War Mode** `buildPrepPlan()` makes a ~45-min weekday-focus session (main practice → 3-question concept rep on the weakest area → leadership rep).
+- **Quotas** (`computeQuotas()`): each category has a base share and minutes per question — UI coding 18% / 45 min · System design 13% / 60 · Theory 12% / 5 · Backend & APIs 12% / 8 · JS functions 10% / 25 · AI-native 9% / 10 · Algorithms 9% / 30 · Angular 6% / 6 · Behavioral Q&A 6% / 10 · Code review 5% / 15 · Asked in interviews 0% (redo block only). Below Steady (6h) a category whose share can't fit one question gets 0 (otherwise min 1); a fill pass then hands leftover minutes one question at a time to the category furthest below its share that still fits, so each level's day totals its hours (Light 12 · Steady ~21 · Intense ~29 · Max ~46 questions). Shares are multiplied by `0.5 + gap` (`categoryWeights()`, gap 0 = at gate, 1 = blind spot), renormalized, and fill the minutes left after the mock, stories, company and redo blocks; quota = what fits (min 1). On machine-coding days the UI-coding bank block is dropped, and on code-review days the code-review block (the mock is that practice). Bank blocks auto-tick when today's answered count in the category reaches the quota; the mock block when a round is saved.
 - **Prep streak** = consecutive days with a completed session (today given grace).
 
 ### Question Bank (Questions tab)
@@ -84,7 +84,7 @@ The global `coding_questions` pool (~1,215 + real interview questions): theory `
 
 - **Question list** per category (+ optional topic filter), every question visible: unseen first (`sort_order`, else medium → easy → hard), then practiced longest-ago first. Each row: New (accent dot) / Review (grey dot) / ✓ answered today, title, difficulty initial or last-seen date, last rating chip. Pick any row to answer it; the top row is preselected. At `xl` the list (272px) and the answer panel sit side by side; below `xl` the list shows first and a picked question replaces it, with "← All questions" back.
 - Each question: a typed answer prefilled with the last one, word count. **AI review is mandatory before Next** for any answer of ≥40 chars: the primary button reads **Review** until the review lands, then **Next →**. Shorter or empty answers (solved on the linked site) go straight to Next. Editing after a review dims it with a **Re-review edited answer** link; Next stays available. A failed or budget-fallback review still unlocks Next. Review = `critiqueAnswer(id, answer, spoken)` → `critiqueQuestion()` in `critique.ts`: `ai_native_critique` for AI-native, otherwise `answer_critique`; Haiku, uncached; rubric by category (`rubricFor()`): `technical` for theory/Angular/UI coding/system design/algorithms/backend, `behavioral`, `ai-native`, `code-review` (the diff is included in the prompt). An answer dictated with Speak gets `SPOKEN_NOTE` (ignore transcription errors, judge as spoken). **The AI only judges; code scores.** It returns a JSON scorecard (`Scorecard`, `scorecard.ts`): `points` (the question's `answer_hints` split into key points, or 4–6 it derives when none) each `covered` / `partial` / `missing` with a note; `correctness` 0–2, `depth` 0–2, `clarity` 0–1 (labels per rubric — behavioral: No red flags / Evidence / Direct & concise; AI-native: Judgment / Real example / Clarity); `summary`, 2–3 `fixes`, `followUp`. **Rating** (`scoreCard()`): coverage = (covered + ½·partial) ÷ points, substance = min(1, 2·coverage); rating = round(1 + 9·(0.55·coverage + substance·(0.25·correctness/2 + 0.08·clarity) + 0.12·depth/2)), capped at 4 on correctness 0 and at 5 when coverage < ⅓, clamped 1–10. Verdict from the rating: ≥8 Strong, ≥6 Good, else Needs work. The `AnswerReview` card: rating chip + verdict + summary, a breakdown line (Key points c/n · the three criteria), the key-point checklist (✓ / ◐ / ✗ + note, two columns on `sm+`), numbered Fix next, Follow-up callout, `code` as monospace chips. A reply that isn't a valid scorecard (budget fallback, malformed JSON) shows as plain text with no rating. **Answer** (not on algorithm / JS functions / UI coding, which keep "Open the problem"): `revealModelAnswer()` → `modelAnswer()` (`model_answer`, Sonnet, cached 1 year — the prompt is fixed per question, so only the first reveal costs): a 150–220-word spoken-style model answer covering the key points (theory: what → how under the hood → example → trade-off; system design: compact outline; behavioral / AI-native: an example labelled "adapt it to your own experience"), current as of React 19 / Next.js 15 / Angular 19, fenced code rendered as code blocks. Revealing it **before** any review marks the attempt *studied*: the Review gate lifts, the panel says "won't be rated", and Next saves no rating (`last_seen_at` still updates). Revealing after a review changes nothing. **Answer follow-up →** under the review card's follow-up (Question Bank and Story Bank): your own answer + 🎙 Speak → `critiqueFollowUpAnswer()` → `critiqueFollowUp()`, the same scorecard with derived key points (story follow-ups use the behavioral rubric), shown as a nested review card; practice only — nothing stored, the original rating untouched. **Next →** (`answerQuestion()` → `question_progress`: answer, attempts, `last_seen_at`, and the rating as `last_rating` / `last_rated_at`) moves to the question below in the list.
-- Coverage card: per-category seen/total, quota and projected coverage by the target date.
+- Coverage card: per-category seen/total and today's quota.
 
 ### Voice mode (web)
 
@@ -204,7 +204,7 @@ Daily-only schedules (Vercel Hobby). Every job checks `Authorization: Bearer $CR
 
 | Job | UTC / IST | Bot | What it does |
 | --- | --- | --- | --- |
-| `prep-coach-morning` | `0 2 * * *` / 7:30am | Daily (+ Career for debriefs) | Debrief prompts, then (Interview War Mode) the mission: D-N, readiness + tier, biggest risk, 🏢 company prep first, next interview, today's blocks, outreach this week X/target, follow-ups due, debriefs owed, revision due, "Start with…", "Reply DRILL for a spoken rep", + morning reminders. Off: reminders only, if any. No AI. |
+| `prep-coach-morning` | `0 2 * * *` / 7:30am | Daily (+ Career for debriefs) | Debrief prompts, then the mission: level (e.g. "Steady (6h)"), readiness + tier, biggest risk, 🏢 company prep first, next interview, today's blocks, outreach this week X/target, follow-ups due, debriefs owed, revision due, "Start with…", "Reply DRILL for a spoken rep", + morning reminders. Off: reminders only, if any. No AI. |
 | `prep-coach-midday` | `30 7 * * *` / 1pm | Daily | Only when ≥30 min behind pace (8am–10pm window): "N% done · M% of the day gone", next block. |
 | `prep-coach-evening` | `0 16 * * *` / 9:30pm | Daily (+ Career) | Debrief prompts, then the day review (% of plan done and how far short, interruptions, mocks, readiness, tomorrow's shift, coach line) + "📌 Still open" (no expense today, open workout, metrics stale ≥3 days via `computeStaleMetrics()`) + evening reminders; Sundays add the weekly forecast. Off: still sends open items / reminders. |
 | `weekly-digest` | `30 2 * * 0` / Sun 8am | Daily | 7-day module averages, best/worst day, a short AI review (`weekly_digest`, 6h cache), weekly spend by category. **No-op in Interview War Mode.** |
@@ -273,7 +273,7 @@ Standard: `user_id uuid references auth.users` + select/insert/update/delete RLS
 
 | Table | Key columns |
 | --- | --- |
-| `prep_settings` | user_id (PK), target_date (null = Interview War Mode off), hours_per_day (1–14, default 8), weekly_outreach_target (default 25), updated_at |
+| `prep_settings` | user_id (PK), hours_per_day (load level: 4 / 6 / 8 / 12; default 8), weekly_outreach_target (default 25), target_date (unused), updated_at |
 | `prep_sessions` | date (unique per user), focus, blocks jsonb `[{key, label, detail, minutes, href, done, links?}]` (keys: `company:<id>`, `bank:<category>` (incl. `bank:interview` redo), `mock`, `lead`, or main/concept outside Interview War Mode), completed_at |
 | `prep_focus_sessions` | date, block_key, label, planned_minutes, started_at, paused_at, paused_seconds, interruptions, ended_at, actual_seconds, status (active/completed/abandoned) |
 | `prep_forecasts` | date (unique per user), forecast jsonb {strengths[], failures[{area, why}], riskQuestion, fixFirst[], confidence} |
@@ -367,7 +367,7 @@ Top-to-bottom layout of every page.
 
 1. `PageHeader` "Dashboard" — right: date · dasha link (or greeting; greeting only in Interview War Mode)
 2. **Top Priority** banner (conditional, risk-tinted row link)
-3. Interview War Mode: **Hunt Hero** — 6 tiles `grid-cols-2 sm:grid-cols-3 lg:grid-cols-6` (Readiness, Target, Next interview, Outreach this week, Pace today, Runway). Otherwise: **Life Score** ring card + **Quick Stats** (4 tiles) `lg:grid-cols-[340px_1fr]`
+3. **Hunt Hero** — 6 tiles `grid-cols-2 sm:grid-cols-3 lg:grid-cols-6` (Readiness, Today's score with a 7-day bar strip, Next interview, Outreach this week, Pace today, Runway). (The Life Score ring + Quick Stats layout is not shown while War Mode is always on.)
 4. **Needs Attention** + **Daily Mission** `lg:grid-cols-2 items-start`
 5. **Life Score Trend** (not in Interview War Mode)
 
@@ -378,7 +378,7 @@ App-wide: Quick Add FAB; Ask Brain in the header.
 1. Header — "Prep" + 🔥 streak, 🎯 today's focus, 📅 Interview-ready by {date}
 2. Stat tiles (4) — Interview readiness (% + tier · blockers), Mock rounds this week, Story Bank, Pace (Ahead/Behind · % done · % of day gone · full days of 7)
 3. Tabs: Today / Questions / Mock Round / Story Bank
-4. **Today** — Interview War Mode strip (target date, Daily load (h), Outreach/week; on: D-N, quotas, Edit / Turn off) → War header (D-N, pace-colored coach line, next-interview link, pace line: Ahead/Behind · % of plan done · % of 8am–10pm gone · blocks, readiness % + tier label, up to 6 blocker chips) → `lg:grid-cols-[1fr_380px]`: left **Today's Mission** ("Do this now" + Start focus, progress, block rows with links) above **Revision Queue** + **Weakest Topics** (`sm:grid-cols-2`); right **Readiness Gates**, **Forecast**. Floating FocusBar (timer + progress + Pause / Finish / Stop) while focusing; no full-screen overlay.
+4. **Today** — War header (title + level switch Light/Steady/Intense/Max with hours · questions/day · Outreach/wk number field; pace-colored coach line, next-interview link, pace line: Ahead/Behind · % of plan done · % of 8am–10pm gone · blocks, readiness % + tier label, up to 6 blocker chips) → `lg:grid-cols-[1fr_380px]`: left **Today's Mission** ("Do this now" + Start focus, progress, block rows with links) above **Revision Queue** + **Weakest Topics** (`sm:grid-cols-2`); right **Readiness Gates**, **Forecast**. Floating FocusBar (timer + progress + Pause / Finish / Stop) while focusing; no full-screen overlay.
 5. **Questions** `lg:grid-cols-[1fr_340px]` — Sprint (category chips with today/quota, topic select, then `xl:grid-cols-[272px_1fr]`: scrollable question list | answer panel — question, answer, key points / link · 🎙 Speak + word count, structured AI review card (Answer follow-up → nested answer box + review), model answer panel, Answer / Hide answer · Review → Next; below `xl` list and panel alternate with "← All questions") + Coverage
 6. **Mock Round** — format picker (4) + Mock Interview Calendar; running round (progress, countdown, answer, 🎙 Speak + word count, Skip/Next); round detail (review box, every answer with rating + note)
 7. **Story Bank** — competency coverage → `lg:grid-cols-2`: Rehearse (prompt + shuffle, linked story, answer, 🎙 Speak + word count, Get feedback, review card; Recent rehearsals: expandable rows with rating chip → prompt, answer, review card, Retry this prompt) + Stories; story modal
