@@ -2,6 +2,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import type { ModuleReply } from '@/lib/telegram/types'
 import { undoButton } from '@/lib/telegram/buttons'
 import { todayIST } from '@/lib/date'
+import { isSegment } from '@/features/career/pipeline'
 
 // Career bot — Interviews (v3.4): companies are added once a phone screen
 // happens; rounds get scheduled; every question an interviewer asks is
@@ -10,11 +11,11 @@ import { todayIST } from '@/lib/date'
 export const SYSTEM_PROMPT = `You are the Career (Interviews) bot for Personal OS. Parse the user message and return ONLY a JSON action.
 
 Actions:
-{"action":"add_company","company":"name","role":"job title","stage":"screening"|"interview","notes":"optional"}
+{"action":"add_company","company":"name","role":"job title","stage":"screening"|"interview","segment":"big_tech"|"product_india"|"startup"|"ai_company"|"service"|"remote_global"|"other","notes":"optional"}
 {"action":"update_stage","search":"company","stage":"screening"|"interview"|"offer"|"rejected"|"withdrawn"}
 {"action":"schedule_round","search":"company","kind":"recruiter"|"phone_screen"|"technical"|"coding"|"system_design"|"behavioral"|"hiring_manager"|"onsite"|"other","when":"YYYY-MM-DDTHH:mm in IST, or null","interviewer":"optional"}
 {"action":"log_question","search":"company, or empty when replying to a debrief prompt","question":"the question they asked","category":"technical"|"coding"|"system_design"|"behavioral"|"ai_native"|"other","topic":"optional, e.g. JavaScript Fundamentals, React & State Management, TypeScript, System Design, UI Components, Algorithms, Performance, Behavioral","went":"well"|"ok"|"badly"|null,"my_answer":"optional"}
-{"action":"add_outreach","company":"name or 'Various'","person":"optional","channel":"referral"|"linkedin"|"recruiter"|"application"|"other","count":1,"notes":"optional"}
+{"action":"add_outreach","company":"name or 'Various'","person":"optional","channel":"referral"|"linkedin"|"recruiter"|"application"|"other","segment":"big_tech"|"product_india"|"startup"|"ai_company"|"service"|"remote_global"|"other","count":1,"notes":"optional"}
 {"action":"update_outreach","search":"person or company","status":"sent"|"replied"|"referred"|"screen"|"no_response"|"closed"}
 {"action":"list_followups"}
 {"action":"upcoming"}
@@ -29,6 +30,7 @@ Rules:
 - "X asked me ...", "they asked about event loop at X, went badly" → log_question; a message listing several questions (one per line, often a reply to "How did the X round go?") → one log_question per question, each with its own went; leave search empty if no company is named
 - "messaged Priya at Stripe for a referral" → add_outreach channel referral, person Priya; "applied to 12 jobs today" → add_outreach company Various, channel application, count 12; "DM'd a recruiter at Vercel on LinkedIn" → channel linkedin
 - "Priya replied", "Priya referred me", "Stripe recruiter called" → update_outreach (replied / referred / screen); "no response from X" → no_response
+- segment (add_company, add_outreach): infer only for well-known companies — big_tech (Google, Meta, Amazon, Microsoft, Apple, Netflix, Uber, Atlassian, Adobe, Salesforce…), product_india (Flipkart, Razorpay, Swiggy, Zomato, CRED, Meesho, PhonePe, Zerodha, Freshworks…), ai_company (OpenAI, Anthropic, Perplexity, Sarvam, Cohere, Hugging Face…), service (TCS, Infosys, Wipro, Accenture, Cognizant, HCL, Capgemini…), remote_global (when the user says remote/global or the company is remote-first abroad), startup only when the user says it is a startup; otherwise, and for "Various", use other
 - "who do I need to follow up with", "follow-ups" → list_followups
 - "what's coming up", "my interviews" → upcoming; "what did X ask me" → questions
 - "undo that" → undo_last`
@@ -61,7 +63,7 @@ export async function execute(action: Record<string, unknown>, db: SupabaseClien
     case 'add_company': {
       const stage = action.stage === 'interview' ? 'interview' : 'screening'
       const { data, error } = await db.from('applications')
-        .insert({ user_id: userId, company: action.company, role: action.role ?? 'Frontend Engineer', status: stage, notes: action.notes ?? null, applied_at: todayIST() })
+        .insert({ user_id: userId, company: action.company, role: action.role ?? 'Frontend Engineer', status: stage, notes: action.notes ?? null, applied_at: todayIST(), segment: isSegment(action.segment) ? action.segment : 'other' })
         .select('id').single()
       if (error) return `❌ ${error.message}`
       return { text: `${STAGE_EMOJI[stage]} Added *${action.company}* — ${action.role ?? 'Frontend Engineer'} (${stage === 'screening' ? 'phone screen' : 'interviewing'}).\nTell me when a round is booked, and what they ask.`, buttons: [[undoButton('applications', data.id)]] }
@@ -111,7 +113,7 @@ export async function execute(action: Record<string, unknown>, db: SupabaseClien
       const count = Math.max(1, Math.round(Number(action.count) || 1))
       const followUp = channel === 'application' ? null : addDays(todayIST(), 5)
       const { data, error } = await db.from('outreach')
-        .insert({ user_id: userId, company: String(action.company ?? 'Various'), person: action.person ?? null, channel, count, sent_at: todayIST(), follow_up_on: followUp, notes: action.notes ?? null })
+        .insert({ user_id: userId, company: String(action.company ?? 'Various'), person: action.person ?? null, channel, count, sent_at: todayIST(), follow_up_on: followUp, notes: action.notes ?? null, segment: isSegment(action.segment) ? action.segment : 'other' })
         .select('id').single()
       if (error) return `❌ ${error.message}`
       const week = await outreachThisWeek(db, userId)

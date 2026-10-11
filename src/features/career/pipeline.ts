@@ -8,6 +8,17 @@ export type OutreachStatus = 'sent' | 'replied' | 'referred' | 'screen' | 'no_re
 export const OUTREACH_CHANNELS: OutreachChannel[] = ['referral', 'linkedin', 'recruiter', 'application', 'other']
 export const OUTREACH_STATUSES: OutreachStatus[] = ['sent', 'replied', 'referred', 'screen', 'no_response', 'closed']
 
+// Company segment (v4.1): which kind of company, so the funnel shows which
+// segments convert and company prep picks a matching mock and topics.
+export type Segment = 'big_tech' | 'product_india' | 'startup' | 'ai_company' | 'service' | 'remote_global' | 'other'
+export const SEGMENTS: { key: Segment; label: string }[] = [
+  { key: 'big_tech', label: 'Big tech' }, { key: 'product_india', label: 'Indian product' }, { key: 'startup', label: 'Startup' },
+  { key: 'ai_company', label: 'AI company' }, { key: 'service', label: 'Service / consulting' }, { key: 'remote_global', label: 'Remote / global' },
+  { key: 'other', label: 'Other' },
+]
+export const segmentLabel = (k: string) => SEGMENTS.find(s => s.key === k)?.label ?? k
+export const isSegment = (v: unknown): v is Segment => SEGMENTS.some(s => s.key === v)
+
 export interface Outreach {
   id: string
   company: string
@@ -19,6 +30,7 @@ export interface Outreach {
   follow_up_on: string | null
   notes: string | null
   application_id: string | null
+  segment: Segment
   created_at: string
 }
 
@@ -55,6 +67,20 @@ export function funnel(outreach: Outreach[], apps: Application[], rounds: Interv
       offers: a.filter(x => x.status === 'offer').length,
     }
   })
+}
+
+// Per-segment conversion over the given rows: outreach sent, reply rate,
+// and screens (companies added in that segment) per outreach sent.
+export function segmentTable(outreach: Outreach[], apps: Application[]): { segment: Segment; sent: number; replies: number; screens: number }[] {
+  return SEGMENTS.map(s => {
+    const o = outreach.filter(x => (x.segment ?? 'other') === s.key)
+    return {
+      segment: s.key,
+      sent: o.reduce((n, x) => n + x.count, 0),
+      replies: o.filter(x => REPLIED.includes(x.status)).reduce((n, x) => n + x.count, 0),
+      screens: apps.filter(a => (a.segment ?? 'other') === s.key).length,
+    }
+  }).filter(r => r.sent > 0 || r.screens > 0).sort((a, b) => b.sent - a.sent)
 }
 
 export const pct = (num: number, den: number) => den > 0 ? `${Math.round((num / den) * 100)}%` : '—'

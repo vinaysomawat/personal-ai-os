@@ -43,7 +43,7 @@ export async function loadPrepData(supabase: SupabaseClient, userId: string) {
     supabase.from('prep_focus_sessions').select('*').eq('user_id', user.id).gte('date', daysAgoIST(6)).order('started_at', { ascending: true }),
     supabase.from('prep_forecasts').select('date, forecast, created_at').eq('user_id', user.id).order('date', { ascending: false }).limit(1).maybeSingle(),
     // The next scheduled interview round (Interviews / Career page).
-    supabase.from('interview_rounds').select('kind, scheduled_at, application:applications(id, company, jd_analysis)').eq('user_id', user.id).eq('status', 'scheduled').gte('scheduled_at', new Date().toISOString()).order('scheduled_at').limit(1).maybeSingle(),
+    supabase.from('interview_rounds').select('kind, scheduled_at, application:applications(id, company, jd_analysis, segment)').eq('user_id', user.id).eq('status', 'scheduled').gte('scheduled_at', new Date().toISOString()).order('scheduled_at').limit(1).maybeSingle(),
     // Decided real rounds (last 180 days) — a readiness signal (§4.2).
     supabase.from('interview_rounds').select('kind, outcome').eq('user_id', user.id).eq('status', 'done').in('outcome', ['passed', 'failed']).gte('scheduled_at', istMidnightUtc(180)),
   ])
@@ -61,11 +61,11 @@ export async function loadPrepData(supabase: SupabaseClient, userId: string) {
   // the time left after today's mock round and STAR-story block.
   const storiesMissing = COMPETENCIES.some(c => !stories.some(s => (s.strength ?? 3) >= 3 && s.competencies.includes(c.key)))
   // Company Prep Mode + the real-interview redo block take their time first.
-  const nextRow = nextRoundRes.data as unknown as { kind: string; scheduled_at: string; application: { id: string; company: string; jd_analysis: { priorityTopics?: string[] } | null } | null } | null
+  const nextRow = nextRoundRes.data as unknown as { kind: string; scheduled_at: string; application: { id: string; company: string; jd_analysis: { priorityTopics?: string[] } | null; segment?: string } | null } | null
   let upcoming: UpcomingRound | null = null
   if (nextRow?.application) {
     const { count } = await supabase.from('interview_questions').select('id', { count: 'exact', head: true }).eq('user_id', user.id).eq('application_id', nextRow.application.id)
-    upcoming = { applicationId: nextRow.application.id, company: nextRow.application.company, kind: nextRow.kind, scheduledAt: nextRow.scheduled_at, priorityTopics: nextRow.application.jd_analysis?.priorityTopics ?? [], priorQuestions: count ?? 0 }
+    upcoming = { applicationId: nextRow.application.id, company: nextRow.application.company, kind: nextRow.kind, scheduledAt: nextRow.scheduled_at, priorityTopics: nextRow.application.jd_analysis?.priorityTopics ?? [], priorQuestions: count ?? 0, segment: nextRow.application.segment ?? 'other' }
   }
   const companyBlock = companyPrepBlock(upcoming, Date.now(), topicHref)
   const interviewRedo = bank.filter(q => q.category === 'interview' && q.last_rating !== null && q.last_rating < 7).length

@@ -4,7 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { todayIST } from '@/lib/date'
 import { syncInterviewQuestionToBank } from './bank-sync'
-import { addDays, type Outreach, type OutreachChannel, type OutreachStatus } from './pipeline'
+import { addDays, isSegment, type Outreach, type OutreachChannel, type OutreachStatus, type Segment } from './pipeline'
 import type { AppStatus, Application, InterviewQuestion, InterviewRound, JDAnalysis, QuestionCategory, RoundKind } from './types'
 
 // Interviews (Career, v3.4): only companies that reached a phone screen are
@@ -58,11 +58,12 @@ export async function upsertCareerProfile(fields: {
 
 // ---------------- Companies ----------------
 
-export async function addCompany(input: { company: string; role: string; status: AppStatus; url: string | null; job_description: string | null; notes: string | null }): Promise<Application> {
+export async function addCompany(input: { company: string; role: string; status: AppStatus; url: string | null; job_description: string | null; notes: string | null; segment: Segment }): Promise<Application> {
   const { supabase, userId } = await userClient()
   const { data, error } = await supabase.from('applications').insert({
     user_id: userId, company: input.company.trim(), role: input.role.trim(), status: input.status,
     url: input.url || null, job_description: input.job_description || null, notes: input.notes || null, applied_at: todayIST(),
+    segment: isSegment(input.segment) ? input.segment : 'other',
   }).select('*').single()
   if (error) throw new Error(error.message)
   done()
@@ -149,12 +150,13 @@ export async function deleteQuestion(id: string) {
 
 // ---------------- Outreach (v4.0 §4.5) ----------------
 
-export async function addOutreach(input: { company: string; person: string | null; channel: OutreachChannel; count: number; notes: string | null }): Promise<Outreach> {
+export async function addOutreach(input: { company: string; person: string | null; channel: OutreachChannel; count: number; notes: string | null; segment: Segment }): Promise<Outreach> {
   const { supabase, userId } = await userClient()
   const today = todayIST()
   const { data, error } = await supabase.from('outreach').insert({
     user_id: userId, company: input.company.trim() || 'Various', person: input.person || null, channel: input.channel,
     count: Math.max(1, Math.round(input.count) || 1), sent_at: today, notes: input.notes || null,
+    segment: isSegment(input.segment) ? input.segment : 'other',
     // Non-application outreach gets a 5-day follow-up by default.
     follow_up_on: input.channel === 'application' ? null : addDays(today, 5),
   }).select('*').single()

@@ -11,7 +11,7 @@ import Modal, { modalLabelClass, modalInputClass, modalSelectClass, modalCancelB
 import PageTabs from '@/components/PageTabs'
 import PageHeader, { HeaderChip } from '@/components/PageHeader'
 import PipelineTab from './PipelineTab'
-import type { Outreach } from '../pipeline'
+import { SEGMENTS, type Outreach, type Segment } from '../pipeline'
 import StatCard from '@/components/StatCard'
 import { useEscapeKey } from '@/lib/use-escape-key'
 import {
@@ -217,7 +217,7 @@ export default function CareerView(props: Props) {
 
 function AddCompanyModal({ onClose, onAdded }: { onClose: () => void; onAdded: (a: Application) => void }) {
   const [busy, start] = useTransition()
-  const [f, setF] = useState({ company: '', role: '', status: 'screening' as AppStatus, url: '', job_description: '', notes: '' })
+  const [f, setF] = useState({ company: '', role: '', status: 'screening' as AppStatus, segment: 'other' as Segment, url: '', job_description: '', notes: '' })
   return (
     <Modal title="Add company" onClose={onClose}>
       <form className="flex flex-col gap-2.5" onSubmit={e => {
@@ -234,8 +234,12 @@ function AddCompanyModal({ onClose, onAdded }: { onClose: () => void; onAdded: (
             <select value={f.status} onChange={e => setF({ ...f, status: e.target.value as AppStatus })} className={modalSelectClass}>
               {STAGES.map(s => <option key={s} value={s}>{STAGE_CONFIG[s].label}</option>)}
             </select></div>
-          <div><label className={modalLabelClass}>Job link (optional)</label><input value={f.url} onChange={e => setF({ ...f, url: e.target.value })} className={modalInputClass()} /></div>
+          <div><label className={modalLabelClass}>Segment</label>
+            <select value={f.segment} onChange={e => setF({ ...f, segment: e.target.value as Segment })} className={modalSelectClass}>
+              {SEGMENTS.map(s => <option key={s.key} value={s.key}>{s.label}</option>)}
+            </select></div>
         </div>
+        <div><label className={modalLabelClass}>Job link (optional)</label><input value={f.url} onChange={e => setF({ ...f, url: e.target.value })} className={modalInputClass()} /></div>
         <div><label className={modalLabelClass}>Job description (optional — enables the JD analysis)</label><textarea rows={4} value={f.job_description} onChange={e => setF({ ...f, job_description: e.target.value })} className={modalInputClass()} /></div>
         <div><label className={modalLabelClass}>Notes (optional)</label><input value={f.notes} onChange={e => setF({ ...f, notes: e.target.value })} placeholder="Recruiter name, referral, comp range…" className={modalInputClass()} /></div>
         <div className="flex justify-end gap-2 mt-1">

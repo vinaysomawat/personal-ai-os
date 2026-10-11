@@ -1,3 +1,5 @@
+import type { Segment } from './pipeline'
+
 // v3.4 (Interviews): a company is added once a phone screen happens, so
 // 'applied' is no longer offered (old rows can still hold it).
 export type AppStatus = 'applied' | 'screening' | 'interview' | 'offer' | 'rejected' | 'withdrawn'
@@ -99,6 +101,8 @@ export interface Application {
   resume_version_id: string | null
   job_description: string | null
   jd_analysis: JDAnalysis | null
+  // Company segment (v4.1) — see career/pipeline.ts SEGMENTS.
+  segment: Segment
 }
 
 export interface CareerProfile {

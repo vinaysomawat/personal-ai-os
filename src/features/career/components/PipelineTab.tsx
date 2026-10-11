@@ -6,7 +6,7 @@ import Card from '@/components/Card'
 import { modalInputClass, modalSelectClass, modalSaveButtonClass } from '@/components/Modal'
 import { todayIST } from '@/lib/date'
 import { addOutreach, deleteOutreach, updateOutreach } from '../actions'
-import { OUTREACH_CHANNELS, OUTREACH_STATUSES, addDays, funnel, pct, type Outreach, type OutreachChannel, type OutreachStatus } from '../pipeline'
+import { OUTREACH_CHANNELS, OUTREACH_STATUSES, SEGMENTS, addDays, funnel, pct, segmentLabel, segmentTable, type Outreach, type OutreachChannel, type OutreachStatus, type Segment } from '../pipeline'
 import type { Application, InterviewRound } from '../types'
 
 const STATUS_CLS: Record<OutreachStatus, string> = {
@@ -24,9 +24,13 @@ export default function PipelineTab({ outreach, apps, rounds, target, onOutreach
 }) {
   const [, start] = useTransition()
   const [busy, startAdd] = useTransition()
-  const [f, setF] = useState({ company: '', person: '', channel: 'referral' as OutreachChannel, count: '1', notes: '' })
+  const [f, setF] = useState({ company: '', person: '', channel: 'referral' as OutreachChannel, segment: 'other' as Segment, count: '1', notes: '' })
+  // Funnel segment filter ('' = all segments).
+  const [seg, setSeg] = useState<Segment | ''>('')
   const today = todayIST()
-  const weeks = funnel(outreach, apps, rounds, today)
+  const inSeg = <T extends { segment?: Segment }>(x: T) => !seg || (x.segment ?? 'other') === seg
+  const weeks = funnel(outreach.filter(inSeg), apps.filter(inSeg), rounds, today)
+  const bySegment = segmentTable(outreach, apps)
   const thisWeek = weeks[0]
   const due = (o: Outreach) => o.status === 'sent' && !!o.follow_up_on && o.follow_up_on <= today
   const sorted = [...outreach].sort((a, b) => Number(due(b)) - Number(due(a)) || b.sent_at.localeCompare(a.sent_at))
@@ -43,7 +47,15 @@ export default function PipelineTab({ outreach, apps, rounds, target, onOutreach
   return (
     <div className="grid grid-cols-1 lg:grid-cols-[1fr_360px] gap-[var(--grid-gap)] items-start">
       <div className="space-y-[var(--grid-gap)]">
-        <Card title="Funnel" action={<span className={`text-[11px] font-semibold tabular-nums ${thisWeek.sent >= target ? 'text-good' : 'text-warn'}`}>This week {thisWeek.sent}/{target}</span>}>
+        <Card title="Funnel" action={
+          <span className="flex items-center gap-2">
+            <select value={seg} onChange={e => setSeg(e.target.value as Segment | '')} aria-label="Segment" className="bg-surface-2 border border-surface-3 rounded-[6px] px-1.5 py-[2px] text-[11.5px] text-fg-primary">
+              <option value="">All segments</option>
+              {SEGMENTS.map(s => <option key={s.key} value={s.key}>{s.label}</option>)}
+            </select>
+            <span className={`text-[11px] font-semibold tabular-nums ${seg ? 'text-fg-tertiary' : thisWeek.sent >= target ? 'text-good' : 'text-warn'}`}>{seg ? `This week ${thisWeek.sent}` : `This week ${thisWeek.sent}/${target}`}</span>
+          </span>
+        }>
           <div className="overflow-x-auto">
             <table className="w-full text-[12px] tabular-nums">
               <thead><tr className="text-fg-tertiary text-left">
@@ -64,6 +76,21 @@ export default function PipelineTab({ outreach, apps, rounds, target, onOutreach
             </table>
           </div>
           <p className="text-[12px] text-fg-secondary mt-2"><span className="font-semibold text-fg-primary">Bottleneck:</span> {bottleneck}</p>
+          {bySegment.length > 0 && (
+            <div className="mt-3 pt-2.5 border-t border-surface-3">
+              <p className="text-[10.5px] font-bold uppercase tracking-[0.4px] text-fg-tertiary mb-1">By segment · last 6 weeks</p>
+              <table className="w-full text-[12px] tabular-nums">
+                <thead><tr className="text-fg-tertiary text-left"><th className="font-medium py-0.5">Segment</th><th className="font-medium">Sent</th><th className="font-medium">Reply %</th><th className="font-medium">Screen %</th></tr></thead>
+                <tbody>
+                  {bySegment.map(r => (
+                    <tr key={r.segment} onClick={() => setSeg(seg === r.segment ? '' : r.segment)} className={`border-t border-surface-3 cursor-pointer hover:bg-surface-2 ${seg === r.segment ? 'font-semibold text-fg-primary' : 'text-fg-secondary'}`}>
+                      <td className="py-1">{segmentLabel(r.segment)}</td><td>{r.sent}</td><td>{pct(r.replies, r.sent)}</td><td>{pct(r.screens, r.sent)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
           <p className="text-[10.5px] text-fg-tertiary mt-1">% = conversion from the previous stage. Screens = companies added on the Companies tab (a phone screen booked); onsites = ones that reached a technical / onsite round.</p>
         </Card>
 
@@ -93,7 +120,7 @@ export default function PipelineTab({ outreach, apps, rounds, target, onOutreach
           e.preventDefault()
           if (!f.company.trim()) return
           startAdd(async () => {
-            const row = await addOutreach({ company: f.company, person: f.person || null, channel: f.channel, count: Number(f.count) || 1, notes: f.notes || null })
+            const row = await addOutreach({ company: f.company, person: f.person || null, channel: f.channel, segment: f.segment, count: Number(f.count) || 1, notes: f.notes || null })
             onOutreach(prev => [row, ...prev])
             setF({ ...f, company: '', person: '', count: '1', notes: '' })
           })
@@ -106,6 +133,9 @@ export default function PipelineTab({ outreach, apps, rounds, target, onOutreach
             </select>
             <input type="number" min={1} value={f.count} onChange={e => setF({ ...f, count: e.target.value })} aria-label="Count" className={modalInputClass()} />
           </div>
+          <select value={f.segment} onChange={e => setF({ ...f, segment: e.target.value as Segment })} aria-label="Segment" className={modalSelectClass}>
+            {SEGMENTS.map(s => <option key={s.key} value={s.key}>{s.label}</option>)}
+          </select>
           <input value={f.notes} onChange={e => setF({ ...f, notes: e.target.value })} placeholder="Notes (optional)" className={modalInputClass()} />
           <button type="submit" disabled={busy || !f.company.trim()} className={modalSaveButtonClass}>{busy ? 'Saving…' : 'Log'}</button>
           <p className="text-[10.5px] text-fg-tertiary">Referral / LinkedIn / recruiter outreach gets a follow-up date 5 days out. Use count for a batch of applications. Target {target}/week — set it in Prep&apos;s Interview War Mode strip.</p>
