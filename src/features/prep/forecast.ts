@@ -2,7 +2,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import { askAI } from '@/lib/ai-gateway'
 import { todayIST } from '@/lib/date'
 import { loadPrepData } from './core'
-import { focusSeconds, type Forecast } from './war'
+import { GATES, focusSeconds, type Forecast } from './war'
 
 const SYSTEM = `You are a hiring manager for Senior Frontend Engineer / Frontend Tech Lead roles at top product companies that expect AI-native engineers. From the candidate's prep data below, predict how an interview loop tomorrow would go.
 Use only the data given; never invent scores or events. Be blunt and specific.
@@ -22,7 +22,7 @@ export async function generateForecast(db: SupabaseClient, userId: string): Prom
   const { data: apps } = await db.from('applications').select('company, role, status, jd_analysis').eq('user_id', userId).in('status', ['screening', 'interview'])
   const prompt = [
     `Target: interview-ready by ${data.settings.target_date ?? 'not set'} (${data.daysLeft ?? '?'} days left), ${data.settings.hours_per_day}h daily load.`,
-    `Readiness (deterministic, 0-100, gate in brackets): ${data.readiness.map(c => `${c.label} ${c.score ?? 'no data'}`).join('; ')}.`,
+    `Readiness (deterministic, 0-100, gate in brackets): ${data.readiness.map(c => `${c.label} ${c.score ?? 'no data'} [${GATES[c.key].gate}]`).join('; ')}.`,
     `Overall War readiness ${data.war.overall}% (bottleneck-penalized). Blockers below gate: ${data.war.blockers.map(b => `${b.label} ${b.score ?? 'no data'}/${b.gate}`).join(', ') || 'none'}.`,
     `Weakest topics: ${data.weakness.map(w => `${w.topic} (weakness ${w.score}, avg rating ${w.avgRating ?? 'unrated'}, ${w.struggles} struggles, last practiced ${w.daysSince ?? 'never'} days ago)`).join('; ')}.`,
     `Mock rounds (last ${reviewed.length} reviewed): ${reviewed.map(r => `${r.format} ${r.review!.score ?? '?'}/10 ${r.review!.verdict} — fixes: ${r.review!.fixes.join(' / ')}`).join(' | ') || 'none reviewed'}.`,

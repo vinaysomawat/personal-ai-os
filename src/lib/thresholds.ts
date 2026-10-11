@@ -43,6 +43,9 @@ export const LIFE_SCORE_THRESHOLDS = {
     quiz: 0.6,
     'javascript-functions': 0.6,
     'ui-coding': 0.6,
+    backend: 1.0,
+    'code-review': 1.0,
+    'ai-assisted': 1.5,
   } as Record<string, number>,
   codingWeightedMultiplier: 3.2,
   // Coding sub-score = volume × 0.5 + consistency × 0.5 (2026-09-24).

@@ -10,29 +10,29 @@ import { formatMinutes, formatOf, mockFormatForDay } from './mock'
 
 export type BankCategory = 'interview' | 'quiz' | 'angular' | 'ai-native' | 'behavioral' | 'javascript-functions' | 'ui-coding' | 'system-design' | 'algorithm' | 'backend' | 'code-review' | 'ai-assisted'
 
-// Base shares re-balanced 2026-10-09 to the current market (machine coding
-// is the #1 round at Indian product companies, Angular is the fastest lane
-// to offers, DSA still appears in most product loops); relative weights —
-// computeQuotas scales them to the bank's minutes.
+// Base shares for a broad 2026 search (big tech, Indian product companies,
+// startups, AI companies, services, remote) — relative weights; computeQuotas
+// scales them to the day's bank minutes after the 0.5 + gap multiplier.
 export const BANK_CATEGORIES: { key: BankCategory; label: string; share: number; minutesPerQ: number }[] = [
   // Questions real interviewers asked (v4.0 §4.1) — no quota share; they get
   // their own "redo" block while any is rated under 7.
   { key: 'interview', label: 'Asked in interviews', share: 0, minutesPerQ: 10 },
-  { key: 'quiz', label: 'Theory', share: 0.14, minutesPerQ: 5 },
-  // Track A: senior / lead Angular roles (banks, fintech, GCCs).
-  { key: 'angular', label: 'Angular', share: 0.10, minutesPerQ: 6 },
-  // Answer from real experience + AI interviewer feedback (Apollo JD bar).
-  { key: 'ai-native', label: 'AI-native', share: 0.10, minutesPerQ: 10 },
-  // General/fit questions (tell me about yourself, the layoff, salary…).
-  { key: 'behavioral', label: 'Behavioral Q&A', share: 0.04, minutesPerQ: 10 },
-  { key: 'javascript-functions', label: 'JS functions', share: 0.12, minutesPerQ: 25 },
-  // Machine coding: build a component from scratch, timed.
-  { key: 'ui-coding', label: 'UI coding', share: 0.20, minutesPerQ: 45 },
-  { key: 'system-design', label: 'System design', share: 0.12, minutesPerQ: 60 },
-  { key: 'algorithm', label: 'Algorithms', share: 0.06, minutesPerQ: 30 },
+  // Machine coding: build a component from scratch, timed (the #1 round at
+  // Indian product companies).
+  { key: 'ui-coding', label: 'UI coding', share: 0.18, minutesPerQ: 45 },
+  { key: 'system-design', label: 'System design', share: 0.13, minutesPerQ: 60 },
+  { key: 'quiz', label: 'Theory', share: 0.12, minutesPerQ: 5 },
   // Full-stack "product engineer" loops: API design, Node/Next server, auth,
   // data, caching, AI backend.
   { key: 'backend', label: 'Backend & APIs', share: 0.12, minutesPerQ: 8 },
+  { key: 'javascript-functions', label: 'JS functions', share: 0.10, minutesPerQ: 25 },
+  // Answer from real experience + AI interviewer feedback.
+  { key: 'ai-native', label: 'AI-native', share: 0.09, minutesPerQ: 10 },
+  { key: 'algorithm', label: 'Algorithms', share: 0.09, minutesPerQ: 30 },
+  // Senior / lead Angular roles (banks, fintech, GCCs).
+  { key: 'angular', label: 'Angular', share: 0.06, minutesPerQ: 6 },
+  // General/fit questions (tell me about yourself, the layoff, salary…).
+  { key: 'behavioral', label: 'Behavioral Q&A', share: 0.06, minutesPerQ: 10 },
   // Review an AI-generated PR: find the planted issues, rank them, fix them.
   { key: 'code-review', label: 'Code review', share: 0.05, minutesPerQ: 15 },
   // Practice kits (practice-kits/): 60-minute AI-assisted codebase rounds —

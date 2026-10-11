@@ -73,8 +73,8 @@ export async function loadPrepData(supabase: SupabaseClient, userId: string) {
     + (companyBlock?.minutes ?? 0) + (interviewRedoBlock(interviewRedo)?.minutes ?? 0)
   const quotas = days !== null
     ? computeQuotas(coverage, settings.hours_per_day, days, categoryWeights(readiness), reserved)
-      // On machine-coding days the mock round IS the UI-coding practice.
-      .map(q => q.key === 'ui-coding' && mockFormatForDay(today) === 'machine-coding' ? { ...q, quota: 0, minutes: 0 } : q)
+      // On machine-coding / code-review days the mock round IS that practice.
+      .map(q => (q.key === 'ui-coding' && mockFormatForDay(today) === 'machine-coding') || (q.key === 'code-review' && mockFormatForDay(today) === 'code-review') ? { ...q, quota: 0, minutes: 0 } : q)
     : null
   const weakness = topicWeakness(bank, today)
 

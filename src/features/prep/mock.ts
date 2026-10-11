@@ -76,11 +76,12 @@ export const aiAssistedStage = (spentSeconds: number) => Math.min(3, Math.floor(
 export const formatOf = (key: string) => MOCK_FORMATS.find(f => f.key === key) ?? MOCK_FORMATS[0]
 export const formatMinutes = (key: string) => formatOf(key).slots.reduce((s, x) => s + x.minutes, 0)
 
-// Job Hunt Mode's daily mock (2026-10-09): machine coding Mon / Wed / Fri,
-// behavioral Tue / Thu, system design Saturday, a frontend screen Sunday.
+// Job Hunt Mode's daily mock (2026 rotation): Mon machine coding · Tue
+// behavioral · Wed AI-assisted · Thu code review · Fri machine coding · Sat
+// system design · Sun frontend screen.
+const MOCK_ROTATION: MockFormat[] = ['screen', 'machine-coding', 'behavioral', 'ai-assisted', 'code-review', 'machine-coding', 'system-design']
 export function mockFormatForDay(date: string): MockFormat {
-  const weekday = new Date(`${date}T00:00:00Z`).getUTCDay()
-  return weekday === 6 ? 'system-design' : weekday === 2 || weekday === 4 ? 'behavioral' : weekday === 0 ? 'screen' : 'machine-coding'
+  return MOCK_ROTATION[new Date(`${date}T00:00:00Z`).getUTCDay()]
 }
 
 export interface MockItem {
