@@ -118,6 +118,30 @@ async function grade(task: 'answer_critique' | 'ai_native_critique' | 'story_cri
   return { rating, feedback: scorecardText(card), card }
 }
 
+// A follow-up question from a review, answered by the user: graded with the
+// same scorecard (key points derived — a follow-up has none listed). Story
+// follow-ups use the behavioral rubric; STAR points don't fit a follow-up.
+export async function critiqueFollowUp(userId: string, rubric: Rubric, original: string, followUp: string, answer: string, note = ''): Promise<{ rating: number | null; feedback: string; card: Scorecard | null }> {
+  const r: Rubric = rubric === 'story' ? 'behavioral' : rubric
+  const prompt = `Original interview question: ${original}\nFollow-up question (grade the answer to this): ${followUp}\nKey points: (none listed — derive them)${note ? `\n\n${note}` : ''}\n\nCandidate's answer:\n${answer}`
+  return grade(r === 'ai-native' ? 'ai_native_critique' : 'answer_critique', r, prompt, userId)
+}
+
+const MODEL_ANSWER_SYSTEM = `You are a senior frontend engineer showing a candidate what a strong spoken interview answer sounds like for a Senior Frontend Engineer role.
+Write the answer itself, in first person, as it would be said out loud: 150–220 words, plain text, no headings, no markdown except backticks around code identifiers and an optional short code snippet (≤6 lines) on its own lines.
+Shape by question type — theory/Angular/React: what it is → how it works under the hood → a concrete example → a trade-off or pitfall. System design: requirements → architecture → state and data flow → performance/accessibility → trade-offs, in compact sentences. Behavioral or AI-native: a believable STAR-style example with a specific result; it is an example to adapt, so keep details generic enough to swap in the candidate's own.
+Cover every listed key point. Be technically precise and current as of React 19 / Next.js 15 / Angular 19: show only today's recommended approach (never present a legacy pattern, then correct it), treat stable features as stable, and name versions where relevant. Put any code in a fenced block (three backticks). No preamble.`
+
+// The Question Bank "Answer" button: a model answer per question. Same
+// prompt every time for a question, so the gateway caches it (model_answer,
+// one year) and only the first reveal costs anything.
+export async function modelAnswer(db: SupabaseClient, userId: string, questionId: string): Promise<string> {
+  const { data: q } = await db.from('coding_questions').select('title, answer_hints, category').eq('id', questionId).single()
+  if (!q) throw new Error('Question not found')
+  const prompt = `Category: ${q.category}\nInterview question: ${q.title}${q.answer_hints ? `\nKey points to cover: ${q.answer_hints}` : ''}`
+  return (await askAI('model_answer', prompt, MODEL_ANSWER_SYSTEM, { userId })).trim()
+}
+
 // Rubric note for an answer dictated via Speak / a voice note.
 export const SPOKEN_NOTE = (seconds: number, fillers: number) =>
   `This answer was spoken and transcribed (~${seconds}s, ${fillers} filler words). Ignore transcription errors and misheard words (e.g. "edit 4" for "@for"); judge it as a spoken answer, and put delivery (length, structure, fillers) in fixes only if it hurt the answer.`

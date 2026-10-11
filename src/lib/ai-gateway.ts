@@ -23,6 +23,7 @@ export type AITask =
   | 'ai_native_critique'
   | 'answer_critique'
   | 'mock_round_review'
+  | 'model_answer'
   | 'prep_forecast'
 
 interface TaskConfig {
@@ -77,6 +78,10 @@ const TASK_CONFIG: Record<AITask, TaskConfig> = {
   // Prep Mock Round — one review of every answer in a finished round (JSON),
   // stored on the round so it's never re-run; uncached.
   mock_round_review:      { model: HAIKU_MODEL,  cacheTTLSeconds: null,       fallback: BUDGET_FALLBACK },
+  // Prep Question Bank "Answer" button — a model answer per question. The
+  // prompt is fixed per question, so it's generated once and cached a year;
+  // Sonnet because this is what gets studied (Haiku drifted to dated idioms).
+  model_answer:           { model: SONNET_MODEL,  cacheTTLSeconds: ONE_YEAR,   fallback: BUDGET_FALLBACK },
   // Prep War Mode's weekly "if you interviewed tomorrow" forecast (JSON),
   // stored in prep_forecasts; Sunday cron or the Today tab's button.
   prep_forecast:          { model: SONNET_MODEL, cacheTTLSeconds: SIX_HOURS,  fallback: BUDGET_FALLBACK },
@@ -118,7 +123,7 @@ const MONTHLY_BUDGET_USD = Number(process.env.AI_MONTHLY_BUDGET_USD ?? 50)
 // reserve too — a digest or forecast can't starve them.
 const INTERACTIVE_TASKS: ReadonlySet<AITask> = new Set([
   'telegram_intent', 'telegram_vision',
-  'answer_critique', 'ai_native_critique', 'story_critique', 'mock_round_review',
+  'answer_critique', 'ai_native_critique', 'story_critique', 'mock_round_review', 'model_answer',
 ])
 const INTERACTIVE_RESERVE_FRACTION = 0.3
 

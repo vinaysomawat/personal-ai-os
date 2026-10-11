@@ -298,7 +298,7 @@ function StoriesTab({ stories, rehearsals, covered, onSaved, onDeleted, onRehear
             </button>
           </div>
           {busy && <div className="space-y-2 mt-3">{[90, 70, 80].map((w, i) => <div key={i} className="h-3 rounded bg-surface-2 animate-pulse" style={{ width: `${w}%` }} />)}</div>}
-          {latest && !busy && <AnswerReview card={latest.scorecard} text={latest.critique ?? ''} rating={latest.rating} />}
+          {latest && !busy && <AnswerReview card={latest.scorecard} text={latest.critique ?? ''} rating={latest.rating} question={latest.prompt} />}
           {rehearsals.length > 0 && (
             <div className="mt-4 pt-3 border-t border-surface-3">
               <p className="text-[10.5px] font-bold uppercase tracking-[0.4px] text-fg-tertiary mb-1.5">Recent rehearsals · {rehearsals.length}</p>
@@ -324,7 +324,7 @@ function StoriesTab({ stories, rehearsals, covered, onSaved, onDeleted, onRehear
                           <p className="text-[12.5px] font-semibold text-fg-primary leading-snug">&ldquo;{r.prompt}&rdquo;</p>
                           <p className="text-[10.5px] font-bold uppercase tracking-[0.4px] text-fg-tertiary mt-2">Your answer · {r.answer.trim().split(/\s+/).length} words</p>
                           <p className="text-[12.5px] text-fg-secondary whitespace-pre-wrap leading-relaxed mt-0.5">{r.answer}</p>
-                          <AnswerReview card={r.scorecard} text={r.critique ?? 'No feedback saved.'} rating={r.rating} />
+                          <AnswerReview card={r.scorecard} text={r.critique ?? 'No feedback saved.'} rating={r.rating} question={r.prompt} />
                           <button onClick={() => retry(r)} className="mt-2 text-[12px] text-accent hover:underline inline-flex items-center gap-1"><RotateCcw size={11} /> Retry this prompt</button>
                         </div>
                       )}

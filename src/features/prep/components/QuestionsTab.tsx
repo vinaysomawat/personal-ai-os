@@ -2,12 +2,12 @@
 
 import { useMemo, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { ArrowLeft, Check, ExternalLink, Sparkles, Target } from 'lucide-react'
+import { ArrowLeft, BookOpen, Check, ExternalLink, Sparkles, Target } from 'lucide-react'
 import Card from '@/components/Card'
-import AnswerReview from './AnswerReview'
+import AnswerReview, { Rich } from './AnswerReview'
 import MicButton, { appendText } from '@/components/MicButton'
 import { modalInputClass, modalSaveButtonClass, modalCancelButtonClass } from '@/components/Modal'
-import { answerQuestion, critiqueAnswer, savePrepSettings } from '../actions'
+import { answerQuestion, critiqueAnswer, revealModelAnswer, savePrepSettings } from '../actions'
 import { BANK_CATEGORIES, type BankCategory, type CategoryCoverage, type CategoryQuota } from '../hunt'
 import { toISTDateStr } from '@/lib/date'
 import type { BankQuestion, PrepSession, PrepSettings } from '../types'
@@ -32,6 +32,8 @@ function buildQueue(bank: BankQuestion[], category: string, topic: string): Bank
 const rateCls = (r: number) => r >= 8 ? 'text-good bg-good-soft' : r >= 6 ? 'text-warn bg-warn-soft' : 'text-risk bg-risk-soft'
 // Answers shorter than this are "solved elsewhere" — no review needed.
 const REVIEW_MIN = 40
+// Coding problems keep their "Open the problem" link; no prose model answer.
+const NO_MODEL_ANSWER = new Set(['algorithm', 'javascript-functions', 'ui-coding'])
 
 const PLACEHOLDER: Record<string, string> = {
   quiz: 'Answer out loud first, then type it to get feedback (optional — saved when you hit Next)',
@@ -78,6 +80,12 @@ export function QuestionsTab({ bank, setBank, topic, onTopicChange: setTopic, co
   const [feedback, setFeedback] = useState<{ id: string; answer: string; text: string; rating: number | null; card: Scorecard | null } | null>(null)
   // Questions answered (partly) via Speak — graded as spoken answers.
   const [spokenIds, setSpokenIds] = useState<Set<string>>(() => new Set())
+  // Model answers fetched this visit; `peeked` = revealed before any review,
+  // so Next saves no rating (studied, not answered).
+  const [modelAnswers, setModelAnswers] = useState<Record<string, string>>({})
+  const [shownAnswer, setShownAnswer] = useState<string | null>(null)
+  const [peeked, setPeeked] = useState<Set<string>>(() => new Set())
+  const [revealing, startReveal] = useTransition()
   const [showHints, setShowHints] = useState(false)
   const [, startTransition] = useTransition()
   const [reviewing, startReview] = useTransition()
@@ -93,13 +101,28 @@ export function QuestionsTab({ bank, setBank, topic, onTopicChange: setTopic, co
   const current = queue.find(q => q.id === selectedId) ?? queue[0] ?? null
   const answer = current && draft?.id === current.id ? draft.text : (current?.last_answer ?? '')
   const setAnswer = (text: string) => { if (current) setDraft({ id: current.id, text }) }
-  const resetCard = () => { setDraft(null); setShowHints(false) }
+  const resetCard = () => { setDraft(null); setShowHints(false); setShownAnswer(null) }
   const currentFeedback = current && feedback?.id === current.id ? feedback : null
   const verbal = !!current && !current.url
   const reviewable = answer.trim().length >= REVIEW_MIN
   const stale = !!currentFeedback && currentFeedback.answer !== answer.trim()
-  // Every real answer gets reviewed before Next.
-  const needsReview = reviewable && !currentFeedback
+  const peekedNow = !!current && peeked.has(current.id)
+  const answerShown = !!current && shownAnswer === current.id
+  // Every real answer gets reviewed before Next — unless the model answer was
+  // read first, which makes this attempt study, not a rated answer.
+  const needsReview = reviewable && !currentFeedback && !peekedNow
+  const revealAnswer = () => {
+    if (!current) return
+    const id = current.id
+    if (answerShown) { setShownAnswer(null); return }
+    if (!currentFeedback) setPeeked(prev => new Set(prev).add(id))
+    setShownAnswer(id)
+    if (modelAnswers[id]) return
+    startReveal(async () => {
+      try { const text = await revealModelAnswer(id); setModelAnswers(prev => ({ ...prev, [id]: text })) }
+      catch (e) { setModelAnswers(prev => ({ ...prev, [id]: `Couldn't load the answer: ${e instanceof Error ? e.message : 'unknown error'}` })) }
+    })
+  }
 
   const getFeedback = () => {
     if (!current || !reviewable) return
@@ -130,7 +153,7 @@ export function QuestionsTab({ bank, setBank, topic, onTopicChange: setTopic, co
     if (!current) return
     const id = current.id
     const text = answer.trim() || null
-    const rating = feedback?.id === id ? feedback.rating : null
+    const rating = feedback?.id === id && !peeked.has(id) ? feedback.rating : null
     const now = new Date().toISOString()
     // Move on to the question below this one in the list (as ordered now).
     const idx = queue.findIndex(q => q.id === id)
@@ -219,11 +242,28 @@ export function QuestionsTab({ bank, setBank, topic, onTopicChange: setTopic, co
               </div>
               {showHints && current.answer_hints && <p className="text-[12px] text-fg-secondary mt-1.5">Cover: {current.answer_hints}</p>}
               {reviewing && <div className="space-y-2 mt-3">{[90, 70, 80].map((w, i) => <div key={i} className="h-3 rounded bg-surface-2 animate-pulse" style={{ width: `${w}%` }} />)}</div>}
-              {currentFeedback && !reviewing && <AnswerReview card={currentFeedback.card} text={currentFeedback.text} rating={currentFeedback.rating} stale={stale} />}
+              {currentFeedback && !reviewing && <AnswerReview card={currentFeedback.card} text={currentFeedback.text} rating={currentFeedback.rating} stale={stale} question={current.title} />}
+              {answerShown && (
+                <div className="mt-3 rounded-[10px] border border-border bg-surface-2 px-3 py-2.5">
+                  <p className="text-[10.5px] font-bold uppercase tracking-[0.4px] text-fg-tertiary inline-flex items-center gap-1">
+                    <BookOpen size={11} /> Model answer{category === 'behavioral' || category === 'ai-native' ? ' · an example — adapt it to your own experience' : ''}
+                    {peekedNow && !currentFeedback && <span className="normal-case tracking-normal font-normal text-warn"> · read before answering: this attempt won&apos;t be rated</span>}
+                  </p>
+                  {revealing && !modelAnswers[current.id]
+                    ? <div className="space-y-1.5 mt-2">{[92, 80, 86, 60].map((w, i) => <div key={i} className="h-2.5 rounded bg-surface-1 animate-pulse" style={{ width: `${w}%` }} />)}</div>
+                    : <p className="text-[12.5px] text-fg-primary leading-relaxed whitespace-pre-wrap mt-1"><Rich text={modelAnswers[current.id] ?? ''} /></p>}
+                </div>
+              )}
               <div className="flex items-center gap-2 mt-3">
+                {!NO_MODEL_ANSWER.has(category) && (
+                  <button onClick={revealAnswer} disabled={revealing} title={currentFeedback ? 'Compare with a model answer' : 'Reading it first means this attempt won\'t be rated'}
+                    className={`${modalCancelButtonClass} inline-flex items-center gap-1.5 !py-[7px] shrink-0`}>
+                    <BookOpen size={13} /> {answerShown ? 'Hide answer' : 'Answer'}
+                  </button>
+                )}
                 <span className="text-[11px] text-fg-tertiary min-w-0">
                   {stale && reviewable ? <button onClick={getFeedback} disabled={reviewing} className="text-accent hover:underline inline-flex items-center gap-1"><Sparkles size={11} /> Re-review edited answer</button>
-                    : needsReview ? 'AI review runs before Next' : !reviewable && !currentFeedback ? 'Type a few sentences to get an AI review' : null}
+                    : needsReview ? 'AI review runs before Next' : peekedNow && !currentFeedback ? 'Studied — not rated' : !reviewable && !currentFeedback ? 'Type a few sentences to get an AI review' : null}
                 </span>
                 {needsReview || reviewing ? (
                   <button onClick={getFeedback} disabled={reviewing} className={`${modalSaveButtonClass} inline-flex items-center gap-1.5 !py-[7px] ml-auto`}>

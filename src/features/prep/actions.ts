@@ -9,8 +9,8 @@ import { COMPETENCIES } from './types'
 import type { PrepSession, Story, StoryRehearsal } from './types'
 import { endFocus, loadPrepData, startFocus, syncBankBlocks, toggleFocusPause, updateBlocks } from './core'
 import type { FocusSession } from './war'
-import { critiqueQuestion, critiqueStory, SPOKEN_NOTE } from './critique'
-import type { Scorecard } from './scorecard'
+import { critiqueFollowUp, critiqueQuestion, critiqueStory, modelAnswer, SPOKEN_NOTE } from './critique'
+import type { Rubric, Scorecard } from './scorecard'
 import { speechStats } from '@/lib/speech-stats'
 
 export async function getPrepData() {
@@ -85,6 +85,25 @@ export async function critiqueAnswer(questionId: string, answer: string, spoken 
   if (!user) throw new Error('Not authenticated')
   const { seconds, fillers } = speechStats(answer)
   return critiqueQuestion(supabase, user.id, questionId, answer, spoken ? SPOKEN_NOTE(seconds, fillers) : '')
+}
+
+// Model answer for a Question Bank question (the "Answer" button) — cached a
+// year per question by the gateway.
+export async function revealModelAnswer(questionId: string): Promise<string> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) throw new Error('Not authenticated')
+  return modelAnswer(supabase, user.id, questionId)
+}
+
+// Grades the user's answer to a review's follow-up question. Practice only —
+// nothing is stored and the original question's rating is untouched.
+export async function critiqueFollowUpAnswer(rubric: Rubric, original: string, followUp: string, answer: string, spoken = false): Promise<{ rating: number | null; feedback: string; card: Scorecard | null }> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) throw new Error('Not authenticated')
+  const { seconds, fillers } = speechStats(answer)
+  return critiqueFollowUp(user.id, rubric, original, followUp, answer, spoken ? SPOKEN_NOTE(seconds, fillers) : '')
 }
 
 // Records a Question Bank answer (the question counts as practiced); the
