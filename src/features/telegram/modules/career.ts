@@ -47,7 +47,7 @@ export async function outreachThisWeek(db: SupabaseClient, userId: string): Prom
     db.from('outreach').select('count').eq('user_id', userId).gte('sent_at', monday),
     db.from('prep_settings').select('weekly_outreach_target').eq('user_id', userId).maybeSingle(),
   ])
-  return { sent: (data ?? []).reduce((s, r) => s + (r.count ?? 1), 0), target: settings?.weekly_outreach_target ?? 15 }
+  return { sent: (data ?? []).reduce((s, r) => s + (r.count ?? 1), 0), target: settings?.weekly_outreach_target ?? 25 }
 }
 
 const fmt = (iso: string) => new Date(iso).toLocaleString('en-IN', { weekday: 'short', day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit', timeZone: 'Asia/Kolkata' })

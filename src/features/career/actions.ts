@@ -30,7 +30,7 @@ export async function getCareerData() {
     rounds: (roundsRes.data ?? []) as InterviewRound[],
     questions: (questionsRes.data ?? []) as InterviewQuestion[],
     outreach: (outreachRes.data ?? []) as Outreach[],
-    outreachTarget: settingsRes.data?.weekly_outreach_target ?? 15,
+    outreachTarget: settingsRes.data?.weekly_outreach_target ?? 25,
   }
 }
 

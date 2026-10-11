@@ -61,7 +61,7 @@ export async function generatePrepForecast() {
 }
 
 // Turning Job Hunt Mode on/off (or changing hours) rebuilds today's plan.
-export async function savePrepSettings(targetDate: string | null, hoursPerDay: number, weeklyOutreachTarget = 15) {
+export async function savePrepSettings(targetDate: string | null, hoursPerDay: number, weeklyOutreachTarget = 25) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) throw new Error('Not authenticated')

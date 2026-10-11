@@ -25,7 +25,7 @@ export async function loadHuntHero(db: SupabaseClient, userId: string): Promise<
   if (!settings?.target_date) return null
   const [prep, pipeline, profileRes, expensesRes] = await Promise.all([
     loadPrepData(db, userId),
-    loadPipelineStatus(db, userId, settings.weekly_outreach_target ?? 15),
+    loadPipelineStatus(db, userId, settings.weekly_outreach_target ?? 25),
     db.from('finance_profile').select('liquid_savings').eq('user_id', userId).maybeSingle(),
     db.from('expenses').select('amount').eq('user_id', userId).gte('date', daysAgoIST(90)),
   ])

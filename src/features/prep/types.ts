@@ -107,6 +107,7 @@ export const REHEARSAL_PROMPTS: Record<CompetencyKey, string[]> = {
     'Tell me about a time you noticed a problem nobody had asked you to fix. What did you do?',
     'Describe something you shipped that you kept improving after launch. Why?',
     'Tell me about a time you had to own an outcome that depended on other teams.',
+    'Tell me about a feature you owned end to end, including the API or data changes.',
   ],
   mentoring: [
     'Tell me about someone you helped grow. What did you do, and what changed for them?',
@@ -128,6 +129,7 @@ export const REHEARSAL_PROMPTS: Record<CompetencyKey, string[]> = {
     'Tell me about a decision you made that you later reversed. How did you know?',
     'Describe a build-vs-buy decision on the frontend.',
     'Tell me about a performance or architecture trade-off you made under a deadline.',
+    'Tell me about a time an AI tool gave you a wrong or risky answer. How did you catch it?',
   ],
   raising_bar: [
     'Tell me about a time you improved code quality, testing, or performance across a codebase.',
@@ -163,6 +165,7 @@ export const REHEARSAL_PROMPTS: Record<CompetencyKey, string[]> = {
     'Tell me about shipping a large migration without stopping feature work.',
     'Describe how you handled scope creep near a launch.',
     'Tell me about the hardest launch you\'ve been part of.',
+    'Tell me about a time you shipped something outside your usual stack.',
   ],
   collaboration: [
     'Tell me about working closely with design, product, or backend to ship something hard.',

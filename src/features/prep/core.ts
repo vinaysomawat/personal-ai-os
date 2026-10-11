@@ -135,7 +135,7 @@ export async function loadPrepData(supabase: SupabaseClient, userId: string) {
 
 export async function getPrepSettings(supabase: SupabaseClient, userId: string): Promise<PrepSettings> {
   const { data } = await supabase.from('prep_settings').select('target_date, hours_per_day, weekly_outreach_target').eq('user_id', userId).maybeSingle()
-  return { target_date: data?.target_date ?? null, hours_per_day: data?.hours_per_day ?? 8, weekly_outreach_target: data?.weekly_outreach_target ?? 15 }
+  return { target_date: data?.target_date ?? null, hours_per_day: data?.hours_per_day ?? 8, weekly_outreach_target: data?.weekly_outreach_target ?? 25 }
 }
 
 // PostgREST caps a response at 1,000 rows, and the bank is past that —

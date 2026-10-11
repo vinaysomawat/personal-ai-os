@@ -211,7 +211,7 @@ export async function getDashboardData() {
   const profileFilled = !!(careerProfileRes.data?.current_role && careerProfileRes.data?.target_role)
   const mockRounds30d = mockRounds30dRes.count ?? 0
   const questions30d = questions30dRes.count ?? 0
-  const outreachTarget = prepSettingsRes.data?.weekly_outreach_target ?? 15
+  const outreachTarget = prepSettingsRes.data?.weekly_outreach_target ?? 25
   const outreachWeek = (outreachWeekRes.data ?? []).reduce((s, r) => s + (r.count ?? 1), 0)
   const outreachPoints = Math.min(25, Math.round((outreachWeek / outreachTarget) * 25))
   const careerScore = Math.min(100,
