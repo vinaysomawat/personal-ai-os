@@ -106,7 +106,11 @@ export async function critiqueQuestion(db: SupabaseClient, userId: string, quest
   const { data: q } = await db.from('coding_questions').select('title, answer_hints, category, body').eq('id', questionId).single()
   if (!q) throw new Error('Question not found')
   const rubric = rubricFor(q.category)
-  const hints = q.answer_hints ? `\nKey points: ${q.answer_hints}` : '\nKey points: (none listed — derive them)'
+  // Linked system-design rows carry only a full-stack extension: derive the
+  // frontend points, then grade that one too.
+  const hints = !q.answer_hints ? '\nKey points: (none listed — derive them)'
+    : q.answer_hints.startsWith('Full-stack extension') ? `\nKey points: derive the 4–5 frontend points a strong answer must hit, then add this one as the last point — ${q.answer_hints}`
+    : `\nKey points: ${q.answer_hints}`
   const body = q.body ? `\n\nCode under review:\n${q.body}` : ''
   const prompt = `Interview question: ${q.title}${hints}${body}${note ? `\n\n${note}` : ''}\n\nCandidate's answer:\n${answer}`
   return grade(rubric === 'ai-native' ? 'ai_native_critique' : 'answer_critique', rubric, prompt, userId)
