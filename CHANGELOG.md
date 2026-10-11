@@ -3,6 +3,10 @@
 One line per shipped change, newest first. Sourced from commit messages —
 append here whenever you deploy, same cadence as the version bump.
 
+## 2026-10-12
+
+- **Backend & APIs.** A new Question Bank category with 45 questions for full-stack loops (API design, Node/Next.js server, auth, data, caching, AI backend), its own readiness gate (70), a daily quota, "drill backend" on Telegram, and one backend question in every Frontend screen mock (replacing the TypeScript slot).
+
 ## 2026-10-11
 
 - **Answer button and follow-up practice.** Each theory, Angular, system-design, behavioral and AI-native question has an Answer button that shows a model answer (generated once per question, then free). Reading it before you answer marks the attempt as studied, not rated. The review's follow-up question can now be answered and reviewed in place, in the Question Bank and the Story Bank.

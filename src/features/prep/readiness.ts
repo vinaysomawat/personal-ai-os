@@ -9,7 +9,7 @@ export interface RatedAnswer {
 
 // Areas fed by a whole bank category, not just by topic.
 const AREA_CATEGORY: Partial<Record<string, string>> = {
-  uicoding: 'ui-coding', sysdesign: 'system-design', ainative: 'ai-native', behavioral: 'behavioral', dsa: 'algorithm', angular: 'angular',
+  uicoding: 'ui-coding', sysdesign: 'system-design', ainative: 'ai-native', behavioral: 'behavioral', dsa: 'algorithm', angular: 'angular', backend: 'backend',
 }
 const MIN_RATED_SAMPLE = 2
 // Small samples are shrunk toward 0 until they reach this size (2026-10-09):
@@ -28,8 +28,8 @@ export interface DecidedRound {
 export const ROUND_AREAS: Record<string, string[]> = {
   system_design: ['sysdesign'],
   coding: ['uicoding', 'js'],
-  technical: ['js', 'react'],
-  phone_screen: ['js', 'react'],
+  technical: ['js', 'react', 'backend'],
+  phone_screen: ['js', 'react', 'backend'],
   behavioral: ['behavioral'],
   hiring_manager: ['behavioral', 'leadership'],
   onsite: ['behavioral', 'leadership'],

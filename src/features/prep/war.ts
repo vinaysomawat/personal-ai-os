@@ -56,6 +56,7 @@ export const GATES: Record<ReadinessAreaKey, { gate: number; weight: number }> =
   uicoding: { gate: 80, weight: 10 },
   angular: { gate: 80, weight: 8 },
   dsa: { gate: 70, weight: 5 },
+  backend: { gate: 70, weight: 8 },
   behavioral: { gate: 80, weight: 5 },
   leadership: { gate: 75, weight: 3 },
 }
@@ -122,6 +123,7 @@ const IMPORTANCE: Record<string, number> = {
   'TypeScript': 0.9, 'Performance': 0.9, 'DOM & Browser APIs': 0.8, 'UI Components': 0.9, 'Networking & APIs': 0.7,
   'Accessibility': 0.7, 'CSS & Layout': 0.6, 'Testing': 0.6, 'Array & Object Methods': 0.6, 'Next.js': 0.7,
   'Algorithms': 0.5, 'Data Structures': 0.5,
+  'API design': 0.8, 'Auth & security': 0.8, 'Data': 0.7, 'Node / Next.js server': 0.7, 'Caching & performance': 0.7, 'AI backend': 0.7,
 }
 const importanceOf = (topic: string) => IMPORTANCE[topic] ?? 0.5
 
@@ -294,6 +296,7 @@ const CATEGORY_AREAS: Record<string, ReadinessAreaKey[]> = {
   'ui-coding': ['uicoding'],
   'system-design': ['sysdesign'],
   algorithm: ['dsa'],
+  backend: ['backend'],
 }
 
 // 0 (at/over gate) … 1 (blind spot) — how far a category's areas sit below

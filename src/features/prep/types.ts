@@ -188,6 +188,8 @@ export const READINESS_AREAS = [
   { key: 'uicoding', label: 'UI coding', quizTopics: [], codingTopics: ['UI Components'], href: '/prep?tab=questions&cat=ui-coding' },
   // Track A (2026-10-09): fed by the 'angular' Question Bank category.
   { key: 'angular', label: 'Angular', quizTopics: [], codingTopics: [], href: '/prep?tab=questions&cat=angular' },
+  // Full-stack loops (2026): fed by the 'backend' category and the Networking & APIs topic.
+  { key: 'backend', label: 'Backend & APIs', quizTopics: ['APIs', 'Node.js'], codingTopics: ['Networking & APIs'], href: '/prep?tab=questions&cat=backend' },
   { key: 'dsa', label: 'Algorithms (DSA)', quizTopics: [], codingTopics: ['Algorithms', 'Data Structures'], href: '/prep?tab=questions&cat=algorithm' },
   { key: 'behavioral', label: 'Behavioral', quizTopics: [], codingTopics: [], href: '/prep?tab=stories' },
   { key: 'leadership', label: 'Leadership', quizTopics: [], codingTopics: [], href: '/prep?tab=stories' },

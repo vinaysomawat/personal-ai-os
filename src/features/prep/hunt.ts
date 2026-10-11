@@ -8,7 +8,7 @@ import { formatMinutes, formatOf, mockFormatForDay } from './mock'
 // quota is the smaller of "what fits in that time" and "what's needed to
 // cover the remaining questions by the target date".
 
-export type BankCategory = 'interview' | 'quiz' | 'angular' | 'ai-native' | 'behavioral' | 'javascript-functions' | 'ui-coding' | 'system-design' | 'algorithm'
+export type BankCategory = 'interview' | 'quiz' | 'angular' | 'ai-native' | 'behavioral' | 'javascript-functions' | 'ui-coding' | 'system-design' | 'algorithm' | 'backend'
 
 // Base shares re-balanced 2026-10-09 to the current market (machine coding
 // is the #1 round at Indian product companies, Angular is the fastest lane
@@ -30,6 +30,9 @@ export const BANK_CATEGORIES: { key: BankCategory; label: string; share: number;
   { key: 'ui-coding', label: 'UI coding', share: 0.20, minutesPerQ: 45 },
   { key: 'system-design', label: 'System design', share: 0.12, minutesPerQ: 60 },
   { key: 'algorithm', label: 'Algorithms', share: 0.06, minutesPerQ: 30 },
+  // Full-stack "product engineer" loops: API design, Node/Next server, auth,
+  // data, caching, AI backend.
+  { key: 'backend', label: 'Backend & APIs', share: 0.12, minutesPerQ: 8 },
 ]
 // The day = the Mock Round (its format's minutes) + STAR stories + the
 // Question Bank blocks, which get whatever is left (2026-10-09 — they used to
@@ -116,6 +119,8 @@ export function buildHuntPlan(ctx: {
         ? `Machine coding: build ${q.quota} component${q.quota === 1 ? '' : 's'} from scratch in your editor, timed — working, keyboard + ARIA, then summarize the trade-offs`
         : q.key === 'system-design'
         ? `Design ${q.quota} frontend system${q.quota === 1 ? '' : 's'} end to end (Requirements → Architecture → Data → Interface → Optimizations), out loud, then get the AI rating`
+        : q.key === 'backend'
+        ? `Answer ${q.quota} backend & API questions out loud (API design, auth, data, caching, AI backend), get the AI rating`
         : q.key === 'javascript-functions'
         ? `Implement ${q.quota} JS function${q.quota === 1 ? '' : 's'} without looking anything up (polyfills, debounce, promise utilities), handle edge cases`
         : `Solve ${q.quota} ${cat.label.toLowerCase()} problem${q.quota === 1 ? '' : 's'} (medium, pattern-first), talking through complexity`

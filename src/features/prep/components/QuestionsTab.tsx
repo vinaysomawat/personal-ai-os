@@ -40,6 +40,7 @@ const PLACEHOLDER: Record<string, string> = {
   'ai-native': 'Answer from real experience: the tool, the task, what the AI got wrong or right, and how YOU verified it. Saved when you hit Next.',
   angular: 'Answer out loud as if in the interview: the concept, how it works under the hood, when you use it, a trade-off or example from your Angular apps. Saved when you hit Next.',
   behavioral: 'Say it out loud first (60–120 s), then type it. Lead with the direct answer; no blame. Saved when you hit Next.',
+  backend: 'Answer out loud as a full-stack engineer: the approach, how it works, a concrete example (schema, endpoint, header), the trade-off. Saved when you hit Next.',
 }
 // Linkless (Prep-added) questions are answered in the app: a typed answer,
 // the key points on request, and AI interviewer feedback.

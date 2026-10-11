@@ -18,11 +18,12 @@ interface Slot {
 
 export const MOCK_FORMATS: { key: MockFormat; label: string; detail: string; slots: Slot[] }[] = [
   {
-    key: 'screen', label: 'Frontend screen', detail: 'JS · React · TypeScript · weakest area · AI-native · behavioral',
+    key: 'screen', label: 'Frontend screen', detail: 'JS · React · backend · weakest area · AI-native · behavioral',
     slots: [
       { category: 'quiz', topics: ['JavaScript Fundamentals', 'Async & Promises', 'Array & Object Methods'], minutes: 6 },
       { category: 'quiz', topics: ['React & State Management', 'Next.js'], minutes: 6 },
-      { category: 'quiz', topics: ['TypeScript'], minutes: 6 },
+      // Full-stack loops probe the API boundary even in a frontend screen.
+      { category: 'backend', minutes: 6 },
       { category: 'quiz', topics: 'weak', minutes: 6 },
       { category: 'ai-native', minutes: 8 },
       { category: 'behavioral', minutes: 6 },
