@@ -7,7 +7,7 @@ import { todayIST } from '@/lib/date'
 import { formatOf, roundScore, type MockFormat, type MockItem, type MockReview, type MockRound } from './mock'
 import { COMPETENCIES } from './types'
 import type { PrepSession, Story, StoryRehearsal } from './types'
-import { endFocus, loadPrepData, startFocus, syncBankBlocks, toggleFocusPause, updateBlocks } from './core'
+import { endFocus, loadPrepData, startFocus, syncBankBlocks, toggleBlock, toggleFocusPause } from './core'
 import type { FocusSession } from './war'
 import { critiqueFollowUp, critiqueQuestion, critiqueStory, modelAnswer, SPOKEN_NOTE } from './critique'
 import type { Rubric, Scorecard } from './scorecard'
@@ -171,7 +171,7 @@ export async function togglePrepBlock(key: string): Promise<PrepSession | null> 
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) throw new Error('Not authenticated')
-  const session = await updateBlocks(supabase, user.id, todayIST(), blocks => blocks.map(b => b.key === key ? { ...b, done: !b.done } : b))
+  const session = await toggleBlock(supabase, user.id, key)
   revalidatePath('/prep')
   revalidatePath('/dashboard')
   return session

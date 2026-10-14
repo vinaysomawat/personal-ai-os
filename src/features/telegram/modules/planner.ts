@@ -64,7 +64,8 @@ export async function execute(action: Record<string, unknown>, db: SupabaseClien
       const active = await getActiveFocus(db, userId)
       if (!active) return 'No focus session running.'
       const finished = action.finished !== false
-      const { focus, session } = await endFocus(db, userId, active.id, finished)
+      const { focus, session, short } = await endFocus(db, userId, active.id, finished)
+      if (short) return `⏳ *${active.label}* is at ${short.done}/${short.quota} — it ticks itself when you reach ${short.quota}. Keep going, or reply *STOP* to stop the timer.`
       const next = session?.blocks.find(b => !b.done)
       return `${finished ? '✅ *Block done*' : '⏹️ *Stopped*'}: ${active.label}\nPlanned ${active.planned_minutes}m · focused ${mm(focus?.actual_seconds ?? 0)}${active.interruptions ? ` · ${active.interruptions} interruption${active.interruptions === 1 ? '' : 's'}` : ''}` +
         (next ? `\n\n👉 Next: *${next.label}* — ${next.minutes}m. Reply *START*.` : finished ? '\n\nThat was the last block today.' : '')

@@ -132,10 +132,13 @@ export function MissionCard({ session, focusSessions, doneToday, onToggle, onSta
         {session.blocks.map((b, i) => {
           const isActive = active?.block_key === b.key
           const quota = b.key.startsWith('bank:') ? blockQuota(b) : 0
+          // Under quota a bank block can't be ticked by hand — it ticks itself.
+          const locked = !b.done && quota > 0 && (doneToday[b.key.slice(5)] ?? 0) < quota
           return (
             <li key={b.key} className={`flex items-start gap-2.5 rounded-[9px] px-2.5 py-2 ${b.done ? 'bg-good-soft' : isActive ? 'bg-accent-soft' : 'bg-surface-2'}`}>
-              <button onClick={() => onToggle(b.key)} aria-label={b.done ? `Mark ${b.label} not done` : `Mark ${b.label} done`} aria-pressed={b.done}
-                className={`mt-0.5 w-[18px] h-[18px] rounded-[5px] border flex items-center justify-center shrink-0 ${b.done ? 'bg-good border-good text-on-good' : 'border-border-strong hover:border-accent'}`}>
+              <button onClick={() => onToggle(b.key)} disabled={locked} title={locked ? `Ticks itself at ${quota}/${quota}` : undefined}
+                aria-label={b.done ? `Mark ${b.label} not done` : locked ? `${b.label}: ticks itself at ${quota} answered` : `Mark ${b.label} done`} aria-pressed={b.done}
+                className={`mt-0.5 w-[18px] h-[18px] rounded-[5px] border flex items-center justify-center shrink-0 disabled:opacity-40 disabled:cursor-not-allowed ${b.done ? 'bg-good border-good text-on-good' : 'border-border-strong enabled:hover:border-accent'}`}>
                 {b.done && <Check size={11} strokeWidth={3} />}
               </button>
               <div className="flex-1 min-w-0">
@@ -193,9 +196,12 @@ export function FocusBar({ focus, progress, ended, onChange, onEnded, onGo }: {
       <button disabled={busy} onClick={() => start(async () => { const f = await toggleFocusSessionPause(focus.id); if (f) onChange(f) })} title={paused ? 'Resume' : 'Pause'} aria-label={paused ? 'Resume' : 'Pause'} className={icon}>
         {paused ? <Play size={13} /> : <Pause size={13} />}
       </button>
-      <button disabled={busy} onClick={() => start(async () => { const r = await endFocusSession(focus.id, true); onEnded(r.focus, r.session) })} title="Finish block" aria-label="Finish block" className={icon}>
-        <Check size={14} strokeWidth={3} />
-      </button>
+      {/* Question blocks finish themselves when the quota is met — no ✓. */}
+      {!focus.block_key.startsWith('bank:') && (
+        <button disabled={busy} onClick={() => start(async () => { const r = await endFocusSession(focus.id, true); onEnded(r.focus, r.session) })} title="Finish block" aria-label="Finish block" className={icon}>
+          <Check size={14} strokeWidth={3} />
+        </button>
+      )}
       <button disabled={busy} onClick={() => start(async () => { const r = await endFocusSession(focus.id, false); onEnded(r.focus, null) })} title="Stop without finishing" aria-label="Stop without finishing" className={icon}>
         <X size={14} />
       </button>
