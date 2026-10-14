@@ -154,15 +154,20 @@ export function QuestionsTab({ bank, setBank, topic, onTopicChange: setTopic, co
   }
   const totals = BANK_CATEGORIES.reduce((acc, c) => { const s = stats(c.key); return { seen: acc.seen + s.seen, total: acc.total + s.total } }, { seen: 0, total: 0 })
 
+  // Move on to the question below this one in the list (as ordered now).
+  const advance = (id: string) => {
+    const idx = queue.findIndex(q => q.id === id)
+    setSelectedId((queue[idx + 1] ?? queue.find(q => q.id !== id))?.id ?? null)
+  }
+  // Nothing typed = skip: no save, no quota credit, the question stays open.
+  const skip = () => { if (!current) return; advance(current.id); resetCard() }
   const next = () => {
     if (!current) return
     const id = current.id
     const text = answer.trim() || null
     const rating = feedback?.id === id && !peeked.has(id) ? feedback.rating : null
     const now = new Date().toISOString()
-    // Move on to the question below this one in the list (as ordered now).
-    const idx = queue.findIndex(q => q.id === id)
-    setSelectedId((queue[idx + 1] ?? queue.find(q => q.id !== id))?.id ?? null)
+    advance(id)
     setBank(prev => prev.map(q => q.id === id ? { ...q, last_seen_at: now, last_answer: text ?? q.last_answer, ...(rating !== null ? { last_rating: rating, last_rated_at: now } : {}) } : q))
     resetCard()
     startTransition(async () => onGraded(await answerQuestion(id, text, rating)))
@@ -269,12 +274,15 @@ export function QuestionsTab({ bank, setBank, topic, onTopicChange: setTopic, co
                 )}
                 <span className="text-[11px] text-fg-tertiary min-w-0">
                   {stale && reviewable ? <button onClick={getFeedback} disabled={reviewing} className="text-accent hover:underline inline-flex items-center gap-1"><Sparkles size={11} /> Re-review edited answer</button>
+                    : !answer.trim() ? 'Nothing typed — Skip won\'t count it'
                     : needsReview ? 'AI review runs before Next' : peekedNow && !currentFeedback ? 'Studied — not rated' : !reviewable && !currentFeedback ? 'Type a few sentences to get an AI review' : null}
                 </span>
                 {needsReview || reviewing ? (
                   <button onClick={getFeedback} disabled={reviewing} className={`${modalSaveButtonClass} inline-flex items-center gap-1.5 !py-[7px] ml-auto`}>
                     <Sparkles size={13} /> {reviewing ? 'Reviewing…' : 'Review'}
                   </button>
+                ) : !answer.trim() ? (
+                  <button onClick={skip} className={`${modalCancelButtonClass} !py-[7px] ml-auto`}>Skip →</button>
                 ) : (
                   <button onClick={next} className={`${modalSaveButtonClass} !py-[7px] ml-auto`}>Next →</button>
                 )}

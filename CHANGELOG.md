@@ -5,6 +5,7 @@ append here whenever you deploy, same cadence as the version bump.
 
 ## 2026-10-14
 
+- **Empty answer = Skip.** In the Question Bank, a question with nothing typed shows Skip instead of Next: it moves on without counting the question as done. Type even a short note (e.g. "solved, two pointers") and Next marks it complete as before.
 - **Repeat questions start blank.** A Question Bank question you answered on an earlier day no longer shows your old answer in the box — answer it from memory. Going back to one you answered today still shows what you wrote.
 - **Algorithms cleaned up and ordered by importance.** The Algorithms tab had 255 JS-function and UI-coding problems duplicated into it from the old Coding module; they're gone (your progress on them moved to the copies in their own tabs). The 92 real algorithm problems now run must-haves first (two-pointer, sliding window, trees, graphs, the Blind-75 core) instead of alphabetically.
 - **Questions from my resume.** A new Question Bank category, From my resume, with 85 questions an interviewer would ask about the current resume: the walkthrough and why-leaving questions, each job (SS&C, Shiprocket, Biofourmis, Novopay), Personal OS and the listed skills. Each has key points for what a strong answer covers. It gets a daily War Mode block (8% share), counts toward Behavioral readiness, and "drill resume" works on Telegram.
