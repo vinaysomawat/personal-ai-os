@@ -101,7 +101,10 @@ export function QuestionsTab({ bank, setBank, topic, onTopicChange: setTopic, co
   const activeTopic = topics.some(([t]) => t === topic) ? topic : ''
   const queue = useMemo(() => buildQueue(bank, category, activeTopic), [bank, category, activeTopic])
   const current = queue.find(q => q.id === selectedId) ?? queue[0] ?? null
-  const answer = current && draft?.id === current.id ? draft.text : (current?.last_answer ?? '')
+  // A repeat on a later day starts blank (answer from memory, not your old
+  // text); one answered today keeps it, so going back shows what you wrote.
+  const answeredToday = !!current?.last_seen_at && toISTDateStr(current.last_seen_at) === today
+  const answer = current && draft?.id === current.id ? draft.text : answeredToday ? (current?.last_answer ?? '') : ''
   const setAnswer = (text: string) => { if (current) setDraft({ id: current.id, text }) }
   const resetCard = () => { setDraft(null); setShowHints(false); setShownAnswer(null) }
   const currentFeedback = current && feedback?.id === current.id ? feedback : null
