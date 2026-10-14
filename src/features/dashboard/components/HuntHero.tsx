@@ -11,9 +11,8 @@ const scoreBar = (n: number) => n >= 90 ? 'bg-good' : n >= 70 ? 'bg-accent' : n 
 const when = (iso: string) => new Date(iso).toLocaleString('en-IN', { weekday: 'short', day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit', timeZone: 'Asia/Kolkata' })
 
 // Interview War Mode hero (v4.0 §3) — replaces Life Score + Quick Stats (War
-// Mode is always on). Six tiles, each linking to where you act on it.
+// Mode is always on). The score card + four tiles, each linking to where you act on it.
 export default function HuntHero({ hero }: { hero: HuntHeroData }) {
-  const { pipeline: p } = hero
   const tiles = [
     {
       label: 'Readiness', to: '/prep',
@@ -24,14 +23,8 @@ export default function HuntHero({ hero }: { hero: HuntHeroData }) {
     {
       label: 'Next interview', to: '/interviews',
       value: hero.nextInterview?.company ?? 'None booked', color: hero.nextInterview ? 'text-accent' : 'text-fg-tertiary',
-      sub: hero.nextInterview ? `${hero.nextInterview.kind.replace(/_/g, ' ')} · ${when(hero.nextInterview.scheduled_at)}` : 'outreach is the lever',
+      sub: hero.nextInterview ? `${hero.nextInterview.kind.replace(/_/g, ' ')} · ${when(hero.nextInterview.scheduled_at)}` : 'no round booked',
       extra: null,
-    },
-    {
-      label: 'Outreach this week', to: '/interviews',
-      value: `${p.week.sent}/${p.target}`, color: p.week.sent >= p.target ? 'text-good' : 'text-warn',
-      sub: `${p.week.replies} replies · ${p.week.screens} screens · ${p.week.onsites} onsites`,
-      extra: p.followUps.length ? `${p.followUps.length} follow-up${p.followUps.length === 1 ? '' : 's'} due` : null,
     },
     {
       label: 'Pace today', to: '/prep',
@@ -48,7 +41,7 @@ export default function HuntHero({ hero }: { hero: HuntHeroData }) {
   return (
     <div className="flex flex-col gap-[var(--grid-gap-sm)]">
     <ScoreCard hero={hero} />
-    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-[var(--grid-gap-sm)]">
+    <div className="grid grid-cols-2 sm:grid-cols-4 gap-[var(--grid-gap-sm)]">
       {tiles.map(t => (
         <Link key={t.label} href={t.to} className="bg-surface-1 border border-surface-3 rounded-2xl shadow-card p-[var(--card-pad-sm)] min-w-0 hover:-translate-y-0.5 transition-all">
           <p className="text-[11px] text-fg-tertiary uppercase tracking-[0.4px] truncate">{t.label}</p>

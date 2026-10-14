@@ -3,6 +3,12 @@
 One line per shipped change, newest first. Sourced from commit messages —
 append here whenever you deploy, same cadence as the version bump.
 
+## 2026-10-15
+
+- **No tick boxes on Today's Mission.** Blocks can't be ticked by hand any more: question blocks complete when their questions are answered, the mock round when it's saved, and company prep and STAR stories from the focus timer's ✓. Each row shows a read-only done mark.
+- **Outreach removed from War Mode.** The Outreach/wk field in the War header, the Outreach tile on the dashboard and the outreach and follow-up lines in the 7:30am mission are gone. Logging outreach on the Interviews page and the Career bot is unchanged.
+- **JS functions and UI coding ordered by importance.** Both tabs now start with what interviews ask most — debounce, throttle, Promise.all, bind, deep clone, event emitter for JS; typeahead, todo list, tabs, modal, carousel, data table, infinite scroll for UI coding — and leave the niche multi-part sequels for last, instead of alphabetical order.
+
 ## 2026-10-14
 
 - **Bigger daily score on the dashboard.** Today's score is now its own full-width card: the score large, blocks done, 7-day average and best day, and a 14-day bar chart with each day's score and a line at the 90 target. The other five tiles sit in one row below.

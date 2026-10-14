@@ -3,7 +3,6 @@ import { daysAgoIST } from '@/lib/date'
 import { loadPrepData } from '@/features/prep/core'
 import { dayPace, istHourNow, practicedToday, readinessTier, type DayPace } from '@/features/prep/war'
 import { levelOf } from '@/features/prep/hunt'
-import { loadPipelineStatus, type PipelineStatus } from '@/features/career/pipeline-status'
 import { runwayMonths } from '@/features/finance/calculations'
 
 // Dashboard Hunt Hero (v4.0 §3): replaces Life Score + Quick Stats (Interview
@@ -16,7 +15,6 @@ export interface HuntHero {
   // question), the level, and the 13 days before (whole blocks only).
   score: { today: number; level: string; recent: { date: string; score: number | null }[] }
   nextInterview: { company: string; kind: string; scheduled_at: string } | null
-  pipeline: PipelineStatus
   // Today's plan done vs the 8am–10pm window (computed at request time).
   pace: DayPace
   blocks: { done: number; total: number }
@@ -24,10 +22,8 @@ export interface HuntHero {
 }
 
 export async function loadHuntHero(db: SupabaseClient, userId: string): Promise<HuntHero | null> {
-  const { data: settings } = await db.from('prep_settings').select('weekly_outreach_target').eq('user_id', userId).maybeSingle()
-  const [prep, pipeline, profileRes, expensesRes] = await Promise.all([
+  const [prep, profileRes, expensesRes] = await Promise.all([
     loadPrepData(db, userId),
-    loadPipelineStatus(db, userId, settings?.weekly_outreach_target ?? 25),
     db.from('finance_profile').select('liquid_savings').eq('user_id', userId).maybeSingle(),
     db.from('expenses').select('amount').eq('user_id', userId).gte('date', daysAgoIST(90)),
   ])
@@ -39,7 +35,6 @@ export async function loadHuntHero(db: SupabaseClient, userId: string): Promise<
     tier: readinessTier(prep.war),
     topBlocker: prep.war.blockers[0] ?? null,
     nextInterview: prep.nextInterview,
-    pipeline,
     pace,
     score: { today: pace.donePct, level: levelOf(prep.settings.hours_per_day).label, recent: prep.recentScores },
     blocks: { done: blocks.filter(b => b.done).length, total: blocks.length },

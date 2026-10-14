@@ -23,8 +23,7 @@ const readinessLine = (d: PrepData) =>
   `Readiness *${d.war.overall}%* — ${readinessTier(d.war).label}` +
   (d.war.interviewReady && !d.war.ready && d.war.blockers[0] ? `\nInterview-ready. Keep closing: *${d.war.blockers[0].label}*` : '')
 
-// `pipeline` (this week's outreach, follow-ups due, debriefs owed) is added
-// by the 7:30am cron; "what now" on the Daily bot omits it.
+// `pipeline` (debriefs owed) is added by the 7:30am cron; "what now" on the Daily bot omits it.
 export function morningMessage(d: PrepData, pipeline?: PipelineStatus): string {
   const blocks = d.session?.blocks ?? []
   const risk = d.war.blockers[0]
@@ -39,9 +38,7 @@ export function morningMessage(d: PrepData, pipeline?: PipelineStatus): string {
     '',
     `*Today's mission (${hm(blocks.reduce((s, b) => s + b.minutes, 0))}):*`,
     ...blocks.map((b, i) => `${b.done ? '✅' : `${i + 1}.`} ${b.label} — ${hm(b.minutes)}`),
-    pipeline ? `\n📨 Outreach this week *${pipeline.week.sent}/${pipeline.target}*${pipeline.week.replies ? ` · ${pipeline.week.replies} replies` : ''}` : null,
-    pipeline?.followUps.length ? `↩️ Follow up today: ${pipeline.followUps.map(f => f.person ? `${f.person} (${f.company})` : f.company).join(', ')}` : null,
-    pipeline?.debriefsOwed.length ? `📝 Debrief owed (Career bot): ${pipeline.debriefsOwed.map(r => `${r.company} ${r.kind.replace(/_/g, ' ')}`).join(', ')}` : null,
+    pipeline?.debriefsOwed.length ? `\n📝 Debrief owed (Career bot): ${pipeline.debriefsOwed.map(r => `${r.company} ${r.kind.replace(/_/g, ' ')}`).join(', ')}` : null,
     due.length ? `\n🔁 Revision due: ${due.map(r => `${r.topic} (${r.avgRating}/10)`).join(', ')}` : null,
     now ? `\n👉 Start with: *${now.label}*\nReply *START* to begin a focus session.` : null,
     `\n🎙️ Reply *DRILL* for a spoken rep.`,

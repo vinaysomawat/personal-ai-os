@@ -33,15 +33,9 @@ export function WarHeader({ war, settings, questionsPerDay, pace, nextInterview 
   const status = paceStatus(pace)
   const router = useRouter()
   const [saving, startSave] = useTransition()
-  const [outreach, setOutreach] = useState(String(settings.weekly_outreach_target))
   const level = levelOf(settings.hours_per_day)
-  // A new level (or outreach target) rebuilds today's plan.
-  const save = (hours: number, target: number) => startSave(async () => { await savePrepSettings(hours, target); router.refresh() })
-  const saveOutreach = () => {
-    const n = Math.min(200, Math.max(1, Math.round(Number(outreach) || 0)))
-    setOutreach(String(n))
-    if (n !== settings.weekly_outreach_target) save(settings.hours_per_day, n)
-  }
+  // A new level rebuilds today's plan (the stored outreach target is kept).
+  const save = (hours: number) => startSave(async () => { await savePrepSettings(hours, settings.weekly_outreach_target); router.refresh() })
   return (
     <Card padding="p-[var(--card-pad-sm)]">
       <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2">
@@ -50,18 +44,13 @@ export function WarHeader({ war, settings, questionsPerDay, pace, nextInterview 
             <p className="text-[13px] font-bold text-fg-primary">🔥 Interview War Mode</p>
             <div role="radiogroup" aria-label="Daily load" className={`inline-flex rounded-[8px] border border-border-strong overflow-hidden ${saving ? 'opacity-60' : ''}`}>
               {LEVELS.map(l => (
-                <button key={l.key} role="radio" aria-checked={level.key === l.key} disabled={saving} onClick={() => level.key !== l.key && save(l.hours, settings.weekly_outreach_target)}
+                <button key={l.key} role="radio" aria-checked={level.key === l.key} disabled={saving} onClick={() => level.key !== l.key && save(l.hours)}
                   className={`text-[11.5px] px-2 py-[3px] tabular-nums border-l first:border-l-0 border-border-strong ${level.key === l.key ? 'bg-accent text-white font-semibold' : 'text-fg-secondary hover:bg-surface-2'}`}>
                   {l.label} <span className={level.key === l.key ? 'opacity-80' : 'text-fg-tertiary'}>{l.hours}h</span>
                 </button>
               ))}
             </div>
             <span className="text-[11px] text-fg-tertiary tabular-nums">{questionsPerDay} questions/day</span>
-            <label className="text-[11px] text-fg-tertiary inline-flex items-center gap-1">
-              Outreach
-              <input type="number" min={1} max={200} value={outreach} onChange={e => setOutreach(e.target.value)} onBlur={saveOutreach} onKeyDown={e => e.key === 'Enter' && saveOutreach()} disabled={saving}
-                className="w-[46px] bg-surface-2 border border-surface-3 rounded-[6px] px-1 py-[1px] text-[11.5px] text-fg-primary tabular-nums" />/wk
-            </label>
           </div>
           <p className={`text-[12.5px] mt-1 ${status === 'behind' ? 'text-risk' : status === 'ahead' ? 'text-good' : 'text-fg-secondary'}`}>{coachLine(pace)}</p>
           {nextInterview && (
@@ -88,12 +77,11 @@ export function WarHeader({ war, settings, questionsPerDay, pace, nextInterview 
 
 // ---------------- Mission ----------------
 
-export function MissionCard({ session, focusSessions, doneToday, onToggle, onStart, onOpen }: {
+export function MissionCard({ session, focusSessions, doneToday, onStart, onOpen }: {
   session: PrepSession | null
   focusSessions: FocusSession[]
   // Questions practiced today per category — "3/7" on bank blocks.
   doneToday: Record<string, number>
-  onToggle: (key: string) => void
   onStart: (key: string) => void
   onOpen: (href: string) => void
 }) {
@@ -132,15 +120,14 @@ export function MissionCard({ session, focusSessions, doneToday, onToggle, onSta
         {session.blocks.map((b, i) => {
           const isActive = active?.block_key === b.key
           const quota = b.key.startsWith('bank:') ? blockQuota(b) : 0
-          // Under quota a bank block can't be ticked by hand — it ticks itself.
-          const locked = !b.done && quota > 0 && (doneToday[b.key.slice(5)] ?? 0) < quota
           return (
             <li key={b.key} className={`flex items-start gap-2.5 rounded-[9px] px-2.5 py-2 ${b.done ? 'bg-good-soft' : isActive ? 'bg-accent-soft' : 'bg-surface-2'}`}>
-              <button onClick={() => onToggle(b.key)} disabled={locked} title={locked ? `Ticks itself at ${quota}/${quota}` : undefined}
-                aria-label={b.done ? `Mark ${b.label} not done` : locked ? `${b.label}: ticks itself at ${quota} answered` : `Mark ${b.label} done`} aria-pressed={b.done}
-                className={`mt-0.5 w-[18px] h-[18px] rounded-[5px] border flex items-center justify-center shrink-0 disabled:opacity-40 disabled:cursor-not-allowed ${b.done ? 'bg-good border-good text-on-good' : 'border-border-strong enabled:hover:border-accent'}`}>
+              {/* Status only — blocks complete from the work itself (quota met,
+                  mock saved, focus Finish on non-question blocks), never by hand. */}
+              <span aria-label={b.done ? 'Done' : 'Not done'} title={!b.done && quota ? `Completes at ${quota}/${quota} answered` : undefined}
+                className={`mt-0.5 w-[18px] h-[18px] rounded-full border flex items-center justify-center shrink-0 ${b.done ? 'bg-good border-good text-on-good' : 'border-border-strong'}`}>
                 {b.done && <Check size={11} strokeWidth={3} />}
-              </button>
+              </span>
               <div className="flex-1 min-w-0">
                 <div className="flex items-baseline justify-between gap-2">
                   <p className={`text-[12.5px] font-semibold ${b.done ? 'text-fg-tertiary line-through' : 'text-fg-primary'}`}>{i + 1}. {b.label}{isActive && <span className="text-accent font-bold"> ● focusing</span>}</p>

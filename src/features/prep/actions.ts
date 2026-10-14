@@ -7,7 +7,7 @@ import { todayIST } from '@/lib/date'
 import { formatOf, roundScore, type MockFormat, type MockItem, type MockReview, type MockRound } from './mock'
 import { COMPETENCIES } from './types'
 import type { PrepSession, Story, StoryRehearsal } from './types'
-import { endFocus, loadPrepData, startFocus, syncBankBlocks, toggleBlock, toggleFocusPause } from './core'
+import { endFocus, loadPrepData, startFocus, syncBankBlocks, toggleFocusPause } from './core'
 import type { FocusSession } from './war'
 import { critiqueFollowUp, critiqueQuestion, critiqueStory, modelAnswer, SPOKEN_NOTE } from './critique'
 import type { Rubric, Scorecard } from './scorecard'
@@ -165,16 +165,6 @@ export async function saveMockRound(format: MockFormat, items: MockItem[], durat
   revalidatePath('/prep')
   revalidatePath('/dashboard')
   return { round: round as MockRound, session }
-}
-
-export async function togglePrepBlock(key: string): Promise<PrepSession | null> {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) throw new Error('Not authenticated')
-  const session = await toggleBlock(supabase, user.id, key)
-  revalidatePath('/prep')
-  revalidatePath('/dashboard')
-  return session
 }
 
 const MOCK_REVIEW_SYSTEM = `You are a senior frontend interviewer (Senior Frontend Engineer / Frontend Tech Lead loop, at a company that expects AI-native engineers) reviewing a candidate's whole mock interview round at once.

@@ -11,7 +11,7 @@ import Modal, { modalLabelClass, modalInputClass, modalCancelButtonClass, modalS
 import { useEscapeKey } from '@/lib/use-escape-key'
 import { daysAgoIST, toISTDateStr } from '@/lib/date'
 import { formatOf, type MockRound } from '../mock'
-import { startFocusSession, togglePrepBlock, saveStory, deleteStory, rehearseStory, type StoryInput } from '../actions'
+import { startFocusSession, saveStory, deleteStory, rehearseStory, type StoryInput } from '../actions'
 import { COMPETENCIES, REHEARSAL_PROMPTS, type BankQuestion, type CompetencyKey, type PrepSession, type PrepSettings, type ReadinessCell, type Story, type StoryRehearsal } from '../types'
 import type { CategoryCoverage, CategoryQuota } from '../hunt'
 import { QuestionsTab } from './QuestionsTab'
@@ -126,10 +126,6 @@ export default function PrepView(props: Props) {
   const roundsThisWeek = rounds.filter(r => toISTDateStr(r.created_at) >= daysAgoIST(6)).length
   const coveredCompetencies = new Set(stories.filter(s => (s.strength ?? 3) >= 3).flatMap(s => s.competencies))
 
-  const handleToggle = (key: string) => {
-    setSession(prev => prev ? { ...prev, blocks: prev.blocks.map(b => b.key === key ? { ...b, done: !b.done } : b) } : prev)
-    startTransition(async () => { const s = await togglePrepBlock(key); if (s) setSession(s) })
-  }
 
 
   return (
@@ -154,7 +150,7 @@ export default function PrepView(props: Props) {
           <WarHeader war={props.war} settings={props.settings} questionsPerDay={props.coverage.reduce((s, c) => s + ('quota' in c ? c.quota : 0), 0)} pace={pace} nextInterview={props.nextInterview} />
           <div className="grid grid-cols-1 lg:grid-cols-[1fr_380px] gap-[var(--grid-gap)] items-start">
             <div className="space-y-[var(--grid-gap)]">
-              <MissionCard session={session} focusSessions={todayFocus} doneToday={doneToday} onToggle={handleToggle} onStart={startFocus} onOpen={openHref} />
+              <MissionCard session={session} focusSessions={todayFocus} doneToday={doneToday} onStart={startFocus} onOpen={openHref} />
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-[var(--grid-gap)] items-start">
                 <RevisionCard items={props.revision} onOpen={openTopic} />
                 <WeaknessCard items={props.weakness} onOpen={openTopic} />

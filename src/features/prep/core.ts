@@ -272,17 +272,6 @@ export async function bankShortfall(supabase: SupabaseClient, userId: string, bl
   return done >= quota ? null : { done, quota }
 }
 
-// Manual tick on a Mission row. A bank block under its quota can't be ticked
-// (it ticks itself when the quota is met); unticking is always allowed.
-export async function toggleBlock(supabase: SupabaseClient, userId: string, key: string): Promise<PrepSession | null> {
-  const date = todayIST()
-  const { data } = await supabase.from('prep_sessions').select('*').eq('user_id', userId).eq('date', date).maybeSingle()
-  const block = (data?.blocks as PrepBlock[] | undefined)?.find(b => b.key === key)
-  if (!data || !block) return (data as PrepSession | null) ?? null
-  if (!block.done && await bankShortfall(supabase, userId, block)) return data as PrepSession
-  return updateBlocks(supabase, userId, date, blocks => blocks.map(b => b.key === key ? { ...b, done: !b.done } : b))
-}
-
 // Finish = the block is done (ticked in today's plan); abandon = time is
 // kept but the block stays open. Finishing a bank block under its quota is
 // refused: the session keeps running and `short` says how far off it is.
