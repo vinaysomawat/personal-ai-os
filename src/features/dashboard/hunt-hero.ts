@@ -13,7 +13,7 @@ export interface HuntHero {
   tier: { label: string; tone: 'good' | 'warn' | 'risk' }
   topBlocker: { label: string; score: number | null; gate: number } | null
   // Today's daily score (= % of today's plan done, partial credit per
-  // question), the level, and the 6 days before (whole blocks only).
+  // question), the level, and the 13 days before (whole blocks only).
   score: { today: number; level: string; recent: { date: string; score: number | null }[] }
   nextInterview: { company: string; kind: string; scheduled_at: string } | null
   pipeline: PipelineStatus

@@ -103,9 +103,9 @@ export async function loadPrepData(supabase: SupabaseClient, userId: string) {
     session: todaySession,
     streak: prepStreak(sessions, today),
     sessionsLast7: sessions.filter(s => s.date >= daysAgoIST(6) && s.completed_at).length,
-    // The 6 days before today, oldest first: % of each day's plan done (whole
+    // The 13 days before today, oldest first: % of each day's plan done (whole
     // blocks only — per-question partial credit isn't kept for past days).
-    recentScores: Array.from({ length: 6 }, (_, i) => daysAgoIST(6 - i)).map(date => {
+    recentScores: Array.from({ length: 13 }, (_, i) => daysAgoIST(13 - i)).map(date => {
       const s = sessions.find(x => x.date === date)
       return { date, score: s ? dayPace(s.blocks, 24).donePct : null }
     }),

@@ -5,6 +5,7 @@ append here whenever you deploy, same cadence as the version bump.
 
 ## 2026-10-14
 
+- **Bigger daily score on the dashboard.** Today's score is now its own full-width card: the score large, blocks done, 7-day average and best day, and a 14-day bar chart with each day's score and a line at the 90 target. The other five tiles sit in one row below.
 - **Question blocks tick only when the quota is met.** The focus timer's ✓, the tick box on a Today row and Telegram "done" could mark a question block complete with questions still left. Now a question block ticks itself once you've answered its "× N"; the timer shows only pause and stop for it, the tick box stays greyed out until then, and "done" on Telegram tells you how many are left.
 - **Empty answer = Skip.** In the Question Bank, a question with nothing typed shows Skip instead of Next: it moves on without counting the question as done. Type even a short note (e.g. "solved, two pointers") and Next marks it complete as before.
 - **Repeat questions start blank.** A Question Bank question you answered on an earlier day no longer shows your old answer in the box — answer it from memory. Going back to one you answered today still shows what you wrote.
