@@ -4,7 +4,7 @@
  * matched on (category, title); missing rows are inserted, existing rows get
  * their answer_hints / body / url / sort_order / topics refreshed.
  *
- *   node --env-file=.env.local scripts/seed-prep-2026.mjs [backend|code-review|system-design ...]
+ *   node --env-file=.env.local scripts/seed-prep-2026.mjs [backend|code-review|system-design|resume ...]
  *
  * No args = every set. Rows are linkless (url null).
  */
@@ -14,6 +14,7 @@ const SETS = {
   backend: () => import('./prep-2026/backend.mjs'),
   'code-review': () => import('./prep-2026/code-review.mjs'),
   'system-design': () => import('./prep-2026/system-design.mjs'),
+  resume: () => import('./prep-2026/resume.mjs'),
 }
 
 const db = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY, { auth: { persistSession: false } })

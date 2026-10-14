@@ -3,6 +3,10 @@
 One line per shipped change, newest first. Sourced from commit messages —
 append here whenever you deploy, same cadence as the version bump.
 
+## 2026-10-14
+
+- **Questions from my resume.** A new Question Bank category, From my resume, with 85 questions an interviewer would ask about the current resume: the walkthrough and why-leaving questions, each job (SS&C, Shiprocket, Biofourmis, Novopay), Personal OS and the listed skills. Each has key points for what a strong answer covers. It gets a daily War Mode block (8% share), counts toward Behavioral readiness, and "drill resume" works on Telegram.
+
 ## 2026-10-12
 
 - **Load levels and a daily score.** The War Mode strip and the "interview-ready by" date are gone; War Mode is always on. Pick the day's load in the War header — Light 4h, Steady 6h, Intense 8h, Max 12h — and the plan resizes (each level now fills its hours exactly). The dashboard's Target tile is now **Today's score** (0–100, how much of today's plan you've done) with the last 7 days as bars. Pace is unchanged.

@@ -10,7 +10,7 @@ export interface RatedAnswer {
 // Areas fed by whole bank categories, not just by topic. Code review also
 // counts toward Testing (reviewing is how a senior catches what tests miss).
 const AREA_CATEGORIES: Partial<Record<string, string[]>> = {
-  uicoding: ['ui-coding'], sysdesign: ['system-design'], ainative: ['ai-native'], behavioral: ['behavioral'], dsa: ['algorithm'], angular: ['angular'], backend: ['backend'],
+  uicoding: ['ui-coding'], sysdesign: ['system-design'], ainative: ['ai-native'], behavioral: ['behavioral', 'resume'], dsa: ['algorithm'], angular: ['angular'], backend: ['backend'],
   testing: ['code-review'],
 }
 const MIN_RATED_SAMPLE = 2

@@ -6,7 +6,7 @@ import { formatMinutes, formatOf, mockFormatForDay } from './mock'
 // gets a share of the day and a per-question time cost; its quota is what
 // fits in that time.
 
-export type BankCategory = 'interview' | 'quiz' | 'angular' | 'ai-native' | 'behavioral' | 'javascript-functions' | 'ui-coding' | 'system-design' | 'algorithm' | 'backend' | 'code-review'
+export type BankCategory = 'interview' | 'quiz' | 'angular' | 'ai-native' | 'behavioral' | 'javascript-functions' | 'ui-coding' | 'system-design' | 'algorithm' | 'backend' | 'code-review' | 'resume'
 
 // Base shares for a broad 2026 search (big tech, Indian product companies,
 // startups, AI companies, services, remote) — relative weights; computeQuotas
@@ -33,6 +33,9 @@ export const BANK_CATEGORIES: { key: BankCategory; label: string; share: number;
   { key: 'behavioral', label: 'Behavioral Q&A', share: 0.06, minutesPerQ: 10 },
   // Review an AI-generated PR: find the planted issues, rank them, fix them.
   { key: 'code-review', label: 'Code review', share: 0.05, minutesPerQ: 15 },
+  // Deep-dive on my own resume claims (projects, numbers, decisions) — what
+  // hiring-manager and onsite rounds probe.
+  { key: 'resume', label: 'From my resume', share: 0.08, minutesPerQ: 8 },
 ]
 // The day = the Mock Round (its format's minutes) + STAR stories + the
 // Question Bank blocks, which get whatever is left (2026-10-09 — they used to
@@ -131,6 +134,8 @@ export function buildHuntPlan(ctx: {
         ? `Design ${q.quota} frontend system${q.quota === 1 ? '' : 's'} end to end (Requirements → Architecture → Data → Interface → Optimizations), out loud, then get the AI rating`
         : q.key === 'backend'
         ? `Answer ${q.quota} backend & API questions out loud (API design, auth, data, caching, AI backend), get the AI rating`
+        : q.key === 'resume'
+        ? `Answer ${q.quota} resume deep-dive question${q.quota === 1 ? '' : 's'} out loud from your real work — the decision, the trade-off, the number`
         : q.key === 'code-review'
         ? `Review ${q.quota} AI-generated PR${q.quota === 1 ? '' : 's'}: find the planted issues, rank them by severity, give the fix`
         : q.key === 'javascript-functions'

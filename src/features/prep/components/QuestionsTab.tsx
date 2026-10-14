@@ -40,6 +40,7 @@ const PLACEHOLDER: Record<string, string> = {
   angular: 'Answer out loud as if in the interview: the concept, how it works under the hood, when you use it, a trade-off or example from your Angular apps. Saved when you hit Next.',
   behavioral: 'Say it out loud first (60–120 s), then type it. Lead with the direct answer; no blame. Saved when you hit Next.',
   'code-review': 'Review it like a senior on your team: list the issues by severity (security, correctness, a11y, perf, naming), why each matters, and the fix. Saved when you hit Next.',
+  resume: 'Answer as you would to the interviewer, from your real work: what you decided, the alternatives, the trade-off, and a number. Saved when you hit Next.',
   backend: 'Answer out loud as a full-stack engineer: the approach, how it works, a concrete example (schema, endpoint, header), the trade-off. Saved when you hit Next.',
 }
 // Linkless (Prep-added) questions are answered in the app: a typed answer,
