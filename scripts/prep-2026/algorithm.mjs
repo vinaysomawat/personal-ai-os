@@ -4,6 +4,8 @@
 // most asked in frontend loops → core mediums (intervals, DP, graphs, trie,
 // bits) → the hards and textbook implementations (sorts, data structures).
 
+import { orderPatch } from './order.mjs'
+
 const ORDER = [
   // ---- Must-have (32)
   'Pair sum', 'Balanced Brackets', 'String Anagram', 'Find Duplicates in Array', 'Longest Non-repeating Substring',
@@ -30,18 +32,6 @@ const ORDER = [
   'Insertion Sort', 'Selection Sort', 'Bubble Sort',
 ]
 
-export async function patch(db) {
-  const { data, error } = await db.from('coding_questions').select('id, title').eq('category', 'algorithm')
-  if (error) throw new Error(error.message)
-  const byTitle = new Map(data.map(r => [r.title, r.id]))
-  const missing = ORDER.filter(t => !byTitle.has(t))
-  const unordered = data.filter(r => !ORDER.includes(r.title)).map(r => r.title)
-  if (missing.length || unordered.length) throw new Error(`algorithm order out of sync — missing: ${missing.join(', ')} · unordered: ${unordered.join(', ')}`)
-  for (const [i, title] of ORDER.entries()) {
-    const res = await db.from('coding_questions').update({ sort_order: i + 1 }).eq('id', byTitle.get(title))
-    if (res.error) throw new Error(`${title}: ${res.error.message}`)
-  }
-  return ORDER.length
-}
+export const patch = orderPatch('algorithm', ORDER)
 
 export default []

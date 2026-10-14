@@ -4,7 +4,7 @@
  * matched on (category, title); missing rows are inserted, existing rows get
  * their answer_hints / body / url / sort_order / topics refreshed.
  *
- *   node --env-file=.env.local scripts/seed-prep-2026.mjs [backend|code-review|system-design|resume|algorithm ...]
+ *   node --env-file=.env.local scripts/seed-prep-2026.mjs [backend|code-review|system-design|resume|algorithm|javascript-functions|ui-coding ...]
  *
  * No args = every set. Rows are linkless (url null).
  */
@@ -16,6 +16,8 @@ const SETS = {
   'system-design': () => import('./prep-2026/system-design.mjs'),
   resume: () => import('./prep-2026/resume.mjs'),
   algorithm: () => import('./prep-2026/algorithm.mjs'),
+  'javascript-functions': () => import('./prep-2026/javascript-functions.mjs'),
+  'ui-coding': () => import('./prep-2026/ui-coding.mjs'),
 }
 
 const db = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY, { auth: { persistSession: false } })
@@ -25,7 +27,7 @@ for (const category of wanted) {
   if (!SETS[category]) { console.error(`unknown set ${category}`); process.exit(1) }
   const mod = await SETS[category]()
   // A set may also patch existing rows (system-design appends a full-stack
-  // extension to the old questions' hints; algorithm sets the importance order).
+  // extension to the old questions' hints; algorithm, javascript-functions and ui-coding set the importance order).
   if (mod.patch) console.log(`${category}: patched ${await mod.patch(db)} existing rows`)
   const rows = mod.default
   const { data: existing, error } = await db.from('coding_questions').select('id, title').eq('category', category)
