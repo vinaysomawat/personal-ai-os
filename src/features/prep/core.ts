@@ -1,7 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { todayIST, daysAgoIST, toISTDateStr, istMidnightUtc } from '@/lib/date'
 import { formatMinutes, mockFormatForDay, type MockRound } from './mock'
-import { BANK_CATEGORIES, buildHuntPlan, companyPrepBlock, computeQuotas, interviewRedoBlock, leadMinutes, type CategoryCoverage, type UpcomingRound } from './hunt'
+import { BANK_CATEGORIES, buildHuntPlan, isRedoDue, companyPrepBlock, computeQuotas, interviewRedoBlock, leadMinutes, type CategoryCoverage, type UpcomingRound } from './hunt'
 import { topicHref } from './links'
 import { computeReadinessMatrix, type CodingHistoryRow } from './readiness'
 import { COMPETENCIES } from './types'
@@ -176,6 +176,7 @@ export function bankCoverage(bank: BankQuestion[], today: string): CategoryCover
       key: cat.key, label: cat.label, total: qs.length,
       seen: qs.filter(q => q.last_seen_at).length,
       doneToday: qs.filter(q => q.last_seen_at && toISTDateStr(q.last_seen_at) === today).length,
+      redoDue: qs.filter(q => isRedoDue(q, today)).length,
     }
   })
 }

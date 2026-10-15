@@ -2,6 +2,7 @@ import { toISTDateStr } from '@/lib/date'
 import type { BankQuestion, PrepBlock, ReadinessAreaKey, ReadinessCell } from './types'
 import type { MockRound } from './mock'
 import { ROUND_AREAS } from './readiness'
+import { redoInterval } from './hunt'
 
 // Interview War Mode (ROADMAP-v2 §10) — every number here is deterministic.
 // AI only writes answer reviews and the weekly forecast; it never scores,
@@ -192,7 +193,7 @@ export function revisionQueue(bank: BankQuestion[], today: string): RevisionItem
     const avg = qs.reduce((s, q) => s + q.last_rating!, 0) / qs.length
     if (avg >= 7) continue
     const last = qs.reduce((m, q) => q.last_rated_at! > m ? q.last_rated_at! : m, qs[0].last_rated_at!)
-    const interval = avg < 5 ? 1 : avg < 6 ? 2 : 4
+    const interval = redoInterval(avg)
     const d = new Date(`${toISTDateStr(last)}T00:00:00Z`)
     d.setUTCDate(d.getUTCDate() + interval)
     const due = d.toISOString().slice(0, 10)

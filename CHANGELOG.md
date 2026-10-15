@@ -5,6 +5,7 @@ append here whenever you deploy, same cadence as the version bump.
 
 ## 2026-10-15
 
+- **Weak answers come back.** Any question you scored under 7 returns after 1, 2 or 4 days (lower score, sooner), and up to 40% of each question block's daily count goes to these redos before new questions. They're marked with an amber dot and "Redo · was N/10". Until now, 49 of the 50 answers rated 5 or lower had never been retried.
 - **New Question Bank category: FE architecture & lead.** 90 questions for senior, lead and architect rounds: rendering strategy, bundling, monorepos, micro-frontends, performance at scale, CI/CD and feature flags, security, design systems, and leading teams (RFCs, ADRs, tech debt, incidents). It gets about 9% of the daily plan (Theory drops from 12% to 10%), counts toward System design readiness, and can be drilled with "drill architecture" on Telegram.
 - **No tick boxes on Today's Mission.** Blocks can't be ticked by hand any more: question blocks complete when their questions are answered, the mock round when it's saved, and company prep and STAR stories from the focus timer's ✓. Each row shows a read-only done mark.
 - **Outreach removed from War Mode.** The Outreach/wk field in the War header, the Outreach tile on the dashboard and the outreach and follow-up lines in the 7:30am mission are gone. Logging outreach on the Interviews page and the Career bot is unchanged.

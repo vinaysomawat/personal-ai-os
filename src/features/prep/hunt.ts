@@ -1,4 +1,5 @@
-import type { PrepBlock } from './types'
+import { toISTDateStr } from '@/lib/date'
+import type { BankQuestion, PrepBlock } from './types'
 import { formatMinutes, formatOf, mockFormatForDay } from './mock'
 
 // Interview War Mode — a deterministic full-day plan sized to the daily load
@@ -54,11 +55,29 @@ export interface CategoryCoverage {
   total: number
   seen: number
   doneToday: number
+  // Weak answers due for a redo today (redoDue below).
+  redoDue: number
 }
 
 export interface CategoryQuota extends CategoryCoverage {
   quota: number
   minutes: number
+}
+
+// Redo weak answers: a question whose latest rating is under 7 comes back
+// 1 day (<5), 2 days (<6) or 4 days (<7) after that rating — the same gaps
+// as the topic revision queue. Up to REDO_SHARE of a category's daily quota
+// goes to these first; the rest is new questions. One answered today isn't
+// due again today.
+export const REDO_SHARE = 0.4
+export const redoInterval = (rating: number) => rating < 5 ? 1 : rating < 6 ? 2 : 4
+export const redoSlots = (quota: number) => Math.round(quota * REDO_SHARE)
+export function isRedoDue(q: Pick<BankQuestion, 'last_rating' | 'last_rated_at' | 'last_seen_at'>, today: string): boolean {
+  if (q.last_rating === null || q.last_rating >= 7 || !q.last_rated_at) return false
+  if (q.last_seen_at && toISTDateStr(q.last_seen_at) === today) return false
+  const d = new Date(`${toISTDateStr(q.last_rated_at)}T00:00:00Z`)
+  d.setUTCDate(d.getUTCDate() + redoInterval(q.last_rating))
+  return d.toISOString().slice(0, 10) <= today
 }
 
 // Daily load level (prep_settings.hours_per_day): sizes the day's plan —
@@ -146,9 +165,10 @@ export function buildHuntPlan(ctx: {
         : q.key === 'javascript-functions'
         ? `Implement ${q.quota} JS function${q.quota === 1 ? '' : 's'} without looking anything up (polyfills, debounce, promise utilities), handle edge cases`
         : `Solve ${q.quota} ${cat.label.toLowerCase()} problem${q.quota === 1 ? '' : 's'} (medium, pattern-first), talking through complexity`
+      const redo = Math.min(q.redoDue, redoSlots(q.quota))
       return {
         key: `bank:${q.key}`, label: `${cat.label} × ${q.quota}`, minutes: q.minutes,
-        detail: `${base} (${pct(q.key)})`,
+        detail: `${base}${redo ? ` — the first ${redo} redo your weak answers` : ''} (${pct(q.key)})`,
         href: `/prep?tab=questions&cat=${q.key}`, done: q.doneToday >= q.quota,
       }
     })

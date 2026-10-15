@@ -7,7 +7,7 @@ import AnswerReview, { CodeBlock, Rich } from './AnswerReview'
 import MicButton, { appendText } from '@/components/MicButton'
 import { modalSaveButtonClass, modalCancelButtonClass } from '@/components/Modal'
 import { answerQuestion, critiqueAnswer, revealModelAnswer } from '../actions'
-import { BANK_CATEGORIES, type BankCategory, type CategoryCoverage, type CategoryQuota } from '../hunt'
+import { BANK_CATEGORIES, isRedoDue, redoSlots, type BankCategory, type CategoryCoverage, type CategoryQuota } from '../hunt'
 import { toISTDateStr } from '@/lib/date'
 import type { BankQuestion, PrepSession } from '../types'
 import type { Scorecard } from '../scorecard'
@@ -16,16 +16,20 @@ const DIFFICULTY_ORDER: Record<string, number> = { medium: 0, easy: 1, hard: 2 }
 
 const isQuota = (c: CategoryCoverage | CategoryQuota): c is CategoryQuota => 'quota' in c
 
-// Unseen first (coverage is the goal before the target date) — in the
-// question's explicit sort_order when it has one (AI-native), else medium →
-// easy → hard; then practiced ones, longest ago first.
-function buildQueue(bank: BankQuestion[], category: string, topic: string): BankQuestion[] {
+// Weak answers due for a redo lead (lowest rating first), up to `redoFirst`
+// of them — today's redo slots not yet used. Then unseen, in the question's
+// sort_order when it has one, else medium → easy → hard; then practiced
+// ones — any remaining due redos first, then longest ago.
+function buildQueue(bank: BankQuestion[], category: string, topic: string, today: string, redoFirst: number): BankQuestion[] {
   const qs = bank.filter(q => q.category === category && (!topic || q.topics.includes(topic)))
+  const due = qs.filter(q => isRedoDue(q, today)).sort((a, b) => a.last_rating! - b.last_rating! || a.last_rated_at!.localeCompare(b.last_rated_at!))
+  const lead = due.slice(0, redoFirst)
   const unseen = qs.filter(q => !q.last_seen_at).sort((a, b) =>
     (a.sort_order ?? Infinity) - (b.sort_order ?? Infinity) ||
     (DIFFICULTY_ORDER[a.difficulty] ?? 1) - (DIFFICULTY_ORDER[b.difficulty] ?? 1) || a.title.localeCompare(b.title))
-  const review = qs.filter(q => q.last_seen_at).sort((a, b) => a.last_seen_at!.localeCompare(b.last_seen_at!))
-  return [...unseen, ...review]
+  const review = qs.filter(q => q.last_seen_at && !lead.includes(q)).sort((a, b) =>
+    Number(isRedoDue(b, today)) - Number(isRedoDue(a, today)) || a.last_seen_at!.localeCompare(b.last_seen_at!))
+  return [...lead, ...unseen, ...review]
 }
 
 const rateCls = (r: number) => r >= 8 ? 'text-good bg-good-soft' : r >= 6 ? 'text-warn bg-warn-soft' : 'text-risk bg-risk-soft'
@@ -100,7 +104,11 @@ export function QuestionsTab({ bank, setBank, topic, onTopicChange: setTopic, co
   }, [bank, category])
   // A topic picked under another category doesn't apply here.
   const activeTopic = topics.some(([t]) => t === topic) ? topic : ''
-  const queue = useMemo(() => buildQueue(bank, category, activeTopic), [bank, category, activeTopic])
+  // Redo slots left today: the first answers of the day in a category go to
+  // due weak answers, up to REDO_SHARE of its quota.
+  const quotaForCategory = coverage.find(c => c.key === category)
+  const redoFirst = quotaForCategory && isQuota(quotaForCategory) ? Math.max(0, redoSlots(quotaForCategory.quota) - (doneToday[category] ?? 0)) : 0
+  const queue = useMemo(() => buildQueue(bank, category, activeTopic, today, redoFirst), [bank, category, activeTopic, today, redoFirst])
   const current = queue.find(q => q.id === selectedId) ?? queue[0] ?? null
   // A repeat on a later day starts blank (answer from memory, not your old
   // text); one answered today keeps it, so going back shows what you wrote.
@@ -216,7 +224,7 @@ export function QuestionsTab({ bank, setBank, topic, onTopicChange: setTopic, co
                       className={`w-full text-left px-2.5 py-[7px] flex items-center gap-2 transition-colors ${sel ? 'bg-accent-soft' : 'hover:bg-surface-2'}`}>
                       {doneNow
                         ? <Check size={11} strokeWidth={3} className="text-good shrink-0" />
-                        : <span className={`w-[6px] h-[6px] rounded-full shrink-0 mx-[2.5px] ${q.last_seen_at ? 'bg-border-strong' : 'bg-accent'}`} title={q.last_seen_at ? 'Review' : 'New'} />}
+                        : <span className={`w-[6px] h-[6px] rounded-full shrink-0 mx-[2.5px] ${isRedoDue(q, today) ? 'bg-warn' : q.last_seen_at ? 'bg-border-strong' : 'bg-accent'}`} title={isRedoDue(q, today) ? 'Redo — weak answer due' : q.last_seen_at ? 'Review' : 'New'} />}
                       <span className={`text-[12.5px] leading-snug min-w-0 flex-1 truncate ${sel ? 'text-accent font-medium' : 'text-fg-primary'}`}>{q.title}</span>
                       <span className="text-[10.5px] text-fg-tertiary tabular-nums shrink-0">{q.last_seen_at ? toISTDateStr(q.last_seen_at).slice(5) : q.difficulty[0]?.toUpperCase()}</span>
                       {q.last_rating !== null && <span className={`text-[10.5px] font-bold tabular-nums rounded-[4px] px-1 shrink-0 ${rateCls(q.last_rating)}`}>{q.last_rating}</span>}
@@ -229,7 +237,7 @@ export function QuestionsTab({ bank, setBank, topic, onTopicChange: setTopic, co
             <div className={`${open ? '' : 'hidden xl:block'} min-w-0`}>
               <div className="flex items-baseline justify-between gap-2 mb-1.5">
                 <p className="text-[10.5px] font-bold uppercase tracking-[0.4px] text-fg-tertiary min-w-0">
-                  {current.last_seen_at ? `Review · last ${toISTDateStr(current.last_seen_at).slice(5)}` : 'New'} · {current.difficulty}{current.topics.length ? ` · ${current.topics.join(', ')}` : ''}
+                  {isRedoDue(current, today) ? `Redo · was ${current.last_rating}/10 on ${toISTDateStr(current.last_rated_at!).slice(5)}` : current.last_seen_at ? `Review · last ${toISTDateStr(current.last_seen_at).slice(5)}` : 'New'} · {current.difficulty}{current.topics.length ? ` · ${current.topics.join(', ')}` : ''}
                 </p>
                 <button onClick={() => setOpen(false)} className="xl:hidden text-[11.5px] text-accent inline-flex items-center gap-1 shrink-0"><ArrowLeft size={12} /> All questions</button>
               </div>
