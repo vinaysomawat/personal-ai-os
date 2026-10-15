@@ -63,14 +63,6 @@ export function WarHeader({ war, settings, questionsPerDay, pace, nextInterview 
           <p className={`text-[11px] font-bold mt-1 ${readinessTier(war).tone === 'good' ? 'text-good' : 'text-risk'}`}>{readinessTier(war).label}</p>
         </div>
       </div>
-      {war.blockers.length > 0 && (
-        <div className="flex flex-wrap gap-1.5 mt-2">
-          {war.blockers.slice(0, 6).map(b => (
-            <span key={b.key} className="text-[11px] rounded-full px-2 py-[2px] bg-risk-soft text-risk tabular-nums">🔴 {b.label} {b.score ?? '—'}/{b.gate}</span>
-          ))}
-          {war.blockers.length > 6 && <span className="text-[11px] text-fg-tertiary">+{war.blockers.length - 6} more</span>}
-        </div>
-      )}
     </Card>
   )
 }
