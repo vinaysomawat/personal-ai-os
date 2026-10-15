@@ -300,6 +300,7 @@ const CATEGORY_AREAS: Record<string, ReadinessAreaKey[]> = {
   backend: ['backend'],
   'code-review': ['aiassisted', 'testing'],
   resume: ['behavioral', 'leadership'],
+  architecture: ['sysdesign', 'leadership'],
 }
 
 // 0 (at/over gate) … 1 (blind spot) — how far a category's areas sit below

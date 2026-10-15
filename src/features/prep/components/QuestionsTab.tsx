@@ -41,6 +41,7 @@ const PLACEHOLDER: Record<string, string> = {
   behavioral: 'Say it out loud first (60–120 s), then type it. Lead with the direct answer; no blame. Saved when you hit Next.',
   'code-review': 'Review it like a senior on your team: list the issues by severity (security, correctness, a11y, perf, naming), why each matters, and the fix. Saved when you hit Next.',
   resume: 'Answer as you would to the interviewer, from your real work: what you decided, the alternatives, the trade-off, and a number. Saved when you hit Next.',
+  architecture: 'Answer out loud as the architect or lead in the room: the options, the trade-offs, your recommendation and how you would roll it out — with an example from your work. Saved when you hit Next.',
   backend: 'Answer out loud as a full-stack engineer: the approach, how it works, a concrete example (schema, endpoint, header), the trade-off. Saved when you hit Next.',
 }
 // Linkless (Prep-added) questions are answered in the app: a typed answer,

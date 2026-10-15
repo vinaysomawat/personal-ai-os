@@ -4,7 +4,7 @@
  * matched on (category, title); missing rows are inserted, existing rows get
  * their answer_hints / body / url / sort_order / topics refreshed.
  *
- *   node --env-file=.env.local scripts/seed-prep-2026.mjs [backend|code-review|system-design|resume|algorithm|javascript-functions|ui-coding ...]
+ *   node --env-file=.env.local scripts/seed-prep-2026.mjs [backend|code-review|system-design|resume|architecture|algorithm|javascript-functions|ui-coding ...]
  *
  * No args = every set. Rows are linkless (url null).
  */
@@ -15,6 +15,7 @@ const SETS = {
   'code-review': () => import('./prep-2026/code-review.mjs'),
   'system-design': () => import('./prep-2026/system-design.mjs'),
   resume: () => import('./prep-2026/resume.mjs'),
+  architecture: () => import('./prep-2026/architecture.mjs'),
   algorithm: () => import('./prep-2026/algorithm.mjs'),
   'javascript-functions': () => import('./prep-2026/javascript-functions.mjs'),
   'ui-coding': () => import('./prep-2026/ui-coding.mjs'),

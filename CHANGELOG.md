@@ -5,6 +5,7 @@ append here whenever you deploy, same cadence as the version bump.
 
 ## 2026-10-15
 
+- **New Question Bank category: FE architecture & lead.** 90 questions for senior, lead and architect rounds: rendering strategy, bundling, monorepos, micro-frontends, performance at scale, CI/CD and feature flags, security, design systems, and leading teams (RFCs, ADRs, tech debt, incidents). It gets about 9% of the daily plan (Theory drops from 12% to 10%), counts toward System design readiness, and can be drilled with "drill architecture" on Telegram.
 - **No tick boxes on Today's Mission.** Blocks can't be ticked by hand any more: question blocks complete when their questions are answered, the mock round when it's saved, and company prep and STAR stories from the focus timer's ✓. Each row shows a read-only done mark.
 - **Outreach removed from War Mode.** The Outreach/wk field in the War header, the Outreach tile on the dashboard and the outreach and follow-up lines in the 7:30am mission are gone. Logging outreach on the Interviews page and the Career bot is unchanged.
 - **JS functions and UI coding ordered by importance.** Both tabs now start with what interviews ask most — debounce, throttle, Promise.all, bind, deep clone, event emitter for JS; typeahead, todo list, tabs, modal, carousel, data table, infinite scroll for UI coding — and leave the niche multi-part sequels for last, instead of alphabetical order.
