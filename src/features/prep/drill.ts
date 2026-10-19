@@ -1,7 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { speechStats } from '@/lib/speech-stats'
 import { critiqueQuestion, SPOKEN_NOTE } from './critique'
-import { loadPrepData } from './core'
+import { loadPrepData, syncBankBlocks } from './core'
 import { categoryGap } from './war'
 import type { BankQuestion } from './types'
 
@@ -58,7 +58,7 @@ export async function startDrill(db: SupabaseClient, userId: string, requested: 
 }
 
 // Bot commands that must never be swallowed as a drill answer.
-const COMMANDS = /^(start|begin|fight\b.*|read|what now|status|next|drill\b.*)$/i
+const COMMANDS = /^(start|begin|pause|resume|break|back|done|finish(ed)?|stop|what now|status|next|drill\b.*|fight\b.*|read)$/i
 
 // Called before intent parsing. Returns a reply when the message was a drill
 // answer (or SKIP), null to let normal parsing handle it.
@@ -80,12 +80,16 @@ export async function answerPendingDrill(db: SupabaseClient, userId: string, tex
   const { rating, feedback } = await critiqueQuestion(db, userId, drill.question_id, t, note)
 
   await db.from('telegram_drills').update({ answered_at: now, transcript: t, rating, critique: feedback }).eq('id', drill.id)
-  const { data: prev } = await db.from('question_progress').select('attempts, last_answer').eq('user_id', userId).eq('question_id', drill.question_id).maybeSingle()
+  const [{ data: prev }, { data: q }] = await Promise.all([
+    db.from('question_progress').select('attempts, last_answer').eq('user_id', userId).eq('question_id', drill.question_id).maybeSingle(),
+    db.from('coding_questions').select('category').eq('id', drill.question_id).single(),
+  ])
   await db.from('question_progress').upsert({
     user_id: userId, question_id: drill.question_id,
     attempts: (prev?.attempts ?? 0) + 1, last_answer: t || prev?.last_answer || null, last_seen_at: now,
     ...(rating !== null ? { last_rating: rating, last_rated_at: now } : {}),
   }, { onConflict: 'user_id,question_id' })
+  if (q) await syncBankBlocks(db, userId, [q.category])
 
   return `*Rating ${rating ?? '—'}/10* · ~${seconds}s · ${fillers} filler${fillers === 1 ? '' : 's'}\n\n${feedback}\n\nReply *DRILL* for the next one.`
 }

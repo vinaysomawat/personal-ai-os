@@ -7,23 +7,28 @@ import AnswerReview, { CodeBlock, Rich } from './AnswerReview'
 import MicButton, { appendText } from '@/components/MicButton'
 import { modalSaveButtonClass, modalCancelButtonClass } from '@/components/Modal'
 import { answerQuestion, critiqueAnswer, revealModelAnswer } from '../actions'
-import { BANK_CATEGORIES, isRedoDue, type BankCategory } from '../hunt'
+import { BANK_CATEGORIES, isRedoDue, redoSlots, type BankCategory, type CategoryCoverage, type CategoryQuota } from '../hunt'
 import { toISTDateStr } from '@/lib/date'
-import type { BankQuestion } from '../types'
+import type { BankQuestion, PrepSession } from '../types'
 import type { Scorecard } from '../scorecard'
 
 const DIFFICULTY_ORDER: Record<string, number> = { medium: 0, easy: 1, hard: 2 }
 
-// Weak answers due for a redo lead (lowest rating first), then unseen, in
-// the question's sort_order when it has one, else medium → easy → hard; then
-// practiced ones, longest ago first.
-function buildQueue(bank: BankQuestion[], category: string, topic: string, today: string): BankQuestion[] {
+const isQuota = (c: CategoryCoverage | CategoryQuota): c is CategoryQuota => 'quota' in c
+
+// Weak answers due for a redo lead (lowest rating first), up to `redoFirst`
+// of them — today's redo slots not yet used. Then unseen, in the question's
+// sort_order when it has one, else medium → easy → hard; then practiced
+// ones — any remaining due redos first, then longest ago.
+function buildQueue(bank: BankQuestion[], category: string, topic: string, today: string, redoFirst: number): BankQuestion[] {
   const qs = bank.filter(q => q.category === category && (!topic || q.topics.includes(topic)))
-  const lead = qs.filter(q => isRedoDue(q, today)).sort((a, b) => a.last_rating! - b.last_rating! || a.last_rated_at!.localeCompare(b.last_rated_at!))
+  const due = qs.filter(q => isRedoDue(q, today)).sort((a, b) => a.last_rating! - b.last_rating! || a.last_rated_at!.localeCompare(b.last_rated_at!))
+  const lead = due.slice(0, redoFirst)
   const unseen = qs.filter(q => !q.last_seen_at).sort((a, b) =>
     (a.sort_order ?? Infinity) - (b.sort_order ?? Infinity) ||
     (DIFFICULTY_ORDER[a.difficulty] ?? 1) - (DIFFICULTY_ORDER[b.difficulty] ?? 1) || a.title.localeCompare(b.title))
-  const review = qs.filter(q => q.last_seen_at && !lead.includes(q)).sort((a, b) => a.last_seen_at!.localeCompare(b.last_seen_at!))
+  const review = qs.filter(q => q.last_seen_at && !lead.includes(q)).sort((a, b) =>
+    Number(isRedoDue(b, today)) - Number(isRedoDue(a, today)) || a.last_seen_at!.localeCompare(b.last_seen_at!))
   return [...lead, ...unseen, ...review]
 }
 
@@ -51,16 +56,18 @@ const VERBAL_PLACEHOLDER: Record<string, string> = {
   'system-design': 'Outline it (Requirements → Architecture → Data model → Interface → Optimizations), then paste or summarize here.',
 }
 
-export function QuestionsTab({ bank, setBank, topic, onTopicChange: setTopic, category: categoryParam, onCategoryChange, today }: {
+export function QuestionsTab({ bank, setBank, topic, onTopicChange: setTopic, coverage, category: categoryParam, onCategoryChange, today, onGraded }: {
   // Owned by PrepView so Mock Round answers show up here too.
   bank: BankQuestion[]
   setBank: (fn: (prev: BankQuestion[]) => BankQuestion[]) => void
   // Owned by PrepView so the War Room's revision queue can deep-link a topic.
   topic: string
   onTopicChange: (topic: string) => void
+  coverage: (CategoryCoverage | CategoryQuota)[]
   category: string | null
   onCategoryChange: (key: BankCategory) => void
   today: string
+  onGraded: (session: PrepSession | null) => void
 }) {
   const doneToday = useMemo(() => {
     const counts: Record<string, number> = {}
@@ -97,7 +104,11 @@ export function QuestionsTab({ bank, setBank, topic, onTopicChange: setTopic, ca
   }, [bank, category])
   // A topic picked under another category doesn't apply here.
   const activeTopic = topics.some(([t]) => t === topic) ? topic : ''
-  const queue = useMemo(() => buildQueue(bank, category, activeTopic, today), [bank, category, activeTopic, today])
+  // Redo slots left today: the first answers of the day in a category go to
+  // due weak answers, up to REDO_SHARE of its quota.
+  const quotaForCategory = coverage.find(c => c.key === category)
+  const redoFirst = quotaForCategory && isQuota(quotaForCategory) ? Math.max(0, redoSlots(quotaForCategory.quota) - (doneToday[category] ?? 0)) : 0
+  const queue = useMemo(() => buildQueue(bank, category, activeTopic, today, redoFirst), [bank, category, activeTopic, today, redoFirst])
   const current = queue.find(q => q.id === selectedId) ?? queue[0] ?? null
   // A repeat on a later day starts blank (answer from memory, not your old
   // text); one answered today keeps it, so going back shows what you wrote.
@@ -158,7 +169,7 @@ export function QuestionsTab({ bank, setBank, topic, onTopicChange: setTopic, ca
     const idx = queue.findIndex(q => q.id === id)
     setSelectedId((queue[idx + 1] ?? queue.find(q => q.id !== id))?.id ?? null)
   }
-  // Nothing typed = skip: no save, not counted, the question stays open.
+  // Nothing typed = skip: no save, no quota credit, the question stays open.
   const skip = () => { if (!current) return; advance(current.id); resetCard() }
   const next = () => {
     if (!current) return
@@ -169,21 +180,24 @@ export function QuestionsTab({ bank, setBank, topic, onTopicChange: setTopic, ca
     advance(id)
     setBank(prev => prev.map(q => q.id === id ? { ...q, last_seen_at: now, last_answer: text ?? q.last_answer, ...(rating !== null ? { last_rating: rating, last_rated_at: now } : {}) } : q))
     resetCard()
-    startTransition(async () => { await answerQuestion(id, text, rating) })
+    startTransition(async () => onGraded(await answerQuestion(id, text, rating)))
   }
 
+  const quotaFor = (key: string) => { const c = coverage.find(x => x.key === key); return c && isQuota(c) ? c : null }
+  const q = quotaFor(category)
   const cs = stats(category)
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-[1fr_340px] gap-[var(--grid-gap)] items-start">
-      <Card title="Sprint" action={<span className="text-[11px] text-fg-tertiary tabular-nums">{`${doneToday[category] ?? 0} today · `}{queue.length} questions{cs.leftMinutes ? ` · ≈ ${hrs(cs.leftMinutes)} to complete` : ''}</span>}>
+      <Card title="Sprint" action={<span className="text-[11px] text-fg-tertiary tabular-nums">{q ? `${doneToday[category] ?? 0}/${q.quota} today · ` : `${doneToday[category] ?? 0} today · `}{queue.length} questions{cs.leftMinutes ? ` · ≈ ${hrs(cs.leftMinutes)} to complete` : ''}</span>}>
         <div className="flex flex-wrap gap-1.5 mb-2.5">
           {BANK_CATEGORIES.map(c => {
-            const n = doneToday[c.key] ?? 0
+            const cq = quotaFor(c.key)
+            const met = cq && cq.quota > 0 && (doneToday[c.key] ?? 0) >= cq.quota
             return (
               <button key={c.key} onClick={() => { setCategory(c.key); setTopic(''); resetCard(); setSelectedId(null); setOpen(false) }} aria-pressed={category === c.key}
-                className={`text-[11.5px] px-2.5 py-1 rounded-full border transition-colors ${category === c.key ? 'bg-accent-soft border-accent text-accent' : 'border-border-strong text-fg-secondary hover:bg-surface-2'}`}>
-                {c.label}{n ? ` · ${n}` : ''}
+                className={`text-[11.5px] px-2.5 py-1 rounded-full border transition-colors ${category === c.key ? 'bg-accent-soft border-accent text-accent' : met ? 'bg-good-soft border-good/40 text-good' : 'border-border-strong text-fg-secondary hover:bg-surface-2'}`}>
+                {met ? '✓ ' : ''}{c.label}{cq ? ` · ${doneToday[c.key] ?? 0}/${cq.quota}` : ''}
               </button>
             )
           })}
@@ -293,6 +307,7 @@ export function QuestionsTab({ bank, setBank, topic, onTopicChange: setTopic, ca
         <ul className="flex flex-col gap-2.5">
           {BANK_CATEGORIES.map(c => {
             const s = stats(c.key)
+            const cq = quotaFor(c.key)
             return (
               <li key={c.key}>
                 <button onClick={() => { setCategory(c.key); setSelectedId(null); setOpen(false) }} className="w-full text-left">
@@ -303,6 +318,7 @@ export function QuestionsTab({ bank, setBank, topic, onTopicChange: setTopic, ca
                   <div className="h-[5px] rounded-[3px] bg-border mt-1 flex overflow-hidden">
                     <div className="h-full bg-good" style={{ width: `${s.total ? (s.seen / s.total) * 100 : 0}%` }} />
                   </div>
+                  {cq && cq.quota > 0 && <p className="text-[10.5px] text-fg-tertiary mt-0.5 tabular-nums">{cq.quota}/day today</p>}
                 </button>
               </li>
             )

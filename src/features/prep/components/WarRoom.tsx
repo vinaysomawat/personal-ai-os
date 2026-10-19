@@ -1,21 +1,34 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useEffect, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { Sparkles } from 'lucide-react'
+import { Check, Pause, Play, Sparkles, Timer, X } from 'lucide-react'
 import Card from '@/components/Card'
-import { generatePrepForecast, savePrepSettings, savePrepTargetDate } from '../actions'
+import { modalSaveButtonClass } from '@/components/Modal'
+import { READINESS_CONFIG, type ReadinessTier } from '@/features/career/types'
+import { endFocusSession, generatePrepForecast, savePrepSettings, toggleFocusSessionPause } from '../actions'
 import { LEVELS, levelOf } from '../hunt'
-import { bossesLeft, bossesPerDay, daysTo, type Boss } from '../boss'
-import { coachLine, paceLabel, paceStatus, readinessTier, type DayPace, type Forecast, type RevisionItem, type TopicWeakness, type WarReadiness } from '../war'
-import type { PrepSettings } from '../types'
+import { GATES, blockQuota, coachLine, focusSeconds, hm, nowBlock, paceLabel, paceStatus, readinessTier, type DayPace, type FocusSession, type Forecast, type RevisionItem, type TopicWeakness, type WarReadiness } from '../war'
+import type { PrepSession, PrepSettings, ReadinessCell } from '../types'
+
+const mmss = (s: number) => `${s < 0 ? '-' : ''}${Math.floor(Math.abs(s) / 60)}:${String(Math.abs(s) % 60).padStart(2, '0')}`
+const scoreCls = (s: number | null, gate: number) => s === null ? 'text-fg-tertiary' : s >= gate ? 'text-good' : s >= gate - 15 ? 'text-warn' : 'text-risk'
+
+function useNow(active: boolean) {
+  const [now, setNow] = useState(() => Date.now())
+  useEffect(() => {
+    if (!active) return
+    const t = setInterval(() => setNow(Date.now()), 1000)
+    return () => clearInterval(t)
+  }, [active])
+  return now
+}
 
 // ---------------- Header ----------------
 
-export function WarHeader({ war, settings, pace, nextInterview, ladder, today }: {
-  war: WarReadiness; settings: PrepSettings; pace: DayPace
+export function WarHeader({ war, settings, questionsPerDay, pace, nextInterview }: {
+  war: WarReadiness; settings: PrepSettings; questionsPerDay: number; pace: DayPace
   nextInterview: { company: string; kind: string; scheduled_at: string } | null
-  ladder: Boss[]; today: string
 }) {
   const status = paceStatus(pace)
   const router = useRouter()
@@ -23,45 +36,192 @@ export function WarHeader({ war, settings, pace, nextInterview, ladder, today }:
   const level = levelOf(settings.hours_per_day)
   // A new level rebuilds today's plan (the stored outreach target is kept).
   const save = (hours: number) => startSave(async () => { await savePrepSettings(hours, settings.weekly_outreach_target); router.refresh() })
-  const saveDate = (date: string) => startSave(async () => { await savePrepTargetDate(date || null); router.refresh() })
-  const left = bossesLeft(ladder)
-  const days = daysTo(settings.target_date, today)
-  const per = bossesPerDay(left, days)
   return (
     <Card padding="p-[var(--card-pad-sm)]">
       <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1.5">
-            <p className="text-[13px] font-bold text-fg-primary">⚔️ Boss Ladder</p>
+            <p className="text-[13px] font-bold text-fg-primary">🔥 Interview War Mode</p>
             <div role="radiogroup" aria-label="Daily load" className={`inline-flex rounded-[8px] border border-border-strong overflow-hidden ${saving ? 'opacity-60' : ''}`}>
               {LEVELS.map(l => (
                 <button key={l.key} role="radio" aria-checked={level.key === l.key} disabled={saving} onClick={() => level.key !== l.key && save(l.hours)}
                   className={`text-[11.5px] px-2 py-[3px] tabular-nums border-l first:border-l-0 border-border-strong ${level.key === l.key ? 'bg-accent text-white font-semibold' : 'text-fg-secondary hover:bg-surface-2'}`}>
-                  {l.label} <span className={level.key === l.key ? 'opacity-80' : 'text-fg-tertiary'}>{l.fights}</span>
+                  {l.label} <span className={level.key === l.key ? 'opacity-80' : 'text-fg-tertiary'}>{l.hours}h</span>
                 </button>
               ))}
             </div>
-            <span className="text-[11px] text-fg-tertiary tabular-nums">{level.fights} fights/day</span>
+            <span className="text-[11px] text-fg-tertiary tabular-nums">{questionsPerDay} questions/day</span>
           </div>
-          <p className="text-[12.5px] mt-1 text-fg-primary tabular-nums flex flex-wrap items-center gap-x-1.5">
-            <span className="font-bold">{left} boss{left === 1 ? '' : 'es'} left</span>
-            <span className="text-fg-tertiary">·</span>
-            {days !== null && <span className={days < 0 ? 'text-risk' : 'text-fg-secondary'}>{days < 0 ? `${-days}d past` : `${days}d to`}</span>}
-            <input type="date" aria-label="Deadline" value={settings.target_date ?? ''} disabled={saving} onChange={e => saveDate(e.target.value)}
-              className="bg-transparent border-b border-dashed border-border-strong text-[12px] text-fg-secondary outline-none focus:border-accent w-[118px]" />
-            {per !== null && left > 0 && <><span className="text-fg-tertiary">·</span><span className={days !== null && per > 1 ? 'text-risk font-semibold' : 'text-fg-secondary'}>need {per}/day</span></>}
-          </p>
           <p className={`text-[12.5px] mt-1 ${status === 'behind' ? 'text-risk' : status === 'ahead' ? 'text-good' : 'text-fg-secondary'}`}>{coachLine(pace)}</p>
           {nextInterview && (
             <a href="/interviews" className="block text-[12px] font-semibold text-accent mt-0.5 hover:underline">📅 Next interview: {nextInterview.company} · {nextInterview.kind.replace(/_/g, ' ')} · {new Date(nextInterview.scheduled_at).toLocaleString('en-IN', { weekday: 'short', day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit', timeZone: 'Asia/Kolkata' })} →</a>
           )}
-          <p className="text-[11.5px] text-fg-tertiary mt-0.5 tabular-nums"><span className={`font-semibold ${status === 'behind' ? 'text-risk' : status === 'ahead' ? 'text-good' : 'text-fg-secondary'}`}>{paceLabel(pace)}</span> · {pace.donePct}% of plan done · {pace.dayPct}% of 8am–10pm gone · fights {pace.blocksDone}/{pace.blocksTotal}</p>
+          <p className="text-[11.5px] text-fg-tertiary mt-0.5 tabular-nums"><span className={`font-semibold ${status === 'behind' ? 'text-risk' : status === 'ahead' ? 'text-good' : 'text-fg-secondary'}`}>{paceLabel(pace)}</span> · {pace.donePct}% of plan done · {pace.dayPct}% of 8am–10pm gone · blocks {pace.blocksDone}/{pace.blocksTotal}</p>
         </div>
         <div className="text-right shrink-0">
           <p className={`text-[22px] font-bold leading-none tabular-nums ${war.ready || war.interviewReady ? 'text-good' : war.overall >= 60 ? 'text-warn' : 'text-risk'}`}>{war.overall}%</p>
           <p className={`text-[11px] font-bold mt-1 ${readinessTier(war).tone === 'good' ? 'text-good' : 'text-risk'}`}>{readinessTier(war).label}</p>
         </div>
       </div>
+    </Card>
+  )
+}
+
+// ---------------- Mission ----------------
+
+export function MissionCard({ session, focusSessions, doneToday, onStart, onOpen }: {
+  session: PrepSession | null
+  focusSessions: FocusSession[]
+  // Questions practiced today per category — "3/7" on bank blocks.
+  doneToday: Record<string, number>
+  onStart: (key: string) => void
+  onOpen: (href: string) => void
+}) {
+  if (!session) return <Card title="Today's Mission"><p className="text-[12.5px] text-fg-tertiary">Couldn&apos;t build today&apos;s plan — reload.</p></Card>
+  const now = nowBlock(session.blocks)
+  const active = focusSessions.find(f => f.status === 'active')
+  const done = session.blocks.filter(b => b.done).length
+  return (
+    <Card title="Today's Mission" action={<span className="text-[11px] text-fg-tertiary tabular-nums">{done}/{session.blocks.length} done · {hm(session.blocks.reduce((s, b) => s + b.minutes, 0))}</span>}>
+      {now ? (
+        <div className="rounded-[12px] border border-accent bg-accent-soft px-3.5 py-3 mb-3">
+          <p className="text-[10.5px] font-bold uppercase tracking-[0.5px] text-accent">Do this now</p>
+          <div className="flex flex-wrap items-end justify-between gap-2 mt-0.5">
+            <div className="min-w-0">
+              <p className="text-[17px] font-bold text-fg-primary leading-tight">{now.label} <span className="text-[13px] font-semibold text-fg-tertiary tabular-nums">· {hm(now.minutes)}</span></p>
+              <p className="text-[12px] text-fg-secondary mt-0.5">{now.detail}</p>
+              {now.links && (
+                <div className="flex flex-wrap gap-1.5 mt-1.5">
+                  {now.links.map(l => <button key={l.href + l.label} onClick={() => onOpen(l.href)} className="text-[11.5px] rounded-full px-2 py-[2px] bg-surface-1 border border-accent/40 text-accent hover:underline">{l.label} →</button>)}
+                </div>
+              )}
+            </div>
+            <button onClick={() => onStart(now.key)} disabled={!!active && active.block_key !== now.key}
+              className={`${modalSaveButtonClass} inline-flex items-center gap-1.5 !px-5 !py-2.5 !text-[14px]`}>
+              <Timer size={15} /> {active?.block_key === now.key ? 'Go to work' : 'Start focus'}
+            </button>
+          </div>
+        </div>
+      ) : (
+        <p className="text-[13px] text-good font-semibold mb-3">✓ Every block done. It only counts if tomorrow looks the same.</p>
+      )}
+      <div className="h-[5px] rounded-[3px] bg-border mb-2.5">
+        <div className="h-full rounded-[3px] bg-good transition-all" style={{ width: `${(done / Math.max(1, session.blocks.length)) * 100}%` }} />
+      </div>
+      <ol className="flex flex-col gap-1.5">
+        {session.blocks.map((b, i) => {
+          const isActive = active?.block_key === b.key
+          const quota = b.key.startsWith('bank:') ? blockQuota(b) : 0
+          return (
+            <li key={b.key} className={`flex items-start gap-2.5 rounded-[9px] px-2.5 py-2 ${b.done ? 'bg-good-soft' : isActive ? 'bg-accent-soft' : 'bg-surface-2'}`}>
+              {/* Status only — blocks complete from the work itself (quota met,
+                  mock saved, focus Finish on non-question blocks), never by hand. */}
+              <span aria-label={b.done ? 'Done' : 'Not done'} title={!b.done && quota ? `Completes at ${quota}/${quota} answered` : undefined}
+                className={`mt-0.5 w-[18px] h-[18px] rounded-full border flex items-center justify-center shrink-0 ${b.done ? 'bg-good border-good text-on-good' : 'border-border-strong'}`}>
+                {b.done && <Check size={11} strokeWidth={3} />}
+              </span>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-baseline justify-between gap-2">
+                  <p className={`text-[12.5px] font-semibold ${b.done ? 'text-fg-tertiary line-through' : 'text-fg-primary'}`}>{i + 1}. {b.label}{isActive && <span className="text-accent font-bold"> ● focusing</span>}</p>
+                  <span className="text-[11px] text-fg-tertiary tabular-nums shrink-0">{quota && !b.done ? `${Math.min(quota, doneToday[b.key.slice(5)] ?? 0)}/${quota} · ` : ''}{hm(b.minutes)}</span>
+                </div>
+                <p className="text-[11.5px] text-fg-secondary mt-0.5 hidden sm:block">{b.detail}</p>
+              </div>
+              <div className="flex flex-col items-end gap-1 shrink-0">
+                {!b.done && <button onClick={() => onStart(b.key)} disabled={!!active && !isActive} className="text-[11.5px] font-semibold text-accent hover:underline disabled:opacity-40">{isActive ? 'Go' : 'Start'}</button>}
+                <button onClick={() => onOpen(b.href)} className="text-[11px] text-fg-tertiary hover:text-accent">Open →</button>
+              </div>
+            </li>
+          )
+        })}
+      </ol>
+    </Card>
+  )
+}
+
+// ---------------- Focus bar ----------------
+
+// The whole focus timer: a floating bar over the page (no separate screen).
+// Label = jump to the work; question blocks show today's progress. After a
+// session ends on its own (quota met), `ended` shows the result briefly.
+export function FocusBar({ focus, progress, ended, onChange, onEnded, onGo }: {
+  focus: FocusSession | null
+  progress: string | null
+  ended: { label: string; seconds: number } | null
+  onChange: (f: FocusSession) => void
+  onEnded: (f: FocusSession | null, session: PrepSession | null) => void
+  onGo: () => void
+}) {
+  const now = useNow(!!focus && !focus.paused_at)
+  const [busy, start] = useTransition()
+  const shell = 'fixed bottom-[86px] md:bottom-7 left-1/2 -translate-x-1/2 z-[30] max-w-[calc(100vw-24px)] rounded-full shadow-[0_8px_24px_var(--shadow-lg)] text-[12.5px] font-semibold tabular-nums'
+  if (!focus) {
+    if (!ended) return null
+    return <div role="status" className={`${shell} bg-good text-on-good px-4 py-2 inline-flex items-center gap-1.5 whitespace-nowrap`}><Check size={14} strokeWidth={3} /> {ended.label} done · {mmss(ended.seconds)} focused</div>
+  }
+  const left = focus.planned_minutes * 60 - focusSeconds(focus, now)
+  const paused = !!focus.paused_at
+  const icon = 'w-[28px] h-[28px] rounded-full inline-flex items-center justify-center hover:bg-white/20 disabled:opacity-50 shrink-0'
+  return (
+    <div role="timer" aria-label="Focus session" className={`${shell} ${left < 0 ? 'bg-risk' : 'bg-accent'} ${paused ? 'opacity-75' : ''} text-white pl-3 pr-1 py-1 flex items-center gap-1`}>
+      <button onClick={onGo} title="Go to the work" className="inline-flex items-center gap-1.5 min-w-0 py-1">
+        <Timer size={14} className="shrink-0" />
+        <span className="truncate">{focus.label}</span>
+        {progress && <span className="font-normal opacity-85 shrink-0">· {progress}</span>}
+        <span className="shrink-0">· {mmss(left)}</span>
+        {paused && <span className="font-normal opacity-85 shrink-0">· paused</span>}
+      </button>
+      <span className="w-px h-4 bg-white/30 mx-1 shrink-0" aria-hidden />
+      <button disabled={busy} onClick={() => start(async () => { const f = await toggleFocusSessionPause(focus.id); if (f) onChange(f) })} title={paused ? 'Resume' : 'Pause'} aria-label={paused ? 'Resume' : 'Pause'} className={icon}>
+        {paused ? <Play size={13} /> : <Pause size={13} />}
+      </button>
+      {/* Question blocks finish themselves when the quota is met — no ✓. */}
+      {!focus.block_key.startsWith('bank:') && (
+        <button disabled={busy} onClick={() => start(async () => { const r = await endFocusSession(focus.id, true); onEnded(r.focus, r.session) })} title="Finish block" aria-label="Finish block" className={icon}>
+          <Check size={14} strokeWidth={3} />
+        </button>
+      )}
+      <button disabled={busy} onClick={() => start(async () => { const r = await endFocusSession(focus.id, false); onEnded(r.focus, null) })} title="Stop without finishing" aria-label="Stop without finishing" className={icon}>
+        <X size={14} />
+      </button>
+    </div>
+  )
+}
+
+
+// ---------------- Readiness gates ----------------
+
+function tierFor(score: number | null): ReadinessTier {
+  if (score === null) return 'not_started'
+  return score >= 80 ? 'strong' : score >= 60 ? 'ready' : score >= 40 ? 'developing' : 'needs_work'
+}
+
+export function GatesCard({ cells, war }: { cells: ReadinessCell[]; war: WarReadiness }) {
+  return (
+    <Card title="Readiness Gates" action={<span className="text-[11px] text-fg-tertiary tabular-nums">avg {war.weightedAvg} · bottleneck {war.lowest?.label ?? '—'}</span>}>
+      <ul className="flex flex-col gap-1.5">
+        {[...cells].sort((a, b) => ((a.score ?? 0) - GATES[a.key].gate) - ((b.score ?? 0) - GATES[b.key].gate)).map(c => {
+          const gate = GATES[c.key].gate
+          const cfg = READINESS_CONFIG[tierFor(c.score)]
+          return (
+            <li key={c.key}>
+              <div className="flex items-center justify-between text-[12px] mb-[3px] gap-2">
+                <span className="font-medium text-fg-primary truncate">{(c.score ?? 0) >= gate ? '🟢' : '🔴'} {c.label}</span>
+                <span className="text-[11px] whitespace-nowrap"><span className="text-fg-tertiary hidden sm:inline">{c.basis} · </span><span className={`font-semibold tabular-nums ${scoreCls(c.score, gate)}`}>{c.score ?? '—'}</span><span className="text-fg-tertiary">/{gate}</span></span>
+              </div>
+              <div className="relative h-[5px] rounded-[3px] bg-border">
+                <div className="h-full rounded-[3px]" style={{ width: `${c.score ?? 0}%`, background: c.score === null ? 'var(--text-tertiary)' : cfg.color }} />
+                <span className="absolute -top-[2px] h-[9px] w-[2px] bg-fg-primary/70" style={{ left: `${gate}%` }} aria-hidden />
+              </div>
+            </li>
+          )
+        })}
+        <li className="flex items-center justify-between text-[12px] pt-1 border-t border-surface-3 mt-1">
+          <span className="font-medium text-fg-primary">{(war.mockAvg ?? 0) >= 8 ? '🟢' : '🔴'} Mock average (last 5 reviewed)</span>
+          <span className={`text-[11px] font-semibold tabular-nums ${scoreCls(war.mockAvg === null ? null : war.mockAvg * 10, 80)}`}>{war.mockAvg ?? '—'}<span className="text-fg-tertiary font-normal">/10 · gate 8</span></span>
+        </li>
+      </ul>
+      <p className="text-[10.5px] text-fg-tertiary mt-2">Readiness = weighted average × (0.5 + 0.5 × lowest area). Tick = gate. Blind spots count as 0.</p>
     </Card>
   )
 }

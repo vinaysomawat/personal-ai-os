@@ -13,9 +13,12 @@ Actions:
 {"action":"set_reminder","label":"what to be reminded about","slot":"morning"|"evening"}
 {"action":"list_reminders"}
 {"action":"delete_reminder","search":"partial reminder text"}
-{"action":"fight","area":"the boss named after fight/start, e.g. system design, react, backend"|null}
-{"action":"fix_read"}
+{"action":"start_focus"}
+{"action":"pause_focus"}
+{"action":"finish_focus","finished":true|false}
 {"action":"prep_now"}
+{"action":"fight","area":"the boss named after fight, e.g. system design, react, backend"|null}
+{"action":"fix_read"}
 {"action":"drill","category":"system design"|"behavioral"|"interview"|"ai"|"angular"|"theory"|"backend"|"resume"|"architecture"|null}
 {"action":"help"}
 
@@ -25,9 +28,12 @@ Rules:
 - For "remind me to X every morning/day" → set_reminder with slot "morning"
 - For "remind me to X every evening/night" → set_reminder with slot "evening"
 - Reminders only fire at the two existing daily windows (~8:30am and ~8pm IST) — not arbitrary times
-- For "fight", "FIGHT", "start", "begin", "let's go", "fight system design", "fight react" → fight (area = the words after fight/start, or null) — a Prep Boss Ladder fight
-- For "read", "READ", "read fix", "fix read", "done reading" → fix_read (marks the last lost fight's Fix card read)
+- For "start", "START", "begin", "let's go", "start focus" → start_focus (Prep War Mode focus session on the next block)
+- For "pause", "break", "resume", "back" → pause_focus (toggles pause)
+- For "done", "finished", "finish", "block done" → finish_focus with finished true; "stop", "give up", "abandon" → finish_focus with finished false
 - For "what now", "what should I do", "status", "next" → prep_now
+- For "fight", "FIGHT", "fight system design", "fight react" → fight (area = the words after fight, or null) — a Prep Boss Ladder fight
+- For "read", "READ", "read fix", "fix read" → fix_read (marks the last lost fight's Fix card read)
 - For "drill", "DRILL", "drill me", "drill system design", "drill behavioral", "drill interview", "drill backend", "drill resume", "drill architecture" → drill (category = the words after "drill", or null)
 - If message is unclear, return {"action":"help"}`
 
@@ -42,9 +48,43 @@ export async function preIntercept(text: string, db: SupabaseClient, userId: str
   return answerPendingDrill(db, userId, text, spoken)
 }
 
+const mm = (s: number) => `${Math.floor(s / 60)}m`
+
 export async function execute(action: Record<string, unknown>, db: SupabaseClient, userId: string): Promise<ModuleReply> {
   switch (action.action) {
-    // Boss Ladder fights (same rows as the web).
+    // Prep War Mode focus sessions (same rows as the web timer).
+    case 'start_focus': {
+      const { startFocus } = await import('@/features/prep/core')
+      const f = await startFocus(db, userId)
+      if (!f) return '✅ Every block in today\'s plan is done.'
+      const fresh = Date.now() - new Date(f.started_at).getTime() < 15_000
+      return `${fresh ? '🔒 *Focus started*' : '⏱️ *Already focusing*'}: ${f.label} — ${f.planned_minutes} min planned.\nReply *DONE* when the block is finished, *PAUSE* for a break.`
+    }
+    case 'pause_focus': {
+      const { getActiveFocus, toggleFocusPause } = await import('@/features/prep/core')
+      const active = await getActiveFocus(db, userId)
+      if (!active) return 'No focus session running. Reply *START* to begin the next block.'
+      const f = await toggleFocusPause(db, userId, active.id)
+      return f?.paused_at ? `⏸️ Paused *${f.label}*. Reply *RESUME* to continue.` : `▶️ Resumed *${active.label}*.`
+    }
+    case 'finish_focus': {
+      const { getActiveFocus, endFocus } = await import('@/features/prep/core')
+      const active = await getActiveFocus(db, userId)
+      if (!active) return 'No focus session running.'
+      const finished = action.finished !== false
+      const { focus, session, short } = await endFocus(db, userId, active.id, finished)
+      if (short) return `⏳ *${active.label}* is at ${short.done}/${short.quota} — it ticks itself when you reach ${short.quota}. Keep going, or reply *STOP* to stop the timer.`
+      const next = session?.blocks.find(b => !b.done)
+      return `${finished ? '✅ *Block done*' : '⏹️ *Stopped*'}: ${active.label}\nPlanned ${active.planned_minutes}m · focused ${mm(focus?.actual_seconds ?? 0)}${active.interruptions ? ` · ${active.interruptions} interruption${active.interruptions === 1 ? '' : 's'}` : ''}` +
+        (next ? `\n\n👉 Next: *${next.label}* — ${next.minutes}m. Reply *START*.` : finished ? '\n\nThat was the last block today.' : '')
+    }
+    case 'prep_now': {
+      const { coachData, middayMessage, morningMessage } = await import('@/features/prep/coach')
+      const data = await coachData(db, userId)
+      if (!data) return 'Couldn\'t load today\'s plan — open the Prep page once.'
+      return middayMessage(data) ?? morningMessage(data)
+    }
+    // Boss Ladder fights (same rows as the web Bosses tab).
     case 'fight': {
       const { fightArea, startTelegramFight } = await import('@/features/prep/fight')
       return startTelegramFight(db, userId, fightArea(action.area ? String(action.area) : undefined))
@@ -52,12 +92,6 @@ export async function execute(action: Record<string, unknown>, db: SupabaseClien
     case 'fix_read': {
       const { readTelegramFix } = await import('@/features/prep/fight')
       return readTelegramFix(db, userId)
-    }
-    case 'prep_now': {
-      const { coachData, middayMessage, morningMessage } = await import('@/features/prep/coach')
-      const data = await coachData(db, userId)
-      if (!data) return 'Couldn\'t load today\'s plan — open the Prep page once.'
-      return middayMessage(data) ?? morningMessage(data)
     }
     case 'drill': {
       const { drillCategory, startDrill } = await import('@/features/prep/drill')
@@ -92,6 +126,6 @@ export async function execute(action: Record<string, unknown>, db: SupabaseClien
       return `🗑️ Removed reminder: "${reminder.label}"`
     }
     default:
-      return `*Daily Bot — What I can do:*\n• "how was my week" (digest)\n• "how was my month" (monthly digest)\n• "remind me to log weight every morning"\n• "show my reminders"\n• "fight" / "fight system design" (a Boss Ladder fight: 5 spoken answers, graded at the end; "skip" gives up) · "read" (Fix card read, rematch unlocked)\n• "what now" (today\'s fights)\n• "drill" / "drill system design" / "drill behavioral" / "drill backend" / "drill resume" / "drill architecture" / "drill interview" (a spoken-answer rep, rated)\n\nI also send the Prep Coach: the 7:30am fights, a 1pm nudge if none is done, and the 9:30pm review (with your reminders and anything still open).`
+      return `*Daily Bot — What I can do:*\n• "how was my week" (digest)\n• "how was my month" (monthly digest)\n• "remind me to log weight every morning"\n• "show my reminders"\n• "start" / "pause" / "done" (Prep focus sessions)\n• "what now" (today\'s War Mode mission)\n• "fight" / "fight system design" (a Boss Ladder fight: 5 spoken answers, graded at the end; "skip" gives up) · "read" (Fix card read, rematch unlocked)\n• "drill" / "drill system design" / "drill behavioral" / "drill backend" / "drill resume" / "drill architecture" / "drill interview" (a spoken-answer rep, rated)\n\nI also send the Prep Coach: the 7:30am mission, a 1pm nudge if you\'re behind, and the 9:30pm review (with your reminders and anything still open).`
   }
 }

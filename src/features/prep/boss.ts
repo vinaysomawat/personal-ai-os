@@ -2,12 +2,13 @@ import { toISTDateStr } from '@/lib/date'
 import { isRedoDue } from './hunt'
 import { GATES } from './war'
 import type { Scorecard } from './scorecard'
-import type { BankQuestion, PrepBlock, ReadinessAreaKey, ReadinessCell } from './types'
+import type { BankQuestion, ReadinessAreaKey, ReadinessCell } from './types'
 
-// Boss Ladder (v4.1) — deterministic, client-safe. Every readiness area with
-// a gate is a boss; a fight is a short timed set of rated answers on that
-// area. Win = average ≥ gate / 10 and no answer under 5. Fights run on the
-// web (fight.ts) and over Telegram; the AI only grades the answers.
+// Boss Ladder (the Prep page's Bosses tab) — deterministic, client-safe.
+// Every readiness area with a gate is a boss; a fight is a short timed set
+// of rated answers on that area. Win = average ≥ gate / 10 and no answer
+// under 5. Fights run on the web (fight.ts) and over Telegram; the AI only
+// grades the answers. Separate from the daily plan.
 
 // One slot of a fight: questions from these categories (optionally only
 // these topics), each with its time budget.
@@ -171,38 +172,3 @@ export function daysTo(target: string | null, today: string): number | null {
 }
 // "need 0.8/day": bosses left ÷ days left (today counts).
 export const bossesPerDay = (left: number, days: number | null) => days === null ? null : Math.round((left / Math.max(1, days + 1)) * 10) / 10
-
-// ---------------- The day's plan ----------------
-
-export function fightBlock(boss: Boss, done: boolean): PrepBlock {
-  const coding = CODING_BOSSES.includes(boss.key)
-  const n = fightSize(boss.key)
-  return {
-    key: `fight:${boss.key}`, label: `${boss.state === 'rematch' || boss.state === 'fix' ? 'Rematch' : 'Boss'}: ${boss.label}`, minutes: fightMinutes(boss.key),
-    detail: `${coding ? 'One problem in your editor, paste the solution' : `${n} question${n === 1 ? '' : 's'}, timed, no hints`} · win at ${winAt(boss.gate).toFixed(1)} avg, none under ${MIN_ANSWER} · now ${boss.score ?? '—'}/${boss.gate}`,
-    href: '/prep?tab=today', done,
-  }
-}
-
-// Fight slots for the level (including the mock): the biggest-gap boss →
-// the mock → a lost boss to rematch (else the next boss) → more bosses.
-// Every boss beaten = the final boss, a full loop of three mocks.
-export function buildFightPlan(ctx: {
-  ladder: Boss[]
-  fights: number
-  mock: PrepBlock
-  finalBoss: PrepBlock[]
-  companyBlock: PrepBlock | null
-  // Areas with a fight finished today — those blocks start done.
-  foughtToday: Set<string>
-}): PrepBlock[] {
-  const open = ctx.ladder.filter(b => b.state !== 'defeated')
-  const lead = ctx.companyBlock ? [ctx.companyBlock] : []
-  if (open.length === 0) return [...lead, ...ctx.finalBoss]
-  const picks: Boss[] = [open[0]]
-  const rematch = open.find(b => b !== open[0] && (b.state === 'rematch' || b.state === 'fix'))
-  if (rematch && ctx.fights >= 3) picks.push(rematch)
-  for (const b of open) if (picks.length < ctx.fights - 1 && !picks.includes(b)) picks.push(b)
-  const blocks = picks.map(b => fightBlock(b, ctx.foughtToday.has(b.key)))
-  return [...lead, blocks[0], ctx.mock, ...blocks.slice(1)]
-}

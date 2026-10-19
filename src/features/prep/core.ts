@@ -1,17 +1,18 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { todayIST, daysAgoIST, toISTDateStr, istMidnightUtc } from '@/lib/date'
-import { formatOf, type MockRound } from './mock'
-import { BANK_CATEGORIES, FINAL_BOSS, isRedoDue, companyPrepBlock, levelOf, mockBlock, mockFormatFor, type CategoryCoverage, type UpcomingRound } from './hunt'
+import { formatMinutes, mockFormatForDay, type MockRound } from './mock'
+import { BANK_CATEGORIES, buildHuntPlan, isRedoDue, companyPrepBlock, computeQuotas, interviewRedoBlock, leadMinutes, type CategoryCoverage, type UpcomingRound } from './hunt'
 import { topicHref } from './links'
 import { computeReadinessMatrix, type CodingHistoryRow } from './readiness'
-import { bossLadder, buildFightPlan, type Fight } from './boss'
-import { dayPace, revisionQueue, topicWeakness, warReadiness, type Forecast } from './war'
+import { bossLadder, type Fight } from './boss'
+import { COMPETENCIES } from './types'
+import { blockQuota, categoryGap, categoryWeights, dayPace, focusSeconds, nowBlock, revisionQueue, topicWeakness, warReadiness, type FocusSession, type Forecast } from './war'
 import type { BankQuestion, PrepBlock, PrepSession, PrepSettings, Story, StoryRehearsal } from './types'
 
 // Prep's data layer — plain server module (not 'use server', so none of
 // this is a publicly callable action). actions.ts wraps it with the
 // signed-in user; the War Mode crons and the Daily bot call it with the
-// service client. Fight writes live in fight.ts.
+// service client.
 
 export function prepStreak(sessions: { date: string; completed_at: string | null }[], today: string): number {
   const done = new Set(sessions.filter(s => s.completed_at).map(s => s.date))
@@ -33,18 +34,20 @@ export async function loadPrepData(supabase: SupabaseClient, userId: string) {
   const user = { id: userId }
   const today = todayIST()
 
-  const [mockRes, storiesRes, rehearsalsRes, codingRes, sessionsRes, fightsRes, forecastRes, nextRoundRes, decidedRoundsRes] = await Promise.all([
+  const [mockRes, storiesRes, rehearsalsRes, codingRes, sessionsRes, focusRes, forecastRes, nextRoundRes, decidedRoundsRes, fightsRes] = await Promise.all([
     supabase.from('mock_rounds').select('id, format, items, duration_seconds, created_at, review').eq('user_id', user.id).order('created_at', { ascending: false }).limit(500),
     supabase.from('stories').select('*').eq('user_id', user.id).order('updated_at', { ascending: false }),
     supabase.from('story_rehearsals').select('id, story_id, competency, prompt, answer, critique, rating, scorecard, created_at').eq('user_id', user.id).order('created_at', { ascending: false }).limit(10),
     supabase.from('coding_daily_questions').select('completed, outcome, completed_at, question:coding_questions(category, topics)').eq('user_id', user.id).eq('completed', true).gte('completed_at', istMidnightUtc(90)),
     supabase.from('prep_sessions').select('*').eq('user_id', user.id).gte('date', daysAgoIST(60)).order('date', { ascending: false }),
-    supabase.from('prep_fights').select('*').eq('user_id', user.id).gte('date', daysAgoIST(30)).order('started_at', { ascending: false }),
+    supabase.from('prep_focus_sessions').select('*').eq('user_id', user.id).gte('date', daysAgoIST(6)).order('started_at', { ascending: true }),
     supabase.from('prep_forecasts').select('date, forecast, created_at').eq('user_id', user.id).order('date', { ascending: false }).limit(1).maybeSingle(),
     // The next scheduled interview round (Interviews / Career page).
     supabase.from('interview_rounds').select('kind, scheduled_at, application:applications(id, company, jd_analysis, segment)').eq('user_id', user.id).eq('status', 'scheduled').gte('scheduled_at', new Date().toISOString()).order('scheduled_at').limit(1).maybeSingle(),
     // Decided real rounds (last 180 days) — a readiness signal (§4.2).
     supabase.from('interview_rounds').select('kind, outcome').eq('user_id', user.id).eq('status', 'done').in('outcome', ['passed', 'failed']).gte('scheduled_at', istMidnightUtc(180)),
+    // Boss Ladder fights (Bosses tab), last 30 days.
+    supabase.from('prep_fights').select('*').eq('user_id', user.id).gte('date', daysAgoIST(30)).order('started_at', { ascending: false }),
   ])
   const [settings, bank] = await Promise.all([getPrepSettings(supabase, user.id), getQuestionBank(supabase, user.id)])
   const coverage = bankCoverage(bank, today)
@@ -55,10 +58,10 @@ export async function loadPrepData(supabase: SupabaseClient, userId: string) {
     (decidedRoundsRes.data ?? []) as { kind: string; outcome: 'passed' | 'failed' }[])
   // Empty (not an error) until the mock_rounds migration has run.
   const mockRounds = (mockRes.data ?? []) as MockRound[]
-  // Empty until the prep_fights migration has run.
-  const fights = (fightsRes.data ?? []) as Fight[]
-  const ladder = bossLadder(readiness, fights, today)
-  // Company Prep Mode: a round ≤72h away puts its block first.
+  // War Mode: quotas weighted toward the biggest readiness gaps, sized to
+  // the time left after today's mock round and STAR-story block.
+  const storiesMissing = COMPETENCIES.some(c => !stories.some(s => (s.strength ?? 3) >= 3 && s.competencies.includes(c.key)))
+  // Company Prep Mode + the real-interview redo block take their time first.
   const nextRow = nextRoundRes.data as unknown as { kind: string; scheduled_at: string; application: { id: string; company: string; jd_analysis: { priorityTopics?: string[] } | null; segment?: string } | null } | null
   let upcoming: UpcomingRound | null = null
   if (nextRow?.application) {
@@ -66,22 +69,29 @@ export async function loadPrepData(supabase: SupabaseClient, userId: string) {
     upcoming = { applicationId: nextRow.application.id, company: nextRow.application.company, kind: nextRow.kind, scheduledAt: nextRow.scheduled_at, priorityTopics: nextRow.application.jd_analysis?.priorityTopics ?? [], priorQuestions: count ?? 0, segment: nextRow.application.segment ?? 'other' }
   }
   const companyBlock = companyPrepBlock(upcoming, Date.now(), topicHref)
+  const interviewRedo = bank.filter(q => q.category === 'interview' && q.last_rating !== null && q.last_rating < 7).length
+  const reserved = formatMinutes(mockFormatForDay(today)) + leadMinutes(settings.hours_per_day * 60, storiesMissing)
+    + (companyBlock?.minutes ?? 0) + (interviewRedoBlock(interviewRedo)?.minutes ?? 0)
+  const quotas = computeQuotas(coverage, settings.hours_per_day, categoryWeights(readiness), reserved)
+      // On machine-coding / code-review days the mock round IS that practice.
+      .map(q => (q.key === 'ui-coding' && mockFormatForDay(today) === 'machine-coding') || (q.key === 'code-review' && mockFormatForDay(today) === 'code-review') ? { ...q, quota: 0, minutes: 0 } : q)
   const weakness = topicWeakness(bank, today)
 
   let sessions = (sessionsRes.data ?? []) as PrepSession[]
   let todaySession = sessions.find(s => s.date === today) ?? null
   if (!todaySession) {
-    const mockedToday = new Set(mockRounds.filter(r => toISTDateStr(r.created_at) === today).map(r => r.format))
-    const format = mockFormatFor(upcoming, today)
-    const blocks = buildFightPlan({
-      ladder, fights: levelOf(settings.hours_per_day).fights,
-      mock: mockBlock(format, mockedToday.has(format)),
-      finalBoss: FINAL_BOSS.map(f => mockBlock(f, mockedToday.has(f), `Final boss · ${formatOf(f).label} mock`)),
-      companyBlock,
-      foughtToday: new Set(fights.filter(f => f.date === today && (f.status === 'won' || f.status === 'lost')).map(f => f.area)),
+    const covered = new Set(stories.filter(s => (s.strength ?? 3) >= 3).flatMap(s => s.competencies))
+    const uncovered = COMPETENCIES.find(c => !covered.has(c.key))
+    const plan = buildHuntPlan({
+      hoursPerDay: settings.hours_per_day, date: today, quotas,
+      uncoveredCompetency: uncovered?.label ?? null,
+      gaps: Object.fromEntries(BANK_CATEGORIES.map(c => [c.key, categoryGap(c.key, readiness)])),
+      focusTopic: weakness.find(w => w.category === 'quiz')?.topic ?? null,
+      mockDoneToday: mockRounds.some(r => toISTDateStr(r.created_at) === today),
+      interviewRedo, companyBlock,
     })
     const { data: inserted } = await supabase.from('prep_sessions')
-      .upsert({ user_id: user.id, date: today, focus: `Boss Ladder · ${levelOf(settings.hours_per_day).label}`, blocks }, { onConflict: 'user_id,date', ignoreDuplicates: true })
+      .upsert({ user_id: user.id, date: today, focus: plan.focus, blocks: plan.blocks }, { onConflict: 'user_id,date', ignoreDuplicates: true })
       .select('*')
     todaySession = ((inserted ?? [])[0] as PrepSession | undefined) ?? null
     if (!todaySession) {
@@ -96,7 +106,8 @@ export async function loadPrepData(supabase: SupabaseClient, userId: string) {
     session: todaySession,
     streak: prepStreak(sessions, today),
     sessionsLast7: sessions.filter(s => s.date >= daysAgoIST(6) && s.completed_at).length,
-    // The 13 days before today, oldest first: % of each day's plan done.
+    // The 13 days before today, oldest first: % of each day's plan done (whole
+    // blocks only — per-question partial credit isn't kept for past days).
     recentScores: Array.from({ length: 13 }, (_, i) => daysAgoIST(13 - i)).map(date => {
       const s = sessions.find(x => x.date === date)
       return { date, score: s ? dayPace(s.blocks, 24).donePct : null }
@@ -106,15 +117,18 @@ export async function loadPrepData(supabase: SupabaseClient, userId: string) {
     war: warReadiness(readiness, mockRounds, nextRow?.kind ?? null),
     weakness: weakness.slice(0, 8),
     revision: revisionQueue(bank, today),
-    fights,
-    ladder,
+    focusSessions: (focusRes.data ?? []) as FocusSession[],
     nextInterview: nextRow ? { company: nextRow.application?.company ?? 'Interview', kind: nextRow.kind, scheduled_at: nextRow.scheduled_at } : null,
     companyBlock,
     forecast: (forecastRes.data as { date: string; forecast: Forecast; created_at: string } | null) ?? null,
     stories,
     rehearsals: (rehearsalsRes.data ?? []) as StoryRehearsal[],
     readiness,
+    // Boss Ladder (boss.ts) — separate from the daily plan.
+    fights: (fightsRes.data ?? []) as Fight[],
+    ladder: bossLadder(readiness, (fightsRes.data ?? []) as Fight[], today),
     settings,
+    coverage: quotas,
     bank,
   }
 }
@@ -176,10 +190,114 @@ export function bankCoverage(bank: BankQuestion[], today: string): CategoryCover
 export async function updateBlocks(supabase: SupabaseClient, userId: string, date: string, fn: (blocks: PrepBlock[]) => PrepBlock[]): Promise<PrepSession | null> {
   const { data } = await supabase.from('prep_sessions').select('*').eq('user_id', userId).eq('date', date).maybeSingle()
   if (!data) return null
-  const blocks = fn(data.blocks as PrepBlock[])
+  const prev = data.blocks as PrepBlock[]
+  const blocks = fn(prev)
+  // A block turning done (quota met, ticked, Finish) completes the focus
+  // session running on it, from any path — web, Telegram drill, mock round.
+  const newlyDone = blocks.filter(b => b.done && !prev.find(p => p.key === b.key)?.done).map(b => b.key)
+  if (newlyDone.length > 0) {
+    const active = await getActiveFocus(supabase, userId)
+    if (active && active.date === date && newlyDone.includes(active.block_key)) await closeFocus(supabase, active, 'completed')
+  }
   const allDone = blocks.length > 0 && blocks.every(b => b.done)
   const { data: updated } = await supabase.from('prep_sessions')
     .update({ blocks, completed_at: allDone ? (data.completed_at ?? new Date().toISOString()) : null })
     .eq('id', data.id).select('*').single()
   return (updated as PrepSession | null) ?? null
+}
+
+// Ticks Job Hunt bank blocks whose quota (the label's "× N") today's practiced
+// count in that category has reached. `extra` lets a caller tick more blocks
+// in the same write.
+export async function syncBankBlocks(supabase: SupabaseClient, userId: string, categories: string[], extra: (b: PrepBlock) => boolean = () => false): Promise<PrepSession | null> {
+  const counts = new Map<string, number>()
+  if (categories.length > 0) {
+    const { data } = await supabase.from('question_progress')
+      .select('question_id, coding_questions!inner(category)').eq('user_id', userId)
+      .in('coding_questions.category', categories).gte('last_seen_at', istMidnightUtc())
+    for (const row of (data ?? []) as unknown as { coding_questions: { category: string } }[]) {
+      counts.set(row.coding_questions.category, (counts.get(row.coding_questions.category) ?? 0) + 1)
+    }
+  }
+  return updateBlocks(supabase, userId, todayIST(), blocks => blocks.map(b => {
+    if (extra(b)) return { ...b, done: true }
+    const cat = b.key.startsWith('bank:') ? b.key.slice(5) : null
+    if (!cat || !categories.includes(cat)) return b
+    const quota = blockQuota(b)
+    return quota > 0 && (counts.get(cat) ?? 0) >= quota ? { ...b, done: true } : b
+  }))
+}
+
+
+// ---------------- Focus sessions (War Mode) ----------------
+
+export async function getActiveFocus(supabase: SupabaseClient, userId: string): Promise<FocusSession | null> {
+  const { data } = await supabase.from('prep_focus_sessions').select('*').eq('user_id', userId).eq('status', 'active').order('started_at', { ascending: false }).limit(1).maybeSingle()
+  return (data as FocusSession | null) ?? null
+}
+
+// Starts a focus session on a block of today's plan (the NOW block when no
+// key is given). One active session at a time — an existing one is returned.
+export async function startFocus(supabase: SupabaseClient, userId: string, blockKey?: string): Promise<FocusSession | null> {
+  const active = await getActiveFocus(supabase, userId)
+  if (active) return active
+  const today = todayIST()
+  let { data: session } = await supabase.from('prep_sessions').select('blocks').eq('user_id', userId).eq('date', today).maybeSingle()
+  if (!session) { await loadPrepData(supabase, userId); ({ data: session } = await supabase.from('prep_sessions').select('blocks').eq('user_id', userId).eq('date', today).maybeSingle()) }
+  const blocks = (session?.blocks ?? []) as PrepBlock[]
+  const block = blockKey ? blocks.find(b => b.key === blockKey) : nowBlock(blocks)
+  if (!block) return null
+  const { data, error } = await supabase.from('prep_focus_sessions')
+    .insert({ user_id: userId, date: today, block_key: block.key, label: block.label, planned_minutes: block.minutes })
+    .select('*').single()
+  if (error) throw new Error(error.message)
+  return data as FocusSession
+}
+
+// Pause/resume: a pause counts as one interruption; resuming adds the paused
+// span to paused_seconds.
+export async function toggleFocusPause(supabase: SupabaseClient, userId: string, id: string): Promise<FocusSession | null> {
+  const { data: f } = await supabase.from('prep_focus_sessions').select('*').eq('id', id).eq('user_id', userId).single()
+  if (!f || f.status !== 'active') return (f as FocusSession | null) ?? null
+  const patch = f.paused_at
+    ? { paused_at: null, paused_seconds: f.paused_seconds + Math.round((Date.now() - new Date(f.paused_at).getTime()) / 1000) }
+    : { paused_at: new Date().toISOString(), interruptions: f.interruptions + 1 }
+  const { data } = await supabase.from('prep_focus_sessions').update(patch).eq('id', id).select('*').single()
+  return (data as FocusSession | null) ?? null
+}
+
+// A Question Bank block is done only by practice: today's answered count in
+// its category must reach the label's "× N". null = not a bank block, or met.
+export async function bankShortfall(supabase: SupabaseClient, userId: string, block: Pick<PrepBlock, 'key' | 'label'>): Promise<{ done: number; quota: number } | null> {
+  if (!block.key.startsWith('bank:')) return null
+  const quota = blockQuota(block)
+  if (!quota) return null
+  const { data } = await supabase.from('question_progress')
+    .select('question_id, coding_questions!inner(category)').eq('user_id', userId)
+    .eq('coding_questions.category', block.key.slice(5)).gte('last_seen_at', istMidnightUtc())
+  const done = data?.length ?? 0
+  return done >= quota ? null : { done, quota }
+}
+
+// Finish = the block is done (ticked in today's plan); abandon = time is
+// kept but the block stays open. Finishing a bank block under its quota is
+// refused: the session keeps running and `short` says how far off it is.
+export async function endFocus(supabase: SupabaseClient, userId: string, id: string, finished: boolean): Promise<{ focus: FocusSession | null; session: PrepSession | null; short?: { done: number; quota: number } }> {
+  const { data: f } = await supabase.from('prep_focus_sessions').select('*').eq('id', id).eq('user_id', userId).single()
+  if (!f || f.status !== 'active') return { focus: (f as FocusSession | null) ?? null, session: null }
+  if (finished) {
+    const { data: s } = await supabase.from('prep_sessions').select('blocks').eq('user_id', userId).eq('date', f.date).maybeSingle()
+    const short = await bankShortfall(supabase, userId, (s?.blocks as PrepBlock[] | undefined)?.find(b => b.key === f.block_key) ?? { key: f.block_key, label: f.label })
+    if (short) return { focus: f as FocusSession, session: null, short }
+  }
+  const focus = await closeFocus(supabase, f as FocusSession, finished ? 'completed' : 'abandoned')
+  const session = finished ? await updateBlocks(supabase, userId, f.date, blocks => blocks.map(b => b.key === f.block_key ? { ...b, done: true } : b)) : null
+  return { focus, session }
+}
+
+async function closeFocus(supabase: SupabaseClient, f: FocusSession, status: 'completed' | 'abandoned'): Promise<FocusSession | null> {
+  const { data } = await supabase.from('prep_focus_sessions')
+    .update({ status, ended_at: new Date().toISOString(), actual_seconds: focusSeconds(f), paused_at: null })
+    .eq('id', f.id).eq('status', 'active').select('*').maybeSingle()
+  return (data as FocusSession | null) ?? null
 }

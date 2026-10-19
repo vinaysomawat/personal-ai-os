@@ -1,92 +1,73 @@
 'use client'
 
 import { useEffect, useState, useTransition } from 'react'
-import { Check, Swords, Timer, X } from 'lucide-react'
+import { useRouter } from 'next/navigation'
+import { Swords, Timer, X } from 'lucide-react'
 import Card from '@/components/Card'
 import MicButton, { appendText } from '@/components/MicButton'
 import ConfirmDialog from '@/components/ConfirmDialog'
 import { modalCancelButtonClass, modalSaveButtonClass } from '@/components/Modal'
-import { abandonFightAction, answerFightAction, markFixReadAction } from '../actions'
-import { CODING_BOSSES, MIN_ANSWER, winAt, type Boss, type Fight } from '../boss'
-import { hm, nowBlock, type WarReadiness } from '../war'
+import { abandonFightAction, answerFightAction, markFixReadAction, savePrepTargetDate } from '../actions'
+import { CODING_BOSSES, MIN_ANSWER, bossesLeft, bossesPerDay, daysTo, fightMinutes, fightSize, winAt, type Boss, type Fight } from '../boss'
+import type { WarReadiness } from '../war'
 import AnswerReview, { CodeBlock } from './AnswerReview'
-import type { PrepSession, ReadinessAreaKey } from '../types'
+import type { PrepSession, PrepSettings, ReadinessAreaKey } from '../types'
 
 const mmss = (s: number) => `${s < 0 ? '-' : ''}${Math.floor(Math.abs(s) / 60)}:${String(Math.abs(s) % 60).padStart(2, '0')}`
 const resultCls = (f: Pick<Fight, 'status'>) => f.status === 'won' ? 'text-good bg-good-soft' : 'text-risk bg-risk-soft'
 const resultChip = (f: Fight) => `${f.status === 'won' ? '🏆' : '💀'} ${f.score ?? 0}`
 
-// ---------------- Today's fights ----------------
+// ---------------- Header + next boss ----------------
 
-export function FightsCard({ session, ladder, fights, today, busy, error, onFight, onOpen, onShowResult }: {
-  session: PrepSession | null
-  ladder: Boss[]
-  fights: Fight[]
-  today: string
+export function BossHeader({ ladder, settings, today }: { ladder: Boss[]; settings: PrepSettings; today: string }) {
+  const router = useRouter()
+  const [saving, startSave] = useTransition()
+  const left = bossesLeft(ladder)
+  const days = daysTo(settings.target_date, today)
+  const per = bossesPerDay(left, days)
+  const save = (date: string) => startSave(async () => { await savePrepTargetDate(date || null); router.refresh() })
+  return (
+    <Card padding="p-[var(--card-pad-sm)]">
+      <p className="text-[13px] font-bold text-fg-primary">⚔️ Boss Ladder <span className="text-[11.5px] font-normal text-fg-tertiary">— every readiness area under its gate is a boss. Beat it in a timed fight, graded at the end.</span></p>
+      <p className="text-[12.5px] mt-1 text-fg-primary tabular-nums flex flex-wrap items-center gap-x-1.5">
+        <span className="font-bold">{left} boss{left === 1 ? '' : 'es'} left</span>
+        <span className="text-fg-tertiary">·</span>
+        {days !== null && <span className={days < 0 ? 'text-risk' : 'text-fg-secondary'}>{days < 0 ? `${-days}d past` : `${days}d to`}</span>}
+        <input type="date" aria-label="Deadline" value={settings.target_date ?? ''} disabled={saving} onChange={e => save(e.target.value)}
+          className="bg-transparent border-b border-dashed border-border-strong text-[12px] text-fg-secondary outline-none focus:border-accent w-[118px]" />
+        {per !== null && left > 0 && <><span className="text-fg-tertiary">·</span><span className={per > 1 ? 'text-risk font-semibold' : 'text-fg-secondary'}>need {per}/day</span></>}
+      </p>
+    </Card>
+  )
+}
+
+// The top undefeated boss, with its fight button (Read Fix card first when
+// its last fight was lost and the card is unread).
+export function NextBossCard({ boss, busy, error, onFight, onShowResult }: {
+  boss: Boss | null
   busy: boolean
   error: string | null
   onFight: (area: ReadinessAreaKey) => void
-  onOpen: (href: string) => void
   onShowResult: (f: Fight) => void
 }) {
-  if (!session) return <Card title="Today's Fights"><p className="text-[12.5px] text-fg-tertiary">Couldn&apos;t build today&apos;s plan — reload.</p></Card>
-  const now = nowBlock(session.blocks)
-  const done = session.blocks.filter(b => b.done).length
-  const bossOf = (key: string) => key.startsWith('fight:') ? ladder.find(b => b.key === key.slice(6)) ?? null : null
-  const foughtToday = (area: string) => fights.find(f => f.area === area && f.date === today && (f.status === 'won' || f.status === 'lost')) ?? null
-  // A fight block's button: Read the Fix card first, else start / rematch.
-  const action = (key: string, href: string, big = false) => {
-    const boss = bossOf(key)
-    const cls = big ? `${modalSaveButtonClass} inline-flex items-center gap-1.5 !px-5 !py-2.5 !text-[14px]` : 'text-[11.5px] font-semibold text-accent hover:underline disabled:opacity-40'
-    if (boss?.state === 'fix' && boss.lastFight) return <button onClick={() => onShowResult(boss.lastFight!)} className={cls}>Read Fix card</button>
-    if (boss) return <button disabled={busy} onClick={() => onFight(boss.key)} className={cls}>{big && <Swords size={15} />}{busy && big ? 'Starting…' : boss.state === 'rematch' ? 'Rematch' : 'Fight'}</button>
-    return <button onClick={() => onOpen(href)} className={cls}>Open{big ? '' : ' →'}</button>
-  }
+  if (!boss) return <Card title="Next boss"><p className="text-[13px] text-good font-semibold">🏆 Every boss is down. Final boss: a full loop — frontend screen, system design and behavioral mocks back to back.</p></Card>
+  const n = fightSize(boss.key)
+  const coding = CODING_BOSSES.includes(boss.key)
   return (
-    <Card title="Today's Fights" action={<span className="text-[11px] text-fg-tertiary tabular-nums">{done}/{session.blocks.length} done · {hm(session.blocks.reduce((s, b) => s + b.minutes, 0))}</span>}>
+    <Card title="Next boss" action={<span className="text-[11px] text-fg-tertiary">biggest gap first · or tap any boss</span>}>
       {error && <p className="text-[12px] text-risk mb-2">{error}</p>}
-      {now ? (
-        <div className="rounded-[12px] border border-accent bg-accent-soft px-3.5 py-3 mb-3">
-          <p className="text-[10.5px] font-bold uppercase tracking-[0.5px] text-accent">Do this now</p>
-          <div className="flex flex-wrap items-end justify-between gap-2 mt-0.5">
-            <div className="min-w-0">
-              <p className="text-[17px] font-bold text-fg-primary leading-tight">{now.label} <span className="text-[13px] font-semibold text-fg-tertiary tabular-nums">· {hm(now.minutes)}</span></p>
-              <p className="text-[12px] text-fg-secondary mt-0.5">{now.detail}</p>
-              {now.links && (
-                <div className="flex flex-wrap gap-1.5 mt-1.5">
-                  {now.links.map(l => <button key={l.href + l.label} onClick={() => onOpen(l.href)} className="text-[11.5px] rounded-full px-2 py-[2px] bg-surface-1 border border-accent/40 text-accent hover:underline">{l.label} →</button>)}
-                </div>
-              )}
-            </div>
-            {action(now.key, now.href, true)}
+      <div className="rounded-[12px] border border-accent bg-accent-soft px-3.5 py-3">
+        <div className="flex flex-wrap items-end justify-between gap-2">
+          <div className="min-w-0">
+            <p className="text-[17px] font-bold text-fg-primary leading-tight">{boss.state === 'open' ? 'Boss' : 'Rematch'}: {boss.label} <span className="text-[13px] font-semibold text-fg-tertiary tabular-nums">· {fightMinutes(boss.key)}m</span></p>
+            <p className="text-[12px] text-fg-secondary mt-0.5">{coding ? 'One problem in your editor, paste the solution' : `${n} question${n === 1 ? '' : 's'}, timed, no hints`} · win at {winAt(boss.gate).toFixed(1)} avg, none under {MIN_ANSWER} · now {boss.score ?? '—'}/{boss.gate}</p>
           </div>
+          {boss.state === 'fix' && boss.lastFight
+            ? <button onClick={() => onShowResult(boss.lastFight!)} className={`${modalSaveButtonClass} !px-5 !py-2.5 !text-[14px]`}>Read Fix card</button>
+            : <button disabled={busy} onClick={() => onFight(boss.key)} className={`${modalSaveButtonClass} inline-flex items-center gap-1.5 !px-5 !py-2.5 !text-[14px]`}><Swords size={15} />{busy ? 'Starting…' : boss.state === 'rematch' ? 'Rematch' : 'Fight'}</button>}
         </div>
-      ) : (
-        <p className="text-[13px] text-good font-semibold mb-3">✓ Every fight done. It only counts if tomorrow looks the same.</p>
-      )}
-      <ol className="flex flex-col gap-1.5">
-        {session.blocks.map((b, i) => {
-          const fought = b.key.startsWith('fight:') ? foughtToday(b.key.slice(6)) : null
-          return (
-            <li key={b.key} className={`flex items-start gap-2.5 rounded-[9px] px-2.5 py-2 ${b.done ? 'bg-good-soft' : 'bg-surface-2'}`}>
-              {/* Status only — a block completes when its fight or mock is done. */}
-              <span aria-label={b.done ? 'Done' : 'Not done'} className={`mt-0.5 w-[18px] h-[18px] rounded-full border flex items-center justify-center shrink-0 ${b.done ? 'bg-good border-good text-on-good' : 'border-border-strong'}`}>
-                {b.done && <Check size={11} strokeWidth={3} />}
-              </span>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-baseline justify-between gap-2">
-                  <p className={`text-[12.5px] font-semibold ${b.done ? 'text-fg-tertiary' : 'text-fg-primary'}`}>{i + 1}. {b.label}</p>
-                  <span className="text-[11px] text-fg-tertiary tabular-nums shrink-0">{hm(b.minutes)}</span>
-                </div>
-                <p className="text-[11.5px] text-fg-secondary mt-0.5 hidden sm:block">{b.detail}</p>
-              </div>
-              <div className="flex flex-col items-end gap-1 shrink-0">
-                {fought ? <button onClick={() => onShowResult(fought)} className={`text-[11px] font-bold tabular-nums rounded px-1.5 py-[1px] ${resultCls(fought)}`}>{resultChip(fought)}</button> : !b.done && action(b.key, b.href)}
-              </div>
-            </li>
-          )
-        })}
-      </ol>
+      </div>
+      <p className="text-[11px] text-fg-tertiary mt-2">Fight answers count as practiced questions, so they also tick Today&apos;s question blocks. Telegram: &quot;fight&quot;, &quot;fight system design&quot;, &quot;read&quot;.</p>
     </Card>
   )
 }
@@ -102,7 +83,7 @@ function useNow() {
 export function FightScreen({ fight, label, onChange, onAbandoned }: {
   fight: Fight
   label: string
-  onChange: (f: Fight) => void
+  onChange: (f: Fight, session: PrepSession | null) => void
   onAbandoned: () => void
 }) {
   const now = useNow()
@@ -123,10 +104,10 @@ export function FightScreen({ fight, label, onChange, onAbandoned }: {
     setError(null)
     start(async () => {
       try {
-        const f = await answerFightAction(fight.id, answer, spoken, elapsed)
+        const { fight: f, session } = await answerFightAction(fight.id, answer, spoken, elapsed)
         if (!f) { setError('Couldn\'t save — try again.'); return }
         setAnswer(''); setSpoken(false)
-        onChange(f)
+        onChange(f, session)
       } catch (e) { setError(e instanceof Error ? e.message : 'Couldn\'t save — try again.') }
     })
   }

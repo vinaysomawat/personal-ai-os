@@ -2,15 +2,17 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import { todayIST, daysAgoIST } from '@/lib/date'
 import { speechStats } from '@/lib/speech-stats'
 import { critiqueQuestion, SPOKEN_NOTE } from './critique'
-import { getQuestionBank, loadPrepData, updateBlocks } from './core'
-import { CODING_BOSSES, FIGHTS, MIN_ANSWER, bossLadder, fightItems, fightScore, fightWon, fixPoints, winAt, type Fight } from './boss'
+import { getQuestionBank, loadPrepData, syncBankBlocks } from './core'
+import { CODING_BOSSES, FIGHTS, MIN_ANSWER, fightItems, fightScore, fightWon, fixPoints, winAt, type Fight } from './boss'
 import { GATES } from './war'
-import { READINESS_AREAS, type ReadinessAreaKey } from './types'
+import { READINESS_AREAS, type PrepSession, type ReadinessAreaKey } from './types'
 
-// Boss Ladder fights — plain server module (not 'use server'); actions.ts
-// wraps it for the web, the Daily bot calls it with the service client.
-// Answers are stored as they come; the whole fight is graded at the end in
-// parallel (one critique per answer), so nothing is revealed mid-fight.
+// Boss Ladder fights (the Bosses tab — extra practice, not part of the daily
+// plan) — plain server module (not 'use server'); actions.ts wraps it for
+// the web, the Daily bot calls it with the service client. Answers are
+// stored as they come; the whole fight is graded at the end in parallel (one
+// critique per answer), so nothing is revealed mid-fight. Graded answers
+// count as practiced questions, so they also tick the day's "× N" blocks.
 
 const TELEGRAM_IDLE_MS = 30 * 60_000
 const label = (area: ReadinessAreaKey) => READINESS_AREAS.find(a => a.key === area)?.label ?? area
@@ -52,16 +54,17 @@ export async function startFight(db: SupabaseClient, userId: string, area: Readi
   return { fight: data as Fight, error: null }
 }
 
-// Stores the current answer and moves on; the last one ends the fight.
-export async function answerFight(db: SupabaseClient, userId: string, id: string, answer: string, opts: { spoken?: boolean; seconds?: number } = {}): Promise<Fight | null> {
+// Stores the current answer and moves on; the last one ends the fight
+// (`session` = today's plan after its question blocks were re-synced).
+export async function answerFight(db: SupabaseClient, userId: string, id: string, answer: string, opts: { spoken?: boolean; seconds?: number } = {}): Promise<{ fight: Fight | null; session: PrepSession | null }> {
   const { data } = await db.from('prep_fights').select('*').eq('id', id).eq('user_id', userId).single()
   const f = data as Fight | null
-  if (!f || f.status !== 'active') return f
+  if (!f || f.status !== 'active') return { fight: f, session: null }
   const items = f.items.map((it, i) => i === f.current ? { ...it, answer: answer.trim(), spoken: !!opts.spoken, seconds: Math.max(0, Math.round(opts.seconds ?? 0)) } : it)
   const current = f.current + 1
   const { data: saved } = await db.from('prep_fights').update({ items, current, updated_at: new Date().toISOString() }).eq('id', id).eq('status', 'active').select('*').single()
-  if (!saved) return null
-  return current >= items.length ? finishFight(db, userId, saved as Fight) : (saved as Fight)
+  if (!saved) return { fight: null, session: null }
+  return current >= items.length ? finishFight(db, userId, saved as Fight) : { fight: saved as Fight, session: null }
 }
 
 export async function abandonFight(db: SupabaseClient, userId: string, id: string): Promise<Fight | null> {
@@ -77,8 +80,8 @@ export async function markFixRead(db: SupabaseClient, userId: string, id: string
 
 // Grades every answer (blank ones get no AI call and no rating), decides
 // won/lost, keeps the Fix card, writes the ratings to question_progress and
-// ticks the day's fight block.
-async function finishFight(db: SupabaseClient, userId: string, f: Fight): Promise<Fight | null> {
+// re-syncs the day's question blocks for those categories.
+async function finishFight(db: SupabaseClient, userId: string, f: Fight): Promise<{ fight: Fight | null; session: PrepSession | null }> {
   const graded = await Promise.all(f.items.map(async it => {
     if (!it.answer) return it
     const { seconds, fillers } = speechStats(it.answer)
@@ -102,8 +105,8 @@ async function finishFight(db: SupabaseClient, userId: string, f: Fight): Promis
       ...(it.rating !== null ? { last_rating: it.rating, last_rated_at: now } : {}),
     })), { onConflict: 'user_id,question_id' })
   }
-  await updateBlocks(db, userId, f.date, blocks => blocks.map(b => b.key === `fight:${f.area}` ? { ...b, done: true } : b))
-  return (data as Fight | null) ?? null
+  const session = answered.length ? await syncBankBlocks(db, userId, [...new Set(answered.map(it => it.category))]) : null
+  return { fight: (data as Fight | null) ?? null, session }
 }
 
 // ---------------- Telegram (Daily bot) ----------------
@@ -154,16 +157,14 @@ export function fightResultText(f: Fight): string {
   return lines.join('\n')
 }
 
-// "fight" / "fight system design": the named boss, else today's next open
-// fight block, else the top boss on the ladder.
+// "fight" / "fight system design": the named boss, else the top undefeated
+// spoken boss on the ladder.
 export async function startTelegramFight(db: SupabaseClient, userId: string, requested: ReadinessAreaKey | null): Promise<string> {
   let area = requested
   if (!area) {
     const data = await loadPrepData(db, userId)
-    const next = data.session?.blocks.find(b => !b.done && b.key.startsWith('fight:'))
-    area = (next?.key.slice(6) as ReadinessAreaKey | undefined)
-      ?? bossLadder(data.readiness, data.fights, data.today).find(b => b.state !== 'defeated' && !CODING_BOSSES.includes(b.key))?.key ?? null
-    if (!area) return '🏆 Every boss is down. The final boss is a full mock loop on the web (Prep → Mock Round).'
+    area = data.ladder.find(b => b.state !== 'defeated' && !CODING_BOSSES.includes(b.key))?.key ?? null
+    if (!area) return '🏆 Every spoken boss is down — the coding bosses are on the web (Prep → Bosses).'
   }
   const { fight, error } = await startFight(db, userId, area, 'telegram')
   if (!fight) return `❌ ${error}`
@@ -182,7 +183,7 @@ export async function answerTelegramFight(db: SupabaseClient, userId: string, te
     await abandonFight(db, userId, f.id)
     return `🏳️ Gave up the ${label(f.area)} fight — it doesn't count. Reply *FIGHT* to start again.`
   }
-  const next = await answerFight(db, userId, f.id, t, { spoken })
+  const { fight: next } = await answerFight(db, userId, f.id, t, { spoken })
   if (!next) return '❌ Couldn\'t save that answer — try again.'
   return next.status === 'active' ? `✓ Saved.\n\n${fightQuestionText(next)}` : fightResultText(next)
 }

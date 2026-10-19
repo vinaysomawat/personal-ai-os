@@ -7,7 +7,8 @@ import { todayIST } from '@/lib/date'
 import { formatOf, roundScore, type MockFormat, type MockItem, type MockReview, type MockRound } from './mock'
 import { COMPETENCIES } from './types'
 import type { PrepSession, Story, StoryRehearsal } from './types'
-import { loadPrepData, updateBlocks } from './core'
+import { endFocus, loadPrepData, startFocus, syncBankBlocks, toggleFocusPause } from './core'
+import type { FocusSession } from './war'
 import { abandonFight, answerFight, markFixRead, startFight } from './fight'
 import type { Fight } from './boss'
 import type { ReadinessAreaKey } from './types'
@@ -22,7 +23,35 @@ export async function getPrepData() {
   return loadPrepData(supabase, user.id)
 }
 
-// ---------------- Boss Ladder fights ----------------
+// ---------------- Focus sessions (War Mode) ----------------
+
+export async function startFocusSession(blockKey: string): Promise<FocusSession | null> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) throw new Error('Not authenticated')
+  const f = await startFocus(supabase, user.id, blockKey)
+  revalidatePath('/prep')
+  return f
+}
+
+export async function toggleFocusSessionPause(id: string): Promise<FocusSession | null> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) throw new Error('Not authenticated')
+  return toggleFocusPause(supabase, user.id, id)
+}
+
+export async function endFocusSession(id: string, finished: boolean): Promise<{ focus: FocusSession | null; session: PrepSession | null }> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) throw new Error('Not authenticated')
+  const res = await endFocus(supabase, user.id, id, finished)
+  revalidatePath('/prep')
+  revalidatePath('/dashboard')
+  return res
+}
+
+// ---------------- Boss Ladder fights (Bosses tab) ----------------
 
 async function signedIn() {
   const supabase = await createClient()
@@ -37,11 +66,11 @@ export async function startFightAction(area: ReadinessAreaKey): Promise<{ fight:
 }
 
 // The last answer grades the whole fight (one critique per answer, in parallel).
-export async function answerFightAction(id: string, answer: string, spoken: boolean, seconds: number): Promise<Fight | null> {
+export async function answerFightAction(id: string, answer: string, spoken: boolean, seconds: number): Promise<{ fight: Fight | null; session: PrepSession | null }> {
   const { supabase, userId } = await signedIn()
-  const f = await answerFight(supabase, userId, id, answer, { spoken, seconds })
-  if (f && f.status !== 'active') { revalidatePath('/prep'); revalidatePath('/dashboard') }
-  return f
+  const res = await answerFight(supabase, userId, id, answer, { spoken, seconds })
+  if (res.fight && res.fight.status !== 'active') { revalidatePath('/prep'); revalidatePath('/dashboard') }
+  return res
 }
 
 export async function abandonFightAction(id: string): Promise<Fight | null> {
@@ -123,14 +152,15 @@ export async function critiqueFollowUpAnswer(rubric: Rubric, original: string, f
   return critiqueFollowUp(user.id, rubric, original, followUp, answer, spoken ? SPOKEN_NOTE(seconds, fillers) : '')
 }
 
-// Records a Question Bank answer (the question counts as practiced).
-export async function answerQuestion(questionId: string, answer: string | null, rating: number | null = null): Promise<void> {
+// Records a Question Bank answer (the question counts as practiced); the
+// matching Job Hunt block auto-completes once today's quota is met.
+export async function answerQuestion(questionId: string, answer: string | null, rating: number | null = null): Promise<PrepSession | null> {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) throw new Error('Not authenticated')
 
   const [{ data: q }, { data: prev }] = await Promise.all([
-    supabase.from('coding_questions').select('id').eq('id', questionId).single(),
+    supabase.from('coding_questions').select('id, category').eq('id', questionId).single(),
     supabase.from('question_progress').select('attempts, last_answer').eq('user_id', user.id).eq('question_id', questionId).maybeSingle(),
   ])
   if (!q) throw new Error('Question not found')
@@ -142,12 +172,14 @@ export async function answerQuestion(questionId: string, answer: string | null, 
   }, { onConflict: 'user_id,question_id' })
   if (error) throw new Error(error.message)
 
+  const session = await syncBankBlocks(supabase, user.id, [q.category])
   revalidatePath('/prep')
+  return session
 }
 
 // Saves a finished Mock Round: each answered (not skipped) bank question
 // counts as practiced in question_progress, the round goes into mock_rounds,
-// and today's mock block of that format auto-completes.
+// and today's mock block auto-completes.
 export async function saveMockRound(format: MockFormat, items: MockItem[], durationSeconds: number): Promise<{ round: MockRound; session: PrepSession | null }> {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -175,7 +207,7 @@ export async function saveMockRound(format: MockFormat, items: MockItem[], durat
     .select('id, format, items, duration_seconds, created_at, review').single()
   if (error) throw new Error(error.message)
 
-  const session = await updateBlocks(supabase, user.id, todayIST(), blocks => blocks.map(b => b.key === `mock:${format}` ? { ...b, done: true } : b))
+  const session = await syncBankBlocks(supabase, user.id, [...new Set(answered.map(i => i.category))], b => b.key === 'mock')
   revalidatePath('/prep')
   revalidatePath('/dashboard')
   return { round: round as MockRound, session }

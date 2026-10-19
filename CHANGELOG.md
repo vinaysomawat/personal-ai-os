@@ -3,6 +3,10 @@
 One line per shipped change, newest first. Sourced from commit messages —
 append here whenever you deploy, same cadence as the version bump.
 
+## 2026-10-20
+
+- **Daily questions are back; the Boss Ladder is its own tab.** Today has the question plan again ("× N" questions per category, sized by hours, plus the focus timer and Telegram start / pause / done). Boss fights moved to a new Bosses tab as extra practice: the fight answers still count toward Today's question blocks, and "fight" / "read" still work on Telegram. The 7:30am and 9:30pm messages add a line with bosses left and days to your deadline. Angular stays out of readiness, and its daily quota is now 0.
+
 ## 2026-10-19
 
 - **Boss Ladder replaces the daily checklist.** Every readiness area under its gate is now a boss, hardest gap first. You beat one in a short timed fight: 5 questions (1 problem for UI coding and DSA), graded at the end, and you win with an average at the gate and no answer under 5. A lost fight leaves a Fix card of the key points you missed, and the rematch unlocks once you've read it. The day is 2–5 fights by load level (the mock is one of them), and the header shows bosses left, days to your deadline and the pace needed. Fights also run on Telegram ("fight", "fight system design", "read"). Removed: question quotas, the STAR-stories and interview-redo blocks, the focus timer (and Telegram start / pause / done), and Angular as a readiness area (its questions stay in the Question Bank). Accessibility now counts its rated answers, and Leadership counts Tech-lead answers.

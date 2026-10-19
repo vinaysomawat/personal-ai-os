@@ -1,7 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { daysAgoIST } from '@/lib/date'
 import { loadPrepData } from '@/features/prep/core'
-import { dayPace, istHourNow, readinessTier, type DayPace } from '@/features/prep/war'
+import { dayPace, istHourNow, practicedToday, readinessTier, type DayPace } from '@/features/prep/war'
 import { levelOf } from '@/features/prep/hunt'
 import { runwayMonths } from '@/features/finance/calculations'
 
@@ -11,8 +11,8 @@ export interface HuntHero {
   overall: number
   tier: { label: string; tone: 'good' | 'warn' | 'risk' }
   topBlocker: { label: string; score: number | null; gate: number } | null
-  // Today's daily score (= % of today's plan done, by block minutes), the
-  // level, and the 13 days before.
+  // Today's daily score (= % of today's plan done, partial credit per
+  // question), the level, and the 13 days before (whole blocks only).
   score: { today: number; level: string; recent: { date: string; score: number | null }[] }
   nextInterview: { company: string; kind: string; scheduled_at: string } | null
   // Today's plan done vs the 8am–10pm window (computed at request time).
@@ -28,7 +28,7 @@ export async function loadHuntHero(db: SupabaseClient, userId: string): Promise<
     db.from('expenses').select('amount').eq('user_id', userId).gte('date', daysAgoIST(90)),
   ])
   const blocks = prep.session?.blocks ?? []
-  const pace = dayPace(blocks, istHourNow())
+  const pace = dayPace(blocks, istHourNow(), practicedToday(prep.bank, prep.today))
   const avgSpend = Math.round((expensesRes.data ?? []).reduce((s, e) => s + Number(e.amount), 0) / 3)
   return {
     overall: prep.war.overall,
