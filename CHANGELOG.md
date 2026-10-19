@@ -3,6 +3,10 @@
 One line per shipped change, newest first. Sourced from commit messages —
 append here whenever you deploy, same cadence as the version bump.
 
+## 2026-10-19
+
+- **Hours left in the Question Bank.** Picking a category now shows how many questions you haven't done yet, roughly how many hours they'll take (rounded up to whole hours) and how many days that is at today's quota. The Coverage card shows hours left for each category and in total.
+
 ## 2026-10-15
 
 - **Blocker chips removed from the War Mode header.** The red per-area chips under the readiness score are gone; the blocker count stays on the readiness tile.
