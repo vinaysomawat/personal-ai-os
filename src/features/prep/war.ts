@@ -8,28 +8,6 @@ import { redoInterval } from './hunt'
 // AI only writes answer reviews and the weekly forecast; it never scores,
 // allocates time or decides what's next.
 
-export interface FocusSession {
-  id: string
-  date: string
-  block_key: string
-  label: string
-  planned_minutes: number
-  started_at: string
-  paused_at: string | null
-  paused_seconds: number
-  interruptions: number
-  ended_at: string | null
-  actual_seconds: number | null
-  status: 'active' | 'completed' | 'abandoned'
-}
-
-// Seconds of real focus: wall clock minus pauses (live for an active one).
-export function focusSeconds(f: FocusSession, nowMs = Date.now()): number {
-  if (f.actual_seconds !== null && f.status !== 'active') return f.actual_seconds
-  const end = f.paused_at ? new Date(f.paused_at).getTime() : nowMs
-  return Math.max(0, Math.round((end - new Date(f.started_at).getTime()) / 1000) - f.paused_seconds)
-}
-
 // Weekly AI forecast (prep_forecasts.forecast). Confidence is not the AI's —
 // it's War readiness at the time.
 export interface Forecast {
@@ -55,7 +33,6 @@ export const GATES: Record<ReadinessAreaKey, { gate: number; weight: number }> =
   sysdesign: { gate: 80, weight: 15 },
   ainative: { gate: 75, weight: 10 },
   uicoding: { gate: 80, weight: 10 },
-  angular: { gate: 80, weight: 8 },
   dsa: { gate: 70, weight: 5 },
   backend: { gate: 70, weight: 8 },
   aiassisted: { gate: 75, weight: 8 },
@@ -212,10 +189,9 @@ export function revisionQueue(bank: BankQuestion[], today: string): RevisionItem
 
 // ---------------- Pace + tone ----------------
 
-// Pace: share of today's plan done vs share of the 08:00–22:00 IST window
-// gone. Question blocks earn partial credit (answered today ÷ quota), so it
-// moves with every answer; other blocks count when done. Ahead/behind is that
-// gap in window time.
+// Pace: share of today's plan done (block minutes, a block counts when done)
+// vs share of the 08:00–22:00 IST window gone. Ahead/behind is that gap in
+// window time.
 const DAY_START = 8, DAY_END = 22
 const WINDOW_MINUTES = (DAY_END - DAY_START) * 60
 const ON_PACE_MINUTES = 10
@@ -231,24 +207,9 @@ export interface DayPace {
   blocksTotal: number
 }
 
-// Questions practiced today per category (feeds partial block credit).
-export function practicedToday(bank: Pick<BankQuestion, 'category' | 'last_seen_at'>[], today: string): Record<string, number> {
-  const out: Record<string, number> = {}
-  for (const q of bank) if (q.last_seen_at && toISTDateStr(q.last_seen_at) === today) out[q.category] = (out[q.category] ?? 0) + 1
-  return out
-}
-
-// A bank block's quota is its label's "× N".
-export const blockQuota = (b: Pick<PrepBlock, 'label'>) => Number(b.label.match(/× (\d+)$/)?.[1] ?? 0)
-
-export function dayPace(blocks: PrepBlock[], istHourFloat: number, doneToday: Record<string, number> = {}): DayPace {
-  const progress = (b: PrepBlock) => {
-    if (b.done) return 1
-    const quota = b.key.startsWith('bank:') ? blockQuota(b) : 0
-    return quota ? Math.min(1, (doneToday[b.key.slice(5)] ?? 0) / quota) : 0
-  }
+export function dayPace(blocks: PrepBlock[], istHourFloat: number): DayPace {
   const plannedMinutes = blocks.reduce((s, b) => s + b.minutes, 0)
-  const doneMinutes = Math.round(blocks.reduce((s, b) => s + b.minutes * progress(b), 0))
+  const doneMinutes = blocks.reduce((s, b) => s + (b.done ? b.minutes : 0), 0)
   const done = plannedMinutes ? doneMinutes / plannedMinutes : 0
   const day = Math.min(1, Math.max(0, (istHourFloat - DAY_START) / (DAY_END - DAY_START)))
   return {
@@ -286,12 +247,12 @@ export function coachLine(p: DayPace): string {
 // already weakest-first).
 export const nowBlock = (blocks: PrepBlock[]) => blocks.find(b => !b.done) ?? null
 
-// ---------------- Adaptive allocation ----------------
+// ---------------- Category gap ----------------
 
-// Which readiness areas each Question Bank category trains.
+// Which readiness areas each Question Bank category trains (the Telegram
+// drill's default category = the biggest gap).
 const CATEGORY_AREAS: Record<string, ReadinessAreaKey[]> = {
   quiz: ['js', 'ts', 'react', 'css', 'a11y', 'perf', 'testing', 'browser'],
-  angular: ['angular'],
   'ai-native': ['ainative'],
   behavioral: ['behavioral'],
   'javascript-functions': ['js'],
@@ -314,11 +275,4 @@ export function categoryGap(category: string, cells: ReadinessCell[]): number {
     return c?.score == null ? 1 : Math.max(0, (gate - c.score) / gate)
   })
   return gaps.length ? gaps.reduce((s, g) => s + g, 0) / gaps.length : 0.5
-}
-
-// Time multiplier per category: 0.5 (no gap) … 1.5 (blind spot). Shares are
-// renormalized by the caller so the day's total stays the same — the plan
-// moves time toward the biggest interview risk instead of spreading evenly.
-export function categoryWeights(cells: ReadinessCell[]): Record<string, number> {
-  return Object.fromEntries(Object.keys(CATEGORY_AREAS).map(c => [c, 0.5 + categoryGap(c, cells)]))
 }

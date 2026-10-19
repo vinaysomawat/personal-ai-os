@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState, useTransition } from 'react'
+import { useRouter } from 'next/navigation'
 import { ChevronRight, MessageSquareQuote, Plus, RotateCcw, Shuffle, Sparkles } from 'lucide-react'
 import Card from '@/components/Card'
 import MicButton, { appendText } from '@/components/MicButton'
@@ -11,14 +12,15 @@ import Modal, { modalLabelClass, modalInputClass, modalCancelButtonClass, modalS
 import { useEscapeKey } from '@/lib/use-escape-key'
 import { daysAgoIST, toISTDateStr } from '@/lib/date'
 import { formatOf, type MockRound } from '../mock'
-import { startFocusSession, saveStory, deleteStory, rehearseStory, type StoryInput } from '../actions'
-import { COMPETENCIES, REHEARSAL_PROMPTS, type BankQuestion, type CompetencyKey, type PrepSession, type PrepSettings, type ReadinessCell, type Story, type StoryRehearsal } from '../types'
-import type { CategoryCoverage, CategoryQuota } from '../hunt'
+import { saveStory, deleteStory, rehearseStory, startFightAction, type StoryInput } from '../actions'
+import { COMPETENCIES, REHEARSAL_PROMPTS, type BankQuestion, type CompetencyKey, type PrepSession, type PrepSettings, type ReadinessAreaKey, type ReadinessCell, type Story, type StoryRehearsal } from '../types'
+import type { Boss, Fight } from '../boss'
 import { QuestionsTab } from './QuestionsTab'
 import { MockTab } from './MockTab'
 import AnswerReview from './AnswerReview'
-import { FocusBar, ForecastCard, GatesCard, MissionCard, RevisionCard, WarHeader, WeaknessCard } from './WarRoom'
-import { blockQuota, dayPace, focusSeconds, istHourNow, paceLabel, paceStatus, practicedToday, type FocusSession, type Forecast, type RevisionItem, type TopicWeakness, type WarReadiness } from '../war'
+import { ForecastCard, RevisionCard, WarHeader, WeaknessCard } from './WarRoom'
+import { FightResult, FightScreen, FightsCard, LadderCard } from './BossLadder'
+import { dayPace, istHourNow, paceLabel, paceStatus, type Forecast, type RevisionItem, type TopicWeakness, type WarReadiness } from '../war'
 import PageHeader, { HeaderChip } from '@/components/PageHeader'
 import StatCard from '@/components/StatCard'
 
@@ -44,13 +46,13 @@ interface Props {
   war: WarReadiness
   weakness: TopicWeakness[]
   revision: RevisionItem[]
-  focusSessions: FocusSession[]
+  fights: Fight[]
+  ladder: Boss[]
   forecast: { date: string; forecast: Forecast } | null
   stories: Story[]
   rehearsals: StoryRehearsal[]
   readiness: ReadinessCell[]
   settings: PrepSettings
-  coverage: (CategoryCoverage | CategoryQuota)[]
   bank: BankQuestion[]
 }
 
@@ -63,20 +65,38 @@ export default function PrepView(props: Props) {
   const [rounds, setRounds] = useState(props.mockRounds)
   const [stories, setStories] = useState(props.stories)
   const [rehearsals, setRehearsals] = useState(props.rehearsals)
-  const [, startTransition] = useTransition()
 
-  const [focusSessions, setFocusSessions] = useState(props.focusSessions)
   const [bankTopic, setBankTopic] = useState(props.initialTopic ?? '')
-  // Shown briefly after a session ends itself (its block got done).
-  const [focusEnded, setFocusEnded] = useState<{ label: string; seconds: number } | null>(null)
-  const todayFocus = focusSessions.filter(f => f.date === props.today)
   // Pace vs the 8am–10pm window, re-read every minute.
   const [, setTick] = useState(0)
   useEffect(() => { const t = setInterval(() => setTick(x => x + 1), 60_000); return () => clearInterval(t) }, [])
-  const doneToday = practicedToday(bank, props.today)
-  const pace = dayPace(session?.blocks ?? [], istHourNow(), doneToday)
-  const activeFocus = focusSessions.find(f => f.status === 'active') ?? null
-  const upsertFocus = (f: FocusSession) => setFocusSessions(prev => [...prev.filter(x => x.id !== f.id), f])
+  const pace = dayPace(session?.blocks ?? [], istHourNow())
+
+  // Boss Ladder: one web fight at a time; a finished one shows its result
+  // (and Fix card) until closed. The ladder itself comes from the server.
+  const router = useRouter()
+  const [fights, setFights] = useState(props.fights)
+  const [shown, setShown] = useState<string | null>(null)
+  const [fightError, setFightError] = useState<string | null>(null)
+  const [starting, startFight] = useTransition()
+  const active = fights.find(f => f.status === 'active' && f.channel === 'web') ?? null
+  const result = fights.find(f => f.id === shown) ?? null
+  const upsertFight = (f: Fight) => setFights(prev => [f, ...prev.filter(x => x.id !== f.id)])
+  const bossLabel = (area: string) => props.readiness.find(c => c.key === area)?.label ?? area
+  const fight = (area: ReadinessAreaKey) => {
+    setFightError(null)
+    startFight(async () => {
+      const r = await startFightAction(area)
+      if (r.fight) { upsertFight(r.fight); setShown(null); setTab('today'); window.scrollTo({ top: 0 }) } else setFightError(r.error)
+    })
+  }
+  const onFightChange = (f: Fight) => {
+    upsertFight(f)
+    if (f.status === 'active') return
+    setShown(f.id)
+    setSession(prev => prev && { ...prev, blocks: prev.blocks.map(b => b.key === `fight:${f.area}` ? { ...b, done: true } : b) })
+    router.refresh()
+  }
 
   // In-page links switch tabs (and the Questions category/topic or Mock
   // format) instead of navigating.
@@ -88,39 +108,6 @@ export default function PrepView(props: Props) {
     if (p.get('format')) setMockFormat(p.get('format'))
   }
   const openTopic = (category: string, topic: string) => { setBankCategory(category); setBankTopic(topic); setTab('questions') }
-  // Start (or return to) a block's focus session and go straight to its work;
-  // the timer is the floating FocusBar, not a separate screen.
-  const goToWork = (key: string) => {
-    const href = session?.blocks.find(b => b.key === key)?.href
-    if (href?.startsWith('/prep')) openHref(href)
-  }
-  const startFocus = (key: string) => {
-    goToWork(key)
-    if (activeFocus?.block_key === key) return
-    setFocusEnded(null)
-    startTransition(async () => { const f = await startFocusSession(key); if (f) upsertFocus(f) })
-  }
-  // The server completes the session when its block turns done (quota met,
-  // ticked); mirror that locally the moment the plan comes back done.
-  const activeBlock = activeFocus ? session?.blocks.find(b => b.key === activeFocus.block_key) ?? null : null
-  useEffect(() => {
-    if (!activeFocus || !activeBlock?.done) return
-    const seconds = focusSeconds(activeFocus)
-    upsertFocus({ ...activeFocus, status: 'completed', ended_at: new Date().toISOString(), actual_seconds: seconds, paused_at: null })
-    setFocusEnded({ label: activeFocus.label, seconds })
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- fires on the block turning done
-  }, [activeFocus?.id, activeBlock?.done])
-  useEffect(() => {
-    if (!focusEnded) return
-    const t = setTimeout(() => setFocusEnded(null), 5000)
-    return () => clearTimeout(t)
-  }, [focusEnded])
-  // "3/7" for a question block.
-  const focusProgress = (() => {
-    if (!activeFocus?.block_key.startsWith('bank:')) return null
-    const quota = blockQuota(activeFocus)
-    return quota ? `${Math.min(doneToday[activeFocus.block_key.slice(5)] ?? 0, quota)}/${quota}` : null
-  })()
 
   const lastRound = rounds[0] ?? null
   const roundsThisWeek = rounds.filter(r => toISTDateStr(r.created_at) >= daysAgoIST(6)).length
@@ -147,17 +134,24 @@ export default function PrepView(props: Props) {
 
       {tab === 'today' && (
         <>
-          <WarHeader war={props.war} settings={props.settings} questionsPerDay={props.coverage.reduce((s, c) => s + ('quota' in c ? c.quota : 0), 0)} pace={pace} nextInterview={props.nextInterview} />
+          <WarHeader war={props.war} settings={props.settings} pace={pace} nextInterview={props.nextInterview} ladder={props.ladder} today={props.today} />
           <div className="grid grid-cols-1 lg:grid-cols-[1fr_380px] gap-[var(--grid-gap)] items-start">
             <div className="space-y-[var(--grid-gap)]">
-              <MissionCard session={session} focusSessions={todayFocus} doneToday={doneToday} onStart={startFocus} onOpen={openHref} />
+              {active ? (
+                <FightScreen fight={active} label={bossLabel(active.area)} onChange={onFightChange} onAbandoned={() => setFights(prev => prev.filter(f => f.id !== active.id))} />
+              ) : (
+                <>
+                  {result && <FightResult fight={result} label={bossLabel(result.area)} onChange={f => { upsertFight(f); router.refresh() }} onClose={() => setShown(null)} />}
+                  <FightsCard session={session} ladder={props.ladder} fights={fights} today={props.today} busy={starting} error={fightError} onFight={fight} onOpen={openHref} onShowResult={f => { setShown(f.id); window.scrollTo({ top: 0, behavior: 'smooth' }) }} />
+                </>
+              )}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-[var(--grid-gap)] items-start">
                 <RevisionCard items={props.revision} onOpen={openTopic} />
                 <WeaknessCard items={props.weakness} onOpen={openTopic} />
               </div>
             </div>
             <div className="space-y-[var(--grid-gap)]">
-              <GatesCard cells={props.readiness} war={props.war} />
+              <LadderCard ladder={props.ladder} war={props.war} busy={starting || !!active} onFight={fight} onShowResult={f => { setShown(f.id); window.scrollTo({ top: 0, behavior: 'smooth' }) }} />
               <ForecastCard forecast={props.forecast} today={props.today} />
             </div>
           </div>
@@ -166,7 +160,7 @@ export default function PrepView(props: Props) {
 
       {/* Kept mounted so answers made here survive switching tabs. */}
       <div hidden={tab !== 'questions'}>
-        <QuestionsTab bank={bank} setBank={setBank} topic={bankTopic} onTopicChange={setBankTopic} coverage={props.coverage} category={bankCategory} onCategoryChange={setBankCategory} today={props.today} onGraded={s => { if (s) setSession(s) }} />
+        <QuestionsTab bank={bank} setBank={setBank} topic={bankTopic} onTopicChange={setBankTopic} category={bankCategory} onCategoryChange={setBankCategory} today={props.today} />
       </div>
 
       {tab === 'mock' && (
@@ -192,9 +186,6 @@ export default function PrepView(props: Props) {
           onRehearsed={r => setRehearsals(prev => [r, ...prev])}
         />
       )}
-      <FocusBar focus={activeFocus} progress={focusProgress} ended={focusEnded} onChange={upsertFocus}
-        onGo={() => activeFocus && goToWork(activeFocus.block_key)}
-        onEnded={(f, s) => { if (f) upsertFocus(f); if (s) setSession(s) }} />
     </div>
   )
 }

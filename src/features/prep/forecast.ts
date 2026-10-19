@@ -1,9 +1,9 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { askAI } from '@/lib/ai-gateway'
-import { todayIST } from '@/lib/date'
+import { daysAgoIST, todayIST } from '@/lib/date'
 import { loadPrepData } from './core'
 import { levelOf } from './hunt'
-import { GATES, focusSeconds, type Forecast } from './war'
+import { GATES, type Forecast } from './war'
 
 const SYSTEM = `You are a hiring manager for Senior Frontend Engineer / Frontend Tech Lead roles at top product companies that expect AI-native engineers. From the candidate's prep data below, predict how an interview loop tomorrow would go.
 Use only the data given; never invent scores or events. Be blunt and specific.
@@ -14,20 +14,20 @@ List up to 4 failures, worst first.`
 const parseList = (v: unknown) => Array.isArray(v) ? v.map(String).filter(Boolean) : []
 
 // Weekly "if you interviewed tomorrow" forecast — one Sonnet call over
-// already-computed readiness, weakness, mock and focus data; stored in
+// already-computed readiness, weakness, mock and Boss Ladder data; stored in
 // prep_forecasts (one per day). Confidence = War readiness, not the AI's.
 export async function generateForecast(db: SupabaseClient, userId: string): Promise<{ forecast: Forecast | null; error: string | null }> {
   const data = await loadPrepData(db, userId)
   const reviewed = data.mockRounds.filter(r => r.review).slice(0, 5)
-  const focusMin = Math.round(data.focusSessions.reduce((s, f) => s + focusSeconds(f), 0) / 60)
+  const week = data.fights.filter(f => f.date >= daysAgoIST(6) && (f.status === 'won' || f.status === 'lost'))
   const { data: apps } = await db.from('applications').select('company, role, status, jd_analysis').eq('user_id', userId).in('status', ['screening', 'interview'])
   const prompt = [
-    `Daily load: ${levelOf(data.settings.hours_per_day).label} (${data.settings.hours_per_day}h a day), actively interviewing.`,
+    `Daily load: ${levelOf(data.settings.hours_per_day).label} (${levelOf(data.settings.hours_per_day).fights} fights a day), actively interviewing.`,
     `Readiness (deterministic, 0-100, gate in brackets): ${data.readiness.map(c => `${c.label} ${c.score ?? 'no data'} [${GATES[c.key].gate}]`).join('; ')}.`,
     `Overall War readiness ${data.war.overall}% (bottleneck-penalized). Blockers below gate: ${data.war.blockers.map(b => `${b.label} ${b.score ?? 'no data'}/${b.gate}`).join(', ') || 'none'}.`,
     `Weakest topics: ${data.weakness.map(w => `${w.topic} (weakness ${w.score}, avg rating ${w.avgRating ?? 'unrated'}, ${w.struggles} struggles, last practiced ${w.daysSince ?? 'never'} days ago)`).join('; ')}.`,
     `Mock rounds (last ${reviewed.length} reviewed): ${reviewed.map(r => `${r.format} ${r.review!.score ?? '?'}/10 ${r.review!.verdict} — fixes: ${r.review!.fixes.join(' / ')}`).join(' | ') || 'none reviewed'}.`,
-    `Focused time last 7 days: ${focusMin} min. Revision queue: ${data.revision.map(r => `${r.topic} ${r.avgRating}/10 ${r.status}`).join(', ') || 'empty'}.`,
+    `Boss fights last 7 days: ${week.map(f => `${f.area} ${f.status} ${f.score}/10`).join(', ') || 'none'}. Revision queue: ${data.revision.map(r => `${r.topic} ${r.avgRating}/10 ${r.status}`).join(', ') || 'empty'}.`,
     `STAR stories: ${data.stories.length}.`,
     `Live interview processes: ${(apps ?? []).map(a => `${a.company} (${a.role}, ${a.status}${(a.jd_analysis as { priorityTopics?: string[] } | null)?.priorityTopics?.length ? `; JD stresses ${(a.jd_analysis as { priorityTopics: string[] }).priorityTopics.join(', ')}` : ''})`).join('; ') || 'none'}.`,
   ].join('\n')

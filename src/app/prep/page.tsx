@@ -21,14 +21,14 @@ export default async function PrepPage({ searchParams }: { searchParams: Promise
       war={data.war}
       weakness={data.weakness}
       revision={data.revision}
-      focusSessions={data.focusSessions}
+      fights={data.fights}
+      ladder={data.ladder}
       forecast={data.forecast}
       nextInterview={data.nextInterview}
       stories={data.stories}
       rehearsals={data.rehearsals}
       readiness={data.readiness}
       settings={data.settings}
-      coverage={data.coverage}
       bank={data.bank}
     />
   )

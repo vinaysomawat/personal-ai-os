@@ -7,8 +7,10 @@ import { todayIST } from '@/lib/date'
 import { formatOf, roundScore, type MockFormat, type MockItem, type MockReview, type MockRound } from './mock'
 import { COMPETENCIES } from './types'
 import type { PrepSession, Story, StoryRehearsal } from './types'
-import { endFocus, loadPrepData, startFocus, syncBankBlocks, toggleFocusPause } from './core'
-import type { FocusSession } from './war'
+import { loadPrepData, updateBlocks } from './core'
+import { abandonFight, answerFight, markFixRead, startFight } from './fight'
+import type { Fight } from './boss'
+import type { ReadinessAreaKey } from './types'
 import { critiqueFollowUp, critiqueQuestion, critiqueStory, modelAnswer, SPOKEN_NOTE } from './critique'
 import type { Rubric, Scorecard } from './scorecard'
 import { speechStats } from '@/lib/speech-stats'
@@ -20,32 +22,47 @@ export async function getPrepData() {
   return loadPrepData(supabase, user.id)
 }
 
-// ---------------- Focus sessions (War Mode) ----------------
+// ---------------- Boss Ladder fights ----------------
 
-export async function startFocusSession(blockKey: string): Promise<FocusSession | null> {
+async function signedIn() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) throw new Error('Not authenticated')
-  const f = await startFocus(supabase, user.id, blockKey)
+  return { supabase, userId: user.id }
+}
+
+export async function startFightAction(area: ReadinessAreaKey): Promise<{ fight: Fight | null; error: string | null }> {
+  const { supabase, userId } = await signedIn()
+  return startFight(supabase, userId, area, 'web')
+}
+
+// The last answer grades the whole fight (one critique per answer, in parallel).
+export async function answerFightAction(id: string, answer: string, spoken: boolean, seconds: number): Promise<Fight | null> {
+  const { supabase, userId } = await signedIn()
+  const f = await answerFight(supabase, userId, id, answer, { spoken, seconds })
+  if (f && f.status !== 'active') { revalidatePath('/prep'); revalidatePath('/dashboard') }
+  return f
+}
+
+export async function abandonFightAction(id: string): Promise<Fight | null> {
+  const { supabase, userId } = await signedIn()
+  return abandonFight(supabase, userId, id)
+}
+
+export async function markFixReadAction(id: string): Promise<Fight | null> {
+  const { supabase, userId } = await signedIn()
+  const f = await markFixRead(supabase, userId, id)
   revalidatePath('/prep')
   return f
 }
 
-export async function toggleFocusSessionPause(id: string): Promise<FocusSession | null> {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) throw new Error('Not authenticated')
-  return toggleFocusPause(supabase, user.id, id)
-}
-
-export async function endFocusSession(id: string, finished: boolean): Promise<{ focus: FocusSession | null; session: PrepSession | null }> {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) throw new Error('Not authenticated')
-  const res = await endFocus(supabase, user.id, id, finished)
+// The Boss Ladder deadline ("N days to …"); null clears it.
+export async function savePrepTargetDate(date: string | null) {
+  const { supabase, userId } = await signedIn()
+  if (date !== null && !/^\d{4}-\d{2}-\d{2}$/.test(date)) throw new Error('Invalid date')
+  const { error } = await supabase.from('prep_settings').upsert({ user_id: userId, target_date: date, updated_at: new Date().toISOString() }, { onConflict: 'user_id' })
+  if (error) throw new Error(error.message)
   revalidatePath('/prep')
-  revalidatePath('/dashboard')
-  return res
 }
 
 // Weekly "if you interviewed tomorrow" forecast, on demand (the Sunday
@@ -106,15 +123,14 @@ export async function critiqueFollowUpAnswer(rubric: Rubric, original: string, f
   return critiqueFollowUp(user.id, rubric, original, followUp, answer, spoken ? SPOKEN_NOTE(seconds, fillers) : '')
 }
 
-// Records a Question Bank answer (the question counts as practiced); the
-// matching Job Hunt block auto-completes once today's quota is met.
-export async function answerQuestion(questionId: string, answer: string | null, rating: number | null = null): Promise<PrepSession | null> {
+// Records a Question Bank answer (the question counts as practiced).
+export async function answerQuestion(questionId: string, answer: string | null, rating: number | null = null): Promise<void> {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) throw new Error('Not authenticated')
 
   const [{ data: q }, { data: prev }] = await Promise.all([
-    supabase.from('coding_questions').select('id, category').eq('id', questionId).single(),
+    supabase.from('coding_questions').select('id').eq('id', questionId).single(),
     supabase.from('question_progress').select('attempts, last_answer').eq('user_id', user.id).eq('question_id', questionId).maybeSingle(),
   ])
   if (!q) throw new Error('Question not found')
@@ -126,14 +142,12 @@ export async function answerQuestion(questionId: string, answer: string | null, 
   }, { onConflict: 'user_id,question_id' })
   if (error) throw new Error(error.message)
 
-  const session = await syncBankBlocks(supabase, user.id, [q.category])
   revalidatePath('/prep')
-  return session
 }
 
 // Saves a finished Mock Round: each answered (not skipped) bank question
 // counts as practiced in question_progress, the round goes into mock_rounds,
-// and today's mock block auto-completes.
+// and today's mock block of that format auto-completes.
 export async function saveMockRound(format: MockFormat, items: MockItem[], durationSeconds: number): Promise<{ round: MockRound; session: PrepSession | null }> {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -161,7 +175,7 @@ export async function saveMockRound(format: MockFormat, items: MockItem[], durat
     .select('id, format, items, duration_seconds, created_at, review').single()
   if (error) throw new Error(error.message)
 
-  const session = await syncBankBlocks(supabase, user.id, [...new Set(answered.map(i => i.category))], b => b.key === 'mock')
+  const session = await updateBlocks(supabase, user.id, todayIST(), blocks => blocks.map(b => b.key === `mock:${format}` ? { ...b, done: true } : b))
   revalidatePath('/prep')
   revalidatePath('/dashboard')
   return { round: round as MockRound, session }

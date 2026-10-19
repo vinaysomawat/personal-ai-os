@@ -5,6 +5,7 @@ append here whenever you deploy, same cadence as the version bump.
 
 ## 2026-10-19
 
+- **Boss Ladder replaces the daily checklist.** Every readiness area under its gate is now a boss, hardest gap first. You beat one in a short timed fight: 5 questions (1 problem for UI coding and DSA), graded at the end, and you win with an average at the gate and no answer under 5. A lost fight leaves a Fix card of the key points you missed, and the rematch unlocks once you've read it. The day is 2–5 fights by load level (the mock is one of them), and the header shows bosses left, days to your deadline and the pace needed. Fights also run on Telegram ("fight", "fight system design", "read"). Removed: question quotas, the STAR-stories and interview-redo blocks, the focus timer (and Telegram start / pause / done), and Angular as a readiness area (its questions stay in the Question Bank). Accessibility now counts its rated answers, and Leadership counts Tech-lead answers.
 - **Hours to complete in the Question Bank.** Picking a category now shows roughly how many hours its remaining questions will take, rounded up to whole hours. The Coverage card shows the same for each category and in total.
 
 ## 2026-10-15

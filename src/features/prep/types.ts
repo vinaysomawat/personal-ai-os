@@ -30,8 +30,8 @@ export interface StoryRehearsal {
 }
 
 export interface PrepBlock {
-  // 'main' | 'mock' | 'concept' | 'lead' in a normal session; Job Hunt
-  // Mode uses 'mock', 'bank:<category>' and 'lead'.
+  // Boss Ladder plan: 'fight:<area>', 'mock:<format>', 'company:<applicationId>'
+  // (older days also hold 'bank:<category>', 'mock' and 'lead').
   key: string
   label: string
   detail: string
@@ -47,6 +47,8 @@ export interface PrepSettings {
   hours_per_day: number
   // Weekly outreach target for the Interviews pipeline (v4.0).
   weekly_outreach_target: number
+  // Boss Ladder deadline (YYYY-MM-DD), null = none.
+  target_date: string | null
 }
 
 // A coding_questions row plus when it was last practiced (in the Question
@@ -184,15 +186,13 @@ export const READINESS_AREAS = [
   { key: 'ts', label: 'TypeScript', quizTopics: ['TypeScript'], codingTopics: ['TypeScript'], href: '/prep?tab=questions&cat=quiz' },
   { key: 'react', label: 'React / Next.js', quizTopics: ['React', 'Next.js', 'State Management'], codingTopics: ['React & State Management'], href: '/prep?tab=questions&cat=quiz' },
   { key: 'css', label: 'CSS & layout', quizTopics: ['HTML/CSS', 'CSS Architecture'], codingTopics: ['CSS & Layout'], href: '/prep?tab=questions&cat=quiz' },
-  { key: 'a11y', label: 'Accessibility', quizTopics: ['Accessibility'], codingTopics: [], href: '/prep?tab=questions&cat=quiz' },
+  { key: 'a11y', label: 'Accessibility', quizTopics: ['Accessibility'], codingTopics: ['Accessibility'], href: '/prep?tab=questions&cat=quiz' },
   { key: 'perf', label: 'Performance', quizTopics: ['Performance'], codingTopics: ['Performance'], href: '/prep?tab=questions&cat=quiz' },
   { key: 'testing', label: 'Testing', quizTopics: ['Testing'], codingTopics: ['Testing'], href: '/prep?tab=questions&cat=quiz' },
   { key: 'browser', label: 'Browser, network & security', quizTopics: ['Browser Internals', 'Web Security', 'APIs'], codingTopics: ['DOM & Browser APIs', 'Networking & APIs'], href: '/prep?tab=questions&cat=quiz' },
   { key: 'sysdesign', label: 'Frontend system design', quizTopics: ['System Design', 'Micro-frontends', 'Design Systems'], codingTopics: ['System Design'], href: '/prep?tab=questions&cat=system-design' },
   { key: 'ainative', label: 'AI-native engineering', quizTopics: [], codingTopics: [], href: '/prep?tab=questions&cat=ai-native' },
   { key: 'uicoding', label: 'UI coding', quizTopics: [], codingTopics: ['UI Components'], href: '/prep?tab=questions&cat=ui-coding' },
-  // Track A (2026-10-09): fed by the 'angular' Question Bank category.
-  { key: 'angular', label: 'Angular', quizTopics: [], codingTopics: [], href: '/prep?tab=questions&cat=angular' },
   // Full-stack loops (2026): fed by the 'backend' category and the Networking & APIs topic.
   { key: 'backend', label: 'Backend & APIs', quizTopics: ['APIs', 'Node.js'], codingTopics: ['Networking & APIs'], href: '/prep?tab=questions&cat=backend' },
   // AI-assisted coding (Meta / Google 2026 rounds score verifying AI

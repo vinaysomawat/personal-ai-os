@@ -10,7 +10,7 @@ export interface RatedAnswer {
 // Areas fed by whole bank categories, not just by topic. Code review also
 // counts toward Testing (reviewing is how a senior catches what tests miss).
 const AREA_CATEGORIES: Partial<Record<string, string[]>> = {
-  uicoding: ['ui-coding'], sysdesign: ['system-design', 'architecture'], ainative: ['ai-native'], behavioral: ['behavioral', 'resume'], dsa: ['algorithm'], angular: ['angular'], backend: ['backend'],
+  uicoding: ['ui-coding'], sysdesign: ['system-design', 'architecture'], ainative: ['ai-native'], behavioral: ['behavioral', 'resume'], dsa: ['algorithm'], backend: ['backend'],
   testing: ['code-review'],
 }
 const MIN_RATED_SAMPLE = 2
@@ -110,16 +110,23 @@ function baseMatrix(codingHistory: CodingHistoryRow[], stories: Story[], aiNativ
     return rs.length >= MIN_RATED_SAMPLE ? { score: shrink(Math.round((rs.reduce((s, r) => s + r.rating, 0) / rs.length) * 10), rs.length), n: rs.length } : null
   }
 
+  const leadPart = (): { score: number; n: number } | null => {
+    const rs = rated.filter(r => r.category === 'architecture' && r.topics.includes('Tech lead'))
+    return rs.length >= MIN_RATED_SAMPLE ? { score: shrink(Math.round((rs.reduce((s, r) => s + r.rating, 0) / rs.length) * 10), rs.length), n: rs.length } : null
+  }
+
   return READINESS_AREAS.map(area => {
     const rp = ratingPart(area.key, area.codingTopics)
     if (area.key === 'behavioral' || area.key === 'leadership') {
       const cov = storyCoverage(stories, area.key)
       const covScore = cov.covered === 0 && cov.pct === 0 ? null : cov.pct
-      const parts = [covScore, area.key === 'behavioral' ? rp?.score ?? null : null].filter((v): v is number => v !== null)
+      // Leadership's rated answers: the Tech-lead questions (Boss Ladder fights).
+      const answers = area.key === 'behavioral' ? rp : leadPart()
+      const parts = [covScore, answers?.score ?? null].filter((v): v is number => v !== null)
       return {
         key: area.key, label: area.label, href: area.href,
         score: parts.length ? Math.round(parts.reduce((s, v) => s + v, 0) / parts.length) : null,
-        basis: [`${cov.covered}/${cov.total} competencies with a solid story`, area.key === 'behavioral' && rp ? `${rp.n} rated answers` : null].filter(Boolean).join(' · '),
+        basis: [`${cov.covered}/${cov.total} competencies with a solid story`, answers ? `${answers.n} rated answers` : null].filter(Boolean).join(' · '),
       }
     }
 
