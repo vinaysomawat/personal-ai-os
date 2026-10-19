@@ -186,11 +186,10 @@ export function QuestionsTab({ bank, setBank, topic, onTopicChange: setTopic, co
   const quotaFor = (key: string) => { const c = coverage.find(x => x.key === key); return c && isQuota(c) ? c : null }
   const q = quotaFor(category)
   const cs = stats(category)
-  const unseen = cs.total - cs.seen
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-[1fr_340px] gap-[var(--grid-gap)] items-start">
-      <Card title="Sprint" action={<span className="text-[11px] text-fg-tertiary tabular-nums">{q ? `${doneToday[category] ?? 0}/${q.quota} today · ` : `${doneToday[category] ?? 0} today · `}{queue.length} questions{unseen ? ` · ${unseen} left ≈ ${hrs(cs.leftMinutes)}${q && q.quota > 0 ? ` · ~${Math.ceil(unseen / q.quota)}d at today's quota` : ''}` : ''}</span>}>
+      <Card title="Sprint" action={<span className="text-[11px] text-fg-tertiary tabular-nums">{q ? `${doneToday[category] ?? 0}/${q.quota} today · ` : `${doneToday[category] ?? 0} today · `}{queue.length} questions{cs.leftMinutes ? ` · ≈ ${hrs(cs.leftMinutes)} to complete` : ''}</span>}>
         <div className="flex flex-wrap gap-1.5 mb-2.5">
           {BANK_CATEGORIES.map(c => {
             const cq = quotaFor(c.key)
@@ -304,7 +303,7 @@ export function QuestionsTab({ bank, setBank, topic, onTopicChange: setTopic, co
         )}
       </Card>
 
-      <Card title="Coverage" action={<span className="text-[11px] text-fg-tertiary tabular-nums">{totals.seen}/{totals.total} seen · ≈ {hrs(totals.leftMinutes)} left</span>}>
+      <Card title="Coverage" action={<span className="text-[11px] text-fg-tertiary tabular-nums">{totals.seen}/{totals.total} seen · ≈ {hrs(totals.leftMinutes)}</span>}>
         <ul className="flex flex-col gap-2.5">
           {BANK_CATEGORIES.map(c => {
             const s = stats(c.key)
@@ -314,7 +313,7 @@ export function QuestionsTab({ bank, setBank, topic, onTopicChange: setTopic, co
                 <button onClick={() => { setCategory(c.key); setSelectedId(null); setOpen(false) }} className="w-full text-left">
                   <div className="flex items-baseline justify-between text-[12.5px] gap-2">
                     <span className="font-medium text-fg-primary">{c.label}</span>
-                    <span className="text-[11px] text-fg-tertiary tabular-nums">{s.seen}/{s.total} · {s.total ? Math.round((s.seen / s.total) * 100) : 0}%{s.leftMinutes ? ` · ≈ ${hrs(s.leftMinutes)} left` : ''}</span>
+                    <span className="text-[11px] text-fg-tertiary tabular-nums">{s.seen}/{s.total} · {s.total ? Math.round((s.seen / s.total) * 100) : 0}%{s.leftMinutes ? ` · ≈ ${hrs(s.leftMinutes)}` : ''}</span>
                   </div>
                   <div className="h-[5px] rounded-[3px] bg-border mt-1 flex overflow-hidden">
                     <div className="h-full bg-good" style={{ width: `${s.total ? (s.seen / s.total) * 100 : 0}%` }} />

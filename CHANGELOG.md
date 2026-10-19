@@ -5,7 +5,7 @@ append here whenever you deploy, same cadence as the version bump.
 
 ## 2026-10-19
 
-- **Hours left in the Question Bank.** Picking a category now shows how many questions you haven't done yet, roughly how many hours they'll take (rounded up to whole hours) and how many days that is at today's quota. The Coverage card shows hours left for each category and in total.
+- **Hours to complete in the Question Bank.** Picking a category now shows roughly how many hours its remaining questions will take, rounded up to whole hours. The Coverage card shows the same for each category and in total.
 
 ## 2026-10-15
 
