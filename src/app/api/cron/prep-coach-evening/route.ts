@@ -4,7 +4,9 @@ import { sendMessage } from '@/lib/telegram/send'
 import { logCronRun } from '@/lib/cron-log'
 import { getReminderLines } from '@/lib/reminders'
 import { todayIST } from '@/lib/date'
-import { coachData, eveningMessage, stillOpenLine } from '@/features/prep/coach'
+import { coachData, eveningMessage, stillOpenLine, weekSummary } from '@/features/prep/coach'
+import { isRestDay } from '@/features/prep/hunt'
+import { loadPipelineStatus } from '@/features/career/pipeline-status'
 import { sendDebriefPrompts } from '@/features/prep/coach'
 import { generateForecast } from '@/features/prep/forecast'
 
@@ -13,9 +15,11 @@ const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN_PLANNER!
 
 // Prep Coach, 9:30pm IST: the day's review, a "Still open:" line (expenses,
 // open workout, stale health metrics — absorbed from the old evening
-// check-in) and evening reminders. On Sundays (IST) it also generates the
-// weekly "if you interviewed tomorrow" forecast (one AI call). With Job Hunt
-// Mode off it still sends when reminders or open items exist.
+// check-in) and evening reminders. On the rest day it's a short week-so-far
+// message instead (outreach, replies, screens, interview rounds). The evening
+// before the rest day also generates the weekly "if you interviewed
+// tomorrow" forecast (one AI call), so the rest day stays light. With Job
+// Hunt Mode off it still sends when reminders or open items exist.
 export async function GET(req: Request) {
   if (req.headers.get('authorization') !== `Bearer ${process.env.CRON_SECRET}`) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -36,9 +40,12 @@ export async function GET(req: Request) {
     await sendMessage(BOT_TOKEN, Number(CHAT_ID), text)
     return NextResponse.json({ ok: true, sent: true, hunt: false })
   }
-  let text = `${eveningMessage(data)}${open ? `\n\n${open}` : ''}${reminders}`
-  const sunday = new Date(`${data.today}T00:00:00Z`).getUTCDay() === 0
-  if (sunday) {
+  const week = data.restDay ? await weekSummary(supabase, user.id, await loadPipelineStatus(supabase, user.id, data.settings.weekly_outreach_target)) : undefined
+  let text = `${eveningMessage(data, week)}${open ? `\n\n${open}` : ''}${reminders}`
+  const tomorrow = new Date(`${data.today}T00:00:00Z`)
+  tomorrow.setUTCDate(tomorrow.getUTCDate() + 1)
+  const beforeRest = isRestDay(tomorrow.toISOString().slice(0, 10), data.settings.rest_day)
+  if (beforeRest) {
     const { forecast } = await generateForecast(supabase, user.id)
     if (forecast) {
       text += `\n\n🔮 *If you interviewed tomorrow* (confidence ${forecast.confidence}%)\n` +
@@ -48,5 +55,5 @@ export async function GET(req: Request) {
     }
   }
   await sendMessage(BOT_TOKEN, Number(CHAT_ID), text)
-  return NextResponse.json({ ok: true, sent: true, forecast: sunday, debriefs })
+  return NextResponse.json({ ok: true, sent: true, forecast: beforeRest, debriefs })
 }

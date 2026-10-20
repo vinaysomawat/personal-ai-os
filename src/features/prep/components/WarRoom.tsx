@@ -6,8 +6,8 @@ import { Check, Pause, Play, Sparkles, Timer, X } from 'lucide-react'
 import Card from '@/components/Card'
 import { modalSaveButtonClass } from '@/components/Modal'
 import { READINESS_CONFIG, type ReadinessTier } from '@/features/career/types'
-import { endFocusSession, generatePrepForecast, savePrepSettings, toggleFocusSessionPause } from '../actions'
-import { LEVELS, levelOf } from '../hunt'
+import { endFocusSession, generatePrepForecast, savePrepRestDay, savePrepSettings, toggleFocusSessionPause } from '../actions'
+import { LEVELS, WEEKDAYS, levelOf } from '../hunt'
 import { GATES, PACE_WINDOW, blockQuota, coachLine, focusSeconds, hm, nowBlock, paceLabel, paceStatus, readinessTier, type DayPace, type FocusSession, type Forecast, type RevisionItem, type TopicWeakness, type WarReadiness } from '../war'
 import type { PrepSession, PrepSettings, ReadinessCell } from '../types'
 
@@ -26,9 +26,11 @@ function useNow(active: boolean) {
 
 // ---------------- Header ----------------
 
-export function WarHeader({ war, settings, questionsPerDay, pace, nextInterview }: {
+export function WarHeader({ war, settings, questionsPerDay, pace, nextInterview, restDay }: {
   war: WarReadiness; settings: PrepSettings; questionsPerDay: number; pace: DayPace
   nextInterview: { company: string; kind: string; scheduled_at: string } | null
+  // Today is the weekly rest day (no plan).
+  restDay: boolean
 }) {
   const status = paceStatus(pace)
   const router = useRouter()
@@ -36,6 +38,8 @@ export function WarHeader({ war, settings, questionsPerDay, pace, nextInterview 
   const level = levelOf(settings.hours_per_day)
   // A new level rebuilds today's plan (the stored outreach target is kept).
   const save = (hours: number) => startSave(async () => { await savePrepSettings(hours, settings.weekly_outreach_target); router.refresh() })
+  // A new rest day rebuilds today's plan too.
+  const saveRest = (day: number) => startSave(async () => { await savePrepRestDay(day); router.refresh() })
   return (
     <Card padding="p-[var(--card-pad-sm)]">
       <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2">
@@ -50,13 +54,22 @@ export function WarHeader({ war, settings, questionsPerDay, pace, nextInterview 
                 </button>
               ))}
             </div>
-            <span className="text-[11px] text-fg-tertiary tabular-nums">{questionsPerDay} questions/day</span>
+            <label className="inline-flex items-center gap-1 text-[11px] text-fg-tertiary">
+              Rest
+              <select value={settings.rest_day} disabled={saving} onChange={e => saveRest(Number(e.target.value))} aria-label="Weekly rest day"
+                className="bg-surface-2 border border-border-strong rounded-[6px] px-1 py-[2px] text-[11.5px] text-fg-secondary outline-none focus:border-accent">
+                {WEEKDAYS.map((d, i) => <option key={d} value={i}>{d}</option>)}
+              </select>
+            </label>
+            {!restDay && <span className="text-[11px] text-fg-tertiary tabular-nums">{questionsPerDay} questions/day</span>}
           </div>
-          <p className={`text-[12.5px] mt-1 ${status === 'behind' ? 'text-risk' : status === 'ahead' ? 'text-good' : 'text-fg-secondary'}`}>{coachLine(pace)}</p>
+          {restDay
+            ? <p className="text-[12.5px] mt-1 text-fg-secondary">🌿 Rest day — no plan. Walk, gym, see people. The streak carries over.</p>
+            : <p className={`text-[12.5px] mt-1 ${status === 'behind' ? 'text-risk' : status === 'ahead' ? 'text-good' : 'text-fg-secondary'}`}>{coachLine(pace)}</p>}
           {nextInterview && (
             <a href="/interviews" className="block text-[12px] font-semibold text-accent mt-0.5 hover:underline">📅 Next interview: {nextInterview.company} · {nextInterview.kind.replace(/_/g, ' ')} · {new Date(nextInterview.scheduled_at).toLocaleString('en-IN', { weekday: 'short', day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit', timeZone: 'Asia/Kolkata' })} →</a>
           )}
-          <p className="text-[11.5px] text-fg-tertiary mt-0.5 tabular-nums"><span className={`font-semibold ${status === 'behind' ? 'text-risk' : status === 'ahead' ? 'text-good' : 'text-fg-secondary'}`}>{paceLabel(pace)}</span> · {pace.donePct}% of plan done · {pace.dayPct}% of {PACE_WINDOW.label} gone · blocks {pace.blocksDone}/{pace.blocksTotal}</p>
+          {!restDay && <p className="text-[11.5px] text-fg-tertiary mt-0.5 tabular-nums"><span className={`font-semibold ${status === 'behind' ? 'text-risk' : status === 'ahead' ? 'text-good' : 'text-fg-secondary'}`}>{paceLabel(pace)}</span> · {pace.donePct}% of plan done · {pace.dayPct}% of {PACE_WINDOW.label} gone · blocks {pace.blocksDone}/{pace.blocksTotal}</p>}
         </div>
         <div className="text-right shrink-0">
           <p className={`text-[22px] font-bold leading-none tabular-nums ${war.ready || war.interviewReady ? 'text-good' : war.overall >= 60 ? 'text-warn' : 'text-risk'}`}>{war.overall}%</p>
@@ -78,6 +91,12 @@ export function MissionCard({ session, focusSessions, doneToday, onStart, onOpen
   onOpen: (href: string) => void
 }) {
   if (!session) return <Card title="Today's Mission"><p className="text-[12.5px] text-fg-tertiary">Couldn&apos;t build today&apos;s plan — reload.</p></Card>
+  if (session.blocks.length === 0) return (
+    <Card title="Today's Mission">
+      <p className="text-[13px] font-semibold text-fg-primary">🌿 Rest day — nothing planned.</p>
+      <p className="text-[12px] text-fg-secondary mt-1">Walk, go to the gym, see people. Rest is part of a 2–4 month search; the plan is back tomorrow and the streak carries over.</p>
+    </Card>
+  )
   const now = nowBlock(session.blocks)
   const active = focusSessions.find(f => f.status === 'active')
   const done = session.blocks.filter(b => b.done).length
@@ -288,7 +307,7 @@ export function ForecastCard({ forecast, today }: { forecast: { date: string; fo
     }>
       {error && <p className="text-[12px] text-risk mb-2">{error}</p>}
       {busy && <div className="space-y-2">{[90, 70, 80].map((w, i) => <div key={i} className="h-3 rounded bg-surface-2 animate-pulse" style={{ width: `${w}%` }} />)}</div>}
-      {!busy && !f && <p className="text-[12px] text-fg-tertiary">Weekly AI forecast (Sunday night via Telegram, or on demand): what would go well, what would fail, and the question most likely to sink you.</p>}
+      {!busy && !f && <p className="text-[12px] text-fg-tertiary">Weekly AI forecast (the evening before your rest day via Telegram, or on demand): what would go well, what would fail, and the question most likely to sink you.</p>}
       {!busy && f && (
         <div className="text-[12px]">
           <p className="text-fg-secondary">Confidence <span className={`font-bold tabular-nums ${f.confidence >= 75 ? 'text-good' : f.confidence >= 55 ? 'text-warn' : 'text-risk'}`}>{f.confidence}%</span> <span className="text-fg-tertiary">(War readiness on {state!.date})</span></p>

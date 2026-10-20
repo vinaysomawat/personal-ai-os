@@ -49,6 +49,8 @@ export interface PrepSettings {
   weekly_outreach_target: number
   // Outreach logged per day that ticks the plan's first block (v4.2).
   daily_outreach_target: number
+  // Weekly rest day, IST weekday (0 = Sunday … 6 = Saturday).
+  rest_day: number
   // Boss Ladder deadline (YYYY-MM-DD), null = none.
   target_date: string | null
 }

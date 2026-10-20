@@ -14,7 +14,9 @@ export interface HuntHero {
   topBlocker: { label: string; score: number | null; gate: number } | null
   // Today's daily score (= % of today's plan done, partial credit per
   // question), the level, and the 13 days before (whole blocks only).
-  score: { today: number; level: string; recent: { date: string; score: number | null }[] }
+  // `rest` = today is the weekly rest day (no plan); recent rest days carry
+  // `rest` too and draw as neutral bars.
+  score: { today: number; level: string; rest: boolean; recent: { date: string; score: number | null; rest?: boolean }[] }
   nextInterview: { company: string; kind: string; scheduled_at: string } | null
   // This week's funnel (Monday-start IST): the first tile — getting
   // interviews is the bottleneck.
@@ -39,7 +41,7 @@ export async function loadHuntHero(db: SupabaseClient, userId: string): Promise<
     topBlocker: prep.war.blockers[0] ?? null,
     nextInterview: prep.nextInterview,
     outreach: { sent: pipeline.week.sent, target: pipeline.target, replies: pipeline.week.replies, screens: pipeline.week.screens },
-    score: { today: pace.donePct, level: levelOf(prep.settings.hours_per_day).label, recent: prep.recentScores },
+    score: { today: pace.donePct, level: levelOf(prep.settings.hours_per_day).label, rest: prep.restDay, recent: prep.recentScores },
     blocks: { done: blocks.filter(b => b.done).length, total: blocks.length },
     // liquid_savings may not exist before the Phase 1 migration — null then.
     runway: runwayMonths((profileRes.data as { liquid_savings?: number | null } | null)?.liquid_savings, avgSpend),

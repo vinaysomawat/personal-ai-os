@@ -5,6 +5,7 @@ append here whenever you deploy, same cadence as the version bump.
 
 ## 2026-10-20
 
+- **A weekly rest day.** Sunday by default; you can change it next to the level switch. That day has no plan, the streak carries over, the score shows "Rest day", there's no 1pm nudge, and the coach sends short messages instead: walk, gym, see people, plus a week-so-far summary in the evening. The weekly forecast now comes the evening before.
 - **Pace runs 9am–7pm.** Ahead/behind is now measured against a 10-hour day instead of 8am–10pm. That includes the 1pm nudge and the Prep pace line.
 - **No more Max level.** Load levels are Light 4h, Steady 6h and Intense 8h, and Steady is the default. A saved Max (12h) now counts as Intense.
 - **Dashboard shows outreach first.** A new "Outreach this week" tile (sent / target, replies, screens) leads the Hunt Hero. The "Pace today" tile is gone; pace still shows on Prep.

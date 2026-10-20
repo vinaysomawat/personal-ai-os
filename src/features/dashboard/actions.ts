@@ -133,7 +133,7 @@ export async function getDashboardData() {
     // Scheduled interview rounds from now on — the upcoming-interview signal.
     supabase.from('interview_rounds').select('kind, scheduled_at, application:applications(company)').eq('user_id', user.id).eq('status', 'scheduled').gte('scheduled_at', new Date().toISOString()).order('scheduled_at', { ascending: true }),
     // Job Hunt Mode (target date set) — changes what the Dashboard shows.
-    supabase.from('prep_settings').select('weekly_outreach_target').eq('user_id', user.id).maybeSingle(),
+    supabase.from('prep_settings').select('weekly_outreach_target, rest_day').eq('user_id', user.id).maybeSingle(),
     // This week's outreach (Monday-start IST) — Career sub-score + Hunt Hero.
     supabase.from('outreach').select('count, status').eq('user_id', user.id).gte('sent_at', weekStart(today)),
     // Life Score v2's Health sub-score reuses the Health module's own
@@ -461,7 +461,7 @@ export async function getDashboardData() {
       monthSpend, monthBudget,
       practiced30d,
       workoutStreak: workoutStats.currentStreakDays,
-      prepStreak: prepStreak(prepSessions, today),
+      prepStreak: prepStreak(prepSessions, today, prepSettingsRes.data?.rest_day ?? 0),
     },
     prepToday: todaySession ? { done: todaySession.blocks.filter(b => b.done).length, total: todaySession.blocks.length } : null,
     workoutCategory: activeWorkout?.workout?.category ?? null,

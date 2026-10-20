@@ -33,8 +33,36 @@ export function ladderLine(d: PrepData): string {
   return `⚔️ ${left} boss${left === 1 ? '' : 'es'} left${days !== null ? ` · ${days} day${days === 1 ? '' : 's'} to ${when}${per !== null ? ` · need ${per}/day` : ''}` : ''} — reply *FIGHT*`
 }
 
+// Rest day (prep_settings.rest_day): a short message instead of the mission.
+function restMorningMessage(): string {
+  return [
+    `🌿 *REST DAY*`,
+    `No plan today. Walk, go to the gym, see people — rest is what keeps a 2–4 month search going.`,
+    `The streak carries over. Tomorrow starts with outreach.`,
+  ].join('\n')
+}
+
+// The week so far (Monday-start IST) for the rest-day evening message.
+export interface WeekSummary { sent: number; target: number; replies: number; screens: number; rounds: number }
+export async function weekSummary(db: SupabaseClient, userId: string, pipeline: PipelineStatus): Promise<WeekSummary> {
+  const { count } = await db.from('interview_rounds').select('id', { count: 'exact', head: true }).eq('user_id', userId)
+    .neq('status', 'cancelled').gte('scheduled_at', `${pipeline.week.week}T00:00:00+05:30`).lt('scheduled_at', new Date().toISOString())
+  return { sent: pipeline.week.sent, target: pipeline.target, replies: pipeline.week.replies, screens: pipeline.week.screens, rounds: count ?? 0 }
+}
+
+function restEveningMessage(w: WeekSummary | undefined): string {
+  return [
+    `🌙 *REST DAY — the week so far*`,
+    w ? `📤 Outreach: *${w.sent}/${w.target}* · ${w.replies} repl${w.replies === 1 ? 'y' : 'ies'} · ${w.screens} screen${w.screens === 1 ? '' : 's'}` : null,
+    w ? `📞 Interview rounds this week: *${w.rounds}*` : null,
+    '',
+    `Tomorrow starts with outreach. Enjoy the evening.`,
+  ].filter(l => l !== null).join('\n')
+}
+
 // `pipeline` (debriefs owed) is added by the 7:30am cron; "what now" on the Daily bot omits it.
 export function morningMessage(d: PrepData, pipeline?: PipelineStatus): string {
+  if (d.restDay) return restMorningMessage()
   const blocks = d.session?.blocks ?? []
   const risk = d.war.blockers[0]
   const due = d.revision.filter(r => r.status === 'overdue' || r.status === 'today')
@@ -60,6 +88,7 @@ export function morningMessage(d: PrepData, pipeline?: PipelineStatus): string {
 
 // Only when ≥30 min behind the PACE_WINDOW (9am–7pm) pace — otherwise silent.
 export function middayMessage(d: PrepData): string | null {
+  if (d.restDay) return null
   const pace = paceAt(d, istHourNow())
   if (pace.deltaMinutes > -30) return null
   const now = nowBlock(d.session?.blocks ?? [])
@@ -73,7 +102,9 @@ export function middayMessage(d: PrepData): string | null {
   ].filter(l => l !== null).join('\n')
 }
 
-export function eveningMessage(d: PrepData): string {
+// `week` (outreach / calls so far) is passed by the 9:30pm cron for the rest-day message.
+export function eveningMessage(d: PrepData, week?: WeekSummary): string {
+  if (d.restDay) return restEveningMessage(week)
   const today = d.focusSessions.filter(f => f.date === d.today)
   const pace = paceAt(d, 23)
   const interruptions = today.reduce((s, f) => s + f.interruptions, 0)

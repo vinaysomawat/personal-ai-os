@@ -56,7 +56,11 @@ export async function execute(action: Record<string, unknown>, db: SupabaseClien
     case 'start_focus': {
       const { startFocus } = await import('@/features/prep/core')
       const f = await startFocus(db, userId)
-      if (!f) return '✅ Every block in today\'s plan is done.'
+      if (!f) {
+        const { todayIST } = await import('@/lib/date')
+        const { data: session } = await db.from('prep_sessions').select('blocks').eq('user_id', userId).eq('date', todayIST()).maybeSingle()
+        return (session?.blocks as unknown[] | undefined)?.length === 0 ? '🌿 Rest day — nothing planned. Enjoy it.' : '✅ Every block in today\'s plan is done.'
+      }
       const fresh = Date.now() - new Date(f.started_at).getTime() < 15_000
       return `${fresh ? '🔒 *Focus started*' : '⏱️ *Already focusing*'}: ${f.label} — ${f.planned_minutes} min planned.\nReply *DONE* when the block is finished, *PAUSE* for a break.`
     }

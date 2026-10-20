@@ -24,6 +24,7 @@ export default async function PrepPage({ searchParams }: { searchParams: Promise
       focusSessions={data.focusSessions}
       fights={data.fights}
       outreachToday={data.outreachToday}
+      restDay={data.restDay}
       ladder={data.ladder}
       forecast={data.forecast}
       nextInterview={data.nextInterview}

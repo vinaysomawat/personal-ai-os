@@ -88,6 +88,11 @@ export const LEVELS = [
   { key: 'intense', label: 'Intense', hours: 8 },
 ] as const
 export type Level = typeof LEVELS[number]
+// Weekly rest day (prep_settings.rest_day, IST weekday 0 = Sunday): no plan,
+// the streak carries over, no 1pm nudge, a short rest-day coach message.
+export const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'] as const
+export const isRestDay = (date: string, restDay: number) => new Date(`${date}T00:00:00Z`).getUTCDay() === restDay
+
 // The level for a stored hours value (nearest; older rows may hold any 1–14,
 // so a 12 from the removed Max level reads as Intense). Unset = Steady.
 export const DEFAULT_HOURS = 6
@@ -136,7 +141,10 @@ export function buildHuntPlan(ctx: {
   companyBlock?: PrepBlock | null
   // Outreach block #1: today's target and what's logged so far.
   outreach: { target: number; sent: number }
+  // prep_settings.rest_day: that weekday's plan is empty.
+  restDay: number
 }): { focus: string; blocks: PrepBlock[] } {
+  if (isRestDay(ctx.date, ctx.restDay)) return { focus: 'Rest day', blocks: [] }
   const dayMinutes = ctx.hoursPerDay * 60
   const format = mockFormatForDay(ctx.date)
   const gap = (key: string) => ctx.gaps?.[key] ?? 0

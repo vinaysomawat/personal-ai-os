@@ -64,7 +64,9 @@ const SCORE_TARGET = 90
 // the rest, with a dashed line at the 90 target.
 function ScoreCard({ hero }: { hero: HuntHeroData }) {
   const hasPlan = hero.blocks.total > 0
-  const days = [...hero.score.recent, { date: 'today', score: hasPlan ? hero.score.today : null }]
+  const rest = hero.score.rest
+  // Rest days have no score: a neutral bar, left out of the 7-day average.
+  const days: { date: string; score: number | null; rest?: boolean }[] = [...hero.score.recent, { date: 'today', score: hasPlan ? hero.score.today : null, rest }]
   const scored = (ds: typeof days) => ds.map(d => d.score).filter((s): s is number => s !== null)
   const week = scored(days.slice(-7))
   const avg = week.length ? Math.round(week.reduce((s, v) => s + v, 0) / week.length) : null
@@ -73,19 +75,31 @@ function ScoreCard({ hero }: { hero: HuntHeroData }) {
     <Link href="/prep" className="bg-surface-1 border border-surface-3 rounded-2xl shadow-card p-[var(--card-pad-sm)] min-w-0 flex flex-col sm:flex-row gap-3 sm:gap-5 hover:-translate-y-0.5 transition-all">
       <div className="sm:w-[190px] shrink-0">
         <p className="text-[11px] text-fg-tertiary uppercase tracking-[0.4px]">Today&apos;s score</p>
-        <p className="mt-0.5 tabular-nums leading-none"><span className={`text-[40px] font-bold ${hasPlan ? scoreTone(hero.score.today) : 'text-fg-tertiary'}`}>{hasPlan ? hero.score.today : '—'}</span><span className="text-[13px] text-fg-tertiary font-semibold"> / 100</span></p>
-        <p className="text-[11.5px] text-fg-secondary mt-1.5">{hero.score.level} · {hero.blocks.done}/{hero.blocks.total} blocks done</p>
+        {rest ? (
+          <>
+            <p className="mt-0.5 leading-none text-[32px] font-bold text-fg-secondary">Rest day</p>
+            <p className="text-[11.5px] text-fg-secondary mt-1.5">No plan today — walk, gym, see people.</p>
+          </>
+        ) : (
+          <>
+            <p className="mt-0.5 tabular-nums leading-none"><span className={`text-[40px] font-bold ${hasPlan ? scoreTone(hero.score.today) : 'text-fg-tertiary'}`}>{hasPlan ? hero.score.today : '—'}</span><span className="text-[13px] text-fg-tertiary font-semibold"> / 100</span></p>
+            <p className="text-[11.5px] text-fg-secondary mt-1.5">{hero.score.level} · {hero.blocks.done}/{hero.blocks.total} blocks done</p>
+          </>
+        )}
         <p className="text-[11px] text-fg-tertiary mt-0.5 tabular-nums">7-day avg {avg ?? '—'} · best (14d) {best >= 0 ? best : '—'}</p>
       </div>
-      <div className="flex-1 min-w-0" role="img" aria-label={`Daily score, last 14 days: ${days.map(d => d.score ?? 'no plan').join(', ')}`}>
+      <div className="flex-1 min-w-0" role="img" aria-label={`Daily score, last 14 days: ${days.map(d => d.rest ? 'rest day' : d.score ?? 'no plan').join(', ')}`}>
         <div className="relative h-[96px] mt-[14px]">
           <div className="absolute inset-x-0 border-t border-dashed border-good/60" style={{ bottom: `${SCORE_TARGET}%` }}>
             <span className="absolute left-0 -top-[13px] text-[9.5px] text-good font-semibold">{SCORE_TARGET}</span>
           </div>
           <div className="absolute inset-0 flex gap-[3px] sm:gap-[5px]">
             {days.map(d => (
-              <div key={d.date} className="relative flex-1 h-full" title={`${d.date === 'today' ? 'Today' : d.date}: ${d.score ?? 'no plan'}`}>
-                <div className={`absolute inset-x-0 bottom-0 rounded-t-[3px] ${d.score === null ? 'bg-border' : scoreBar(d.score)} ${d.date === 'today' ? '' : 'opacity-75'}`} style={{ height: `${Math.max(3, d.score ?? 0)}%` }} />
+              <div key={d.date} className="relative flex-1 h-full" title={`${d.date === 'today' ? 'Today' : d.date}: ${d.rest ? 'rest day' : d.score ?? 'no plan'}`}>
+                {d.rest
+                  ? <div className="absolute inset-x-0 bottom-0 rounded-t-[3px] bg-surface-3 h-[30%]" />
+                  : <div className={`absolute inset-x-0 bottom-0 rounded-t-[3px] ${d.score === null ? 'bg-border' : scoreBar(d.score)} ${d.date === 'today' ? '' : 'opacity-75'}`} style={{ height: `${Math.max(3, d.score ?? 0)}%` }} />}
+                {d.rest && <span className="absolute inset-x-0 text-center text-[9.5px] text-fg-tertiary" style={{ bottom: 'calc(30% + 1px)' }}>rest</span>}
                 {d.score !== null && <span className={`absolute inset-x-0 text-center text-[10px] tabular-nums ${d.date === 'today' ? 'font-bold text-fg-primary' : 'text-fg-tertiary'}`} style={{ bottom: `calc(${d.score}% + 1px)` }}>{d.score}</span>}
               </div>
             ))}

@@ -120,6 +120,19 @@ export async function savePrepSettings(hoursPerDay: number, weeklyOutreachTarget
   revalidatePath('/dashboard')
 }
 
+// The weekly rest day (0 = Sunday … 6 = Saturday); rebuilds today's plan.
+export async function savePrepRestDay(day: number) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) throw new Error('Not authenticated')
+  if (!Number.isInteger(day) || day < 0 || day > 6) throw new Error('Invalid day')
+  const { error } = await supabase.from('prep_settings').upsert({ user_id: user.id, rest_day: day, updated_at: new Date().toISOString() }, { onConflict: 'user_id' })
+  if (error) throw new Error(error.message)
+  await supabase.from('prep_sessions').delete().eq('user_id', user.id).eq('date', todayIST())
+  revalidatePath('/prep')
+  revalidatePath('/dashboard')
+}
+
 // AI interviewer feedback on a typed Question Bank answer (reviewing the
 // user's own work — uncached, every answer differs): a scorecard whose 1–10
 // rating is computed in code (critique.ts). The rubric depends on the

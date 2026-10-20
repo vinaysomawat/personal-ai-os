@@ -1,7 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { todayIST, daysAgoIST, toISTDateStr, istMidnightUtc } from '@/lib/date'
 import { formatMinutes, mockFormatForDay, type MockRound } from './mock'
-import { BANK_CATEGORIES, DEFAULT_HOURS, OUTREACH_MINUTES, buildHuntPlan, isRedoDue, companyPrepBlock, computeQuotas, interviewRedoBlock, leadMinutes, type CategoryCoverage, type UpcomingRound } from './hunt'
+import { BANK_CATEGORIES, DEFAULT_HOURS, OUTREACH_MINUTES, buildHuntPlan, isRestDay, isRedoDue, companyPrepBlock, computeQuotas, interviewRedoBlock, leadMinutes, type CategoryCoverage, type UpcomingRound } from './hunt'
 import { topicHref } from './links'
 import { computeReadinessMatrix, type CodingHistoryRow } from './readiness'
 import { bossLadder, type Fight } from './boss'
@@ -14,13 +14,16 @@ import type { BankQuestion, PrepBlock, PrepSession, PrepSettings, Story, StoryRe
 // signed-in user; the War Mode crons and the Daily bot call it with the
 // service client.
 
-export function prepStreak(sessions: { date: string; completed_at: string | null }[], today: string): number {
+// Consecutive days with a completed session (today given grace). The weekly
+// rest day is stepped over: it neither breaks nor adds to the streak.
+export function prepStreak(sessions: { date: string; completed_at: string | null }[], today: string, restDay: number | null = null): number {
   const done = new Set(sessions.filter(s => s.completed_at).map(s => s.date))
   let streak = 0
   const cursor = new Date(`${today}T00:00:00Z`)
   for (let i = 0; i < 3650; i++) {
     const d = cursor.toISOString().slice(0, 10)
-    if (done.has(d)) { streak++; cursor.setUTCDate(cursor.getUTCDate() - 1) }
+    if (restDay !== null && isRestDay(d, restDay) && !done.has(d)) cursor.setUTCDate(cursor.getUTCDate() - 1)
+    else if (done.has(d)) { streak++; cursor.setUTCDate(cursor.getUTCDate() - 1) }
     else if (i === 0) cursor.setUTCDate(cursor.getUTCDate() - 1)
     else break
   }
@@ -93,6 +96,7 @@ export async function loadPrepData(supabase: SupabaseClient, userId: string) {
       mockDoneToday: mockRounds.some(r => toISTDateStr(r.created_at) === today),
       interviewRedo, companyBlock,
       outreach: { target: settings.daily_outreach_target, sent: outreachToday },
+      restDay: settings.rest_day,
     })
     const { data: inserted } = await supabase.from('prep_sessions')
       .upsert({ user_id: user.id, date: today, focus: plan.focus, blocks: plan.blocks }, { onConflict: 'user_id,date', ignoreDuplicates: true })
@@ -108,13 +112,16 @@ export async function loadPrepData(supabase: SupabaseClient, userId: string) {
   return {
     today,
     session: todaySession,
-    streak: prepStreak(sessions, today),
+    streak: prepStreak(sessions, today, settings.rest_day),
+    restDay: isRestDay(today, settings.rest_day),
     sessionsLast7: sessions.filter(s => s.date >= daysAgoIST(6) && s.completed_at).length,
     // The 13 days before today, oldest first: % of each day's plan done (whole
-    // blocks only — per-question partial credit isn't kept for past days).
+    // blocks only — per-question partial credit isn't kept for past days). A
+    // rest day with nothing planned has no score (`rest`: a neutral bar).
     recentScores: Array.from({ length: 13 }, (_, i) => daysAgoIST(13 - i)).map(date => {
       const s = sessions.find(x => x.date === date)
-      return { date, score: s ? dayPace(s.blocks, 24).donePct : null }
+      const rest = isRestDay(date, settings.rest_day) && !s?.blocks.length
+      return { date, score: s?.blocks.length ? dayPace(s.blocks, 24).donePct : null, rest }
     }),
     mockRounds,
     // War Mode (all deterministic, war.ts).
@@ -140,8 +147,8 @@ export async function loadPrepData(supabase: SupabaseClient, userId: string) {
 }
 
 export async function getPrepSettings(supabase: SupabaseClient, userId: string): Promise<PrepSettings> {
-  const { data } = await supabase.from('prep_settings').select('hours_per_day, weekly_outreach_target, daily_outreach_target, target_date').eq('user_id', userId).maybeSingle()
-  return { hours_per_day: data?.hours_per_day ?? DEFAULT_HOURS, weekly_outreach_target: data?.weekly_outreach_target ?? 25, daily_outreach_target: data?.daily_outreach_target ?? 10, target_date: data?.target_date ?? null }
+  const { data } = await supabase.from('prep_settings').select('hours_per_day, weekly_outreach_target, daily_outreach_target, rest_day, target_date').eq('user_id', userId).maybeSingle()
+  return { hours_per_day: data?.hours_per_day ?? DEFAULT_HOURS, weekly_outreach_target: data?.weekly_outreach_target ?? 25, daily_outreach_target: data?.daily_outreach_target ?? 10, rest_day: data?.rest_day ?? 0, target_date: data?.target_date ?? null }
 }
 
 // PostgREST caps a response at 1,000 rows, and the bank is past that —

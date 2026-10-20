@@ -51,6 +51,7 @@ interface Props {
   focusSessions: FocusSession[]
   fights: Fight[]
   outreachToday: number
+  restDay: boolean
   ladder: Boss[]
   forecast: { date: string; forecast: Forecast } | null
   stories: Story[]
@@ -167,7 +168,9 @@ export default function PrepView(props: Props) {
         <StatCard label="Interview readiness" value={`${props.war.overall}%`} sub={props.war.ready ? 'all gates passed' : `${props.war.interviewReady ? 'interview-ready' : 'not ready'} · ${props.war.blockers.length} blockers`} valueClassName={props.war.ready || props.war.interviewReady ? 'text-good' : props.war.overall >= 60 ? 'text-warn' : 'text-risk'} />
         <StatCard label="Mock rounds" value={roundsThisWeek} sub={lastRound ? `this week · last ${formatOf(lastRound.format).label} ${toISTDateStr(lastRound.created_at).slice(5)}${lastRound.review?.score != null ? ` · ${lastRound.review.score}/10` : ''}` : 'this week · none yet'} />
         <StatCard label="Story Bank" value={stories.length} sub={`${coveredCompetencies.size}/${COMPETENCIES.length} competencies covered`} />
-        <StatCard label="Pace" value={paceLabel(pace)} valueClassName={PACE_CLS[paceStatus(pace)]} sub={`${pace.donePct}% done · ${pace.dayPct}% of day gone · ${props.sessionsLast7}/7 full days`} />
+        {props.restDay
+          ? <StatCard label="Pace" value="Rest day" valueClassName="text-fg-secondary" sub={`no plan today · ${props.sessionsLast7}/7 full days`} />
+          : <StatCard label="Pace" value={paceLabel(pace)} valueClassName={PACE_CLS[paceStatus(pace)]} sub={`${pace.donePct}% done · ${pace.dayPct}% of day gone · ${props.sessionsLast7}/7 full days`} />}
       </div>
 
       <PageTabs tabs={TABS} active={tab} onChange={setTab} />
@@ -175,7 +178,7 @@ export default function PrepView(props: Props) {
 
       {tab === 'today' && (
         <>
-          <WarHeader war={props.war} settings={props.settings} questionsPerDay={props.coverage.reduce((s, c) => s + ('quota' in c ? c.quota : 0), 0)} pace={pace} nextInterview={props.nextInterview} />
+          <WarHeader war={props.war} settings={props.settings} questionsPerDay={props.coverage.reduce((s, c) => s + ('quota' in c ? c.quota : 0), 0)} pace={pace} nextInterview={props.nextInterview} restDay={props.restDay} />
           <div className="grid grid-cols-1 lg:grid-cols-[1fr_380px] gap-[var(--grid-gap)] items-start">
             <div className="space-y-[var(--grid-gap)]">
               <MissionCard session={session} focusSessions={todayFocus} doneToday={doneToday} onStart={startFocus} onOpen={openHref} />
