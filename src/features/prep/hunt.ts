@@ -3,7 +3,7 @@ import type { BankQuestion, PrepBlock } from './types'
 import { formatMinutes, formatOf, mockFormatForDay } from './mock'
 
 // Interview War Mode — a deterministic full-day plan sized to the daily load
-// level (Light 4h · Steady 6h · Intense 8h · Max 12h). Each question category
+// level (Light 4h · Steady 6h · Intense 8h). Each question category
 // gets a share of the day and a per-question time cost; its quota is what
 // fits in that time.
 
@@ -86,12 +86,13 @@ export const LEVELS = [
   { key: 'light', label: 'Light', hours: 4 },
   { key: 'steady', label: 'Steady', hours: 6 },
   { key: 'intense', label: 'Intense', hours: 8 },
-  { key: 'max', label: 'Max', hours: 12 },
 ] as const
 export type Level = typeof LEVELS[number]
-// The level for a stored hours value (nearest; older rows may hold any 1–14).
+// The level for a stored hours value (nearest; older rows may hold any 1–14,
+// so a 12 from the removed Max level reads as Intense). Unset = Steady.
+export const DEFAULT_HOURS = 6
 export const levelOf = (hours: number): Level =>
-  LEVELS.reduce((best, l) => Math.abs(l.hours - hours) < Math.abs(best.hours - hours) ? l : best, LEVELS[2] as Level)
+  LEVELS.reduce((best, l) => Math.abs(l.hours - hours) < Math.abs(best.hours - hours) ? l : best, LEVELS[1] as Level)
 
 // Quotas are sized by time (the level's hours); re-answering weak questions
 // counts too. Each category's share is scaled by its readiness gap (weights from war.ts's categoryWeights) and

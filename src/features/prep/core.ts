@@ -1,7 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { todayIST, daysAgoIST, toISTDateStr, istMidnightUtc } from '@/lib/date'
 import { formatMinutes, mockFormatForDay, type MockRound } from './mock'
-import { BANK_CATEGORIES, OUTREACH_MINUTES, buildHuntPlan, isRedoDue, companyPrepBlock, computeQuotas, interviewRedoBlock, leadMinutes, type CategoryCoverage, type UpcomingRound } from './hunt'
+import { BANK_CATEGORIES, DEFAULT_HOURS, OUTREACH_MINUTES, buildHuntPlan, isRedoDue, companyPrepBlock, computeQuotas, interviewRedoBlock, leadMinutes, type CategoryCoverage, type UpcomingRound } from './hunt'
 import { topicHref } from './links'
 import { computeReadinessMatrix, type CodingHistoryRow } from './readiness'
 import { bossLadder, type Fight } from './boss'
@@ -141,7 +141,7 @@ export async function loadPrepData(supabase: SupabaseClient, userId: string) {
 
 export async function getPrepSettings(supabase: SupabaseClient, userId: string): Promise<PrepSettings> {
   const { data } = await supabase.from('prep_settings').select('hours_per_day, weekly_outreach_target, daily_outreach_target, target_date').eq('user_id', userId).maybeSingle()
-  return { hours_per_day: data?.hours_per_day ?? 8, weekly_outreach_target: data?.weekly_outreach_target ?? 25, daily_outreach_target: data?.daily_outreach_target ?? 10, target_date: data?.target_date ?? null }
+  return { hours_per_day: data?.hours_per_day ?? DEFAULT_HOURS, weekly_outreach_target: data?.weekly_outreach_target ?? 25, daily_outreach_target: data?.daily_outreach_target ?? 10, target_date: data?.target_date ?? null }
 }
 
 // PostgREST caps a response at 1,000 rows, and the bank is past that —
