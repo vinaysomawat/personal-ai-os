@@ -71,6 +71,8 @@ function ProfileField({ label, value, onSave, type = 'text', placeholder, masked
 }
 
 interface Props {
+  // ?tab= deep link (e.g. the Prep outreach block → pipeline).
+  initialTab?: string
   applications: Application[]
   profile: CareerProfile | null
   rounds: InterviewRound[]
@@ -91,7 +93,7 @@ const EMPTY_Q = { question: '', category: 'technical' as QuestionCategory, topic
 
 export default function CareerView(props: Props) {
   const [, startTransition] = useTransition()
-  const [tab, setTab] = useState<Tab>('pipeline')
+  const [tab, setTab] = useState<Tab>(TABS.some(t => t.key === props.initialTab) ? props.initialTab as Tab : 'pipeline')
   const [outreach, setOutreach] = useState(props.outreach)
   const [apps, setApps] = useState(props.applications)
   const [rounds, setRounds] = useState(props.rounds)

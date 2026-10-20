@@ -116,8 +116,10 @@ export async function execute(action: Record<string, unknown>, db: SupabaseClien
         .insert({ user_id: userId, company: String(action.company ?? 'Various'), person: action.person ?? null, channel, count, sent_at: todayIST(), follow_up_on: followUp, notes: action.notes ?? null, segment: isSegment(action.segment) ? action.segment : 'other' })
         .select('id').single()
       if (error) return `❌ ${error.message}`
-      const week = await outreachThisWeek(db, userId)
-      return { text: `📤 Logged ${count > 1 ? `${count} ` : ''}${channel}${action.person ? ` to *${action.person}*` : ''} at *${action.company ?? 'Various'}*${followUp ? `\nFollow up on ${followUp}` : ''}\nOutreach this week: *${week.sent}/${week.target}*`, buttons: [[undoButton('outreach', data.id)]] }
+      const { syncOutreachBlock } = await import('@/features/prep/core')
+      const [week, session] = await Promise.all([outreachThisWeek(db, userId), syncOutreachBlock(db, userId)])
+      const block = session?.blocks.find(b => b.key === 'outreach')
+      return { text: `📤 Logged ${count > 1 ? `${count} ` : ''}${channel}${action.person ? ` to *${action.person}*` : ''} at *${action.company ?? 'Various'}*${followUp ? `\nFollow up on ${followUp}` : ''}\nOutreach this week: *${week.sent}/${week.target}*${block ? `\n${block.done ? '✅ Today\'s outreach block done' : `Today's outreach block: ${block.label.replace('Outreach × ', 'target ')}`}` : ''}`, buttons: [[undoButton('outreach', data.id)]] }
     }
     case 'update_outreach': {
       const q = String(action.search ?? '').trim()

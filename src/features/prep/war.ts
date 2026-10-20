@@ -243,8 +243,10 @@ export const blockQuota = (b: Pick<PrepBlock, 'label'>) => Number(b.label.match(
 export function dayPace(blocks: PrepBlock[], istHourFloat: number, doneToday: Record<string, number> = {}): DayPace {
   const progress = (b: PrepBlock) => {
     if (b.done) return 1
-    const quota = b.key.startsWith('bank:') ? blockQuota(b) : 0
-    return quota ? Math.min(1, (doneToday[b.key.slice(5)] ?? 0) / quota) : 0
+    // Question blocks by today's answers in the category, outreach by
+    // today's logged outreach (doneToday.outreach).
+    const quota = b.key.startsWith('bank:') || b.key === 'outreach' ? blockQuota(b) : 0
+    return quota ? Math.min(1, (doneToday[b.key === 'outreach' ? 'outreach' : b.key.slice(5)] ?? 0) / quota) : 0
   }
   const plannedMinutes = blocks.reduce((s, b) => s + b.minutes, 0)
   const doneMinutes = Math.round(blocks.reduce((s, b) => s + b.minutes * progress(b), 0))

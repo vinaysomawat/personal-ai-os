@@ -111,19 +111,19 @@ export function MissionCard({ session, focusSessions, doneToday, onStart, onOpen
       <ol className="flex flex-col gap-1.5">
         {session.blocks.map((b, i) => {
           const isActive = active?.block_key === b.key
-          const quota = b.key.startsWith('bank:') ? blockQuota(b) : 0
+          const quota = b.key.startsWith('bank:') || b.key === 'outreach' ? blockQuota(b) : 0
           return (
             <li key={b.key} className={`flex items-start gap-2.5 rounded-[9px] px-2.5 py-2 ${b.done ? 'bg-good-soft' : isActive ? 'bg-accent-soft' : 'bg-surface-2'}`}>
               {/* Status only — blocks complete from the work itself (quota met,
                   mock saved, focus Finish on non-question blocks), never by hand. */}
-              <span aria-label={b.done ? 'Done' : 'Not done'} title={!b.done && quota ? `Completes at ${quota}/${quota} answered` : undefined}
+              <span aria-label={b.done ? 'Done' : 'Not done'} title={!b.done && quota ? `Completes at ${quota}/${quota} ${b.key === 'outreach' ? 'logged' : 'answered'}` : undefined}
                 className={`mt-0.5 w-[18px] h-[18px] rounded-full border flex items-center justify-center shrink-0 ${b.done ? 'bg-good border-good text-on-good' : 'border-border-strong'}`}>
                 {b.done && <Check size={11} strokeWidth={3} />}
               </span>
               <div className="flex-1 min-w-0">
                 <div className="flex items-baseline justify-between gap-2">
                   <p className={`text-[12.5px] font-semibold ${b.done ? 'text-fg-tertiary line-through' : 'text-fg-primary'}`}>{i + 1}. {b.label}{isActive && <span className="text-accent font-bold"> ● focusing</span>}</p>
-                  <span className="text-[11px] text-fg-tertiary tabular-nums shrink-0">{quota && !b.done ? `${Math.min(quota, doneToday[b.key.slice(5)] ?? 0)}/${quota} · ` : ''}{hm(b.minutes)}</span>
+                  <span className="text-[11px] text-fg-tertiary tabular-nums shrink-0">{quota && !b.done ? `${Math.min(quota, doneToday[b.key === 'outreach' ? 'outreach' : b.key.slice(5)] ?? 0)}/${quota} · ` : ''}{hm(b.minutes)}</span>
                 </div>
                 <p className="text-[11.5px] text-fg-secondary mt-0.5 hidden sm:block">{b.detail}</p>
               </div>
@@ -175,8 +175,8 @@ export function FocusBar({ focus, progress, ended, onChange, onEnded, onGo }: {
       <button disabled={busy} onClick={() => start(async () => { const f = await toggleFocusSessionPause(focus.id); if (f) onChange(f) })} title={paused ? 'Resume' : 'Pause'} aria-label={paused ? 'Resume' : 'Pause'} className={icon}>
         {paused ? <Play size={13} /> : <Pause size={13} />}
       </button>
-      {/* Question blocks finish themselves when the quota is met — no ✓. */}
-      {!focus.block_key.startsWith('bank:') && (
+      {/* Question and outreach blocks finish themselves when the quota is met — no ✓. */}
+      {!focus.block_key.startsWith('bank:') && focus.block_key !== 'outreach' && (
         <button disabled={busy} onClick={() => start(async () => { const r = await endFocusSession(focus.id, true); onEnded(r.focus, r.session) })} title="Finish block" aria-label="Finish block" className={icon}>
           <Check size={14} strokeWidth={3} />
         </button>

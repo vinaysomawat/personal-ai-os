@@ -1,6 +1,7 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
+import { syncOutreachBlock } from '@/features/prep/core'
 import { createClient } from '@/lib/supabase/server'
 import { todayIST } from '@/lib/date'
 import { syncInterviewQuestionToBank } from './bank-sync'
@@ -161,6 +162,8 @@ export async function addOutreach(input: { company: string; person: string | nul
     follow_up_on: input.channel === 'application' ? null : addDays(today, 5),
   }).select('*').single()
   if (error) throw new Error(error.message)
+  // Today's Prep outreach block ticks once the day's count reaches its target.
+  await syncOutreachBlock(supabase, userId)
   done()
   return data as Outreach
 }
@@ -173,8 +176,9 @@ export async function updateOutreach(id: string, patch: { status?: OutreachStatu
 }
 
 export async function deleteOutreach(id: string) {
-  const { supabase } = await userClient()
+  const { supabase, userId } = await userClient()
   const { error } = await supabase.from('outreach').delete().eq('id', id)
   if (error) throw new Error(error.message)
+  await syncOutreachBlock(supabase, userId)
   done()
 }

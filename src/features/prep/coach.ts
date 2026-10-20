@@ -2,7 +2,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import { toISTDateStr } from '@/lib/date'
 import { loadPrepData } from './core'
 import type { PipelineStatus } from '@/features/career/pipeline-status'
-import { GATES, coachLine, dayPace, hm, istHourNow, nowBlock, practicedToday, readinessTier } from './war'
+import { GATES, blockQuota, coachLine, dayPace, hm, istHourNow, nowBlock, practicedToday, readinessTier } from './war'
 import { levelOf } from './hunt'
 import { bossesLeft, bossesPerDay, daysTo } from './boss'
 
@@ -18,7 +18,7 @@ export async function coachData(db: SupabaseClient, userId: string): Promise<Pre
   return data
 }
 
-const paceAt = (d: PrepData, hour: number) => dayPace(d.session?.blocks ?? [], hour, practicedToday(d.bank, d.today))
+const paceAt = (d: PrepData, hour: number) => dayPace(d.session?.blocks ?? [], hour, { ...practicedToday(d.bank, d.today), outreach: d.outreachToday })
 
 const readinessLine = (d: PrepData) =>
   `Readiness *${d.war.overall}%* — ${readinessTier(d.war).label}` +
@@ -39,12 +39,14 @@ export function morningMessage(d: PrepData, pipeline?: PipelineStatus): string {
   const risk = d.war.blockers[0]
   const due = d.revision.filter(r => r.status === 'overdue' || r.status === 'today')
   const now = nowBlock(blocks)
+  const outreach = blocks.find(b => b.key === 'outreach')
   return [
     `🎯 *INTERVIEW WAR MODE — ${levelOf(d.settings.hours_per_day).label} (${d.settings.hours_per_day}h)*`,
+    outreach ? (outreach.done ? `📤 Outreach done: ${d.outreachToday}/${blockQuota(outreach)} ✅` : `📤 *Start with outreach: ${d.outreachToday}/${blockQuota(outreach)}* — 5 referral messages + 5 roles posted in the last 48h`) : null,
     readinessLine(d),
     ladderLine(d),
     risk ? `🔴 Biggest risk: *${risk.label}* ${risk.score ?? 'no data'}/${risk.gate}` : null,
-    d.companyBlock ? `🏢 *Company prep first:* ${d.companyBlock.label}` : null,
+    d.companyBlock ? `🏢 *Then company prep:* ${d.companyBlock.label}` : null,
     d.nextInterview ? `📅 Next interview: *${d.nextInterview.company}* ${d.nextInterview.kind.replace(/_/g, ' ')} — ${new Date(d.nextInterview.scheduled_at).toLocaleString('en-IN', { weekday: 'short', day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit', timeZone: 'Asia/Kolkata' })}` : null,
     '',
     `*Today's mission (${hm(blocks.reduce((s, b) => s + b.minutes, 0))}):*`,

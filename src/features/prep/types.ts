@@ -30,8 +30,8 @@ export interface StoryRehearsal {
 }
 
 export interface PrepBlock {
-  // Boss Ladder plan: 'fight:<area>', 'mock:<format>', 'company:<applicationId>'
-  // (older days also hold 'bank:<category>', 'mock' and 'lead').
+  // Interview War Mode: 'outreach', 'company:<applicationId>', 'bank:<category>',
+  // 'mock', 'lead' (a few older days hold 'fight:<area>' / 'mock:<format>').
   key: string
   label: string
   detail: string
@@ -47,6 +47,8 @@ export interface PrepSettings {
   hours_per_day: number
   // Weekly outreach target for the Interviews pipeline (v4.0).
   weekly_outreach_target: number
+  // Outreach logged per day that ticks the plan's first block (v4.2).
+  daily_outreach_target: number
   // Boss Ladder deadline (YYYY-MM-DD), null = none.
   target_date: string | null
 }

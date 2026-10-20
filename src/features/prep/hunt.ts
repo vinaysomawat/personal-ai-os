@@ -131,8 +131,10 @@ export function buildHuntPlan(ctx: {
   mockDoneToday?: boolean
   // Interview-category questions rated under 7 (§4.1) — lead the day.
   interviewRedo?: number
-  // A Company Prep block for a round ≤72h away (§4.4), placed first.
+  // A Company Prep block for a round ≤72h away (§4.4), right after outreach.
   companyBlock?: PrepBlock | null
+  // Outreach block #1: today's target and what's logged so far.
+  outreach: { target: number; sent: number }
 }): { focus: string; blocks: PrepBlock[] } {
   const dayMinutes = ctx.hoursPerDay * 60
   const format = mockFormatForDay(ctx.date)
@@ -177,10 +179,11 @@ export function buildHuntPlan(ctx: {
     detail: 'Timed, no notes. Run the one-click AI review after.',
     href: `/prep?tab=mock&format=${format}`, done: !!ctx.mockDoneToday,
   }
-  // Company prep (round ≤72h) → redo real interview questions → weakest two
-  // areas → the mock round → the rest.
+  // Outreach → company prep (round ≤72h) → redo real interview questions →
+  // weakest two areas → the mock round → the rest.
   const redo = interviewRedoBlock(ctx.interviewRedo ?? 0)
   const blocks: PrepBlock[] = [
+    outreachBlock(ctx.outreach.target, ctx.outreach.sent),
     ...(ctx.companyBlock ? [ctx.companyBlock] : []),
     ...(redo ? [redo] : []),
     ...bankBlocks.slice(0, 2), mock, ...bankBlocks.slice(2),
@@ -191,6 +194,18 @@ export function buildHuntPlan(ctx: {
     href: '/prep?tab=stories', done: false,
   })
   return { focus: `Interview War Mode · ${levelOf(ctx.hoursPerDay).label}`, blocks }
+}
+
+// Outreach (v4.2): the first block every day — the bottleneck is getting
+// interviews. Done only by logging outreach (web form or Career bot): today's
+// sum of outreach.count must reach the "× N" target (syncOutreachBlock).
+export const OUTREACH_MINUTES = 90
+export function outreachBlock(target: number, sent: number): PrepBlock {
+  return {
+    key: 'outreach', label: `Outreach × ${target}`, minutes: OUTREACH_MINUTES,
+    detail: 'Send 5 referral messages + apply to 5 roles posted in the last 48h — log each on the Interviews page or tell the Career bot',
+    href: '/interviews?tab=pipeline', done: sent >= target,
+  }
 }
 
 // Company Prep Mode (v4.0 §4.4): a round ≤72h away puts a block first —

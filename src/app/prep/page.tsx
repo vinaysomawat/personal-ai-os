@@ -23,6 +23,7 @@ export default async function PrepPage({ searchParams }: { searchParams: Promise
       revision={data.revision}
       focusSessions={data.focusSessions}
       fights={data.fights}
+      outreachToday={data.outreachToday}
       ladder={data.ladder}
       forecast={data.forecast}
       nextInterview={data.nextInterview}

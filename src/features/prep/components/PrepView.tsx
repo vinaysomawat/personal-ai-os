@@ -50,6 +50,7 @@ interface Props {
   revision: RevisionItem[]
   focusSessions: FocusSession[]
   fights: Fight[]
+  outreachToday: number
   ladder: Boss[]
   forecast: { date: string; forecast: Forecast } | null
   stories: Story[]
@@ -79,7 +80,8 @@ export default function PrepView(props: Props) {
   // Pace vs the 8am–10pm window, re-read every minute.
   const [, setTick] = useState(0)
   useEffect(() => { const t = setInterval(() => setTick(x => x + 1), 60_000); return () => clearInterval(t) }, [])
-  const doneToday = practicedToday(bank, props.today)
+  // Today's answers per category + today's logged outreach (block progress).
+  const doneToday: Record<string, number> = { ...practicedToday(bank, props.today), outreach: props.outreachToday }
   const pace = dayPace(session?.blocks ?? [], istHourNow(), doneToday)
   const activeFocus = focusSessions.find(f => f.status === 'active') ?? null
   const upsertFocus = (f: FocusSession) => setFocusSessions(prev => [...prev.filter(x => x.id !== f.id), f])
@@ -121,11 +123,11 @@ export default function PrepView(props: Props) {
     const t = setTimeout(() => setFocusEnded(null), 5000)
     return () => clearTimeout(t)
   }, [focusEnded])
-  // "3/7" for a question block.
+  // "3/7" for a question or outreach block.
   const focusProgress = (() => {
-    if (!activeFocus?.block_key.startsWith('bank:')) return null
+    if (!activeFocus || (!activeFocus.block_key.startsWith('bank:') && activeFocus.block_key !== 'outreach')) return null
     const quota = blockQuota(activeFocus)
-    return quota ? `${Math.min(doneToday[activeFocus.block_key.slice(5)] ?? 0, quota)}/${quota}` : null
+    return quota ? `${Math.min(doneToday[activeFocus.block_key === 'outreach' ? 'outreach' : activeFocus.block_key.slice(5)] ?? 0, quota)}/${quota}` : null
   })()
 
   // Boss Ladder (Bosses tab): one web fight at a time; a finished one shows

@@ -100,6 +100,11 @@ async function handleCallbackQuery(moduleName: ModuleName, update: TelegramUpdat
         const { data } = await db.from(table).select('*').eq('id', id).maybeSingle()
         await db.from(table).delete().eq('id', id)
         row = data
+        // Undoing outreach can un-tick today's Prep outreach block.
+        if (table === 'outreach' && data?.user_id) {
+          const { syncOutreachBlock } = await import('@/features/prep/core')
+          await syncOutreachBlock(db, data.user_id as string)
+        }
       }
       const label = row ? UNDO_LABEL[table](row) : null
       await answerCallbackQuery(token, cq.id, label ? `🗑️ Undone: ${label}` : '🗑️ Undone')
