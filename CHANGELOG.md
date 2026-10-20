@@ -5,6 +5,7 @@ append here whenever you deploy, same cadence as the version bump.
 
 ## 2026-10-20
 
+- **Pace runs 9am–7pm.** Ahead/behind is now measured against a 10-hour day instead of 8am–10pm. That includes the 1pm nudge and the Prep pace line.
 - **No more Max level.** Load levels are Light 4h, Steady 6h and Intense 8h, and Steady is the default. A saved Max (12h) now counts as Intense.
 - **Dashboard shows outreach first.** A new "Outreach this week" tile (sent / target, replies, screens) leads the Hunt Hero. The "Pace today" tile is gone; pace still shows on Prep.
 - **Outreach is the first block of every day.** "Outreach × 10" (90 min): send 5 referral messages and apply to 5 roles posted in the last 48h. It ticks itself once you've logged 10 for the day, on the Interviews page or by telling the Career bot, and an undo un-ticks it. The 7:30am message starts with "Start with outreach: 0/10".

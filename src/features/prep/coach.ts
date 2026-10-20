@@ -58,7 +58,7 @@ export function morningMessage(d: PrepData, pipeline?: PipelineStatus): string {
   ].filter(l => l !== null).join('\n')
 }
 
-// Only when ≥30 min behind the 8am–10pm pace — otherwise silent.
+// Only when ≥30 min behind the PACE_WINDOW (9am–7pm) pace — otherwise silent.
 export function middayMessage(d: PrepData): string | null {
   const pace = paceAt(d, istHourNow())
   if (pace.deltaMinutes > -30) return null

@@ -77,7 +77,7 @@ export default function PrepView(props: Props) {
   // Shown briefly after a session ends itself (its block got done).
   const [focusEnded, setFocusEnded] = useState<{ label: string; seconds: number } | null>(null)
   const todayFocus = focusSessions.filter(f => f.date === props.today)
-  // Pace vs the 8am–10pm window, re-read every minute.
+  // Pace vs the 9am–7pm window (PACE_WINDOW), re-read every minute.
   const [, setTick] = useState(0)
   useEffect(() => { const t = setInterval(() => setTick(x => x + 1), 60_000); return () => clearInterval(t) }, [])
   // Today's answers per category + today's logged outreach (block progress).

@@ -211,12 +211,13 @@ export function revisionQueue(bank: BankQuestion[], today: string): RevisionItem
 
 // ---------------- Pace + tone ----------------
 
-// Pace: share of today's plan done vs share of the 08:00–22:00 IST window
+// Pace: share of today's plan done vs share of the PACE_WINDOW (09:00–19:00 IST)
 // gone. Question blocks earn partial credit (answered today ÷ quota), so it
 // moves with every answer; other blocks count when done. Ahead/behind is that
 // gap in window time.
-const DAY_START = 8, DAY_END = 22
-const WINDOW_MINUTES = (DAY_END - DAY_START) * 60
+// The one pace window (IST hours): a realistic working day for a long search.
+export const PACE_WINDOW = { start: 9, end: 19, label: '9am–7pm' } as const
+const WINDOW_MINUTES = (PACE_WINDOW.end - PACE_WINDOW.start) * 60
 const ON_PACE_MINUTES = 10
 
 export interface DayPace {
@@ -251,7 +252,7 @@ export function dayPace(blocks: PrepBlock[], istHourFloat: number, doneToday: Re
   const plannedMinutes = blocks.reduce((s, b) => s + b.minutes, 0)
   const doneMinutes = Math.round(blocks.reduce((s, b) => s + b.minutes * progress(b), 0))
   const done = plannedMinutes ? doneMinutes / plannedMinutes : 0
-  const day = Math.min(1, Math.max(0, (istHourFloat - DAY_START) / (DAY_END - DAY_START)))
+  const day = Math.min(1, Math.max(0, (istHourFloat - PACE_WINDOW.start) / (PACE_WINDOW.end - PACE_WINDOW.start)))
   return {
     plannedMinutes, doneMinutes,
     donePct: Math.round(done * 100), dayPct: Math.round(day * 100),
