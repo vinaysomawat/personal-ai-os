@@ -22,13 +22,13 @@ Server-computed on every load (`src/features/dashboard/actions.ts` `getDashboard
 
 ### Hunt Hero
 
-`loadHuntHero()` (`dashboard/hunt-hero.ts`, deterministic). A full-width Today's score card, then four tiles (`HuntHero.tsx`), each linking to where you act on it:
+`loadHuntHero()` (`dashboard/hunt-hero.ts`, deterministic). A full-width Today's score card, then four tiles (`HuntHero.tsx`, outreach first — getting interviews is the bottleneck), each linking to where you act on it. **Today's score** (full-width card): 0–100 = % of today's plan done (`dayPace().donePct`: block minutes weighted, partial credit per answered question and per logged outreach); 90+ green · 70+ accent · 40+ amber · else red; "/ 100", level · blocks done x/y, 7-day avg · best of 14 days, and a 14-day bar chart: the 13 days before today (`recentScores` from `loadPrepData()`, whole blocks only; no plan = grey stub) and today, with a dashed target line at 90. Pace lives on Prep only.
 
 | Tile | Value | Sub-line |
 | --- | --- | --- |
-| Readiness | Prep's gated readiness % (§2), colored by tier | tier label (🔥 TOP 1% READY / ✅ INTERVIEW-READY · N blockers to close / ❌ NOT READY · N blockers)| Today's score (full-width card) | 0–100 = % of today's plan done (`dayPace().donePct`: block minutes weighted, partial credit per answered question); 90+ green · 70+ accent · 40+ amber · else red | "/ 100", level · blocks done x/y, 7-day avg · best of 14 days, and a 14-day bar chart: the 13 days before today (`recentScores` from `loadPrepData()`, whole blocks only — per-question partial credit isn't kept for past days; no plan = grey stub) and today, with a dashed target line at 90 | past days; no plan = grey) and today |
+| Outreach this week | sent / weekly target (Monday-start IST, `loadPipelineStatus()`); green at target, amber at half, else red | replies · screens this week; links to `/interviews?tab=pipeline` |
+| Readiness | Prep's gated readiness % (§2), colored by tier | tier label (🔥 TOP 1% READY / ✅ INTERVIEW-READY · N blockers to close / ❌ NOT READY · N blockers) |
 | Next interview | company of the next scheduled round | round kind · IST date-time, or "no round booked" |
-| Pace today | Ahead / Behind Xh Ym / On pace (green / red / neutral) | % of plan done · % of 8am–10pm gone, plus a bar with a tick where you should be |
 | Runway | `liquid_savings ÷ avg monthly spend (last 90 days ÷ 3)` months | "at 90-day avg spend" or "set liquid savings" |
 
 The pipeline numbers come from `loadPipelineStatus()` (`career/pipeline-status.ts`, shared with the 7:30am coach message): this Monday-start IST week's funnel row (§3), follow-ups due, and debriefs prompted but not answered.
@@ -382,7 +382,7 @@ Top-to-bottom layout of every page.
 
 1. `PageHeader` "Dashboard" — right: date · dasha link (or greeting; greeting only in Interview War Mode)
 2. **Top Priority** banner (conditional, risk-tinted row link)
-3. **Hunt Hero** — a full-width **Today's score** card (`ScoreCard` in `HuntHero.tsx`; stacks on mobile, `sm:flex-row`): left — the score at 40px in its tone, "/ 100", level · blocks done x/y, 7-day avg · best (14d); right — a 14-day bar chart (96px; 13 past days by whole blocks from `recentScores` + today with partial credit; bars toned 90+ good / 70+ accent / 40+ warn / else risk, value above each bar, today full-opacity and bold, no-plan days as a stub, dashed target line at 90; date labels "Tue 14" / "Today" on `sm+`, every other day as a bare number on mobile). Below it 4 tiles `grid-cols-2 sm:grid-cols-4` (Readiness, Next interview, Pace today, Runway). (The Life Score ring + Quick Stats layout is not shown while War Mode is always on.)
+3. **Hunt Hero** — a full-width **Today's score** card (`ScoreCard` in `HuntHero.tsx`; stacks on mobile, `sm:flex-row`): left — the score at 40px in its tone, "/ 100", level · blocks done x/y, 7-day avg · best (14d); right — a 14-day bar chart (96px; 13 past days by whole blocks from `recentScores` + today with partial credit; bars toned 90+ good / 70+ accent / 40+ warn / else risk, value above each bar, today full-opacity and bold, no-plan days as a stub, dashed target line at 90; date labels "Tue 14" / "Today" on `sm+`, every other day as a bare number on mobile). Below it 4 tiles `grid-cols-2 sm:grid-cols-4` (Outreach this week, Readiness, Next interview, Runway). (The Life Score ring + Quick Stats layout is not shown while War Mode is always on.)
 4. **Needs Attention** + **Daily Mission** `lg:grid-cols-2 items-start`
 5. **Life Score Trend** (not in Interview War Mode)
 

@@ -5,6 +5,7 @@ append here whenever you deploy, same cadence as the version bump.
 
 ## 2026-10-20
 
+- **Dashboard shows outreach first.** A new "Outreach this week" tile (sent / target, replies, screens) leads the Hunt Hero. The "Pace today" tile is gone; pace still shows on Prep.
 - **Outreach is the first block of every day.** "Outreach × 10" (90 min): send 5 referral messages and apply to 5 roles posted in the last 48h. It ticks itself once you've logged 10 for the day, on the Interviews page or by telling the Career bot, and an undo un-ticks it. The 7:30am message starts with "Start with outreach: 0/10".
 - **Daily questions are back; the Boss Ladder is its own tab.** Today has the question plan again ("× N" questions per category, sized by hours, plus the focus timer and Telegram start / pause / done). Boss fights moved to a new Bosses tab as extra practice: the fight answers still count toward Today's question blocks, and "fight" / "read" still work on Telegram. The 7:30am and 9:30pm messages add a line with bosses left and days to your deadline. Angular stays out of readiness, and its daily quota is now 0.
 

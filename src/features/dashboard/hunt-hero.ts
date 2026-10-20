@@ -1,9 +1,10 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { daysAgoIST } from '@/lib/date'
 import { loadPrepData } from '@/features/prep/core'
-import { dayPace, istHourNow, practicedToday, readinessTier, type DayPace } from '@/features/prep/war'
+import { dayPace, istHourNow, practicedToday, readinessTier } from '@/features/prep/war'
 import { levelOf } from '@/features/prep/hunt'
 import { runwayMonths } from '@/features/finance/calculations'
+import { loadPipelineStatus } from '@/features/career/pipeline-status'
 
 // Dashboard Hunt Hero (v4.0 §3): replaces Life Score + Quick Stats (Interview
 // War Mode is always on). All deterministic — reuses Prep's own readiness/plan data.
@@ -15,8 +16,9 @@ export interface HuntHero {
   // question), the level, and the 13 days before (whole blocks only).
   score: { today: number; level: string; recent: { date: string; score: number | null }[] }
   nextInterview: { company: string; kind: string; scheduled_at: string } | null
-  // Today's plan done vs the 8am–10pm window (computed at request time).
-  pace: DayPace
+  // This week's funnel (Monday-start IST): the first tile — getting
+  // interviews is the bottleneck.
+  outreach: { sent: number; target: number; replies: number; screens: number }
   blocks: { done: number; total: number }
   runway: number | null
 }
@@ -27,6 +29,7 @@ export async function loadHuntHero(db: SupabaseClient, userId: string): Promise<
     db.from('finance_profile').select('liquid_savings').eq('user_id', userId).maybeSingle(),
     db.from('expenses').select('amount').eq('user_id', userId).gte('date', daysAgoIST(90)),
   ])
+  const pipeline = await loadPipelineStatus(db, userId, prep.settings.weekly_outreach_target)
   const blocks = prep.session?.blocks ?? []
   const pace = dayPace(blocks, istHourNow(), { ...practicedToday(prep.bank, prep.today), outreach: prep.outreachToday })
   const avgSpend = Math.round((expensesRes.data ?? []).reduce((s, e) => s + Number(e.amount), 0) / 3)
@@ -35,7 +38,7 @@ export async function loadHuntHero(db: SupabaseClient, userId: string): Promise<
     tier: readinessTier(prep.war),
     topBlocker: prep.war.blockers[0] ?? null,
     nextInterview: prep.nextInterview,
-    pace,
+    outreach: { sent: pipeline.week.sent, target: pipeline.target, replies: pipeline.week.replies, screens: pipeline.week.screens },
     score: { today: pace.donePct, level: levelOf(prep.settings.hours_per_day).label, recent: prep.recentScores },
     blocks: { done: blocks.filter(b => b.done).length, total: blocks.length },
     // liquid_savings may not exist before the Phase 1 migration — null then.
