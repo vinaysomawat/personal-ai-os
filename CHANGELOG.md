@@ -5,6 +5,7 @@ append here whenever you deploy, same cadence as the version bump.
 
 ## 2026-10-20
 
+- **Mood and energy check-in.** The 9:30pm message now ends by asking how you feel. Reply "mood 3 energy 4" to log it. The Dashboard shows the last 14 days under the Hunt Hero, and if your mood has been 2 or lower on 5 of the last 7 days, the morning message adds one gentle line about talking to a friend or calling Tele-MANAS (14416). No AI involved.
 - **A kinder coach.** Coach lines now say what you got done first ("3/5 blocks done"), then the one next step, with no "undone" or "behind" wording. Outreach plus 2 other blocks counts as a good day. That shows as a ✓ in the evening review and turns Today's score green, even under 90%.
 - **A weekly rest day.** Sunday by default; you can change it next to the level switch. That day has no plan, the streak carries over, the score shows "Rest day", there's no 1pm nudge, and the coach sends short messages instead: walk, gym, see people, plus a week-so-far summary in the evening. The weekly forecast now comes the evening before.
 - **Pace runs 9am–7pm.** Ahead/behind is now measured against a 10-hour day instead of 8am–10pm. That includes the 1pm nudge and the Prep pace line.

@@ -6,6 +6,7 @@ import { getReminderLines } from '@/lib/reminders'
 import { coachData, morningMessage } from '@/features/prep/coach'
 import { sendDebriefPrompts } from '@/features/prep/coach'
 import { loadPipelineStatus } from '@/features/career/pipeline-status'
+import { getMoodLogs, moodLowStreak } from '@/features/health/mood'
 
 const CHAT_ID = process.env.TELEGRAM_ALLOWED_CHAT_ID!
 const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN_PLANNER!
@@ -26,7 +27,8 @@ export async function GET(req: Request) {
   const debriefs = await sendDebriefPrompts(supabase, user.id)
   const [data, reminders] = await Promise.all([coachData(supabase, user.id), getReminderLines(supabase, user.id, 'morning')])
   const pipeline = data ? await loadPipelineStatus(supabase, user.id, data.settings.weekly_outreach_target) : undefined
-  const text = data ? `${morningMessage(data, pipeline)}${reminders}` : reminders.trim()
+  const lowMood = data ? moodLowStreak(await getMoodLogs(supabase, user.id, 7)) : false
+  const text = data ? `${morningMessage(data, pipeline, lowMood)}${reminders}` : reminders.trim()
   if (!text) return NextResponse.json({ ok: true, sent: false, reason: 'Interview War Mode off, no reminders' })
   await sendMessage(BOT_TOKEN, Number(CHAT_ID), text)
   return NextResponse.json({ ok: true, sent: true, hunt: !!data, debriefs })

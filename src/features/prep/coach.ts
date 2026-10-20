@@ -5,6 +5,7 @@ import type { PipelineStatus } from '@/features/career/pipeline-status'
 import { GATES, blockQuota, coachLine, isGoodDay, dayPace, hm, istHourNow, nowBlock, practicedToday, readinessTier } from './war'
 import { levelOf } from './hunt'
 import { bossesLeft, bossesPerDay, daysTo } from './boss'
+import { LOW_MOOD_LINE } from '@/features/health/mood'
 
 // Telegram Prep Coach (War Mode) — deterministic message builders for the
 // Daily bot's 7:30am / 1pm / 9:30pm crons and its START/DONE/"what now"
@@ -60,9 +61,11 @@ function restEveningMessage(w: WeekSummary | undefined): string {
   ].filter(l => l !== null).join('\n')
 }
 
-// `pipeline` (debriefs owed) is added by the 7:30am cron; "what now" on the Daily bot omits it.
-export function morningMessage(d: PrepData, pipeline?: PipelineStatus): string {
-  if (d.restDay) return restMorningMessage()
+// `pipeline` (debriefs owed) and `lowMood` (mood ≤2 on 5 of the last 7 days
+// — one gentle support line) are added by the 7:30am cron; "what now" on the
+// Daily bot omits them.
+export function morningMessage(d: PrepData, pipeline?: PipelineStatus, lowMood = false): string {
+  if (d.restDay) return `${restMorningMessage()}${lowMood ? `\n\n${LOW_MOOD_LINE}` : ''}`
   const blocks = d.session?.blocks ?? []
   const risk = d.war.blockers[0]
   const due = d.revision.filter(r => r.status === 'overdue' || r.status === 'today')
@@ -83,6 +86,7 @@ export function morningMessage(d: PrepData, pipeline?: PipelineStatus): string {
     due.length ? `\n🔁 Revision due: ${due.map(r => `${r.topic} (${r.avgRating}/10)`).join(', ')}` : null,
     now ? `\n👉 Start with: *${now.label}*\nReply *START* to begin a focus session.` : null,
     `\n🎙️ Reply *DRILL* for a spoken rep.`,
+    lowMood ? `\n${LOW_MOOD_LINE}` : null,
   ].filter(l => l !== null).join('\n')
 }
 

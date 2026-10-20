@@ -7,6 +7,7 @@ import { todayIST } from '@/lib/date'
 import { coachData, eveningMessage, stillOpenLine, weekSummary } from '@/features/prep/coach'
 import { isRestDay } from '@/features/prep/hunt'
 import { loadPipelineStatus } from '@/features/career/pipeline-status'
+import { MOOD_PROMPT } from '@/features/health/mood'
 import { sendDebriefPrompts } from '@/features/prep/coach'
 import { generateForecast } from '@/features/prep/forecast'
 
@@ -54,6 +55,8 @@ export async function GET(req: Request) {
         (forecast.fixFirst.length ? `\n\nFix first:\n${forecast.fixFirst.map((x, i) => `${i + 1}. ${x}`).join('\n')}` : '')
     }
   }
+  // Always last: the mood / energy check-in (the reply is logged by the Daily bot).
+  text += `\n\n${MOOD_PROMPT}`
   await sendMessage(BOT_TOKEN, Number(CHAT_ID), text)
   return NextResponse.json({ ok: true, sent: true, forecast: beforeRest, debriefs })
 }

@@ -65,6 +65,7 @@ const dummyHunt = {
   outreach: { sent: 9, target: 25, replies: 2, screens: 1 },
   blocks: { done: 3, total: 7 },
   runway: 5.4,
+  mood: [13, 12, 11, 9, 8, 7, 6, 4, 3, 2, 1, 0].map((n, i) => ({ date: daysAgoIST(n), mood: [3, 2, 2, 3, 4, 3, 2, 3, 4, 4, 3, 4][i], energy: [4, 3, 2, 2, 3, 4, 3, 3, 3, 4, 4, 5][i], note: i === 5 ? 'gym + call with a friend' : null })),
 }
 
 export default function DashboardPreview() {

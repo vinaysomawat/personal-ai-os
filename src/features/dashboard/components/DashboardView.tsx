@@ -7,6 +7,7 @@ import BrainAdvisorTrigger from '@/features/brain/components/BrainAdvisorTrigger
 import NeedsAttention from './NeedsAttention'
 import QuickStats from './QuickStats'
 import HuntHero from './HuntHero'
+import MoodTrend from './MoodTrend'
 import type { HuntHero as HuntHeroData } from '../hunt-hero'
 import { explainScore } from '@/features/brain/calculations'
 import { buildBrainContext } from '@/features/brain/context-builder'
@@ -73,7 +74,7 @@ export default function DashboardView({ data, executive, hunt }: { data: Dashboa
       )}
 
       {/* Job Hunt Mode: the Hunt Hero replaces Life Score + Quick Stats. */}
-      {hunt ? <HuntHero hero={hunt} /> : (<>
+      {hunt ? <><HuntHero hero={hunt} /><MoodTrend logs={hunt.mood} /></> : (<>
         {/* Hero: Life Score card + Quick Stats/Goal Progress side by side,
             matching the design's [Life Score | Quick Stats] grid — Quick Stats
             (Phase 5 PRD's "Sidebar Widget") already stacks the 3 stat tiles
