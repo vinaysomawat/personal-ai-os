@@ -8,8 +8,8 @@ import { modalSaveButtonClass } from '@/components/Modal'
 import { READINESS_CONFIG, type ReadinessTier } from '@/features/career/types'
 import { endFocusSession, generatePrepForecast, savePrepRestDay, savePrepSettings, toggleFocusSessionPause } from '../actions'
 import { LEVELS, WEEKDAYS, levelOf } from '../hunt'
-import { GATES, PACE_WINDOW, blockQuota, coachLine, focusSeconds, hm, nowBlock, paceLabel, paceStatus, readinessTier, type DayPace, type FocusSession, type Forecast, type RevisionItem, type TopicWeakness, type WarReadiness } from '../war'
-import type { PrepSession, PrepSettings, ReadinessCell } from '../types'
+import { GATES, PACE_WINDOW, blockQuota, coachLine, isGoodDay, focusSeconds, hm, nowBlock, paceLabel, paceStatus, readinessTier, type DayPace, type FocusSession, type Forecast, type RevisionItem, type TopicWeakness, type WarReadiness } from '../war'
+import type { PrepBlock, PrepSession, PrepSettings, ReadinessCell } from '../types'
 
 const mmss = (s: number) => `${s < 0 ? '-' : ''}${Math.floor(Math.abs(s) / 60)}:${String(Math.abs(s) % 60).padStart(2, '0')}`
 const scoreCls = (s: number | null, gate: number) => s === null ? 'text-fg-tertiary' : s >= gate ? 'text-good' : s >= gate - 15 ? 'text-warn' : 'text-risk'
@@ -26,8 +26,10 @@ function useNow(active: boolean) {
 
 // ---------------- Header ----------------
 
-export function WarHeader({ war, settings, questionsPerDay, pace, nextInterview, restDay }: {
+export function WarHeader({ war, settings, questionsPerDay, pace, blocks, nextInterview, restDay }: {
   war: WarReadiness; settings: PrepSettings; questionsPerDay: number; pace: DayPace
+  // Today's plan — the coach line names the next block.
+  blocks: PrepBlock[]
   nextInterview: { company: string; kind: string; scheduled_at: string } | null
   // Today is the weekly rest day (no plan).
   restDay: boolean
@@ -65,7 +67,7 @@ export function WarHeader({ war, settings, questionsPerDay, pace, nextInterview,
           </div>
           {restDay
             ? <p className="text-[12.5px] mt-1 text-fg-secondary">🌿 Rest day — no plan. Walk, gym, see people. The streak carries over.</p>
-            : <p className={`text-[12.5px] mt-1 ${status === 'behind' ? 'text-risk' : status === 'ahead' ? 'text-good' : 'text-fg-secondary'}`}>{coachLine(pace)}</p>}
+            : <p className={`text-[12.5px] mt-1 ${isGoodDay(blocks) ? 'text-good' : 'text-fg-secondary'}`}>{coachLine(pace, nowBlock(blocks), isGoodDay(blocks))}</p>}
           {nextInterview && (
             <a href="/interviews" className="block text-[12px] font-semibold text-accent mt-0.5 hover:underline">📅 Next interview: {nextInterview.company} · {nextInterview.kind.replace(/_/g, ' ')} · {new Date(nextInterview.scheduled_at).toLocaleString('en-IN', { weekday: 'short', day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit', timeZone: 'Asia/Kolkata' })} →</a>
           )}
@@ -122,7 +124,7 @@ export function MissionCard({ session, focusSessions, doneToday, onStart, onOpen
           </div>
         </div>
       ) : (
-        <p className="text-[13px] text-good font-semibold mb-3">✓ Every block done. It only counts if tomorrow looks the same.</p>
+        <p className="text-[13px] text-good font-semibold mb-3">✓ Every block done — a good day.</p>
       )}
       <div className="h-[5px] rounded-[3px] bg-border mb-2.5">
         <div className="h-full rounded-[3px] bg-good transition-all" style={{ width: `${(done / Math.max(1, session.blocks.length)) * 100}%` }} />

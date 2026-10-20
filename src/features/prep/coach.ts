@@ -2,7 +2,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import { toISTDateStr } from '@/lib/date'
 import { loadPrepData } from './core'
 import type { PipelineStatus } from '@/features/career/pipeline-status'
-import { GATES, blockQuota, coachLine, dayPace, hm, istHourNow, nowBlock, practicedToday, readinessTier } from './war'
+import { GATES, blockQuota, coachLine, isGoodDay, dayPace, hm, istHourNow, nowBlock, practicedToday, readinessTier } from './war'
 import { levelOf } from './hunt'
 import { bossesLeft, bossesPerDay, daysTo } from './boss'
 
@@ -86,18 +86,15 @@ export function morningMessage(d: PrepData, pipeline?: PipelineStatus): string {
   ].filter(l => l !== null).join('\n')
 }
 
-// Only when ≥30 min behind the PACE_WINDOW (9am–7pm) pace — otherwise silent.
+// A 1pm check-in, only when ≥30 min under the PACE_WINDOW (9am–7pm) pace —
+// otherwise silent. What's done, then the one next step.
 export function middayMessage(d: PrepData): string | null {
   if (d.restDay) return null
   const pace = paceAt(d, istHourNow())
   if (pace.deltaMinutes > -30) return null
   const now = nowBlock(d.session?.blocks ?? [])
   return [
-    `⚠️ *You're ${hm(-pace.deltaMinutes)} behind today's pace.*`,
-    `Done ${pace.donePct}% of the plan · ${pace.dayPct}% of the day gone`,
-    `Blocks ${pace.blocksDone}/${pace.blocksTotal}.`,
-    '',
-    `Don't catch up with random work.`,
+    `🕐 *1pm check-in:* ${pace.blocksDone}/${pace.blocksTotal} blocks done (${pace.donePct}% of the plan).`,
     now ? `👉 Next: *${now.label}* — ${hm(now.minutes)}\nReply *START* when you're ready.` : null,
   ].filter(l => l !== null).join('\n')
 }
@@ -111,19 +108,23 @@ export function eveningMessage(d: PrepData, week?: WeekSummary): string {
   const mocks = d.mockRounds.filter(r => toISTDateStr(r.created_at) === d.today && r.review?.score != null)
   const strong = d.readiness.filter(c => c.score !== null && c.score >= GATES[c.key].gate)
   const weak = d.war.blockers.slice(0, 3)
+  const blocks = d.session?.blocks ?? []
+  const good = isGoodDay(blocks)
+  const outreach = blocks.find(b => b.key === 'outreach')
   return [
     `🌙 *DAY REVIEW — ${levelOf(d.settings.hours_per_day).label}*`,
-    `Done: *${pace.donePct}%* of the plan${pace.donePct < 100 ? ` · ${hm(-pace.deltaMinutes)} short` : ''}${interruptions ? ` · ${interruptions} interruption${interruptions === 1 ? '' : 's'}` : ''}`,
-    `Blocks: ${pace.blocksDone}/${pace.blocksTotal} (${pace.blocksTotal ? Math.round((pace.blocksDone / pace.blocksTotal) * 100) : 0}%)`,
+    `Done: *${pace.blocksDone}/${pace.blocksTotal} blocks* (${pace.donePct}% of the plan)${interruptions ? ` · ${interruptions} interruption${interruptions === 1 ? '' : 's'}` : ''}`,
+    outreach ? `📤 Outreach: ${d.outreachToday}/${blockQuota(outreach)}${outreach.done ? ' ✅' : ''}` : null,
+    good ? `✓ *Good day* — outreach + ${blocks.filter(b => b.key !== 'outreach' && b.done).length} blocks.` : `A good day = outreach + 2 blocks.`,
     mocks.length ? `Mock: ${mocks.map(r => `${r.review!.score}/10`).join(', ')}` : `Mock: none reviewed today`,
     readinessLine(d),
     ladderLine(d),
     '',
     strong.length ? `Strong: ${strong.slice(0, 3).map(c => `🟢 ${c.label}`).join(' ')}` : 'Strong: nothing at its gate yet.',
-    weak.length ? `Needs work: ${weak.map(b => `🔴 ${b.label} ${b.score ?? '—'}/${b.gate}`).join(' ')}` : null,
+    weak.length ? `Focus next: ${weak.map(b => `🔴 ${b.label} ${b.score ?? '—'}/${b.gate}`).join(' ')}` : null,
     weak.length ? `\nTomorrow shifts time toward: ${weak.map(b => b.label).join(', ')}.` : null,
     '',
-    `_${coachLine(pace)}_`,
+    `_${coachLine(pace, nowBlock(blocks), good)}_`,
   ].filter(l => l !== null).join('\n')
 }
 

@@ -274,14 +274,20 @@ export const istHourNow = () => { const d = new Date(Date.now() + 5.5 * 3600_000
 
 export const hm = (min: number) => min >= 60 ? `${Math.floor(min / 60)}h${min % 60 ? ` ${min % 60}m` : ''}` : `${min}m`
 
-// Brutal coach copy — no praise for partial work.
-export function coachLine(p: DayPace): string {
-  if (p.blocksTotal > 0 && p.blocksDone === p.blocksTotal) return 'All blocks done. It only counts if tomorrow looks the same.'
-  if (p.dayPct >= 100) return `Day over: ${p.donePct}% of the plan done, ${100 - p.donePct}% left undone (${hm(-p.deltaMinutes)} short).`
-  if (p.doneMinutes === 0 && p.dayPct >= 14) return `Nothing done and ${p.dayPct}% of the day is gone. Start the next block now.`
-  if (paceStatus(p) === 'behind') return `${p.donePct}% done, ${p.dayPct}% of the day gone — ${hm(-p.deltaMinutes)} behind. Don't add random work — do the next block.`
-  if (paceStatus(p) === 'ahead') return `${p.donePct}% done, ${p.dayPct}% of the day gone — ${hm(p.deltaMinutes)} ahead. Bank it: keep going.`
-  return `${p.donePct}% done, on pace. Readiness only moves with reps.`
+// A good day = the outreach block plus 2 other blocks done (whatever the %).
+export function isGoodDay(blocks: Pick<PrepBlock, 'key' | 'done'>[]): boolean {
+  return blocks.some(b => b.key === 'outreach' && b.done) && blocks.filter(b => b.key !== 'outreach' && b.done).length >= 2
+}
+
+// Coach copy: what got done first, then the single next step. Factual and
+// short, no guilt wording.
+export function coachLine(p: DayPace, next: Pick<PrepBlock, 'label'> | null, good: boolean): string {
+  const done = `${p.blocksDone}/${p.blocksTotal} blocks done${good ? ' — a good day ✓' : ''}`
+  if (p.blocksTotal > 0 && p.blocksDone === p.blocksTotal) return `All ${p.blocksTotal} blocks done — a good day ✓`
+  if (p.dayPct >= 100) return `${done}. Tomorrow starts with outreach.`
+  if (!next) return `${done}.`
+  if (p.blocksDone === 0) return `Start with ${next.label}.`
+  return `${done}. Next: ${next.label}.`
 }
 
 // The one thing to do now: the first unfinished block (plan order is

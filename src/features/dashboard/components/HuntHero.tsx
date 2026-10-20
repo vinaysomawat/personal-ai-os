@@ -3,9 +3,10 @@ import { runwayTone } from '@/features/finance/calculations'
 import type { HuntHero as HuntHeroData } from '../hunt-hero'
 
 const TONE = { good: 'text-good', warn: 'text-warn', risk: 'text-risk' } as const
-// Daily score (% of today's plan done): 90+ green, 70+ accent, 40+ amber, else red.
-const scoreTone = (n: number) => n >= 90 ? 'text-good' : n >= 70 ? 'text-accent' : n >= 40 ? 'text-warn' : 'text-risk'
-const scoreBar = (n: number) => n >= 90 ? 'bg-good' : n >= 70 ? 'bg-accent' : n >= 40 ? 'bg-warn' : 'bg-risk'
+// Daily score (% of today's plan done): 90+ green, 70+ accent, 40+ amber,
+// else red — and green on a good day (outreach + 2 blocks) whatever the %.
+const scoreTone = (n: number, good = false) => good || n >= 90 ? 'text-good' : n >= 70 ? 'text-accent' : n >= 40 ? 'text-warn' : 'text-risk'
+const scoreBar = (n: number, good = false) => good || n >= 90 ? 'bg-good' : n >= 70 ? 'bg-accent' : n >= 40 ? 'bg-warn' : 'bg-risk'
 const when = (iso: string) => new Date(iso).toLocaleString('en-IN', { weekday: 'short', day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit', timeZone: 'Asia/Kolkata' })
 
 // Interview War Mode hero (v4.0 §3) — replaces Life Score + Quick Stats (War
@@ -66,7 +67,7 @@ function ScoreCard({ hero }: { hero: HuntHeroData }) {
   const hasPlan = hero.blocks.total > 0
   const rest = hero.score.rest
   // Rest days have no score: a neutral bar, left out of the 7-day average.
-  const days: { date: string; score: number | null; rest?: boolean }[] = [...hero.score.recent, { date: 'today', score: hasPlan ? hero.score.today : null, rest }]
+  const days: { date: string; score: number | null; rest?: boolean; good?: boolean }[] = [...hero.score.recent, { date: 'today', score: hasPlan ? hero.score.today : null, rest, good: hero.score.good }]
   const scored = (ds: typeof days) => ds.map(d => d.score).filter((s): s is number => s !== null)
   const week = scored(days.slice(-7))
   const avg = week.length ? Math.round(week.reduce((s, v) => s + v, 0) / week.length) : null
@@ -82,8 +83,8 @@ function ScoreCard({ hero }: { hero: HuntHeroData }) {
           </>
         ) : (
           <>
-            <p className="mt-0.5 tabular-nums leading-none"><span className={`text-[40px] font-bold ${hasPlan ? scoreTone(hero.score.today) : 'text-fg-tertiary'}`}>{hasPlan ? hero.score.today : '—'}</span><span className="text-[13px] text-fg-tertiary font-semibold"> / 100</span></p>
-            <p className="text-[11.5px] text-fg-secondary mt-1.5">{hero.score.level} · {hero.blocks.done}/{hero.blocks.total} blocks done</p>
+            <p className="mt-0.5 tabular-nums leading-none"><span className={`text-[40px] font-bold ${hasPlan ? scoreTone(hero.score.today, hero.score.good) : 'text-fg-tertiary'}`}>{hasPlan ? hero.score.today : '—'}</span><span className="text-[13px] text-fg-tertiary font-semibold"> / 100</span></p>
+            <p className="text-[11.5px] text-fg-secondary mt-1.5">{hero.score.level} · {hero.blocks.done}/{hero.blocks.total} blocks done{hero.score.good && <span className="text-good font-semibold"> · ✓ good day</span>}</p>
           </>
         )}
         <p className="text-[11px] text-fg-tertiary mt-0.5 tabular-nums">7-day avg {avg ?? '—'} · best (14d) {best >= 0 ? best : '—'}</p>
@@ -98,7 +99,7 @@ function ScoreCard({ hero }: { hero: HuntHeroData }) {
               <div key={d.date} className="relative flex-1 h-full" title={`${d.date === 'today' ? 'Today' : d.date}: ${d.rest ? 'rest day' : d.score ?? 'no plan'}`}>
                 {d.rest
                   ? <div className="absolute inset-x-0 bottom-0 rounded-t-[3px] bg-surface-3 h-[30%]" />
-                  : <div className={`absolute inset-x-0 bottom-0 rounded-t-[3px] ${d.score === null ? 'bg-border' : scoreBar(d.score)} ${d.date === 'today' ? '' : 'opacity-75'}`} style={{ height: `${Math.max(3, d.score ?? 0)}%` }} />}
+                  : <div className={`absolute inset-x-0 bottom-0 rounded-t-[3px] ${d.score === null ? 'bg-border' : scoreBar(d.score, d.good)} ${d.date === 'today' ? '' : 'opacity-75'}`} style={{ height: `${Math.max(3, d.score ?? 0)}%` }} />}
                 {d.rest && <span className="absolute inset-x-0 text-center text-[9.5px] text-fg-tertiary" style={{ bottom: 'calc(30% + 1px)' }}>rest</span>}
                 {d.score !== null && <span className={`absolute inset-x-0 text-center text-[10px] tabular-nums ${d.date === 'today' ? 'font-bold text-fg-primary' : 'text-fg-tertiary'}`} style={{ bottom: `calc(${d.score}% + 1px)` }}>{d.score}</span>}
               </div>

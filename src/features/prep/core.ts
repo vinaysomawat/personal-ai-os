@@ -6,7 +6,7 @@ import { topicHref } from './links'
 import { computeReadinessMatrix, type CodingHistoryRow } from './readiness'
 import { bossLadder, type Fight } from './boss'
 import { COMPETENCIES } from './types'
-import { blockQuota, categoryGap, categoryWeights, dayPace, focusSeconds, nowBlock, revisionQueue, topicWeakness, warReadiness, type FocusSession, type Forecast } from './war'
+import { blockQuota, categoryGap, categoryWeights, dayPace, isGoodDay, focusSeconds, nowBlock, revisionQueue, topicWeakness, warReadiness, type FocusSession, type Forecast } from './war'
 import type { BankQuestion, PrepBlock, PrepSession, PrepSettings, Story, StoryRehearsal } from './types'
 
 // Prep's data layer — plain server module (not 'use server', so none of
@@ -121,7 +121,7 @@ export async function loadPrepData(supabase: SupabaseClient, userId: string) {
     recentScores: Array.from({ length: 13 }, (_, i) => daysAgoIST(13 - i)).map(date => {
       const s = sessions.find(x => x.date === date)
       const rest = isRestDay(date, settings.rest_day) && !s?.blocks.length
-      return { date, score: s?.blocks.length ? dayPace(s.blocks, 24).donePct : null, rest }
+      return { date, score: s?.blocks.length ? dayPace(s.blocks, 24).donePct : null, rest, good: !!s && isGoodDay(s.blocks) }
     }),
     mockRounds,
     // War Mode (all deterministic, war.ts).

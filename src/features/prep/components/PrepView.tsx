@@ -178,7 +178,7 @@ export default function PrepView(props: Props) {
 
       {tab === 'today' && (
         <>
-          <WarHeader war={props.war} settings={props.settings} questionsPerDay={props.coverage.reduce((s, c) => s + ('quota' in c ? c.quota : 0), 0)} pace={pace} nextInterview={props.nextInterview} restDay={props.restDay} />
+          <WarHeader war={props.war} settings={props.settings} questionsPerDay={props.coverage.reduce((s, c) => s + ('quota' in c ? c.quota : 0), 0)} pace={pace} blocks={session?.blocks ?? []} nextInterview={props.nextInterview} restDay={props.restDay} />
           <div className="grid grid-cols-1 lg:grid-cols-[1fr_380px] gap-[var(--grid-gap)] items-start">
             <div className="space-y-[var(--grid-gap)]">
               <MissionCard session={session} focusSessions={todayFocus} doneToday={doneToday} onStart={startFocus} onOpen={openHref} />

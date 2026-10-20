@@ -1,7 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { daysAgoIST } from '@/lib/date'
 import { loadPrepData } from '@/features/prep/core'
-import { dayPace, istHourNow, practicedToday, readinessTier } from '@/features/prep/war'
+import { dayPace, isGoodDay, istHourNow, practicedToday, readinessTier } from '@/features/prep/war'
 import { levelOf } from '@/features/prep/hunt'
 import { runwayMonths } from '@/features/finance/calculations'
 import { loadPipelineStatus } from '@/features/career/pipeline-status'
@@ -16,7 +16,8 @@ export interface HuntHero {
   // question), the level, and the 13 days before (whole blocks only).
   // `rest` = today is the weekly rest day (no plan); recent rest days carry
   // `rest` too and draw as neutral bars.
-  score: { today: number; level: string; rest: boolean; recent: { date: string; score: number | null; rest?: boolean }[] }
+  // `good` = outreach + 2 other blocks done (green whatever the %).
+  score: { today: number; level: string; rest: boolean; good: boolean; recent: { date: string; score: number | null; rest?: boolean; good?: boolean }[] }
   nextInterview: { company: string; kind: string; scheduled_at: string } | null
   // This week's funnel (Monday-start IST): the first tile — getting
   // interviews is the bottleneck.
@@ -41,7 +42,7 @@ export async function loadHuntHero(db: SupabaseClient, userId: string): Promise<
     topBlocker: prep.war.blockers[0] ?? null,
     nextInterview: prep.nextInterview,
     outreach: { sent: pipeline.week.sent, target: pipeline.target, replies: pipeline.week.replies, screens: pipeline.week.screens },
-    score: { today: pace.donePct, level: levelOf(prep.settings.hours_per_day).label, rest: prep.restDay, recent: prep.recentScores },
+    score: { today: pace.donePct, level: levelOf(prep.settings.hours_per_day).label, rest: prep.restDay, good: isGoodDay(blocks), recent: prep.recentScores },
     blocks: { done: blocks.filter(b => b.done).length, total: blocks.length },
     // liquid_savings may not exist before the Phase 1 migration — null then.
     runway: runwayMonths((profileRes.data as { liquid_savings?: number | null } | null)?.liquid_savings, avgSpend),
