@@ -1,7 +1,7 @@
 import PrepView, { type PrepTab } from '@/features/prep/components/PrepView'
 import { getPrepData } from '@/features/prep/actions'
 
-const TABS: PrepTab[] = ['today', 'questions', 'mock', 'stories', 'bosses']
+const TABS: PrepTab[] = ['today', 'questions', 'mock', 'stories']
 
 export default async function PrepPage({ searchParams }: { searchParams: Promise<{ tab?: string; cat?: string; topic?: string; format?: string }> }) {
   const [{ tab, cat, topic, format }, data] = await Promise.all([searchParams, getPrepData()])
@@ -22,10 +22,8 @@ export default async function PrepPage({ searchParams }: { searchParams: Promise
       weakness={data.weakness}
       revision={data.revision}
       focusSessions={data.focusSessions}
-      fights={data.fights}
       outreachToday={data.outreachToday}
       restDay={data.restDay}
-      ladder={data.ladder}
       forecast={data.forecast}
       nextInterview={data.nextInterview}
       stories={data.stories}

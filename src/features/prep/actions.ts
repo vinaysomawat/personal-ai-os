@@ -9,9 +9,6 @@ import { COMPETENCIES } from './types'
 import type { PrepSession, Story, StoryRehearsal } from './types'
 import { endFocus, loadPrepData, startFocus, syncBankBlocks, toggleFocusPause } from './core'
 import type { FocusSession } from './war'
-import { abandonFight, answerFight, markFixRead, startFight } from './fight'
-import type { Fight } from './boss'
-import type { ReadinessAreaKey } from './types'
 import { critiqueFollowUp, critiqueQuestion, critiqueStory, modelAnswer, SPOKEN_NOTE } from './critique'
 import type { Rubric, Scorecard } from './scorecard'
 import { speechStats } from '@/lib/speech-stats'
@@ -49,49 +46,6 @@ export async function endFocusSession(id: string, finished: boolean): Promise<{ 
   revalidatePath('/prep')
   revalidatePath('/dashboard')
   return res
-}
-
-// ---------------- Boss Ladder fights (Bosses tab) ----------------
-
-async function signedIn() {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) throw new Error('Not authenticated')
-  return { supabase, userId: user.id }
-}
-
-export async function startFightAction(area: ReadinessAreaKey): Promise<{ fight: Fight | null; error: string | null }> {
-  const { supabase, userId } = await signedIn()
-  return startFight(supabase, userId, area, 'web')
-}
-
-// The last answer grades the whole fight (one critique per answer, in parallel).
-export async function answerFightAction(id: string, answer: string, spoken: boolean, seconds: number): Promise<{ fight: Fight | null; session: PrepSession | null }> {
-  const { supabase, userId } = await signedIn()
-  const res = await answerFight(supabase, userId, id, answer, { spoken, seconds })
-  if (res.fight && res.fight.status !== 'active') { revalidatePath('/prep'); revalidatePath('/dashboard') }
-  return res
-}
-
-export async function abandonFightAction(id: string): Promise<Fight | null> {
-  const { supabase, userId } = await signedIn()
-  return abandonFight(supabase, userId, id)
-}
-
-export async function markFixReadAction(id: string): Promise<Fight | null> {
-  const { supabase, userId } = await signedIn()
-  const f = await markFixRead(supabase, userId, id)
-  revalidatePath('/prep')
-  return f
-}
-
-// The Boss Ladder deadline ("N days to …"); null clears it.
-export async function savePrepTargetDate(date: string | null) {
-  const { supabase, userId } = await signedIn()
-  if (date !== null && !/^\d{4}-\d{2}-\d{2}$/.test(date)) throw new Error('Invalid date')
-  const { error } = await supabase.from('prep_settings').upsert({ user_id: userId, target_date: date, updated_at: new Date().toISOString() }, { onConflict: 'user_id' })
-  if (error) throw new Error(error.message)
-  revalidatePath('/prep')
 }
 
 // Weekly "if you interviewed tomorrow" forecast, on demand (the Sunday

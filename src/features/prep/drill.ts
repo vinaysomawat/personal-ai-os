@@ -59,7 +59,7 @@ export async function startDrill(db: SupabaseClient, userId: string, requested: 
 }
 
 // Bot commands that must never be swallowed as a drill answer.
-const COMMANDS = /^(start|begin|pause|resume|break|back|done|finish(ed)?|stop|what now|status|next|drill\b.*|fight\b.*|read)$/i
+const COMMANDS = /^(start|begin|pause|resume|break|back|done|finish(ed)?|stop|what now|status|next|drill\b.*)$/i
 
 // Called before intent parsing. Returns a reply when the message was a drill
 // answer (or SKIP), null to let normal parsing handle it.

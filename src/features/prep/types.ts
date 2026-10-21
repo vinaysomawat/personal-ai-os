@@ -51,8 +51,6 @@ export interface PrepSettings {
   daily_outreach_target: number
   // Weekly rest day, IST weekday (0 = Sunday … 6 = Saturday).
   rest_day: number
-  // Boss Ladder deadline (YYYY-MM-DD), null = none.
-  target_date: string | null
 }
 
 // A coding_questions row plus when it was last practiced (in the Question

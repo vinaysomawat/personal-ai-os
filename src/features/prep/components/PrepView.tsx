@@ -1,7 +1,6 @@
 'use client'
 
 import { useEffect, useState, useTransition } from 'react'
-import { useRouter } from 'next/navigation'
 import { ChevronRight, MessageSquareQuote, Plus, RotateCcw, Shuffle, Sparkles } from 'lucide-react'
 import Card from '@/components/Card'
 import MicButton, { appendText } from '@/components/MicButton'
@@ -12,26 +11,23 @@ import Modal, { modalLabelClass, modalInputClass, modalCancelButtonClass, modalS
 import { useEscapeKey } from '@/lib/use-escape-key'
 import { daysAgoIST, toISTDateStr } from '@/lib/date'
 import { formatOf, type MockRound } from '../mock'
-import { startFocusSession, saveStory, deleteStory, rehearseStory, startFightAction, type StoryInput } from '../actions'
-import { COMPETENCIES, REHEARSAL_PROMPTS, type BankQuestion, type CompetencyKey, type PrepSession, type PrepSettings, type ReadinessAreaKey, type ReadinessCell, type Story, type StoryRehearsal } from '../types'
+import { startFocusSession, saveStory, deleteStory, rehearseStory, type StoryInput } from '../actions'
+import { COMPETENCIES, REHEARSAL_PROMPTS, type BankQuestion, type CompetencyKey, type PrepSession, type PrepSettings, type ReadinessCell, type Story, type StoryRehearsal } from '../types'
 import type { CategoryCoverage, CategoryQuota } from '../hunt'
 import { QuestionsTab } from './QuestionsTab'
 import { MockTab } from './MockTab'
 import AnswerReview from './AnswerReview'
 import { FocusBar, ForecastCard, GatesCard, MissionCard, RevisionCard, WarHeader, WeaknessCard } from './WarRoom'
-import { BossHeader, FightResult, FightScreen, LadderCard, NextBossCard } from './BossLadder'
-import type { Boss, Fight } from '../boss'
 import { blockQuota, dayPace, focusSeconds, istHourNow, paceLabel, paceStatus, practicedToday, type FocusSession, type Forecast, type RevisionItem, type TopicWeakness, type WarReadiness } from '../war'
 import PageHeader, { HeaderChip } from '@/components/PageHeader'
 import StatCard from '@/components/StatCard'
 
-export type PrepTab = 'today' | 'questions' | 'mock' | 'stories' | 'bosses'
+export type PrepTab = 'today' | 'questions' | 'mock' | 'stories'
 const TABS: { key: PrepTab; label: string }[] = [
   { key: 'today', label: 'Today' },
   { key: 'questions', label: 'Questions' },
   { key: 'mock', label: 'Mock Round' },
   { key: 'stories', label: 'Story Bank' },
-  { key: 'bosses', label: 'Bosses' },
 ]
 
 interface Props {
@@ -49,10 +45,8 @@ interface Props {
   weakness: TopicWeakness[]
   revision: RevisionItem[]
   focusSessions: FocusSession[]
-  fights: Fight[]
   outreachToday: number
   restDay: boolean
-  ladder: Boss[]
   forecast: { date: string; forecast: Forecast } | null
   stories: Story[]
   rehearsals: StoryRehearsal[]
@@ -131,26 +125,6 @@ export default function PrepView(props: Props) {
     return quota ? `${Math.min(doneToday[activeFocus.block_key === 'outreach' ? 'outreach' : activeFocus.block_key.slice(5)] ?? 0, quota)}/${quota}` : null
   })()
 
-  // Boss Ladder (Bosses tab): one web fight at a time; a finished one shows
-  // its result (and Fix card) until closed. The ladder comes from the server.
-  const router = useRouter()
-  const [fights, setFights] = useState(props.fights)
-  const [shownFight, setShownFight] = useState<string | null>(null)
-  const [fightError, setFightError] = useState<string | null>(null)
-  const [startingFight, startFightTransition] = useTransition()
-  const activeFight = fights.find(f => f.status === 'active' && f.channel === 'web') ?? null
-  const fightResult = fights.find(f => f.id === shownFight) ?? null
-  const upsertFight = (f: Fight) => setFights(prev => [f, ...prev.filter(x => x.id !== f.id)])
-  const bossLabel = (area: string) => props.readiness.find(c => c.key === area)?.label ?? area
-  const fight = (area: ReadinessAreaKey) => {
-    setFightError(null)
-    startFightTransition(async () => {
-      const r = await startFightAction(area)
-      if (r.fight) { upsertFight(r.fight); setShownFight(null); window.scrollTo({ top: 0 }) } else setFightError(r.error)
-    })
-  }
-  const showFight = (f: Fight) => { setShownFight(f.id); window.scrollTo({ top: 0, behavior: 'smooth' }) }
-
   const lastRound = rounds[0] ?? null
   const roundsThisWeek = rounds.filter(r => toISTDateStr(r.created_at) >= daysAgoIST(6)).length
   const coveredCompetencies = new Set(stories.filter(s => (s.strength ?? 3) >= 3).flatMap(s => s.competencies))
@@ -213,27 +187,6 @@ export default function PrepView(props: Props) {
           }}
           onRoundUpdated={round => setRounds(prev => prev.map(r => r.id === round.id ? round : r))}
         />
-      )}
-
-      {tab === 'bosses' && (
-        <>
-          <BossHeader ladder={props.ladder} settings={props.settings} today={props.today} />
-          <div className="grid grid-cols-1 lg:grid-cols-[1fr_380px] gap-[var(--grid-gap)] items-start">
-            <div className="space-y-[var(--grid-gap)]">
-              {activeFight ? (
-                <FightScreen fight={activeFight} label={bossLabel(activeFight.area)}
-                  onChange={(f, s) => { upsertFight(f); if (s) setSession(s); if (f.status !== 'active') { setShownFight(f.id); router.refresh() } }}
-                  onAbandoned={() => setFights(prev => prev.filter(f => f.id !== activeFight.id))} />
-              ) : (
-                <>
-                  {fightResult && <FightResult fight={fightResult} label={bossLabel(fightResult.area)} onChange={f => { upsertFight(f); router.refresh() }} onClose={() => setShownFight(null)} />}
-                  <NextBossCard boss={props.ladder.find(b => b.state !== 'defeated') ?? null} busy={startingFight} error={fightError} onFight={fight} onShowResult={showFight} />
-                </>
-              )}
-            </div>
-            <LadderCard ladder={props.ladder} war={props.war} busy={startingFight || !!activeFight} onFight={fight} onShowResult={showFight} />
-          </div>
-        </>
       )}
 
       {tab === 'stories' && (

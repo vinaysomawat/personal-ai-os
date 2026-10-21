@@ -4,7 +4,6 @@ import { loadPrepData } from './core'
 import type { PipelineStatus } from '@/features/career/pipeline-status'
 import { GATES, blockQuota, coachLine, isGoodDay, dayPace, hm, istHourNow, nowBlock, practicedToday, readinessTier } from './war'
 import { levelOf } from './hunt'
-import { bossesLeft, bossesPerDay, daysTo } from './boss'
 import { LOW_MOOD_LINE } from '@/features/health/mood'
 
 // Telegram Prep Coach (War Mode) — deterministic message builders for the
@@ -24,15 +23,6 @@ const paceAt = (d: PrepData, hour: number) => dayPace(d.session?.blocks ?? [], h
 const readinessLine = (d: PrepData) =>
   `Readiness *${d.war.overall}%* — ${readinessTier(d.war).label}` +
   (d.war.interviewReady && !d.war.ready && d.war.blockers[0] ? `\nInterview-ready. Keep closing: *${d.war.blockers[0].label}*` : '')
-
-// "⚔️ 9 bosses left · 11 days to 30 Oct · need 0.8/day" (Bosses tab).
-export function ladderLine(d: PrepData): string {
-  const left = bossesLeft(d.ladder)
-  const days = daysTo(d.settings.target_date, d.today)
-  const per = bossesPerDay(left, days)
-  const when = d.settings.target_date ? new Date(`${d.settings.target_date}T00:00:00Z`).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', timeZone: 'UTC' }) : null
-  return `⚔️ ${left} boss${left === 1 ? '' : 'es'} left${days !== null ? ` · ${days} day${days === 1 ? '' : 's'} to ${when}${per !== null ? ` · need ${per}/day` : ''}` : ''} — reply *FIGHT*`
-}
 
 // Rest day (prep_settings.rest_day): a short message instead of the mission.
 function restMorningMessage(): string {
@@ -75,7 +65,6 @@ export function morningMessage(d: PrepData, pipeline?: PipelineStatus, lowMood =
     `🎯 *INTERVIEW WAR MODE — ${levelOf(d.settings.hours_per_day).label} (${d.settings.hours_per_day}h)*`,
     outreach ? (outreach.done ? `📤 Outreach done: ${d.outreachToday}/${blockQuota(outreach)} ✅` : `📤 *Start with outreach: ${d.outreachToday}/${blockQuota(outreach)}* — 5 referral messages + 5 roles posted in the last 48h`) : null,
     readinessLine(d),
-    ladderLine(d),
     risk ? `🔴 Biggest risk: *${risk.label}* ${risk.score ?? 'no data'}/${risk.gate}` : null,
     d.companyBlock ? `🏢 *Then company prep:* ${d.companyBlock.label}` : null,
     d.nextInterview ? `📅 Next interview: *${d.nextInterview.company}* ${d.nextInterview.kind.replace(/_/g, ' ')} — ${new Date(d.nextInterview.scheduled_at).toLocaleString('en-IN', { weekday: 'short', day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit', timeZone: 'Asia/Kolkata' })}` : null,
@@ -122,7 +111,6 @@ export function eveningMessage(d: PrepData, week?: WeekSummary): string {
     good ? `✓ *Good day* — outreach + ${blocks.filter(b => b.key !== 'outreach' && b.done).length} blocks.` : `A good day = outreach + 2 blocks.`,
     mocks.length ? `Mock: ${mocks.map(r => `${r.review!.score}/10`).join(', ')}` : `Mock: none reviewed today`,
     readinessLine(d),
-    ladderLine(d),
     '',
     strong.length ? `Strong: ${strong.slice(0, 3).map(c => `🟢 ${c.label}`).join(' ')}` : 'Strong: nothing at its gate yet.',
     weak.length ? `Focus next: ${weak.map(b => `🔴 ${b.label} ${b.score ?? '—'}/${b.gate}`).join(' ')}` : null,

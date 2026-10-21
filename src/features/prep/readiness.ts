@@ -120,7 +120,7 @@ function baseMatrix(codingHistory: CodingHistoryRow[], stories: Story[], aiNativ
     if (area.key === 'behavioral' || area.key === 'leadership') {
       const cov = storyCoverage(stories, area.key)
       const covScore = cov.covered === 0 && cov.pct === 0 ? null : cov.pct
-      // Leadership's rated answers: the Tech-lead questions (Boss Ladder fights).
+      // Leadership's rated answers: the Tech-lead questions.
       const answers = area.key === 'behavioral' ? rp : leadPart()
       const parts = [covScore, answers?.score ?? null].filter((v): v is number => v !== null)
       return {

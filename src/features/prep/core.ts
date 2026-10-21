@@ -4,7 +4,6 @@ import { formatMinutes, mockFormatForDay, type MockRound } from './mock'
 import { BANK_CATEGORIES, DEFAULT_HOURS, OUTREACH_MINUTES, buildHuntPlan, isRestDay, isRedoDue, companyPrepBlock, computeQuotas, interviewRedoBlock, leadMinutes, type CategoryCoverage, type UpcomingRound } from './hunt'
 import { topicHref } from './links'
 import { computeReadinessMatrix, type CodingHistoryRow } from './readiness'
-import { bossLadder, type Fight } from './boss'
 import { COMPETENCIES } from './types'
 import { blockQuota, categoryGap, categoryWeights, dayPace, isGoodDay, focusSeconds, nowBlock, revisionQueue, topicWeakness, warReadiness, type FocusSession, type Forecast } from './war'
 import type { BankQuestion, PrepBlock, PrepSession, PrepSettings, Story, StoryRehearsal } from './types'
@@ -37,7 +36,7 @@ export async function loadPrepData(supabase: SupabaseClient, userId: string) {
   const user = { id: userId }
   const today = todayIST()
 
-  const [mockRes, storiesRes, rehearsalsRes, codingRes, sessionsRes, focusRes, forecastRes, nextRoundRes, decidedRoundsRes, outreachRes, fightsRes] = await Promise.all([
+  const [mockRes, storiesRes, rehearsalsRes, codingRes, sessionsRes, focusRes, forecastRes, nextRoundRes, decidedRoundsRes, outreachRes] = await Promise.all([
     supabase.from('mock_rounds').select('id, format, items, duration_seconds, created_at, review').eq('user_id', user.id).order('created_at', { ascending: false }).limit(500),
     supabase.from('stories').select('*').eq('user_id', user.id).order('updated_at', { ascending: false }),
     supabase.from('story_rehearsals').select('id, story_id, competency, prompt, answer, critique, rating, scorecard, created_at').eq('user_id', user.id).order('created_at', { ascending: false }).limit(10),
@@ -51,8 +50,6 @@ export async function loadPrepData(supabase: SupabaseClient, userId: string) {
     supabase.from('interview_rounds').select('kind, outcome').eq('user_id', user.id).eq('status', 'done').in('outcome', ['passed', 'failed']).gte('scheduled_at', istMidnightUtc(180)),
     // Today's logged outreach — ticks the plan's first block.
     supabase.from('outreach').select('count').eq('user_id', user.id).eq('sent_at', today),
-    // Boss Ladder fights (Bosses tab), last 30 days.
-    supabase.from('prep_fights').select('*').eq('user_id', user.id).gte('date', daysAgoIST(30)).order('started_at', { ascending: false }),
   ])
   const [settings, bank] = await Promise.all([getPrepSettings(supabase, user.id), getQuestionBank(supabase, user.id)])
   const coverage = bankCoverage(bank, today)
@@ -137,9 +134,6 @@ export async function loadPrepData(supabase: SupabaseClient, userId: string) {
     readiness,
     // Sum of today's outreach.count (the outreach block's progress).
     outreachToday,
-    // Boss Ladder (boss.ts) — separate from the daily plan.
-    fights: (fightsRes.data ?? []) as Fight[],
-    ladder: bossLadder(readiness, (fightsRes.data ?? []) as Fight[], today),
     settings,
     coverage: quotas,
     bank,
@@ -147,8 +141,8 @@ export async function loadPrepData(supabase: SupabaseClient, userId: string) {
 }
 
 export async function getPrepSettings(supabase: SupabaseClient, userId: string): Promise<PrepSettings> {
-  const { data } = await supabase.from('prep_settings').select('hours_per_day, weekly_outreach_target, daily_outreach_target, rest_day, target_date').eq('user_id', userId).maybeSingle()
-  return { hours_per_day: data?.hours_per_day ?? DEFAULT_HOURS, weekly_outreach_target: data?.weekly_outreach_target ?? 25, daily_outreach_target: data?.daily_outreach_target ?? 10, rest_day: data?.rest_day ?? 0, target_date: data?.target_date ?? null }
+  const { data } = await supabase.from('prep_settings').select('hours_per_day, weekly_outreach_target, daily_outreach_target, rest_day').eq('user_id', userId).maybeSingle()
+  return { hours_per_day: data?.hours_per_day ?? DEFAULT_HOURS, weekly_outreach_target: data?.weekly_outreach_target ?? 25, daily_outreach_target: data?.daily_outreach_target ?? 10, rest_day: data?.rest_day ?? 0 }
 }
 
 // PostgREST caps a response at 1,000 rows, and the bank is past that —

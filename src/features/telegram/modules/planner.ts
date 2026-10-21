@@ -17,8 +17,6 @@ Actions:
 {"action":"pause_focus"}
 {"action":"finish_focus","finished":true|false}
 {"action":"prep_now"}
-{"action":"fight","area":"the boss named after fight, e.g. system design, react, backend"|null}
-{"action":"fix_read"}
 {"action":"drill","category":"system design"|"behavioral"|"interview"|"ai"|"angular"|"theory"|"backend"|"resume"|"architecture"|"rag"|null}
 {"action":"help"}
 
@@ -32,22 +30,17 @@ Rules:
 - For "pause", "break", "resume", "back" → pause_focus (toggles pause)
 - For "done", "finished", "finish", "block done" → finish_focus with finished true; "stop", "give up", "abandon" → finish_focus with finished false
 - For "what now", "what should I do", "status", "next" → prep_now
-- For "fight", "FIGHT", "fight system design", "fight react" → fight (area = the words after fight, or null) — a Prep Boss Ladder fight
-- For "read", "READ", "read fix", "fix read" → fix_read (marks the last lost fight's Fix card read)
 - For "drill", "DRILL", "drill me", "drill system design", "drill behavioral", "drill interview", "drill backend", "drill resume", "drill architecture", "drill rag", "drill agents" → drill (category = the words after "drill", or null)
 - If message is unclear, return {"action":"help"}`
 
-// Runs before intent parsing: a mood check-in reply is logged first; while a Boss Ladder fight is running every
-// message is its next answer; a message within 30 min of a drill question is
-// that drill's answer (voice or text), not a command.
+// Runs before intent parsing: a mood check-in reply is logged first; a message
+// within 30 min of a drill question is that drill's answer (voice or text), not
+// a command.
 export async function preIntercept(text: string, db: SupabaseClient, userId: string, spoken: boolean): Promise<string | null> {
   // "mood 3 energy 4" — the 9:30pm check-in reply (regex, no AI).
   const { logMoodReply } = await import('@/features/health/mood')
   const mood = await logMoodReply(db, userId, text)
   if (mood !== null) return mood
-  const { answerTelegramFight } = await import('@/features/prep/fight')
-  const fight = await answerTelegramFight(db, userId, text, spoken)
-  if (fight !== null) return fight
   const { answerPendingDrill } = await import('@/features/prep/drill')
   return answerPendingDrill(db, userId, text, spoken)
 }
@@ -92,15 +85,6 @@ export async function execute(action: Record<string, unknown>, db: SupabaseClien
       if (!data) return 'Couldn\'t load today\'s plan — open the Prep page once.'
       return middayMessage(data) ?? morningMessage(data)
     }
-    // Boss Ladder fights (same rows as the web Bosses tab).
-    case 'fight': {
-      const { fightArea, startTelegramFight } = await import('@/features/prep/fight')
-      return startTelegramFight(db, userId, fightArea(action.area ? String(action.area) : undefined))
-    }
-    case 'fix_read': {
-      const { readTelegramFix } = await import('@/features/prep/fight')
-      return readTelegramFix(db, userId)
-    }
     case 'drill': {
       const { drillCategory, startDrill } = await import('@/features/prep/drill')
       return startDrill(db, userId, drillCategory(action.category ? String(action.category) : undefined))
@@ -134,6 +118,6 @@ export async function execute(action: Record<string, unknown>, db: SupabaseClien
       return `🗑️ Removed reminder: "${reminder.label}"`
     }
     default:
-      return `*Daily Bot — What I can do:*\n• "how was my week" (digest)\n• "how was my month" (monthly digest)\n• "remind me to log weight every morning"\n• "show my reminders"\n• "start" / "pause" / "done" (Prep focus sessions)\n• "what now" (today\'s War Mode mission)\n• "fight" / "fight system design" / "fight rag" (a Boss Ladder fight: 5 spoken answers, graded at the end; "skip" gives up) · "read" (Fix card read, rematch unlocked)\n• "drill" / "drill system design" / "drill behavioral" / "drill backend" / "drill resume" / "drill architecture" / "drill rag" / "drill interview" (a spoken-answer rep, rated)\n\nI also send the Prep Coach: the 7:30am mission, a 1pm nudge if you\'re behind, and the 9:30pm review (with your reminders and anything still open).`
+      return `*Daily Bot — What I can do:*\n• "how was my week" (digest)\n• "how was my month" (monthly digest)\n• "remind me to log weight every morning"\n• "show my reminders"\n• "start" / "pause" / "done" (Prep focus sessions)\n• "what now" (today\'s War Mode mission)\n• "drill" / "drill system design" / "drill behavioral" / "drill backend" / "drill resume" / "drill architecture" / "drill rag" / "drill interview" (a spoken-answer rep, rated)\n\nI also send the Prep Coach: the 7:30am mission, a 1pm nudge if you\'re behind, and the 9:30pm review (with your reminders and anything still open).`
   }
 }

@@ -5,6 +5,7 @@ append here whenever you deploy, same cadence as the version bump.
 
 ## 2026-10-21
 
+- **Boss Ladder removed.** The Bosses tab is gone, along with "fight" / "read" on Telegram and the bosses-left line in the 7:30am and 9:30pm messages. Ratings from past fights stay in the Question Bank and still count toward readiness. Daily questions, mocks and "drill" cover the same practice.
 - **AI engineering prep track.** A new Question Bank category with 67 questions on LLMs, embeddings, vector databases (Pinecone Serverless, Qdrant, FAISS, ChromaDB, pgvector), RAG, agentic RAG, agents, human-in-the-loop, frameworks (LangChain, LlamaIndex, Hugging Face) and evals. Each question has key points for the AI review. It's a new readiness area too (gate 70), with a daily quota, a Boss Ladder fight, "drill rag" and "fight rag" on Telegram, and a link in AI-company prep. Readiness dips at first, since the new area counts as a blind spot until you've answered a few.
 
 ## 2026-10-20
