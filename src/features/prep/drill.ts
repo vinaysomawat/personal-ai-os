@@ -11,8 +11,9 @@ import type { BankQuestion } from './types'
 // the rating also lands in question_progress like a Question Bank answer.
 
 // Categories that make sense answered out loud — coding categories don't.
-const SPOKEN = ['behavioral', 'ai-native', 'system-design', 'quiz', 'angular', 'backend', 'interview', 'resume', 'architecture'] as const
+const SPOKEN = ['behavioral', 'ai-native', 'system-design', 'quiz', 'angular', 'backend', 'interview', 'resume', 'architecture', 'ai-engineering'] as const
 const ALIASES: [RegExp, string][] = [
+  [/\brag\b|agent|llm|vector|embedding|hitl|langchain|llama.?index|ai.?eng/i, 'ai-engineering'],
   [/resume|\bcv\b|experience/i, 'resume'],
   [/architect|\blead\b|bundl|monorepo|micro.?front|platform/i, 'architecture'],
   [/backend|\bapis?\b|server|node|database|\bdb\b/i, 'backend'],

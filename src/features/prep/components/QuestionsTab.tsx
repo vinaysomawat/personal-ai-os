@@ -46,6 +46,7 @@ const PLACEHOLDER: Record<string, string> = {
   'code-review': 'Review it like a senior on your team: list the issues by severity (security, correctness, a11y, perf, naming), why each matters, and the fix. Saved when you hit Next.',
   resume: 'Answer as you would to the interviewer, from your real work: what you decided, the alternatives, the trade-off, and a number. Saved when you hit Next.',
   architecture: 'Answer out loud as the architect or lead in the room: the options, the trade-offs, your recommendation and how you would roll it out — with an example from your work. Saved when you hit Next.',
+  'ai-engineering': 'Answer out loud as an AI product engineer: the pipeline or pattern, how it works, the trade-off, how you would evaluate it in production — with an example from Personal OS or your own build. Saved when you hit Next.',
   backend: 'Answer out loud as a full-stack engineer: the approach, how it works, a concrete example (schema, endpoint, header), the trade-off. Saved when you hit Next.',
 }
 // Linkless (Prep-added) questions are answered in the app: a typed answer,

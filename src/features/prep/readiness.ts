@@ -11,7 +11,7 @@ export interface RatedAnswer {
 // counts toward Testing (reviewing is how a senior catches what tests miss).
 const AREA_CATEGORIES: Partial<Record<string, string[]>> = {
   uicoding: ['ui-coding'], sysdesign: ['system-design', 'architecture'], ainative: ['ai-native'], behavioral: ['behavioral', 'resume'], dsa: ['algorithm'], backend: ['backend'],
-  testing: ['code-review'],
+  testing: ['code-review'], aieng: ['ai-engineering'],
 }
 const MIN_RATED_SAMPLE = 2
 // Small samples are shrunk toward 0 until they reach this size (2026-10-09):

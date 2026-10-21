@@ -19,7 +19,7 @@ Actions:
 {"action":"prep_now"}
 {"action":"fight","area":"the boss named after fight, e.g. system design, react, backend"|null}
 {"action":"fix_read"}
-{"action":"drill","category":"system design"|"behavioral"|"interview"|"ai"|"angular"|"theory"|"backend"|"resume"|"architecture"|null}
+{"action":"drill","category":"system design"|"behavioral"|"interview"|"ai"|"angular"|"theory"|"backend"|"resume"|"architecture"|"rag"|null}
 {"action":"help"}
 
 Rules:
@@ -34,7 +34,7 @@ Rules:
 - For "what now", "what should I do", "status", "next" → prep_now
 - For "fight", "FIGHT", "fight system design", "fight react" → fight (area = the words after fight, or null) — a Prep Boss Ladder fight
 - For "read", "READ", "read fix", "fix read" → fix_read (marks the last lost fight's Fix card read)
-- For "drill", "DRILL", "drill me", "drill system design", "drill behavioral", "drill interview", "drill backend", "drill resume", "drill architecture" → drill (category = the words after "drill", or null)
+- For "drill", "DRILL", "drill me", "drill system design", "drill behavioral", "drill interview", "drill backend", "drill resume", "drill architecture", "drill rag", "drill agents" → drill (category = the words after "drill", or null)
 - If message is unclear, return {"action":"help"}`
 
 // Runs before intent parsing: a mood check-in reply is logged first; while a Boss Ladder fight is running every
@@ -134,6 +134,6 @@ export async function execute(action: Record<string, unknown>, db: SupabaseClien
       return `🗑️ Removed reminder: "${reminder.label}"`
     }
     default:
-      return `*Daily Bot — What I can do:*\n• "how was my week" (digest)\n• "how was my month" (monthly digest)\n• "remind me to log weight every morning"\n• "show my reminders"\n• "start" / "pause" / "done" (Prep focus sessions)\n• "what now" (today\'s War Mode mission)\n• "fight" / "fight system design" (a Boss Ladder fight: 5 spoken answers, graded at the end; "skip" gives up) · "read" (Fix card read, rematch unlocked)\n• "drill" / "drill system design" / "drill behavioral" / "drill backend" / "drill resume" / "drill architecture" / "drill interview" (a spoken-answer rep, rated)\n\nI also send the Prep Coach: the 7:30am mission, a 1pm nudge if you\'re behind, and the 9:30pm review (with your reminders and anything still open).`
+      return `*Daily Bot — What I can do:*\n• "how was my week" (digest)\n• "how was my month" (monthly digest)\n• "remind me to log weight every morning"\n• "show my reminders"\n• "start" / "pause" / "done" (Prep focus sessions)\n• "what now" (today\'s War Mode mission)\n• "fight" / "fight system design" / "fight rag" (a Boss Ladder fight: 5 spoken answers, graded at the end; "skip" gives up) · "read" (Fix card read, rematch unlocked)\n• "drill" / "drill system design" / "drill behavioral" / "drill backend" / "drill resume" / "drill architecture" / "drill rag" / "drill interview" (a spoken-answer rep, rated)\n\nI also send the Prep Coach: the 7:30am mission, a 1pm nudge if you\'re behind, and the 9:30pm review (with your reminders and anything still open).`
   }
 }

@@ -58,6 +58,7 @@ export const GATES: Record<ReadinessAreaKey, { gate: number; weight: number }> =
   dsa: { gate: 70, weight: 5 },
   backend: { gate: 70, weight: 8 },
   aiassisted: { gate: 75, weight: 8 },
+  aieng: { gate: 70, weight: 8 },
   behavioral: { gate: 80, weight: 5 },
   leadership: { gate: 75, weight: 3 },
 }
@@ -125,6 +126,8 @@ const IMPORTANCE: Record<string, number> = {
   'Accessibility': 0.7, 'CSS & Layout': 0.6, 'Testing': 0.6, 'Array & Object Methods': 0.6, 'Next.js': 0.7,
   'Algorithms': 0.5, 'Data Structures': 0.5,
   'API design': 0.8, 'Auth & security': 0.8, 'Data': 0.7, 'Node / Next.js server': 0.7, 'Caching & performance': 0.7, 'AI backend': 0.7,
+  'RAG & retrieval': 0.9, 'Agents & workflows': 0.8, 'Evals & production': 0.8, 'Vector databases': 0.7, 'Embeddings & chunking': 0.7,
+  'LLM fundamentals': 0.7, 'Agentic RAG': 0.7, 'Human-in-the-loop': 0.7, 'Frameworks': 0.6,
 }
 const importanceOf = (topic: string) => IMPORTANCE[topic] ?? 0.5
 
@@ -309,6 +312,7 @@ const CATEGORY_AREAS: Record<string, ReadinessAreaKey[]> = {
   'code-review': ['aiassisted', 'testing'],
   resume: ['behavioral', 'leadership'],
   architecture: ['sysdesign', 'leadership'],
+  'ai-engineering': ['aieng'],
 }
 
 // 0 (at/over gate) … 1 (blind spot) — how far a category's areas sit below

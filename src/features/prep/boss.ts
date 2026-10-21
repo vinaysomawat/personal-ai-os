@@ -34,6 +34,7 @@ export const FIGHTS: Record<ReadinessAreaKey, Slot[]> = {
   uicoding: [{ categories: ['ui-coding'], count: 1, seconds: 2700 }],
   backend: [{ categories: ['backend'], count: 5, seconds: 360 }],
   aiassisted: [{ categories: ['code-review'], count: 2, seconds: 900 }],
+  aieng: [{ categories: ['ai-engineering'], count: 5, seconds: 360 }],
   dsa: [{ categories: ['algorithm'], count: 1, seconds: 1800 }],
   behavioral: [{ categories: ['behavioral', 'resume'], count: 5, seconds: 300 }],
   leadership: [{ categories: ['architecture'], topics: ['Tech lead'], count: 5, seconds: 360 }],

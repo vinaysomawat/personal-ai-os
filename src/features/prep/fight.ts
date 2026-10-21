@@ -121,6 +121,7 @@ const ALIASES: [RegExp, ReadinessAreaKey][] = [
   [/test/i, 'testing'],
   [/browser|network|security|dom/i, 'browser'],
   [/code ?review|ai.?assisted|\bpr\b/i, 'aiassisted'],
+  [/\brag\b|agent|llm|vector|embedding|hitl|langchain|llama.?index|ai.?eng/i, 'aieng'],
   [/\bai\b|ai.?native/i, 'ainative'],
   [/backend|\bapis?\b|server|node/i, 'backend'],
   [/behaviou?ral|\bfit\b|resume|story/i, 'behavioral'],

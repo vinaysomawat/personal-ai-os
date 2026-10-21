@@ -202,6 +202,8 @@ export const READINESS_AREAS = [
   // AI-assisted coding (Meta / Google 2026 rounds score verifying AI
   // output): fed by code-review ratings on AI-generated PRs.
   { key: 'aiassisted', label: 'AI-assisted coding', quizTopics: [], codingTopics: [], href: '/prep?tab=questions&cat=code-review' },
+  // AI product engineer loops: fed by the 'ai-engineering' category (RAG, vector DBs, agents, HITL, evals).
+  { key: 'aieng', label: 'AI engineering (RAG & agents)', quizTopics: [], codingTopics: [], href: '/prep?tab=questions&cat=ai-engineering' },
   { key: 'dsa', label: 'Algorithms (DSA)', quizTopics: [], codingTopics: ['Algorithms', 'Data Structures'], href: '/prep?tab=questions&cat=algorithm' },
   { key: 'behavioral', label: 'Behavioral', quizTopics: [], codingTopics: [], href: '/prep?tab=stories' },
   { key: 'leadership', label: 'Leadership', quizTopics: [], codingTopics: [], href: '/prep?tab=stories' },

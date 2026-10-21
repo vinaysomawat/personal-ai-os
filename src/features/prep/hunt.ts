@@ -7,7 +7,7 @@ import { formatMinutes, formatOf, mockFormatForDay } from './mock'
 // gets a share of the day and a per-question time cost; its quota is what
 // fits in that time.
 
-export type BankCategory = 'interview' | 'quiz' | 'angular' | 'ai-native' | 'behavioral' | 'javascript-functions' | 'ui-coding' | 'system-design' | 'algorithm' | 'backend' | 'code-review' | 'resume' | 'architecture'
+export type BankCategory = 'interview' | 'quiz' | 'angular' | 'ai-native' | 'behavioral' | 'javascript-functions' | 'ui-coding' | 'system-design' | 'algorithm' | 'backend' | 'code-review' | 'resume' | 'architecture' | 'ai-engineering'
 
 // Base shares for a broad 2026 search (big tech, Indian product companies,
 // startups, AI companies, services, remote) — relative weights; computeQuotas
@@ -40,6 +40,9 @@ export const BANK_CATEGORIES: { key: BankCategory; label: string; share: number;
   // Senior / Lead / Staff / Architect loops: rendering strategy, bundling,
   // monorepos, micro-frontends, platform, security, design systems, leading.
   { key: 'architecture', label: 'FE architecture & lead', share: 0.09, minutesPerQ: 8 },
+  // AI product / full-stack AI engineer loops: LLMs, embeddings, vector DBs,
+  // RAG, agentic RAG, agents, human-in-the-loop, evals.
+  { key: 'ai-engineering', label: 'AI engineering', share: 0.08, minutesPerQ: 8 },
 ]
 // The day = the Mock Round (its format's minutes) + STAR stories + the
 // Question Bank blocks, which get whatever is left (2026-10-09 — they used to
@@ -171,6 +174,8 @@ export function buildHuntPlan(ctx: {
         ? `Answer ${q.quota} resume deep-dive question${q.quota === 1 ? '' : 's'} out loud from your real work — the decision, the trade-off, the number`
         : q.key === 'architecture'
         ? `Answer ${q.quota} architecture & lead question${q.quota === 1 ? '' : 's'} out loud (rendering strategy, bundling, monorepo, micro-frontends, platform, leading teams) — the options, the trade-off, your call`
+        : q.key === 'ai-engineering'
+        ? `Answer ${q.quota} AI-engineering question${q.quota === 1 ? '' : 's'} out loud (RAG, vector DBs, agents, human-in-the-loop, evals) — the pipeline, the trade-off, how you'd evaluate it`
         : q.key === 'code-review'
         ? `Review ${q.quota} AI-generated PR${q.quota === 1 ? '' : 's'}: find the planted issues, rank them by severity, give the fix`
         : q.key === 'javascript-functions'
@@ -243,8 +248,8 @@ const SEGMENT_PREP: Record<string, { mock: string; why: string; links: { label: 
     { label: 'Web fundamentals', href: '/prep?tab=questions&cat=quiz&topic=DOM%20%26%20Browser%20APIs' }, { label: 'Algorithms', href: '/prep?tab=questions&cat=algorithm' } ] },
   startup: { mock: 'system-design', why: 'startup: backend, full-stack system design, a project deep-dive story', links: [
     { label: 'Backend & APIs', href: '/prep?tab=questions&cat=backend' }, { label: 'Full-stack design', href: '/prep?tab=questions&cat=system-design&topic=Full-stack' }, { label: 'Deep-dive story', href: '/prep?tab=stories' } ] },
-  ai_company: { mock: 'code-review', why: 'AI company: AI-native, streaming UI, AI backend', links: [
-    { label: 'AI-native', href: '/prep?tab=questions&cat=ai-native' }, { label: 'Streaming UI', href: '/prep?tab=questions&cat=system-design&topic=AI' }, { label: 'AI backend', href: '/prep?tab=questions&cat=backend&topic=AI%20backend' } ] },
+  ai_company: { mock: 'code-review', why: 'AI company: AI engineering (RAG, agents), AI-native, streaming UI, AI backend', links: [
+    { label: 'AI engineering', href: '/prep?tab=questions&cat=ai-engineering' }, { label: 'AI-native', href: '/prep?tab=questions&cat=ai-native' }, { label: 'Streaming UI', href: '/prep?tab=questions&cat=system-design&topic=AI' }, { label: 'AI backend', href: '/prep?tab=questions&cat=backend&topic=AI%20backend' } ] },
 }
 const DEFAULT_PREP = { mock: 'machine-coding', why: 'theory, machine coding, behavioral', links: [
   { label: 'Theory', href: '/prep?tab=questions&cat=quiz' }, { label: 'Behavioral Q&A', href: '/prep?tab=questions&cat=behavioral' } ] }
