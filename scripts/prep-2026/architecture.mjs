@@ -1,9 +1,10 @@
 // FE architecture & lead (category 'architecture') — what Senior / Lead /
 // Staff / Frontend Architect loops ask beyond component-level system design:
 // how the whole frontend is built, shipped, governed and led. Sections:
-// architecture strategy, build & bundling, monorepo & tooling,
-// micro-frontends, performance architecture, platform & delivery, security,
-// design system platform, and tech lead / architect leadership.
+// architecture strategy, build & bundling, Webpack, monorepo & tooling,
+// micro-frontends, performance architecture, platform & delivery, CI/CD &
+// GitHub Actions, security, design system platform, and tech lead /
+// architect leadership.
 // answer_hints = what a strong answer covers ("·" separates key points).
 // Rows tagged 'System Design' / 'Performance' also feed those readiness
 // areas. sort_order puts the must-haves first.
@@ -12,7 +13,7 @@ const q = (title, difficulty, topics, answer_hints) => ({ title, difficulty, top
 const SD = 'System Design', PERF = 'Performance', MUST = 'Must-have'
 
 const ROWS = [
-  // ---- Architecture strategy (14)
+  // ---- Architecture strategy (17)
   q('You join as frontend architect for a 5-year-old app with 40 engineers. What do you do in your first 90 days?', 'hard', ['Architecture strategy', SD, MUST],
     'listen first: talk to engineers, PM, design, support; read incidents and the backlog · map the system: apps, build pipeline, dependencies, ownership, pain points (build time, flaky tests, bundle size, defects) · measure baselines (Web Vitals, CI time, deploy frequency, defect rate) · pick 1–2 visible quick wins to earn trust · write a target architecture + incremental roadmap as an RFC, agreed with leads · avoid a rewrite on day 30'),
   q('How do you choose a rendering strategy — CSR, SSR, SSG, ISR, streaming, React Server Components or islands — for a product?', 'hard', ['Architecture strategy', SD, MUST],
@@ -42,7 +43,14 @@ const ROWS = [
   q('How would you design frontend architecture for 10x growth in users and 3x growth in engineers?', 'hard', ['Architecture strategy', SD],
     'users: CDN/edge caching, static where possible, performance budgets, load-tested APIs and BFF · engineers: clear module ownership, independent builds/tests (affected only), faster CI, maybe independent deploys · platform investments: design system, shared tooling, templates · observability so problems are found per team · avoid premature micro-frontends; split when team coupling is the actual bottleneck'),
 
-  // ---- Build & bundling (12)
+  q('How do you run TypeScript at scale — project references, strict mode, and migrating a large JS codebase?', 'hard', ['Architecture strategy', MUST],
+    'project references / composite builds so type-checking is incremental and per package · migrate incrementally: allowJs, checkJs on new folders, strict flags turned on one at a time with a baseline of suppressions · ban new any via lint; track the count down · shared tsconfig bases in the monorepo · generated types from APIs · type-check in CI as its own fast job'),
+  q('How do you design internationalization (i18n) for a large app in many languages?', 'medium', ['Architecture strategy', SD],
+    'message keys with ICU format for plurals, gender and variables — never string concatenation · load translations per locale and per route chunk · locale routing (/en, /de) and detection with an override · format dates, numbers and currency with Intl · RTL support via logical CSS properties · a translation management system (Lokalise, Crowdin) with CI sync · pseudo-localization to catch hardcoded and truncated strings'),
+  q('How do you make accessibility a standard across an org of many teams, not a one-off audit?', 'medium', ['Architecture strategy', MUST],
+    'accessible components in the design system are the biggest lever · automated checks in CI: eslint-plugin-jsx-a11y, axe in unit/E2E tests, Lighthouse · a WCAG 2.2 AA target in the definition of done · manual screen-reader testing on key journeys each release · training and champions per team · track issues like bugs with severity · include people with disabilities in research'),
+
+  // ---- Build & bundling (18)
   q('Webpack vs Vite vs Turbopack vs Rspack — how do they differ, and which would you pick today?', 'medium', ['Build & bundling', MUST],
     'Webpack: bundles everything in dev, huge plugin ecosystem, Module Federation · Vite: native ESM dev server (no bundling in dev), esbuild for deps, Rollup (Rolldown coming) for prod builds · Turbopack: Rust, incremental, built into Next.js · Rspack: Rust Webpack-compatible, drop-in for big Webpack configs · pick by framework defaults (Next → Turbopack, Angular → esbuild/Vite, others → Vite) and migration cost'),
   q('How does tree shaking work, and why does it sometimes fail?', 'medium', ['Build & bundling', PERF, MUST],
@@ -68,6 +76,41 @@ const ROWS = [
   q('What would you do if the production build takes 25 minutes?', 'medium', ['Build & bundling'],
     'measure first: which step (install, type-check, build, tests) and which modules are slow · faster tools (esbuild/SWC/Rspack/Turbopack instead of Babel/Webpack) · caching: dependency cache, build cache, remote cache (Nx/Turborepo) · only build/test what changed (affected) · parallelize type-check and lint · split very large apps'),
 
+  q('How do you publish a shared library so apps can tree-shake it — exports field, sideEffects, ESM/CJS?', 'hard', ['Build & bundling', MUST],
+    'ship ESM (and CJS only if consumers need it) with a package.json exports map: import/require/types conditions · "sideEffects": false (or a list of CSS files) so bundlers can drop unused modules · preserve modules (one file per module) instead of one big bundle · externalize peer deps (react) — never bundle them · build with tsup/Rollup/Vite library mode, emit .d.ts · dual-package hazard: two copies of state when ESM and CJS both load · verify with publint / are-the-types-wrong'),
+  q('How do polyfills and browserslist work together, and how do you avoid shipping polyfills modern browsers do not need?', 'medium', ['Build & bundling', PERF],
+    'browserslist is the single source of supported browsers for Babel/SWC, PostCSS/autoprefixer and lint · syntax is transpiled; missing APIs need polyfills (core-js) · usage-based injection (useBuiltIns: usage) instead of importing everything · differential serving: a modern build for evergreen browsers, a legacy build only if analytics demand it · review the list yearly against real traffic · polyfill CDN services as a trade-off'),
+  q('How should CSS be bundled in a large app — CSS Modules, CSS-in-JS, Tailwind, extraction, critical CSS?', 'medium', ['Build & bundling', PERF],
+    'extract CSS into cacheable files in production (mini-css-extract / Vite) instead of injecting at runtime · runtime CSS-in-JS costs JS and blocks streaming/RSC; prefer zero-runtime (CSS Modules, Tailwind, vanilla-extract, Linaria) · split CSS per route chunk · inline critical above-the-fold CSS, load the rest async · purge unused utilities · watch ordering bugs when chunks load in different orders'),
+  q('The bundle contains two copies of React (or lodash, date-fns). How does that happen and how do you fix it?', 'medium', ['Build & bundling', PERF],
+    'causes: mismatched version ranges, a library bundling its own copy, nested node_modules, linked packages in a monorepo · detect with the bundle analyzer, npm ls / pnpm why, duplicate-package-checker · fix: align versions, dedupe, peerDependencies in libraries, resolve.alias or overrides/resolutions as a last resort · two Reacts also break hooks ("invalid hook call") · add a CI check'),
+  q('When do you use dynamic import(), preload and prefetch, and what goes wrong if you overuse them?', 'medium', ['Build & bundling', PERF],
+    'dynamic import() splits code at a boundary: routes, modals, heavy editors/charts · preload = needed for this navigation, high priority (fonts, LCP image, critical chunk) · prefetch = likely next navigation, idle priority (on hover/viewport) · overuse: too many preloads compete with critical resources and hurt LCP; too many tiny chunks add request overhead and waterfalls · measure in the network panel and RUM'),
+  q('Which tools do you use to analyze a bundle, and what do you look for?', 'easy', ['Build & bundling'],
+    'webpack-bundle-analyzer / rollup-plugin-visualizer / source-map-explorer treemaps · Statoscope or Webpack stats for why a module is included · look for: large dependencies with small usage, duplicates, moment locales, polyfills, code that should be lazy, non-tree-shaken barrels · bundlephobia / pkg-size before adding a dependency · track size per PR in CI (size-limit, bundlewatch, relative-ci)'),
+
+  // ---- Webpack (10)
+  q('Explain loaders vs plugins in Webpack, with examples of each.', 'medium', ['Webpack', MUST],
+    'loaders transform individual files as they are imported: babel-loader/swc-loader (TS/JSX), css-loader + style-loader, asset modules for images · run right to left in a rule chain, matched by test/include · plugins hook into the whole compilation lifecycle via tapable hooks: HtmlWebpackPlugin, MiniCssExtractPlugin, DefinePlugin, BundleAnalyzerPlugin · loader = per-module transform; plugin = anything across the build (emit files, optimize chunks, inject env)'),
+  q('Walk me through what Webpack does from entry to emitted files.', 'hard', ['Webpack', MUST],
+    'start at entry points, resolve each import (resolve.modules, extensions, alias) · run loaders, parse to an AST and collect dependencies, building the module graph · group modules into chunks (entries, dynamic imports, splitChunks) · optimize: tree shaking via usedExports + sideEffects, scope hoisting (ModuleConcatenation), minification with Terser/SWC · generate the runtime + chunk files with hashed names and emit assets · plugins tap into each phase'),
+  q('How do you configure splitChunks and the runtime chunk for good caching?', 'hard', ['Webpack', PERF, MUST],
+    'splitChunks: chunks: "all" to share code between sync and async chunks · cacheGroups: a vendor group for rarely changing deps (react, react-dom), maybe a separate group for large libs · avoid one giant vendor chunk that changes with every dependency bump · optimization.runtimeChunk: "single" so the module manifest change does not bust every chunk · minSize/maxSize to avoid too many tiny or huge chunks · verify with the analyzer and by diffing hashes across builds'),
+  q('Why do content hashes change when the code did not, and how do you get stable long-term caching in Webpack?', 'hard', ['Webpack', PERF],
+    'use [contenthash] in output.filename and chunkFilename · module and chunk ids must be deterministic (moduleIds/chunkIds: "deterministic", the Webpack 5 default) — numeric ids shift when a module is added · extract the runtime chunk so the manifest does not live in every file · CSS extracted with its own contenthash · non-deterministic builds (timestamps, absolute paths, plugin order) also break hashes · check by building twice and diffing'),
+  q('Have you written a custom Webpack loader or plugin? How would you write one?', 'hard', ['Webpack'],
+    'loader: a function (source) => transformed source, using this.getOptions, this.async for async work, this.addDependency for watch; keep it pure and cacheable · plugin: a class with apply(compiler) that taps hooks (compiler.hooks.emit, compilation.hooks.processAssets) to read or emit assets · real examples: injecting build metadata, generating a manifest, stripping debug code, enforcing import rules · test with a small fixture compilation'),
+  q('babel-loader vs swc-loader vs esbuild-loader — which would you use and why?', 'medium', ['Webpack', PERF],
+    'Babel: most plugins and flexibility, slowest (JS) · SWC / esbuild: Rust/Go, 10–20x faster transpilation, cover TS, JSX and modern syntax · esbuild does not type-check and lacks some Babel plugins (certain macros, decorators variants) · type-check separately (tsc --noEmit or fork-ts-checker in parallel) · switching the loader is often the biggest single build-time win before migrating bundlers'),
+  q('How would you migrate a large app from Webpack 4 to Webpack 5, or from Webpack to Rspack/Vite?', 'hard', ['Webpack', MUST],
+    'inventory loaders/plugins and their compatible versions; replace removed Node polyfills (Buffer, process) explicitly · Webpack 5 wins: persistent filesystem cache, asset modules, Module Federation, deterministic ids · Rspack: near drop-in Webpack API, big speedup, check plugin coverage · Vite: different model (native ESM dev, Rollup/Rolldown prod) — more config rewrite, check CJS deps and env handling · migrate behind a flag, compare bundle output and Web Vitals, roll out incrementally'),
+  q('How do resolve.alias, resolve.extensions and tsconfig paths interact, and what problems do they cause?', 'medium', ['Webpack'],
+    'aliases give short imports (@/components) but must be mirrored in tsconfig paths, Jest/Vitest moduleNameMapper and ESLint resolver — tsconfig-paths-webpack-plugin keeps one source · long extensions lists slow resolution · aliases can hide deep imports across module boundaries · aliasing a package to another copy can create duplicates · prefer package exports and workspaces in a monorepo'),
+  q('How do you structure Webpack config for dev vs production, and what differs?', 'medium', ['Webpack'],
+    'shared base + webpack-merge for dev/prod (or one config branching on mode) · dev: mode development, fast source maps (eval-cheap-module-source-map), HMR, no minification, filesystem cache · prod: mode production, minification, contenthash names, extracted CSS, splitChunks, hidden or external source maps · DefinePlugin for env values · keep the difference small so prod bugs reproduce locally'),
+  q('A Webpack build is slow. How do you profile it and speed it up?', 'hard', ['Webpack', PERF],
+    'measure first: speed-measure-webpack-plugin, --profile --json stats, ProfilingPlugin traces · enable persistent cache (cache: { type: "filesystem" }) · faster loaders (swc/esbuild), narrow include/exclude, fewer loader chains · type-check in parallel, not in the loader · avoid expensive source maps in CI where unneeded · thread-loader for heavy loaders · split the app or move to Rspack if config is the bottleneck · cache in CI too'),
+
   // ---- Monorepo & tooling (8)
   q('Monorepo vs polyrepo — how do you decide?', 'medium', ['Monorepo & tooling', MUST],
     'monorepo: atomic changes across apps and libs, one version of shared deps, easy refactors, shared tooling · costs: tooling needed to keep CI fast, everyone on one upgrade cadence, access control is coarser · polyrepo: independent teams and releases, but version drift and painful cross-repo changes · choose by how much code is shared and how coupled the teams are'),
@@ -86,7 +129,7 @@ const ROWS = [
   q('pnpm vs npm vs yarn — why do many large repos choose pnpm?', 'easy', ['Monorepo & tooling'],
     'pnpm: content-addressable store (disk and install speed), strict node_modules (no phantom dependencies), good workspace support · npm: default, improved, flatter hoisting allows phantom deps · yarn berry: PnP, zero-installs, more friction with tooling · lockfile always committed; one package manager enforced (packageManager field, corepack)'),
 
-  // ---- Micro-frontends (10)
+  // ---- Micro-frontends (16)
   q('What are micro-frontends, and when would you NOT use them?', 'hard', ['Micro-frontends', SD, MUST],
     'independently built and deployed frontend slices owned by separate teams, composed into one product · they solve an organizational problem (team autonomy, independent release), not a technical one · do not use them for a small team, a single product with shared release cadence, or to fix a messy codebase · costs: duplicated deps, bundle size, consistency, cross-app communication, complex local dev and testing · a modular monolith is often enough'),
   q('Compare ways to compose micro-frontends: build-time packages, Module Federation, import maps, iframes, server-side composition.', 'hard', ['Micro-frontends', SD, MUST],
@@ -108,7 +151,20 @@ const ROWS = [
   q('How do you deploy and version micro-frontends independently, and roll back safely?', 'medium', ['Micro-frontends'],
     'each remote builds to immutable, versioned URLs on a CDN · a manifest/registry maps remote names to versions; the shell reads it at runtime · deploy = update the manifest; rollback = point back · canary by serving a new version to a percentage of users · compatibility checks against the shell contract in CI'),
 
-  // ---- Performance architecture (8)
+  q('single-spa vs Module Federation — what does each solve, and can you use them together?', 'medium', ['Micro-frontends'],
+    'single-spa: a top-level router and lifecycle (bootstrap, mount, unmount) for apps from different frameworks · Module Federation: a way to load code and share dependencies at runtime between builds · they solve different layers and are often combined: single-spa orchestrates, Module Federation delivers the modules · alternatives: framework-native routing + MF, or a server-composed shell'),
+  q('What changed in Module Federation 2.0 (runtime, manifest, type hints), and why does it matter?', 'hard', ['Micro-frontends', SD],
+    'runtime decoupled from the bundler: works with Webpack, Rspack and Vite via @module-federation/enhanced · a manifest (mf-manifest.json) describes exposes and shared deps, so the host can resolve remotes dynamically at runtime · dynamic type hints: remotes publish TypeScript types to consumers · runtime plugins for retries, fallbacks and auth on remote loading · Chrome devtools to inspect and override remotes · makes environment-specific remote URLs easy'),
+  q('How do you build micro-frontends with Next.js — Multi-Zones vs Module Federation?', 'hard', ['Micro-frontends', SD],
+    'Multi-Zones: separate Next.js apps mounted under path prefixes via rewrites; each deploys independently; navigation between zones is a full page load · Module Federation in Next.js is harder with App Router/RSC and has limited support · a shared design system and auth (cookie on the parent domain) keep zones consistent · choose zones per product area; avoid MF unless runtime component sharing is truly needed'),
+  q('What is Native Federation in Angular, and how is it different from Webpack Module Federation?', 'medium', ['Micro-frontends'],
+    'Native Federation (@angular-architects/native-federation) uses import maps and native ESM with the esbuild-based Angular builder · same mental model: remotes expose modules, shared deps are singleton · works without Webpack, so it fits the modern Angular CLI · good for Angular-only shells; Module Federation still needed for Webpack-based or mixed setups'),
+  q('Who should own the micro-frontend shell, and how do you govern a micro-frontend platform?', 'hard', ['Micro-frontends', SD, MUST],
+    'a platform team owns the shell: routing, auth, layout, shared deps policy, observability · a written contract for remotes: required lifecycle, shared versions, performance budget, error handling, a11y bar · golden-path templates and a CLI to create new micro-frontends · versioned shared dependencies with an upgrade calendar · regular architecture review; teams own their remote end to end · avoid the shell becoming a bottleneck for every change'),
+  q('How do you stop one failing micro-frontend from breaking the whole page?', 'medium', ['Micro-frontends'],
+    'load remotes with timeouts and retries; catch import failures · wrap each remote in an error boundary with a fallback UI · isolate global side effects: no global CSS resets, no polyfill fights, namespaced globals · monitor errors and load times per remote with tags · kill switch / feature flag to disable a remote · contract tests before a remote deploys'),
+
+  // ---- Performance architecture (10)
   q('Explain LCP, INP and CLS, and an architectural fix for each.', 'medium', ['Performance architecture', PERF, MUST],
     'LCP (largest content paint, ≤2.5s): SSR/SSG, preload the hero image, CDN, fewer render-blocking resources · INP (interaction to next paint, ≤200ms): less main-thread JS, split long tasks, yield (scheduler.yield), web workers, less hydration · CLS (layout shift, ≤0.1): reserve space for images/ads/embeds, font-display + size-adjust, no content injected above · measure at p75 from real users'),
   q('How do you build a performance culture and monitoring for a frontend org?', 'hard', ['Performance architecture', PERF, MUST],
@@ -126,7 +182,12 @@ const ROWS = [
   q('How do you make a data-heavy dashboard fast with thousands of rows and live updates?', 'hard', ['Performance architecture', PERF, SD],
     'virtualize lists/tables · paginate or window data from the server; aggregate on the server · batch live updates (requestAnimationFrame / throttle) instead of re-rendering per event · normalize data so updates touch only changed rows · memoize row components · heavy computation in a web worker · measure render time per update'),
 
-  // ---- Platform & delivery (10)
+  q('Explain the caching layers in a Next.js App Router app and how you invalidate them.', 'hard', ['Performance architecture', PERF, SD],
+    'request memoization (dedupe fetches in one render) · data cache (fetch results across requests: cache, next.revalidate, tags) · full route cache (static HTML/RSC payload at build or ISR) · client router cache (prefetched segments) · invalidate with revalidateTag / revalidatePath from server actions or webhooks, time-based revalidate, or dynamic rendering (cookies/headers, no-store) · Next 15 made fetch uncached by default; "use cache" is the newer model · stale data bugs come from not knowing which layer served it'),
+  q('When would you use edge middleware or edge rendering, and what are the limits?', 'medium', ['Performance architecture', PERF],
+    'middleware runs before the route: auth redirects, geo/locale routing, A/B bucketing, bot handling, rewrites · edge rendering puts compute near users for lower TTFB on personalized pages · limits: restricted runtime (no full Node APIs, size limits), cold starts, and data far from the edge erases the latency win · keep middleware tiny and fast; heavy work belongs in the route or origin'),
+
+  // ---- Platform & delivery (13)
   q('Design a CI/CD pipeline for a frontend team that deploys many times a day.', 'hard', ['Platform & delivery', MUST],
     'on PR: install (cached), lint, type-check, unit tests, build, bundle-size check, affected-only · preview deployment per PR with E2E and visual tests against it · merge to main → deploy to production automatically (trunk-based) · feature flags decouple deploy from release · fast rollback (previous immutable build) · required checks and code owners'),
   q('How do you use feature flags well, and what are their risks?', 'medium', ['Platform & delivery', MUST],
@@ -148,7 +209,44 @@ const ROWS = [
   q('How do you run a large framework migration (AngularJS → Angular, Pages → App Router, class → hooks) without stopping feature work?', 'hard', ['Platform & delivery', MUST],
     'strangler fig: new code in the new stack, old code migrated route by route · interop layer (ngUpgrade, React in Angular wrappers, parallel routers) · codemods for mechanical changes · a migration tracker (percentage done, owners) · freeze new code in the old stack · migration work in every sprint, not a separate team only · define done and delete the old stack at the end'),
 
-  // ---- Security (6)
+  q('How do you mock APIs for development and testing across a large frontend (MSW, contract tests)?', 'medium', ['Platform & delivery'],
+    'Mock Service Worker intercepts at the network layer, so the same handlers serve the browser, Storybook, unit tests and E2E · handlers generated from OpenAPI types to stay in sync · scenario handlers for errors, slow responses and empty states · contract tests (Pact or schema checks) catch drift between mocks and the real API · a shared mocks package in the monorepo'),
+  q('What is an error budget, and how would you use one for a frontend team?', 'medium', ['Platform & delivery'],
+    'pick SLIs users feel: JS error-free session rate, LCP/INP at p75, successful checkout rate · set an SLO (e.g. 99.5% error-free sessions) — the error budget is the allowed 0.5% · while budget remains, ship fast; when burned, pause risky launches and fix reliability · burn-rate alerts instead of single-error alerts · makes the reliability-vs-speed trade-off explicit with product'),
+  q('How do you keep frontend infrastructure cost under control (CDN, serverless, image optimization, observability)?', 'medium', ['Platform & delivery'],
+    'know the cost drivers: SSR/serverless invocations, bandwidth, image transformations, log/RUM ingestion · cache aggressively at the CDN; static or ISR where possible instead of per-request SSR · cap image variants and use modern formats · sample RUM and logs; drop noisy events · set budgets and alerts per project · review cost with each architecture decision, not after the bill'),
+
+  // ---- CI/CD & GitHub Actions (14)
+  q('Walk me through how a GitHub Actions workflow is structured — triggers, jobs, steps, needs, matrix.', 'medium', ['CI/CD & GitHub Actions', MUST],
+    'workflow YAML in .github/workflows, triggered by on: push, pull_request, schedule, workflow_dispatch · jobs run in parallel on runners; needs creates a dependency graph · steps run shell commands or uses: actions · matrix fans a job across Node versions, OSes or test shards · concurrency groups cancel outdated runs on the same branch · if: conditions and outputs pass data between jobs · artifacts share build output between jobs'),
+  q('How do you make a GitHub Actions pipeline fast for a frontend repo?', 'hard', ['CI/CD & GitHub Actions', MUST],
+    'cache the package manager store (actions/setup-node cache: pnpm, or actions/cache keyed on the lockfile hash) and build caches (.next/cache, Nx/Turbo remote cache) · run lint, type-check, unit tests and build as parallel jobs · shard E2E across a matrix · only run affected projects in a monorepo · concurrency: cancel-in-progress for superseded commits · skip work with path filters · measure job times and fix the slowest step first'),
+  q('Reusable workflows vs composite actions — when would you use each?', 'medium', ['CI/CD & GitHub Actions'],
+    'composite action: bundles steps (setup Node + pnpm + cache) used inside a job; lives in a repo and is versioned by tag · reusable workflow (workflow_call): a whole workflow with its own jobs, called by others — standardizes CI/CD across many repos · reusable workflows can take secrets and inputs; composites cannot define jobs or runners · an org-level .github repo holds shared ones, versioned and pinned'),
+  q('How do you handle secrets and cloud credentials in GitHub Actions safely?', 'hard', ['CI/CD & GitHub Actions', 'Security', MUST],
+    'repository/environment secrets, never committed; masked in logs · prefer OIDC federation (id-token: write) to AWS/GCP/Azure roles instead of long-lived keys · environment-scoped secrets with required reviewers for production · least-privilege permissions: block for GITHUB_TOKEN (contents: read by default) · secrets are not passed to workflows from forks · rotate and audit; secret scanning and push protection on'),
+  q('What are the main security risks in a CI/CD pipeline, especially with GitHub Actions?', 'hard', ['CI/CD & GitHub Actions', 'Security'],
+    'third-party actions are code you run with your secrets: pin by full commit SHA, not a mutable tag; Dependabot to update pins · pull_request_target and workflow_run run with secrets on untrusted fork code — never check out and execute PR code there · script injection via ${{ github.event.* }} in run: steps; pass through env vars · over-broad GITHUB_TOKEN permissions · self-hosted runners on public repos · signed provenance (SLSA, npm provenance) for releases'),
+  q('How do you set up preview deployments for every pull request?', 'medium', ['CI/CD & GitHub Actions'],
+    'each PR builds and deploys to a unique URL (Vercel/Netlify/Cloudflare built-in, or S3/CloudFront + a workflow) · comment the URL on the PR; run E2E and Lighthouse against it · point previews at a staging backend or mocked APIs; seed test data · protect with auth if the app is internal · clean up on PR close to control cost · lets PMs and designers review before merge'),
+  q('How do branch protection, required checks and a merge queue keep main green?', 'medium', ['CI/CD & GitHub Actions', MUST],
+    'protected main: no direct pushes, required reviews, CODEOWNERS approval for owned paths · required status checks (lint, types, tests, build) must pass · a merge queue tests each PR rebased on the latest main plus the PRs ahead of it, catching semantic conflicts that individual green PRs miss · require linear history / squash for clean reverts · keep required checks fast, or the queue becomes the bottleneck'),
+  q('What does "build once, deploy many" mean, and how do you apply it to a frontend?', 'hard', ['CI/CD & GitHub Actions', SD],
+    'build one immutable artifact per commit and promote the same artifact through staging → production instead of rebuilding per environment · requires runtime config, not build-time env baked into JS: a config.json or env endpoint loaded at startup, or server-side env in Next.js · guarantees what you tested is what ships · artifact stored with its commit SHA; rollback = redeploy an older artifact · NEXT_PUBLIC_* vars break this — plan around them'),
+  q('How do you automate versioning and releases for packages — Changesets vs semantic-release?', 'medium', ['CI/CD & GitHub Actions'],
+    'Changesets: contributors add a changeset file in the PR describing bump type and notes; a bot opens a "Version Packages" PR; merging publishes — good for monorepos and human-curated changelogs · semantic-release: derives version and notes from Conventional Commits, fully automatic · both publish to npm and create GitHub releases from CI with provenance · pick based on team discipline with commit messages and monorepo needs'),
+  q('How do you run E2E tests (Playwright/Cypress) in CI without them becoming slow and flaky?', 'hard', ['CI/CD & GitHub Actions', 'Testing'],
+    'shard tests across a matrix and merge reports · keep E2E for critical journeys only; push the rest down to integration/unit · stable selectors (roles, test ids), web-first assertions instead of sleeps · isolate data: seed per test, mock third parties · retries with traces/videos on failure only; track flaky tests and quarantine them with an owner · run against the preview deployment'),
+  q('How do you deploy to multiple environments with approvals in GitHub Actions?', 'medium', ['CI/CD & GitHub Actions'],
+    'GitHub environments (staging, production) with environment-scoped secrets and URLs · production requires reviewers and optional wait timers · deploy job references environment:, so the run pauses for approval · deployment history and status per environment · gate production on staging smoke tests passing · automate rollback by redeploying the previous successful artifact'),
+  q('GitHub-hosted vs self-hosted runners — how do you decide?', 'medium', ['CI/CD & GitHub Actions'],
+    'hosted: zero maintenance, clean VM each run, per-minute cost, limited CPU (larger runners cost more) · self-hosted: cheaper at high volume, bigger machines, warm caches, private network access · self-hosted costs: patching, autoscaling (actions-runner-controller on Kubernetes), security isolation — never on public repos · many teams mix: hosted for most jobs, self-hosted for heavy builds or network-restricted deploys'),
+  q('How would you containerize and deploy a Next.js app outside Vercel?', 'hard', ['CI/CD & GitHub Actions', SD],
+    'output: "standalone" for a minimal server bundle · multi-stage Dockerfile: install deps → build → slim runtime image running node server.js as non-root · static assets and _next/static to a CDN with long cache headers · ISR/cache needs a shared cache handler (Redis/S3) when running several replicas · image optimization: sharp in the image, or an external loader · health checks, graceful shutdown, env at runtime'),
+  q('How do you design a rollback strategy for a frontend deploy, and what makes rollback hard?', 'hard', ['CI/CD & GitHub Actions', MUST],
+    'immutable versioned deploys; rollback = point traffic or the HTML entry back to the previous version in seconds · keep old hashed assets available so open tabs do not hit chunk-load errors · feature flags to turn off a feature without redeploying · hard parts: backend/API changes and DB migrations that are not backward compatible — use expand/contract · service worker caches that pin old code · rehearse rollbacks and alert on error-rate spikes after deploy'),
+
+  // ---- Security (7)
   q('What frontend security measures would you require across all apps?', 'hard', ['Security', MUST],
     'XSS: framework escaping by default, no dangerouslySetInnerHTML/innerHTML without sanitizing (DOMPurify), Trusted Types · strict Content Security Policy with nonces · auth tokens in httpOnly, Secure, SameSite cookies (BFF), not localStorage · CSRF protection for cookie auth · dependency scanning and lockfiles · security headers (HSTS, X-Content-Type-Options, frame-ancestors)'),
   q('How do you roll out a strict Content Security Policy on an existing app?', 'hard', ['Security'],
@@ -162,7 +260,10 @@ const ROWS = [
   q('How do you safely embed or be embedded in iframes and use postMessage?', 'medium', ['Security'],
     'sandbox attribute with minimal permissions for embedded content · frame-ancestors CSP / X-Frame-Options to prevent clickjacking of your app · postMessage: always set targetOrigin, always check event.origin and validate message shape · never pass tokens through postMessage unless necessary and origin-checked'),
 
-  // ---- Design system platform (6)
+  q('How do you protect a frontend from npm supply-chain attacks?', 'hard', ['Security', MUST],
+    'committed lockfile and npm ci / pnpm install --frozen-lockfile in CI · review new dependencies (maintainers, downloads, install scripts); Socket or Snyk to flag malicious or typosquatted packages · disable or allowlist install scripts (pnpm onlyBuiltDependencies) · Dependabot/Renovate with grouped, reviewed updates and a minimum release age · npm audit in CI with triage · SRI and a CSP for third-party scripts · npm provenance for your own packages'),
+
+  // ---- Design system platform (8)
   q('How do you build and run a design system used by many teams?', 'hard', ['Design system platform', SD, MUST],
     'design tokens as the source of truth (color, spacing, type) shared by design and code · accessible, well-tested primitives (or built on Radix/Angular CDK) · documentation with live examples (Storybook) · semver releases, changelogs, codemods for breaking changes · a contribution model and a small core team · adoption metrics and office hours'),
   q('How do you drive adoption of a design system when teams resist it?', 'medium', ['Design system platform', MUST],
@@ -176,7 +277,12 @@ const ROWS = [
   q('Build vs buy: would you build your own component library or use MUI/Angular Material/shadcn/Radix?', 'medium', ['Design system platform'],
     'buying (or headless primitives) saves years of accessibility and edge-case work · headless libraries (Radix, React Aria, Angular CDK) + your own styling is the common middle path · build when brand and interaction needs are unique and you have a dedicated team · total cost: maintenance, upgrades, documentation · decide in an ADR'),
 
-  // ---- Tech lead & architect leadership (16)
+  q('Would you build a cross-framework design system with Web Components? What are the trade-offs?', 'hard', ['Design system platform', SD],
+    'one implementation usable from React, Angular, Vue and plain HTML (Lit, Stencil) · costs: SSR and hydration are harder (Declarative Shadow DOM helps), React 19 finally handles custom element props/events properly, form participation needs ElementInternals · Shadow DOM isolates styles but complicates theming — use CSS custom properties and ::part · alternative: design tokens shared everywhere + framework-specific component libraries'),
+  q('How do you run Storybook and visual regression testing for a design system at scale?', 'medium', ['Design system platform'],
+    'every component state as a story; stories double as docs and test fixtures · interaction tests and axe checks in Storybook test runner · visual regression (Chromatic, Percy, Playwright screenshots) on every PR with reviewable diffs · stable rendering: fixed fonts, disabled animations, mocked dates · publish Storybook per version so consumers see what changed · only snapshot meaningful states to keep review noise low'),
+
+  // ---- Tech lead & architect leadership (17)
   q('How do you write an RFC for a significant frontend change? Walk me through one.', 'hard', ['Tech lead', MUST],
     'context and problem with data · goals and non-goals · options considered with trade-offs, and the recommendation · rollout plan, migration and risks · how success is measured · circulate early to the people affected; collect comments, decide by a date · a real example from your work'),
   q('What is an ADR (Architecture Decision Record), and why keep them?', 'medium', ['Tech lead', MUST],
@@ -209,6 +315,8 @@ const ROWS = [
     'clear expectations of senior behavior: ownership, design, influence · give stretch work with support: lead a feature, write an RFC, run an incident · regular 1:1 feedback with specific examples · pairing and design reviews as teaching · sponsor them: visibility and credit · real examples of people you grew'),
   q('What is the difference between a Senior engineer, a Tech Lead, a Staff engineer and an Architect in your view?', 'medium', ['Tech lead', MUST],
     'Senior: owns features end to end, high-quality code, mentors · Tech Lead: owns a team\'s technical direction and delivery, unblocks others · Staff: impact across several teams, solves org-level technical problems, sets direction with RFCs · Architect: long-term system shape, standards and cross-cutting decisions · all are about scope and leverage, not just coding skill · where you are and the next step'),
+  q('Walk me through writing an RFC for a big frontend change, such as a bundler or framework migration.', 'hard', ['Tech lead', MUST],
+    'problem and evidence first (build times, incidents, DX survey numbers) · goals and non-goals · options considered with trade-offs, including doing nothing · the proposal: architecture, migration plan in phases, rollback, cost, risks · how success is measured · circulate early to affected teams, collect comments, hold a review, then record the decision in an ADR · follow up on the plan'),
 ]
 
 // Must-haves first, otherwise the order above.

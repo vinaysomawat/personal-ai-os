@@ -15,3 +15,18 @@ export const orderPatch = (category, ORDER) => async db => {
   }
   return ORDER.length
 }
+
+// Deletes the DROP titles from a category (and the old Coding-module picks
+// that reference them without a cascade), then applies orderPatch.
+export const dropAndOrderPatch = (category, DROP, ORDER) => async db => {
+  const { data, error } = await db.from('coding_questions').select('id').eq('category', category).in('title', DROP)
+  if (error) throw new Error(error.message)
+  const ids = data.map(r => r.id)
+  if (ids.length) {
+    const picks = await db.from('coding_daily_questions').delete().in('question_id', ids)
+    if (picks.error) throw new Error(picks.error.message)
+    const del = await db.from('coding_questions').delete().in('id', ids)
+    if (del.error) throw new Error(del.error.message)
+  }
+  return orderPatch(category, ORDER)(db)
+}
