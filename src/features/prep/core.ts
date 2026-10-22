@@ -1,11 +1,11 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { todayIST, daysAgoIST, toISTDateStr, istMidnightUtc } from '@/lib/date'
-import { formatMinutes, mockFormatForDay, type MockRound } from './mock'
-import { BANK_CATEGORIES, DEFAULT_HOURS, buildHuntPlan, isRestDay, isRedoDue, computeQuotas, interviewRedoBlock, leadMinutes, type CategoryCoverage } from './hunt'
-import { buildBlock } from './roadmap'
+import type { MockRound } from './mock'
+import { BANK_CATEGORIES, DEFAULT_HOURS, buildHuntPlan, isRestDay, isRedoDue, type CategoryCoverage } from './hunt'
+import type { RoadmapProgress } from './roadmap'
 import { computeReadinessMatrix, type CodingHistoryRow } from './readiness'
 import { COMPETENCIES } from './types'
-import { blockQuota, categoryGap, categoryWeights, dayPace, isGoodDay, focusSeconds, nowBlock, revisionQueue, topicWeakness, warReadiness, type FocusSession, type Forecast } from './war'
+import { blockQuota, categoryGap, dayPace, isGoodDay, focusSeconds, nowBlock, revisionQueue, topicWeakness, warReadiness, type FocusSession, type Forecast } from './war'
 import type { BankQuestion, PrepBlock, PrepSession, PrepSettings, Story, StoryRehearsal } from './types'
 
 // Prep's data layer — plain server module (not 'use server', so none of
@@ -36,13 +36,15 @@ export async function loadPrepData(supabase: SupabaseClient, userId: string) {
   const user = { id: userId }
   const today = todayIST()
 
-  const [mockRes, storiesRes, rehearsalsRes, codingRes, sessionsRes, focusRes, forecastRes] = await Promise.all([
+  const [mockRes, storiesRes, rehearsalsRes, codingRes, sessionsRes, focusRes, roadmapRes, forecastRes] = await Promise.all([
     supabase.from('mock_rounds').select('id, format, items, duration_seconds, created_at, review').eq('user_id', user.id).order('created_at', { ascending: false }).limit(500),
     supabase.from('stories').select('*').eq('user_id', user.id).order('updated_at', { ascending: false }),
     supabase.from('story_rehearsals').select('id, story_id, competency, prompt, answer, critique, rating, scorecard, created_at').eq('user_id', user.id).order('created_at', { ascending: false }).limit(10),
     supabase.from('coding_daily_questions').select('completed, outcome, completed_at, question:coding_questions(category, topics)').eq('user_id', user.id).eq('completed', true).gte('completed_at', istMidnightUtc(90)),
     supabase.from('prep_sessions').select('*').eq('user_id', user.id).gte('date', daysAgoIST(60)).order('date', { ascending: false }),
     supabase.from('prep_focus_sessions').select('*').eq('user_id', user.id).gte('date', daysAgoIST(6)).order('started_at', { ascending: true }),
+    // AI Engineer tab: finished roadmap weeks with their proof.
+    supabase.from('roadmap_progress').select('week, proof_url, metric, notes, completed_at').eq('user_id', user.id).order('week'),
     supabase.from('prep_forecasts').select('date, forecast, created_at').eq('user_id', user.id).order('date', { ascending: false }).limit(1).maybeSingle(),
   ])
   const [settings, bank] = await Promise.all([getPrepSettings(supabase, user.id), getQuestionBank(supabase, user.id)])
@@ -53,17 +55,7 @@ export async function loadPrepData(supabase: SupabaseClient, userId: string) {
     bank.filter(q => q.last_rating !== null).map(q => ({ category: q.category, topics: q.topics, rating: q.last_rating! })))
   // Empty (not an error) until the mock_rounds migration has run.
   const mockRounds = (mockRes.data ?? []) as MockRound[]
-  // War Mode: quotas weighted toward the biggest readiness gaps, sized to
-  // the time left after today's mock round and STAR-story block.
-  const storiesMissing = COMPETENCIES.some(c => !stories.some(s => (s.strength ?? 3) >= 3 && s.competencies.includes(c.key)))
-  // The real-interview redo block takes its time first.
   const interviewRedo = bank.filter(q => q.category === 'interview' && q.last_rating !== null && q.last_rating < 7).length
-  const build = buildBlock(today, settings.hours_per_day)
-  const reserved = formatMinutes(mockFormatForDay(today)) + leadMinutes(settings.hours_per_day * 60, storiesMissing)
-    + (interviewRedoBlock(interviewRedo)?.minutes ?? 0) + (build?.minutes ?? 0)
-  const quotas = computeQuotas(coverage, settings.hours_per_day, categoryWeights(readiness), reserved)
-      // On machine-coding / code-review days the mock round IS that practice.
-      .map(q => (q.key === 'ui-coding' && mockFormatForDay(today) === 'machine-coding') || (q.key === 'code-review' && mockFormatForDay(today) === 'code-review') ? { ...q, quota: 0, minutes: 0 } : q)
   const weakness = topicWeakness(bank, today)
 
   let sessions = (sessionsRes.data ?? []) as PrepSession[]
@@ -71,13 +63,16 @@ export async function loadPrepData(supabase: SupabaseClient, userId: string) {
   if (!todaySession) {
     const covered = new Set(stories.filter(s => (s.strength ?? 3) >= 3).flatMap(s => s.competencies))
     const uncovered = COMPETENCIES.find(c => !covered.has(c.key))
+    // Bank categories planned in the last three days — the upkeep rotation.
+    const recentCategories = sessions.filter(s => s.date >= daysAgoIST(3) && s.date < today)
+      .flatMap(s => s.blocks.filter(b => b.key.startsWith('bank:')).map(b => b.key.slice(5)))
     const plan = buildHuntPlan({
-      hoursPerDay: settings.hours_per_day, date: today, quotas,
+      hoursPerDay: settings.hours_per_day, date: today, coverage,
       uncoveredCompetency: uncovered?.label ?? null,
       gaps: Object.fromEntries(BANK_CATEGORIES.map(c => [c.key, categoryGap(c.key, readiness)])),
       focusTopic: weakness.find(w => w.category === 'quiz')?.topic ?? null,
       mockDoneToday: mockRounds.some(r => toISTDateStr(r.created_at) === today),
-      interviewRedo, buildBlock: build,
+      interviewRedo, recentCategories,
       restDay: settings.rest_day,
     })
     const { data: inserted } = await supabase.from('prep_sessions')
@@ -111,12 +106,18 @@ export async function loadPrepData(supabase: SupabaseClient, userId: string) {
     weakness: weakness.slice(0, 8),
     revision: revisionQueue(bank, today),
     focusSessions: (focusRes.data ?? []) as FocusSession[],
+    roadmap: (roadmapRes.data ?? []) as RoadmapProgress[],
     forecast: (forecastRes.data as { date: string; forecast: Forecast; created_at: string } | null) ?? null,
     stories,
     rehearsals: (rehearsalsRes.data ?? []) as StoryRehearsal[],
     readiness,
     settings,
-    coverage: quotas,
+    // Coverage + today's quota per category, read from the stored plan.
+    coverage: coverage.map(c => {
+      const b = todaySession?.blocks.find(x => x.key === `bank:${c.key}`)
+      const quota = b ? blockQuota(b) : 0
+      return { ...c, quota, minutes: b?.minutes ?? 0 }
+    }),
     bank,
   }
 }

@@ -58,6 +58,36 @@ export const ROADMAP: RoadmapWeek[] = [
     links: [] },
 ]
 
+// A finished week (roadmap_progress): the proof that it shipped.
+export interface RoadmapProgress {
+  week: number
+  proof_url: string | null
+  metric: string | null
+  notes: string | null
+  completed_at: string
+}
+
+// Each week's practice theme: the Question Bank category and topics the
+// themed drill pulls from, so you answer questions on what you build.
+export interface WeekTheme { category: 'ai-engineering' | 'backend' | 'resume'; topics: string[] }
+export const THEMES: Record<number, WeekTheme> = {
+  1: { category: 'backend', topics: ['Data', 'Auth & security'] },
+  2: { category: 'backend', topics: ['Node / Next.js server', 'API design'] },
+  3: { category: 'ai-engineering', topics: ['LLM fundamentals'] },
+  4: { category: 'ai-engineering', topics: ['Embeddings & chunking', 'Vector databases'] },
+  5: { category: 'ai-engineering', topics: ['RAG & retrieval', 'Vector databases'] },
+  6: { category: 'ai-engineering', topics: ['RAG & retrieval', 'Agentic RAG'] },
+  7: { category: 'ai-engineering', topics: ['Agents & workflows'] },
+  8: { category: 'ai-engineering', topics: ['Human-in-the-loop', 'AI product UX'] },
+  9: { category: 'ai-engineering', topics: ['Evals & production'] },
+  10: { category: 'ai-engineering', topics: ['MCP & A2A'] },
+  11: { category: 'ai-engineering', topics: ['MCP & A2A'] },
+  12: { category: 'ai-engineering', topics: ['Evals & production'] },
+  13: { category: 'resume', topics: [] },
+}
+// Outside the 13 weeks the drill is AI engineering, any topic.
+export const themeFor = (date: string): WeekTheme => THEMES[roadmapWeek(date)?.week ?? 0] ?? { category: 'ai-engineering', topics: [] }
+
 // 1-based week for an IST date, or null before the start / after week 13.
 export function roadmapWeek(date: string): RoadmapWeek | null {
   const days = Math.floor((new Date(`${date}T00:00:00Z`).getTime() - new Date(`${BUILD_START}T00:00:00Z`).getTime()) / 86400000)
@@ -67,6 +97,21 @@ export function roadmapWeek(date: string): RoadmapWeek | null {
 
 // Build time per load level: Light 60 · Steady 120 · Intense 150 minutes.
 export const buildMinutes = (hoursPerDay: number) => hoursPerDay <= 4 ? 60 : hoursPerDay <= 6 ? 120 : 150
+// Learn time per load level: Light 20 · Steady 30 · Intense 40 minutes.
+export const learnMinutes = (hoursPerDay: number) => hoursPerDay <= 4 ? 20 : hoursPerDay <= 6 ? 30 : 40
+
+// Read the week's concept before building it. Ticked by FocusBar Finish.
+export function learnBlock(date: string, hoursPerDay: number): PrepBlock | null {
+  const w = roadmapWeek(date)
+  if (!w) return null
+  return {
+    key: 'learn', label: `Learn · W${w.week}: ${w.title}`, minutes: learnMinutes(hoursPerDay),
+    detail: w.links.length
+      ? `Read the docs below before you build — note 3 things you'd say about it in an interview`
+      : 'Re-read your proof links and numbers from weeks 1–12 — note the 3 strongest for your resume',
+    href: '/prep?tab=ai', done: false, links: w.links,
+  }
+}
 
 // Ticked by FocusBar Finish (not a question block, so no quota).
 export function buildBlock(date: string, hoursPerDay: number): PrepBlock | null {
@@ -75,6 +120,6 @@ export function buildBlock(date: string, hoursPerDay: number): PrepBlock | null 
   return {
     key: 'build', label: `Build · W${w.week}: ${w.title}`, minutes: buildMinutes(hoursPerDay),
     detail: `${w.milestone}. Done when ${w.doneWhen}.`,
-    href: '/prep?tab=today', done: false, links: w.links,
+    href: '/prep?tab=ai', done: false,
   }
 }

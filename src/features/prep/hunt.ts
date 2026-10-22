@@ -1,54 +1,49 @@
 import { toISTDateStr } from '@/lib/date'
 import type { BankQuestion, PrepBlock } from './types'
 import { formatMinutes, formatOf, mockFormatForDay } from './mock'
+import { buildBlock, learnBlock, themeFor } from './roadmap'
 
 // Interview War Mode — a deterministic full-day plan sized to the daily load
-// level (Light 4h · Steady 6h · Intense 8h). Each question category
-// gets a share of the day and a per-question time cost; its quota is what
-// fits in that time.
+// level (Light 4h · Steady 6h · Intense 8h), built around the week's theme:
+// Learn → Build → a themed drill on what you're building → (mock, 3 days a
+// week) → one frontend upkeep category → STAR stories. Question quotas are
+// what fits in each block's minutes at the category's time per question.
 
 export type BankCategory = 'interview' | 'quiz' | 'angular' | 'ai-native' | 'behavioral' | 'javascript-functions' | 'ui-coding' | 'system-design' | 'algorithm' | 'backend' | 'code-review' | 'resume' | 'architecture' | 'ai-engineering'
 
-// Base shares for a Senior Frontend / AI Product Engineer search (AI
-// engineering, backend and system design lead; UI coding, JS functions and
-// algorithms keep a smaller share) — relative weights; computeQuotas
-// scales them to the day's bank minutes after the 0.5 + gap multiplier.
-export const BANK_CATEGORIES: { key: BankCategory; label: string; share: number; minutesPerQ: number }[] = [
-  // Questions real interviewers asked (v4.0 §4.1) — no quota share; they get
-  // their own "redo" block while any is rated under 7.
-  { key: 'interview', label: 'Asked in interviews', share: 0, minutesPerQ: 10 },
+// Question Bank categories and the minutes one question takes.
+export const BANK_CATEGORIES: { key: BankCategory; label: string; minutesPerQ: number }[] = [
+  // Questions real interviewers asked (v4.0 §4.1) — their own "redo" block
+  // while any is rated under 7.
+  { key: 'interview', label: 'Asked in interviews', minutesPerQ: 10 },
   // Machine coding: build a component from scratch, timed (the #1 round at
   // Indian product companies).
-  { key: 'ui-coding', label: 'UI coding', share: 0.13, minutesPerQ: 45 },
-  { key: 'system-design', label: 'System design', share: 0.14, minutesPerQ: 60 },
-  { key: 'quiz', label: 'Theory', share: 0.08, minutesPerQ: 5 },
+  { key: 'ui-coding', label: 'UI coding', minutesPerQ: 45 },
+  { key: 'system-design', label: 'System design', minutesPerQ: 60 },
+  { key: 'quiz', label: 'Theory', minutesPerQ: 5 },
   // Full-stack "product engineer" loops: API design, Node/Next server, auth,
   // data, caching, AI backend.
-  { key: 'backend', label: 'Backend & APIs', share: 0.13, minutesPerQ: 8 },
-  { key: 'javascript-functions', label: 'JS functions', share: 0.07, minutesPerQ: 25 },
+  { key: 'backend', label: 'Backend & APIs', minutesPerQ: 8 },
+  { key: 'javascript-functions', label: 'JS functions', minutesPerQ: 25 },
   // Answer from real experience + AI interviewer feedback.
-  { key: 'ai-native', label: 'AI-native', share: 0.09, minutesPerQ: 10 },
-  { key: 'algorithm', label: 'Algorithms', share: 0.06, minutesPerQ: 30 },
+  { key: 'ai-native', label: 'AI-native', minutesPerQ: 10 },
+  { key: 'algorithm', label: 'Algorithms', minutesPerQ: 30 },
   // Senior / lead Angular roles (banks, fintech, GCCs).
-  { key: 'angular', label: 'Angular', share: 0, minutesPerQ: 6 },
+  { key: 'angular', label: 'Angular', minutesPerQ: 6 },
   // General/fit questions (tell me about yourself, the layoff, salary…).
-  { key: 'behavioral', label: 'Behavioral Q&A', share: 0.06, minutesPerQ: 10 },
+  { key: 'behavioral', label: 'Behavioral Q&A', minutesPerQ: 10 },
   // Review an AI-generated PR: find the planted issues, rank them, fix them.
-  { key: 'code-review', label: 'Code review', share: 0.06, minutesPerQ: 15 },
+  { key: 'code-review', label: 'Code review', minutesPerQ: 15 },
   // Deep-dive on my own resume claims (projects, numbers, decisions) — what
   // hiring-manager and onsite rounds probe.
-  { key: 'resume', label: 'From my resume', share: 0.08, minutesPerQ: 8 },
+  { key: 'resume', label: 'From my resume', minutesPerQ: 8 },
   // Senior / Lead / Staff / Architect loops: rendering strategy, bundling,
   // monorepos, micro-frontends, platform, security, design systems, leading.
-  { key: 'architecture', label: 'FE architecture & lead', share: 0.07, minutesPerQ: 8 },
+  { key: 'architecture', label: 'FE architecture & lead', minutesPerQ: 8 },
   // AI product / full-stack AI engineer loops: LLMs, embeddings, vector DBs,
   // RAG, agentic RAG, agents, human-in-the-loop, evals, MCP & A2A, AI product UX.
-  { key: 'ai-engineering', label: 'AI engineering', share: 0.14, minutesPerQ: 8 },
+  { key: 'ai-engineering', label: 'AI engineering', minutesPerQ: 8 },
 ]
-// The day = the Mock Round (its format's minutes) + STAR stories + the
-// Question Bank blocks, which get whatever is left (2026-10-09 — they used to
-// take a fixed 89% on top of the mock, overrunning the day). The
-// Applications block was removed 2026-10-08 (applying happens outside).
 // STAR stories get 12% of the day while any competency has no solid story
 // (writing them is the job), 6% once all are covered.
 export const leadMinutes = (dayMinutes: number, storiesMissing: boolean) => Math.round(dayMinutes * (storiesMissing ? 0.12 : 0.06))
@@ -63,6 +58,7 @@ export interface CategoryCoverage {
   redoDue: number
 }
 
+// A category's coverage plus today's quota (0 when no block plans it).
 export interface CategoryQuota extends CategoryCoverage {
   quota: number
   minutes: number
@@ -103,46 +99,62 @@ export const DEFAULT_HOURS = 6
 export const levelOf = (hours: number): Level =>
   LEVELS.reduce((best, l) => Math.abs(l.hours - hours) < Math.abs(best.hours - hours) ? l : best, LEVELS[1] as Level)
 
-// Quotas are sized by time (the level's hours); re-answering weak questions
-// counts too. Each category's share is scaled by its readiness gap (weights from war.ts's categoryWeights) and
-// renormalized, so weak areas get more of the same day.
-export function computeQuotas(coverage: CategoryCoverage[], hoursPerDay: number, weights: Record<string, number> = {}, reservedMinutes = 0): CategoryQuota[] {
-  const bankMinutes = Math.max(60, hoursPerDay * 60 - reservedMinutes)
-  const weightedTotal = BANK_CATEGORIES.reduce((s, c) => s + c.share * (weights[c.key] ?? 1), 0)
-  const rows = BANK_CATEGORIES.map(cat => {
-    const share = (cat.share * (weights[cat.key] ?? 1)) / weightedTotal
-    // Every category gets at least one question from Steady (6h) up; on a
-    // Light day the ones whose share can't fit a single question drop out.
-    const quota = cat.share === 0 ? 0 : Math.max(hoursPerDay >= 6 ? 1 : 0, Math.floor((bankMinutes * share) / cat.minutesPerQ))
-    return { cat, share, quota }
-  })
-  // Flooring leaves minutes unspent: hand them out one question at a time to
-  // the category furthest below its share that still fits.
-  let left = bankMinutes - rows.reduce((s, r) => s + r.quota * r.cat.minutesPerQ, 0)
-  for (;;) {
-    const next = rows.filter(r => r.share > 0 && r.cat.minutesPerQ <= left)
-      .sort((a, b) => (a.quota * a.cat.minutesPerQ) / (a.share * bankMinutes) - (b.quota * b.cat.minutesPerQ) / (b.share * bankMinutes))[0]
-    if (!next) break
-    next.quota++
-    left -= next.cat.minutesPerQ
+// Frontend upkeep: one of these a day, the weakest not used in the last
+// three days (and not the one today's mock already practises).
+export const UPKEEP_CATEGORIES: BankCategory[] = ['quiz', 'javascript-functions', 'ui-coding', 'system-design', 'architecture', 'code-review', 'ai-native', 'algorithm']
+const MOCK_PRACTISES: Record<string, BankCategory> = { 'machine-coding': 'ui-coding', 'system-design': 'system-design' }
+export function pickUpkeep(gaps: Record<string, number>, recent: string[], mockFormat: string | null): BankCategory {
+  const allowed = UPKEEP_CATEGORIES.filter(c => c !== (mockFormat ? MOCK_PRACTISES[mockFormat] : undefined))
+  const fresh = allowed.filter(c => !recent.includes(c))
+  // Stable sort keeps list order on ties.
+  return [...(fresh.length ? fresh : allowed)].sort((a, b) => (gaps[b] ?? 0) - (gaps[a] ?? 0))[0]
+}
+// Question time after the fixed blocks: 60% themed drill, 40% upkeep.
+export const DRILL_SHARE = 0.6
+
+function bankDetail(key: BankCategory, quota: number, focusTopic: string | null | undefined): string {
+  const cat = BANK_CATEGORIES.find(c => c.key === key)!
+  const s = quota === 1 ? '' : 's'
+  switch (key) {
+    case 'quiz': return `Answer ${quota} theory questions out loud, type the gist, get the AI rating${focusTopic ? ` — focus: ${focusTopic}` : ''}`
+    case 'ai-native': return `Answer ${quota} AI-native question${s} from real experience, get the AI rating, tighten the answer`
+    case 'ui-coding': return `Machine coding: build ${quota} component${s} from scratch in your editor, timed — working, keyboard + ARIA, then summarize the trade-offs`
+    case 'system-design': return `Design ${quota} frontend system${s} end to end (Requirements → Architecture → Data → Interface → Optimizations), out loud, then get the AI rating`
+    case 'backend': return `Answer ${quota} backend & API question${s} out loud, get the AI rating`
+    case 'resume': return `Answer ${quota} resume deep-dive question${s} out loud from your real work — the decision, the trade-off, the number`
+    case 'architecture': return `Answer ${quota} architecture & lead question${s} out loud (rendering strategy, bundling, monorepo, micro-frontends, platform, leading teams) — the options, the trade-off, your call`
+    case 'ai-engineering': return `Answer ${quota} AI-engineering question${s} out loud — the pipeline, the trade-off, how you'd evaluate it`
+    case 'code-review': return `Review ${quota} AI-generated PR${s}: find the planted issues, rank them by severity, give the fix`
+    case 'javascript-functions': return `Implement ${quota} JS function${s} without looking anything up (polyfills, debounce, promise utilities), handle edge cases`
+    default: return `Solve ${quota} ${cat.label.toLowerCase()} problem${s} (medium, pattern-first), talking through complexity`
   }
-  return rows.map(({ cat, quota }) => ({ ...coverage.find(x => x.key === cat.key)!, quota, minutes: quota * cat.minutesPerQ }))
+}
+
+function bankBlock(c: CategoryCoverage, minutes: number, opts: { label?: string; prefix?: string; topic?: string; focusTopic?: string | null; gap: number }): PrepBlock {
+  const cat = BANK_CATEGORIES.find(x => x.key === c.key)!
+  const quota = Math.max(1, Math.floor(minutes / cat.minutesPerQ))
+  const redo = Math.min(c.redoDue, redoSlots(quota))
+  return {
+    key: `bank:${c.key}`, label: `${opts.label ?? cat.label} × ${quota}`, minutes: quota * cat.minutesPerQ,
+    detail: `${opts.prefix ?? ''}${bankDetail(c.key, quota, opts.focusTopic)}${redo ? ` — the first ${redo} redo your weak answers` : ''} (${Math.round((1 - opts.gap) * 100)}% of gate)`,
+    href: `/prep?tab=questions&cat=${c.key}${opts.topic ? `&topic=${encodeURIComponent(opts.topic)}` : ''}`, done: c.doneToday >= quota,
+  }
 }
 
 export function buildHuntPlan(ctx: {
   hoursPerDay: number
   date: string
-  quotas: CategoryQuota[]
+  coverage: CategoryCoverage[]
   uncoveredCompetency: string | null
-  // 0–1 readiness gap per category (war.ts) — bank blocks run weakest first.
+  // 0–1 readiness gap per category (war.ts) — picks the upkeep category.
   gaps?: Record<string, number>
   // Weakest theory topic, named in the Theory block.
   focusTopic?: string | null
   mockDoneToday?: boolean
   // Interview-category questions rated under 7 (§4.1) — lead the day.
   interviewRedo?: number
-  // This week's Build roadmap milestone (roadmap.ts), after the redo block.
-  buildBlock?: PrepBlock | null
+  // Bank categories planned in the last three days' sessions (upkeep rotation).
+  recentCategories?: string[]
   // prep_settings.rest_day: that weekday's plan is empty.
   restDay: number
 }): { focus: string; blocks: PrepBlock[] } {
@@ -150,60 +162,35 @@ export function buildHuntPlan(ctx: {
   const dayMinutes = ctx.hoursPerDay * 60
   const format = mockFormatForDay(ctx.date)
   const gap = (key: string) => ctx.gaps?.[key] ?? 0
-  const pct = (key: string) => `${Math.round((1 - gap(key)) * 100)}% of gate`
-  const bankBlocks: PrepBlock[] = [...ctx.quotas].filter(q => q.quota > 0)
-    .sort((a, b) => gap(b.key) - gap(a.key))
-    .map(q => {
-      const cat = BANK_CATEGORIES.find(c => c.key === q.key)!
-      const base = q.key === 'quiz'
-        ? `Answer ${q.quota} theory questions out loud, type the gist, get the AI rating${ctx.focusTopic ? ` — focus: ${ctx.focusTopic}` : ''}`
-        : q.key === 'ai-native'
-        ? `Answer ${q.quota} AI-native questions from real experience, get the AI rating, tighten the answer`
-        : q.key === 'behavioral'
-        ? `Say ${q.quota} answer${q.quota === 1 ? '' : 's'} out loud (tell me about yourself, the layoff, salary…), get rated, tighten`
-        : q.key === 'angular'
-        ? `Answer ${q.quota} Angular questions out loud (signals, change detection, RxJS, architecture), get the AI rating, re-answer anything ≤6`
-        : q.key === 'ui-coding'
-        ? `Machine coding: build ${q.quota} component${q.quota === 1 ? '' : 's'} from scratch in your editor, timed — working, keyboard + ARIA, then summarize the trade-offs`
-        : q.key === 'system-design'
-        ? `Design ${q.quota} frontend system${q.quota === 1 ? '' : 's'} end to end (Requirements → Architecture → Data → Interface → Optimizations), out loud, then get the AI rating`
-        : q.key === 'backend'
-        ? `Answer ${q.quota} backend & API questions out loud (API design, auth, data, caching, AI backend), get the AI rating`
-        : q.key === 'resume'
-        ? `Answer ${q.quota} resume deep-dive question${q.quota === 1 ? '' : 's'} out loud from your real work — the decision, the trade-off, the number`
-        : q.key === 'architecture'
-        ? `Answer ${q.quota} architecture & lead question${q.quota === 1 ? '' : 's'} out loud (rendering strategy, bundling, monorepo, micro-frontends, platform, leading teams) — the options, the trade-off, your call`
-        : q.key === 'ai-engineering'
-        ? `Answer ${q.quota} AI-engineering question${q.quota === 1 ? '' : 's'} out loud (RAG, agents, MCP & A2A, AI product UX, evals) — the pipeline, the trade-off, how you'd evaluate it`
-        : q.key === 'code-review'
-        ? `Review ${q.quota} AI-generated PR${q.quota === 1 ? '' : 's'}: find the planted issues, rank them by severity, give the fix`
-        : q.key === 'javascript-functions'
-        ? `Implement ${q.quota} JS function${q.quota === 1 ? '' : 's'} without looking anything up (polyfills, debounce, promise utilities), handle edge cases`
-        : `Solve ${q.quota} ${cat.label.toLowerCase()} problem${q.quota === 1 ? '' : 's'} (medium, pattern-first), talking through complexity`
-      const redo = Math.min(q.redoDue, redoSlots(q.quota))
-      return {
-        key: `bank:${q.key}`, label: `${cat.label} × ${q.quota}`, minutes: q.minutes,
-        detail: `${base}${redo ? ` — the first ${redo} redo your weak answers` : ''} (${pct(q.key)})`,
-        href: `/prep?tab=questions&cat=${q.key}`, done: q.doneToday >= q.quota,
-      }
-    })
-  const mock: PrepBlock = {
+  const cov = (key: BankCategory) => ctx.coverage.find(c => c.key === key)!
+  const redo = interviewRedoBlock(ctx.interviewRedo ?? 0)
+  const learn = learnBlock(ctx.date, ctx.hoursPerDay)
+  const build = buildBlock(ctx.date, ctx.hoursPerDay)
+  const mock: PrepBlock | null = format ? {
     key: 'mock', label: `Mock round · ${formatOf(format).label}`, minutes: formatMinutes(format),
     detail: 'Timed, no notes. Run the one-click AI review after.',
     href: `/prep?tab=mock&format=${format}`, done: !!ctx.mockDoneToday,
-  }
-  // Redo real interview questions → Build milestone → weakest two areas → the mock round → the rest.
-  const redo = interviewRedoBlock(ctx.interviewRedo ?? 0)
-  const blocks: PrepBlock[] = [
-    ...(redo ? [redo] : []),
-    ...(ctx.buildBlock ? [ctx.buildBlock] : []),
-    ...bankBlocks.slice(0, 2), mock, ...bankBlocks.slice(2),
-  ]
-  blocks.push({
+  } : null
+  const stories: PrepBlock = {
     key: 'lead', label: 'STAR stories', minutes: leadMinutes(dayMinutes, !!ctx.uncoveredCompetency),
     detail: ctx.uncoveredCompetency ? `Write a STAR story for "${ctx.uncoveredCompetency}", then rehearse one out loud` : 'Rehearse 2 stories out loud and get feedback on one',
     href: '/prep?tab=stories', done: false,
+  }
+  // Question time = the day minus the fixed blocks (at least an hour).
+  const fixed = [redo, learn, build, mock, stories].reduce((s, b) => s + (b?.minutes ?? 0), 0)
+  const questionMinutes = Math.max(60, dayMinutes - fixed)
+  const theme = themeFor(ctx.date)
+  const drill = bankBlock(cov(theme.category), Math.round(questionMinutes * DRILL_SHARE), {
+    label: theme.topics.length ? `Theme: ${theme.topics.join(' + ')}` : undefined,
+    prefix: theme.topics.length ? `This week's theme (${theme.topics.join(', ')}) — ` : "This week's theme — ",
+    topic: theme.topics[0], gap: gap(theme.category),
   })
+  const upkeepKey = pickUpkeep(ctx.gaps ?? {}, ctx.recentCategories ?? [], format)
+  const upkeep = bankBlock(cov(upkeepKey), questionMinutes - Math.round(questionMinutes * DRILL_SHARE), {
+    prefix: 'Frontend upkeep — ', focusTopic: ctx.focusTopic, gap: gap(upkeepKey),
+  })
+  // Redo real interview questions → Learn → Build → themed drill → mock → upkeep → STAR stories.
+  const blocks = [redo, learn, build, drill, mock, upkeep, stories].filter((b): b is PrepBlock => !!b)
   return { focus: `Interview War Mode · ${levelOf(ctx.hoursPerDay).label}`, blocks }
 }
 

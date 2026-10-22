@@ -69,12 +69,15 @@ export const MOCK_FORMATS: { key: MockFormat; label: string; detail: string; slo
 export const formatOf = (key: string) => MOCK_FORMATS.find(f => f.key === key) ?? MOCK_FORMATS[0]
 export const formatMinutes = (key: string) => formatOf(key).slots.reduce((s, x) => s + x.minutes, 0)
 
-// Job Hunt Mode's daily mock (2026 rotation): Mon machine coding · Tue
-// behavioral · Wed code review · Thu AI system design · Fri machine coding ·
-// Sat system design · Sun frontend screen.
-const MOCK_ROTATION: MockFormat[] = ['screen', 'machine-coding', 'behavioral', 'code-review', 'ai-system-design', 'machine-coding', 'system-design']
-export function mockFormatForDay(date: string): MockFormat {
-  return MOCK_ROTATION[new Date(`${date}T00:00:00Z`).getUTCDay()]
+// Three mocks a week as checkpoints: Tue behavioral · Thu AI system design ·
+// Sat system design and machine coding on alternate weeks. Other days: none.
+export function mockFormatForDay(date: string): MockFormat | null {
+  const d = new Date(`${date}T00:00:00Z`)
+  const day = d.getUTCDay()
+  if (day === 2) return 'behavioral'
+  if (day === 4) return 'ai-system-design'
+  if (day === 6) return Math.floor(d.getTime() / (7 * 86400000)) % 2 ? 'system-design' : 'machine-coding'
+  return null
 }
 
 export interface MockItem {

@@ -325,10 +325,3 @@ export function categoryGap(category: string, cells: ReadinessCell[]): number {
   })
   return gaps.length ? gaps.reduce((s, g) => s + g, 0) / gaps.length : 0.5
 }
-
-// Time multiplier per category: 0.5 (no gap) … 1.5 (blind spot). Shares are
-// renormalized by the caller so the day's total stays the same — the plan
-// moves time toward the biggest interview risk instead of spreading evenly.
-export function categoryWeights(cells: ReadinessCell[]): Record<string, number> {
-  return Object.fromEntries(Object.keys(CATEGORY_AREAS).map(c => [c, 0.5 + categoryGap(c, cells)]))
-}

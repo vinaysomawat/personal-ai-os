@@ -16,15 +16,18 @@ import { COMPETENCIES, REHEARSAL_PROMPTS, type BankQuestion, type CompetencyKey,
 import type { CategoryCoverage, CategoryQuota } from '../hunt'
 import { QuestionsTab } from './QuestionsTab'
 import { MockTab } from './MockTab'
+import { AiTab } from './AiTab'
+import type { RoadmapProgress } from '../roadmap'
 import AnswerReview from './AnswerReview'
 import { FocusBar, ForecastCard, GatesCard, MissionCard, RevisionCard, WarHeader, WeaknessCard } from './WarRoom'
 import { blockQuota, dayPace, focusSeconds, istHourNow, paceLabel, paceStatus, practicedToday, type FocusSession, type Forecast, type RevisionItem, type TopicWeakness, type WarReadiness } from '../war'
 import PageHeader, { HeaderChip } from '@/components/PageHeader'
 import StatCard from '@/components/StatCard'
 
-export type PrepTab = 'today' | 'questions' | 'mock' | 'stories'
+export type PrepTab = 'today' | 'ai' | 'questions' | 'mock' | 'stories'
 const TABS: { key: PrepTab; label: string }[] = [
   { key: 'today', label: 'Today' },
+  { key: 'ai', label: 'AI Engineer' },
   { key: 'questions', label: 'Questions' },
   { key: 'mock', label: 'Mock Round' },
   { key: 'stories', label: 'Story Bank' },
@@ -52,6 +55,7 @@ interface Props {
   settings: PrepSettings
   coverage: (CategoryCoverage | CategoryQuota)[]
   bank: BankQuestion[]
+  roadmap: RoadmapProgress[]
 }
 
 export default function PrepView(props: Props) {
@@ -63,6 +67,7 @@ export default function PrepView(props: Props) {
   const [rounds, setRounds] = useState(props.mockRounds)
   const [stories, setStories] = useState(props.stories)
   const [rehearsals, setRehearsals] = useState(props.rehearsals)
+  const [roadmap, setRoadmap] = useState(props.roadmap)
   const [, startTransition] = useTransition()
 
   const [focusSessions, setFocusSessions] = useState(props.focusSessions)
@@ -166,6 +171,8 @@ export default function PrepView(props: Props) {
           </div>
         </>
       )}
+
+      {tab === 'ai' && <AiTab today={props.today} progress={roadmap} setProgress={setRoadmap} bank={bank} onOpenTopic={openTopic} />}
 
       {/* Kept mounted so answers made here survive switching tabs. */}
       <div hidden={tab !== 'questions'}>

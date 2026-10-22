@@ -78,7 +78,8 @@ export function eveningMessage(d: PrepData): string {
     `🌙 *DAY REVIEW — ${levelOf(d.settings.hours_per_day).label}*`,
     `Done: *${pace.blocksDone}/${pace.blocksTotal} blocks* (${pace.donePct}% of the plan)${interruptions ? ` · ${interruptions} interruption${interruptions === 1 ? '' : 's'}` : ''}`,
     good ? `✓ *Good day*` : `A good day = ${GOOD_DAY_BLOCKS} blocks.`,
-    mocks.length ? `Mock: ${mocks.map(r => `${r.review!.score}/10`).join(', ')}` : `Mock: none reviewed today`,
+    // Mocks run 3 days a week — no line on the other days unless one was done.
+    ...(mocks.length ? [`Mock: ${mocks.map(r => `${r.review!.score}/10`).join(', ')}`] : blocks.some(b => b.key === 'mock') ? ['Mock: none reviewed today'] : []),
     readinessLine(d),
     '',
     strong.length ? `Strong: ${strong.slice(0, 3).map(c => `🟢 ${c.label}`).join(' ')}` : 'Strong: nothing at its gate yet.',

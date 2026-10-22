@@ -9,6 +9,7 @@ import { COMPETENCIES } from './types'
 import type { PrepSession, Story, StoryRehearsal } from './types'
 import { endFocus, loadPrepData, startFocus, syncBankBlocks, toggleFocusPause } from './core'
 import type { FocusSession } from './war'
+import type { RoadmapProgress } from './roadmap'
 import { critiqueFollowUp, critiqueQuestion, critiqueStory, modelAnswer, SPOKEN_NOTE } from './critique'
 import type { Rubric, Scorecard } from './scorecard'
 import { speechStats } from '@/lib/speech-stats'
@@ -307,4 +308,32 @@ export async function rehearseStory(competency: string, prompt: string, answer: 
   if (storyId) await supabase.from('stories').update({ last_rehearsed_at: new Date().toISOString() }).eq('id', storyId)
   revalidatePath('/prep')
   return data as StoryRehearsal
+}
+
+// ---------------- AI Engineer tab: roadmap progress ----------------
+
+// Marks a roadmap week shipped with its proof (or updates it). Only http(s)
+// proof links are kept, since they render as links.
+export async function saveRoadmapWeek(week: number, input: { proof_url: string; metric: string; notes: string }): Promise<RoadmapProgress> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) throw new Error('Not authenticated')
+  if (!Number.isInteger(week) || week < 1 || week > 13) throw new Error('Unknown week')
+  const url = input.proof_url.trim()
+  if (url && !/^https?:\/\//i.test(url)) throw new Error('Proof link must start with http:// or https://')
+  const { data, error } = await supabase.from('roadmap_progress')
+    .upsert({ user_id: user.id, week, proof_url: url || null, metric: input.metric.trim() || null, notes: input.notes.trim() || null, updated_at: new Date().toISOString() }, { onConflict: 'user_id,week' })
+    .select('week, proof_url, metric, notes, completed_at').single()
+  if (error) throw new Error(error.message)
+  revalidatePath('/prep')
+  return data as RoadmapProgress
+}
+
+export async function undoRoadmapWeek(week: number): Promise<void> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) throw new Error('Not authenticated')
+  const { error } = await supabase.from('roadmap_progress').delete().eq('user_id', user.id).eq('week', week)
+  if (error) throw new Error(error.message)
+  revalidatePath('/prep')
 }
