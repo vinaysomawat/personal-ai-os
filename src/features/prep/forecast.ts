@@ -5,7 +5,7 @@ import { loadPrepData } from './core'
 import { levelOf } from './hunt'
 import { GATES, focusSeconds, type Forecast } from './war'
 
-const SYSTEM = `You are a hiring manager for Senior Frontend Engineer / Frontend Tech Lead roles at top product companies that expect AI-native engineers. From the candidate's prep data below, predict how an interview loop tomorrow would go.
+const SYSTEM = `You are a hiring manager for Senior Frontend Engineer / AI Product Engineer roles at top product companies that expect AI-native engineers. From the candidate's prep data below, predict how an interview loop tomorrow would go.
 Use only the data given; never invent scores or events. Be blunt and specific.
 Respond with ONLY a JSON object:
 {"strengths":["up to 4 areas likely to go well"],"failures":[{"area":"area name","why":"one sentence: what would go wrong in the room"}],"riskQuestion":"the single interview question most likely to sink them, phrased as an interviewer would ask it","fixFirst":["3 concrete things to do this week, most important first"]}

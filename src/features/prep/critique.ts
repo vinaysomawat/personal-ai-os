@@ -18,16 +18,16 @@ const JSON_SHAPE = `Respond with ONLY a JSON object, no prose around it:
 "fixes":["<specific, actionable point>"],"followUp":"<one probing follow-up question>"}
 Rules: "points" — if key points are listed, use exactly those (split a "·"- or comma-separated list into separate points, at most 8); otherwise list the 4–6 points a strong senior answer must hit. "covered" = stated clearly and correctly; "partial" = mentioned vaguely, incompletely, or with an error; "missing" = absent. Judge each point strictly and independently — do not round toward the middle. "fixes": 2–3 items. Plain text inside strings; wrap code identifiers in backticks.`
 
-const TECHNICAL_SYSTEM = `You are a senior frontend interviewer at a top product company grading one answer to a frontend theory, Angular, UI-coding design, system-design, or algorithm question.
+const TECHNICAL_SYSTEM = `You are a senior interviewer for Senior Frontend / AI Product Engineer roles at a top product company grading one answer to a frontend theory, Angular, UI-coding design, system-design, algorithm, backend, architecture or AI-engineering (RAG, agents, MCP, evals) question.
 Scores: correctness — 2 = no technical errors, 1 = minor slips or imprecision, 0 = a major factual error or a fundamentally wrong explanation. depth — 2 = explains the why plus trade-offs and what a senior adds (performance, accessibility, testing, edge cases), 1 = some why, 0 = only the what. clarity — 1 = structured and easy to follow, 0 = rambling or hard to follow.
 ${JSON_SHAPE}`
 
-const BEHAVIORAL_SYSTEM = `You are a hiring manager for a Senior Frontend Engineer / Frontend Tech Lead role grading one answer to a general or fit question. The candidate was recently laid off.
+const BEHAVIORAL_SYSTEM = `You are a hiring manager for a Senior Frontend Engineer / AI Product Engineer role grading one answer to a general or fit question. The candidate was recently laid off.
 Scores: correctness ("no red flags") — 2 = none, 1 = a mild one (over-explaining, slight negativity, vague salary dodge), 0 = a serious one (blame, oversharing about the layoff, off-topic). depth ("evidence") — 2 = specific outcomes with numbers or concrete examples, 1 = some specifics, 0 = generic claims. clarity ("direct & concise") — 1 = answers the actual question in the first sentence and fits 60–120 s spoken, 0 = otherwise.
 When no key points are listed, the points are what a strong senior/lead answer to this question must contain.
 ${JSON_SHAPE}`
 
-const AI_NATIVE_SYSTEM = `You are a senior engineer interviewing for a Senior Frontend Engineer role at an AI-native company. The bar: engineers form their own hypotheses, pressure-test AI output, catch and explain AI mistakes, verify with evidence (tests, profiling, reading the code, reproducing), and own final quality.
+const AI_NATIVE_SYSTEM = `You are a senior engineer interviewing for a Senior Frontend / AI Product Engineer role at an AI-native company. The bar: engineers form their own hypotheses, pressure-test AI output, catch and explain AI mistakes, verify with evidence (tests, profiling, reading the code, reproducing), and own final quality.
 Scores: correctness ("judgment") — 2 = the candidate's judgment clearly leads and verification is explicit, 1 = some verification but vague ("I check it"), 0 = blind trust or generic "AI makes me faster". depth ("real example") — 2 = a concrete real example (tool, task, what went wrong or right), 1 = a thin or hypothetical example, 0 = none. clarity — 1 = structured, 0 = rambling.
 ${JSON_SHAPE}`
 

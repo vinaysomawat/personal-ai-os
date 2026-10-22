@@ -3,6 +3,13 @@
 One line per shipped change, newest first. Sourced from commit messages —
 append here whenever you deploy, same cadence as the version bump.
 
+## 2026-10-22
+
+- **Prep now targets Senior Frontend / AI Product Engineer roles.** A daily Build block follows a 13-week roadmap of features built into Personal OS itself: streaming, pgvector search, RAG with citations, a tool-calling agent, evals, an MCP server with OAuth, A2A and tracing. Each week has a milestone, a "done when" and doc links, and you tick it with Finish. It takes 60 / 120 / 150 minutes by level, out of question time.
+- **More time on AI engineering, backend and system design.** AI engineering's share went from 8% to 14%, with less UI coding, JS functions, algorithms and theory. The AI engineering readiness gate rose to 75 and counts more toward overall readiness, so readiness may dip at first.
+- **24 new AI engineering questions.** MCP & A2A (14: primitives, transports, remote OAuth, token passthrough, tool design, security, A2A agent cards and tasks, an internal agent platform) and AI product UX (10: streaming render, tool steps, citations, approvals, generative UI, resumable chat, output security, accessibility). The category now has 91 questions.
+- **AI system design mock round.** One AI feature design plus MCP/A2A, AI UX and evals follow-ups, 55 minutes. It's now Thursday's mock (Wednesday stays code review) and the suggested mock for AI-company rounds.
+
 ## 2026-10-21
 
 - **48 more FE architecture & lead questions.** New Webpack (10) and CI/CD & GitHub Actions (14) sections, plus more on bundling, micro-frontends (Module Federation 2.0, Next.js Multi-Zones, Native Federation), Next.js caching, npm supply-chain security, TypeScript at scale, i18n and writing RFCs. The category now has 138 questions, with the must-haves first.

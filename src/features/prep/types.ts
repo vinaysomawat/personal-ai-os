@@ -31,7 +31,7 @@ export interface StoryRehearsal {
 
 export interface PrepBlock {
   // Interview War Mode: 'outreach', 'company:<applicationId>', 'bank:<category>',
-  // 'mock', 'lead' (a few older days hold 'fight:<area>' / 'mock:<format>').
+  // 'mock', 'lead', 'build' (a few older days hold 'fight:<area>' / 'mock:<format>').
   key: string
   label: string
   detail: string
@@ -180,7 +180,7 @@ export const REHEARSAL_PROMPTS: Record<CompetencyKey, string[]> = {
   ],
 }
 
-// The senior/lead frontend interview surface, as the readiness matrix's
+// The Senior Frontend / AI Product Engineer interview surface, as the readiness matrix's
 // rows. Each area is fed by quiz topics (career QUIZ_TOPICS), coding
 // question topics/categories, and/or story coverage.
 export const READINESS_AREAS = [

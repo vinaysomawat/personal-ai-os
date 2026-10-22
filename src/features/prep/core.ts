@@ -3,6 +3,7 @@ import { todayIST, daysAgoIST, toISTDateStr, istMidnightUtc } from '@/lib/date'
 import { formatMinutes, mockFormatForDay, type MockRound } from './mock'
 import { BANK_CATEGORIES, DEFAULT_HOURS, OUTREACH_MINUTES, buildHuntPlan, isRestDay, isRedoDue, companyPrepBlock, computeQuotas, interviewRedoBlock, leadMinutes, type CategoryCoverage, type UpcomingRound } from './hunt'
 import { topicHref } from './links'
+import { buildBlock } from './roadmap'
 import { computeReadinessMatrix, type CodingHistoryRow } from './readiness'
 import { COMPETENCIES } from './types'
 import { blockQuota, categoryGap, categoryWeights, dayPace, isGoodDay, focusSeconds, nowBlock, revisionQueue, topicWeakness, warReadiness, type FocusSession, type Forecast } from './war'
@@ -72,8 +73,9 @@ export async function loadPrepData(supabase: SupabaseClient, userId: string) {
   }
   const companyBlock = companyPrepBlock(upcoming, Date.now(), topicHref)
   const interviewRedo = bank.filter(q => q.category === 'interview' && q.last_rating !== null && q.last_rating < 7).length
+  const build = buildBlock(today, settings.hours_per_day)
   const reserved = formatMinutes(mockFormatForDay(today)) + leadMinutes(settings.hours_per_day * 60, storiesMissing)
-    + (companyBlock?.minutes ?? 0) + (interviewRedoBlock(interviewRedo)?.minutes ?? 0) + OUTREACH_MINUTES
+    + (companyBlock?.minutes ?? 0) + (interviewRedoBlock(interviewRedo)?.minutes ?? 0) + OUTREACH_MINUTES + (build?.minutes ?? 0)
   const outreachToday = (outreachRes.data ?? []).reduce((s, r) => s + (r.count as number), 0)
   const quotas = computeQuotas(coverage, settings.hours_per_day, categoryWeights(readiness), reserved)
       // On machine-coding / code-review days the mock round IS that practice.
@@ -91,7 +93,7 @@ export async function loadPrepData(supabase: SupabaseClient, userId: string) {
       gaps: Object.fromEntries(BANK_CATEGORIES.map(c => [c.key, categoryGap(c.key, readiness)])),
       focusTopic: weakness.find(w => w.category === 'quiz')?.topic ?? null,
       mockDoneToday: mockRounds.some(r => toISTDateStr(r.created_at) === today),
-      interviewRedo, companyBlock,
+      interviewRedo, companyBlock, buildBlock: build,
       outreach: { target: settings.daily_outreach_target, sent: outreachToday },
       restDay: settings.rest_day,
     })

@@ -82,7 +82,7 @@ Pure copy/spacing/color tweaks that don't change a section's actual structure or
 
 This project is Vinay's personal execution system — not a CRUD app, not a dashboard, not a note-taking tool. Every feature should make him measurably better next week. Everything maps to one of four pillars: **Learn** (courses/research/architecture) → **Build** (coding/projects/OSS) → **Perform** (planner/habits/career) → **Recover** (health/sleep/nutrition).
 
-**Long-term goals the product should serve:** career growth toward Staff Frontend Engineer (JS/TS/React/Next.js/testing/system design/AI-assisted dev), continuous learning, coding consistency, health (current focus: weight loss), high-signal productivity, and a searchable "second brain" of notes/decisions.
+**Long-term goals the product should serve:** career growth from Senior Frontend toward AI Product Engineer (JS/TS/React/Next.js, backend & APIs, system design, AI engineering: RAG, agents, MCP, evals), continuous learning, coding consistency, health (current focus: weight loss), high-signal productivity, and a searchable "second brain" of notes/decisions.
 
 1. **Automation over manual work.** If something can be automated, automate it.
 2. **Rule engine before AI.** Before calling AI, ask "can deterministic code solve this?" If yes, don't call AI. Never use AI for calculations, sorting, filtering, score math, dashboards, reminders, charts, or notifications — only for mentoring, coaching, reviewing, explaining, brainstorming, summarizing, and generating plans.

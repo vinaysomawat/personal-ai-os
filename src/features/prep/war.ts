@@ -54,11 +54,12 @@ export const GATES: Record<ReadinessAreaKey, { gate: number; weight: number }> =
   browser: { gate: 75, weight: 5 },
   sysdesign: { gate: 80, weight: 15 },
   ainative: { gate: 75, weight: 10 },
-  uicoding: { gate: 80, weight: 10 },
+  uicoding: { gate: 80, weight: 8 },
   dsa: { gate: 70, weight: 5 },
-  backend: { gate: 70, weight: 8 },
+  backend: { gate: 70, weight: 10 },
   aiassisted: { gate: 75, weight: 8 },
-  aieng: { gate: 70, weight: 8 },
+  // The AI Product Engineer target: AI engineering is a core gate.
+  aieng: { gate: 75, weight: 12 },
   behavioral: { gate: 80, weight: 5 },
   leadership: { gate: 75, weight: 3 },
 }
@@ -119,7 +120,7 @@ export function readinessTier(w: WarReadiness): { label: string; tone: 'good' | 
 
 // ---------------- Topic weakness ----------------
 
-// How much a topic matters in a senior frontend loop (1 = core).
+// How much a topic matters in a Senior Frontend / AI Product Engineer loop (1 = core).
 const IMPORTANCE: Record<string, number> = {
   'JavaScript Fundamentals': 1, 'Async & Promises': 1, 'React & State Management': 1, 'System Design': 1,
   'TypeScript': 0.9, 'Performance': 0.9, 'DOM & Browser APIs': 0.8, 'UI Components': 0.9, 'Networking & APIs': 0.7,
@@ -128,6 +129,7 @@ const IMPORTANCE: Record<string, number> = {
   'API design': 0.8, 'Auth & security': 0.8, 'Data': 0.7, 'Node / Next.js server': 0.7, 'Caching & performance': 0.7, 'AI backend': 0.7,
   'RAG & retrieval': 0.9, 'Agents & workflows': 0.8, 'Evals & production': 0.8, 'Vector databases': 0.7, 'Embeddings & chunking': 0.7,
   'LLM fundamentals': 0.7, 'Agentic RAG': 0.7, 'Human-in-the-loop': 0.7, 'Frameworks': 0.6,
+  'MCP & A2A': 0.9, 'AI product UX': 0.8,
 }
 const importanceOf = (topic: string) => IMPORTANCE[topic] ?? 0.5
 

@@ -9,8 +9,9 @@ import { formatMinutes, formatOf, mockFormatForDay } from './mock'
 
 export type BankCategory = 'interview' | 'quiz' | 'angular' | 'ai-native' | 'behavioral' | 'javascript-functions' | 'ui-coding' | 'system-design' | 'algorithm' | 'backend' | 'code-review' | 'resume' | 'architecture' | 'ai-engineering'
 
-// Base shares for a broad 2026 search (big tech, Indian product companies,
-// startups, AI companies, services, remote) — relative weights; computeQuotas
+// Base shares for a Senior Frontend / AI Product Engineer search (AI
+// engineering, backend and system design lead; UI coding, JS functions and
+// algorithms keep a smaller share) — relative weights; computeQuotas
 // scales them to the day's bank minutes after the 0.5 + gap multiplier.
 export const BANK_CATEGORIES: { key: BankCategory; label: string; share: number; minutesPerQ: number }[] = [
   // Questions real interviewers asked (v4.0 §4.1) — no quota share; they get
@@ -18,31 +19,31 @@ export const BANK_CATEGORIES: { key: BankCategory; label: string; share: number;
   { key: 'interview', label: 'Asked in interviews', share: 0, minutesPerQ: 10 },
   // Machine coding: build a component from scratch, timed (the #1 round at
   // Indian product companies).
-  { key: 'ui-coding', label: 'UI coding', share: 0.18, minutesPerQ: 45 },
-  { key: 'system-design', label: 'System design', share: 0.13, minutesPerQ: 60 },
-  { key: 'quiz', label: 'Theory', share: 0.10, minutesPerQ: 5 },
+  { key: 'ui-coding', label: 'UI coding', share: 0.13, minutesPerQ: 45 },
+  { key: 'system-design', label: 'System design', share: 0.14, minutesPerQ: 60 },
+  { key: 'quiz', label: 'Theory', share: 0.08, minutesPerQ: 5 },
   // Full-stack "product engineer" loops: API design, Node/Next server, auth,
   // data, caching, AI backend.
-  { key: 'backend', label: 'Backend & APIs', share: 0.12, minutesPerQ: 8 },
-  { key: 'javascript-functions', label: 'JS functions', share: 0.10, minutesPerQ: 25 },
+  { key: 'backend', label: 'Backend & APIs', share: 0.13, minutesPerQ: 8 },
+  { key: 'javascript-functions', label: 'JS functions', share: 0.07, minutesPerQ: 25 },
   // Answer from real experience + AI interviewer feedback.
   { key: 'ai-native', label: 'AI-native', share: 0.09, minutesPerQ: 10 },
-  { key: 'algorithm', label: 'Algorithms', share: 0.09, minutesPerQ: 30 },
+  { key: 'algorithm', label: 'Algorithms', share: 0.06, minutesPerQ: 30 },
   // Senior / lead Angular roles (banks, fintech, GCCs).
   { key: 'angular', label: 'Angular', share: 0, minutesPerQ: 6 },
   // General/fit questions (tell me about yourself, the layoff, salary…).
   { key: 'behavioral', label: 'Behavioral Q&A', share: 0.06, minutesPerQ: 10 },
   // Review an AI-generated PR: find the planted issues, rank them, fix them.
-  { key: 'code-review', label: 'Code review', share: 0.05, minutesPerQ: 15 },
+  { key: 'code-review', label: 'Code review', share: 0.06, minutesPerQ: 15 },
   // Deep-dive on my own resume claims (projects, numbers, decisions) — what
   // hiring-manager and onsite rounds probe.
   { key: 'resume', label: 'From my resume', share: 0.08, minutesPerQ: 8 },
   // Senior / Lead / Staff / Architect loops: rendering strategy, bundling,
   // monorepos, micro-frontends, platform, security, design systems, leading.
-  { key: 'architecture', label: 'FE architecture & lead', share: 0.09, minutesPerQ: 8 },
+  { key: 'architecture', label: 'FE architecture & lead', share: 0.07, minutesPerQ: 8 },
   // AI product / full-stack AI engineer loops: LLMs, embeddings, vector DBs,
-  // RAG, agentic RAG, agents, human-in-the-loop, evals.
-  { key: 'ai-engineering', label: 'AI engineering', share: 0.08, minutesPerQ: 8 },
+  // RAG, agentic RAG, agents, human-in-the-loop, evals, MCP & A2A, AI product UX.
+  { key: 'ai-engineering', label: 'AI engineering', share: 0.14, minutesPerQ: 8 },
 ]
 // The day = the Mock Round (its format's minutes) + STAR stories + the
 // Question Bank blocks, which get whatever is left (2026-10-09 — they used to
@@ -142,6 +143,8 @@ export function buildHuntPlan(ctx: {
   interviewRedo?: number
   // A Company Prep block for a round ≤72h away (§4.4), right after outreach.
   companyBlock?: PrepBlock | null
+  // This week's Build roadmap milestone (roadmap.ts), after the redo block.
+  buildBlock?: PrepBlock | null
   // Outreach block #1: today's target and what's logged so far.
   outreach: { target: number; sent: number }
   // prep_settings.rest_day: that weekday's plan is empty.
@@ -175,7 +178,7 @@ export function buildHuntPlan(ctx: {
         : q.key === 'architecture'
         ? `Answer ${q.quota} architecture & lead question${q.quota === 1 ? '' : 's'} out loud (rendering strategy, bundling, monorepo, micro-frontends, platform, leading teams) — the options, the trade-off, your call`
         : q.key === 'ai-engineering'
-        ? `Answer ${q.quota} AI-engineering question${q.quota === 1 ? '' : 's'} out loud (RAG, vector DBs, agents, human-in-the-loop, evals) — the pipeline, the trade-off, how you'd evaluate it`
+        ? `Answer ${q.quota} AI-engineering question${q.quota === 1 ? '' : 's'} out loud (RAG, agents, MCP & A2A, AI product UX, evals) — the pipeline, the trade-off, how you'd evaluate it`
         : q.key === 'code-review'
         ? `Review ${q.quota} AI-generated PR${q.quota === 1 ? '' : 's'}: find the planted issues, rank them by severity, give the fix`
         : q.key === 'javascript-functions'
@@ -194,12 +197,13 @@ export function buildHuntPlan(ctx: {
     href: `/prep?tab=mock&format=${format}`, done: !!ctx.mockDoneToday,
   }
   // Outreach → company prep (round ≤72h) → redo real interview questions →
-  // weakest two areas → the mock round → the rest.
+  // Build milestone → weakest two areas → the mock round → the rest.
   const redo = interviewRedoBlock(ctx.interviewRedo ?? 0)
   const blocks: PrepBlock[] = [
     outreachBlock(ctx.outreach.target, ctx.outreach.sent),
     ...(ctx.companyBlock ? [ctx.companyBlock] : []),
     ...(redo ? [redo] : []),
+    ...(ctx.buildBlock ? [ctx.buildBlock] : []),
     ...bankBlocks.slice(0, 2), mock, ...bankBlocks.slice(2),
   ]
   blocks.push({
@@ -248,7 +252,7 @@ const SEGMENT_PREP: Record<string, { mock: string; why: string; links: { label: 
     { label: 'Web fundamentals', href: '/prep?tab=questions&cat=quiz&topic=DOM%20%26%20Browser%20APIs' }, { label: 'Algorithms', href: '/prep?tab=questions&cat=algorithm' } ] },
   startup: { mock: 'system-design', why: 'startup: backend, full-stack system design, a project deep-dive story', links: [
     { label: 'Backend & APIs', href: '/prep?tab=questions&cat=backend' }, { label: 'Full-stack design', href: '/prep?tab=questions&cat=system-design&topic=Full-stack' }, { label: 'Deep-dive story', href: '/prep?tab=stories' } ] },
-  ai_company: { mock: 'code-review', why: 'AI company: AI engineering (RAG, agents), AI-native, streaming UI, AI backend', links: [
+  ai_company: { mock: 'ai-system-design', why: 'AI company: AI engineering (RAG, agents), AI-native, streaming UI, AI backend', links: [
     { label: 'AI engineering', href: '/prep?tab=questions&cat=ai-engineering' }, { label: 'AI-native', href: '/prep?tab=questions&cat=ai-native' }, { label: 'Streaming UI', href: '/prep?tab=questions&cat=system-design&topic=AI' }, { label: 'AI backend', href: '/prep?tab=questions&cat=backend&topic=AI%20backend' } ] },
 }
 const DEFAULT_PREP = { mock: 'machine-coding', why: 'theory, machine coding, behavioral', links: [
@@ -269,7 +273,7 @@ export function companyPrepBlock(r: UpcomingRound | null, nowMs: number, topicHr
       r.priorityTopics.length ? `JD priority topics: ${r.priorityTopics.join(', ')}` : 'No JD analysis yet — run it on the Interviews page',
       `focus for a ${seg.why}`,
       r.priorQuestions ? `redo the ${r.priorQuestions} question${r.priorQuestions === 1 ? '' : 's'} they asked before` : null,
-      `then a ${mock.replace('-', ' ')} mock`,
+      `then a ${mock.replace(/-/g, ' ')} mock`,
     ].filter(Boolean).join(' · '),
     href: '/interviews', done: false,
     links: [

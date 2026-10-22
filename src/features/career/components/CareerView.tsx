@@ -192,7 +192,7 @@ export default function CareerView(props: Props) {
             <ProfileField label="Current Role" value={profile?.current_role ?? ''} onSave={v => saveProfile('current_role', v)} placeholder="Senior Frontend Engineer" />
             <ProfileField label="Company" value={profile?.current_company ?? ''} onSave={v => saveProfile('current_company', v)} />
             <ProfileField label="Current Salary (₹/yr)" value={profile?.current_salary?.toString() ?? ''} onSave={v => saveProfile('current_salary', v)} type="number" masked />
-            <ProfileField label="Target Role" value={profile?.target_role ?? ''} onSave={v => saveProfile('target_role', v)} placeholder="Senior Frontend / Tech Lead" />
+            <ProfileField label="Target Role" value={profile?.target_role ?? ''} onSave={v => saveProfile('target_role', v)} placeholder="Senior Frontend / AI Product Engineer" />
             <ProfileField label="Years of Experience" value={profile?.years_experience?.toString() ?? ''} onSave={v => saveProfile('years_experience', v)} type="number" />
             <ProfileField label="Bio / Focus" value={profile?.bio ?? ''} onSave={v => saveProfile('bio', v)} />
           </div>

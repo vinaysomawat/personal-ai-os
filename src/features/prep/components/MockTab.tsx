@@ -137,9 +137,11 @@ export function MockTab({ bank, readiness, covered, rounds, today, format: forma
           </div>
         )}
         {item.body && <CodeBlock code={item.body} />}
-        <textarea value={item.answer} onChange={e => setAnswer(e.target.value)} rows={run.format === 'system-design' || run.format === 'machine-coding' || run.format === 'code-review' ? 12 : 7} autoFocus
+        <textarea value={item.answer} onChange={e => setAnswer(e.target.value)} rows={run.format === 'system-design' || run.format === 'ai-system-design' || run.format === 'machine-coding' || run.format === 'code-review' ? 12 : 7} autoFocus
           placeholder={run.format === 'system-design'
             ? 'Requirements → Architecture → Data model → Interface (API) → Optimizations (perf, a11y, i18n, offline). Talk it through as you write.'
+            : run.format === 'ai-system-design' && item.category === 'system-design'
+            ? 'Requirements → model & retrieval → tools/agents → API & streaming → UX (citations, approvals) → evals, cost, safety. Talk it through as you write.'
             : run.format === 'code-review'
             ? 'Issues by severity: what, where, why it matters, the fix. Type the review — it is graded on what you found.'
             : run.format === 'machine-coding'

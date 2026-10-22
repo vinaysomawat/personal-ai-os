@@ -7,7 +7,7 @@ import type { Scorecard } from './scorecard'
 // longest ago. Nothing already practiced today is picked, so a round never
 // repeats today's work.
 
-export type MockFormat = 'screen' | 'behavioral' | 'system-design' | 'machine-coding' | 'code-review'
+export type MockFormat = 'screen' | 'behavioral' | 'system-design' | 'machine-coding' | 'code-review' | 'ai-system-design'
 
 interface Slot {
   // A Question Bank category, or 'star' for a "Tell me about a time…" prompt.
@@ -53,15 +53,26 @@ export const MOCK_FORMATS: { key: MockFormat; label: string; detail: string; slo
     key: 'code-review', label: 'Code review', detail: '2 AI-generated PRs — find the planted issues, rank by severity, fix',
     slots: [{ category: 'code-review', minutes: 15 }, { category: 'code-review', minutes: 15 }],
   },
+  {
+    // AI Product Engineer loops: design an AI feature end to end, then the
+    // protocol, UX and evaluation follow-ups.
+    key: 'ai-system-design', label: 'AI system design', detail: '1 AI feature design + MCP/A2A, AI product UX and evals follow-ups',
+    slots: [
+      { category: 'system-design', topics: ['AI'], minutes: 35 },
+      { category: 'ai-engineering', topics: ['MCP & A2A'], minutes: 7 },
+      { category: 'ai-engineering', topics: ['AI product UX'], minutes: 7 },
+      { category: 'ai-engineering', topics: ['Evals & production'], minutes: 6 },
+    ],
+  },
 ]
 
 export const formatOf = (key: string) => MOCK_FORMATS.find(f => f.key === key) ?? MOCK_FORMATS[0]
 export const formatMinutes = (key: string) => formatOf(key).slots.reduce((s, x) => s + x.minutes, 0)
 
 // Job Hunt Mode's daily mock (2026 rotation): Mon machine coding · Tue
-// behavioral · Wed and Thu code review · Fri machine coding · Sat system
-// design · Sun frontend screen.
-const MOCK_ROTATION: MockFormat[] = ['screen', 'machine-coding', 'behavioral', 'code-review', 'code-review', 'machine-coding', 'system-design']
+// behavioral · Wed code review · Thu AI system design · Fri machine coding ·
+// Sat system design · Sun frontend screen.
+const MOCK_ROTATION: MockFormat[] = ['screen', 'machine-coding', 'behavioral', 'code-review', 'ai-system-design', 'machine-coding', 'system-design']
 export function mockFormatForDay(date: string): MockFormat {
   return MOCK_ROTATION[new Date(`${date}T00:00:00Z`).getUTCDay()]
 }
