@@ -1,18 +1,12 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { daysAgoIST, todayIST } from '@/lib/date'
 import { projectMonthSpend } from '@/features/finance/calculations'
-import { RISK_THRESHOLDS, OPPORTUNITY_THRESHOLDS } from '@/lib/thresholds'
+import { RISK_THRESHOLDS } from '@/lib/thresholds'
 
 export interface Risk {
   kind: 'budget_pace' | 'protein_decline'
   text: string
   impact: 'high' | 'medium' | 'low'
-  action: string
-}
-
-export interface Opportunity {
-  kind: 'interview_momentum'
-  text: string
   action: string
 }
 
@@ -73,28 +67,4 @@ export async function computeRiskEngine(supabase: SupabaseClient, userId: string
   }
 
   return risks
-}
-
-// Opportunity Engine (Phase 4 PRD) — the positive-signal counterpart to the
-// Risk Engine. Only one of the PRD's four examples is buildable without an
-// integration: "free Saturday → book a trek" and "salary credited → invest"
-// need Calendar/Gmail (same blockers noted throughout Phase 3); "three weeks
-// without leave" needs leave-tracking that doesn't exist anywhere in the app.
-export async function computeOpportunityEngine(supabase: SupabaseClient, userId: string): Promise<Opportunity[]> {
-  const { data: interviewApps } = await supabase.from('applications').select('id').eq('user_id', userId).eq('status', 'interview')
-  const count = (interviewApps ?? []).length
-
-  const opportunities: Opportunity[] = []
-  // Opportunity: interview-invite surge → capitalize with extra practice,
-  // distinct from Automation Rules' single-application "lighter workout"
-  // suggestion was removed — this is momentum to lean into.
-  if (count >= OPPORTUNITY_THRESHOLDS.interviewMomentumMinCount) {
-    opportunities.push({
-      kind: 'interview_momentum',
-      text: `You have ${count} active interview-stage applications — strong momentum.`,
-      action: 'Batch-schedule extra interview practice sessions this week to capitalize on it.',
-    })
-  }
-
-  return opportunities
 }

@@ -1,10 +1,8 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { toISTDateStr } from '@/lib/date'
 import { loadPrepData } from './core'
-import type { PipelineStatus } from '@/features/career/pipeline-status'
-import { GATES, blockQuota, coachLine, isGoodDay, dayPace, hm, istHourNow, nowBlock, practicedToday, readinessTier } from './war'
+import { GATES, GOOD_DAY_BLOCKS, coachLine, isGoodDay, dayPace, hm, istHourNow, nowBlock, practicedToday, readinessTier } from './war'
 import { levelOf } from './hunt'
-import { LOW_MOOD_LINE } from '@/features/health/mood'
 
 // Telegram Prep Coach (War Mode) — deterministic message builders for the
 // Daily bot's 7:30am / 1pm / 9:30pm crons and its START/DONE/"what now"
@@ -18,7 +16,7 @@ export async function coachData(db: SupabaseClient, userId: string): Promise<Pre
   return data
 }
 
-const paceAt = (d: PrepData, hour: number) => dayPace(d.session?.blocks ?? [], hour, { ...practicedToday(d.bank, d.today), outreach: d.outreachToday })
+const paceAt = (d: PrepData, hour: number) => dayPace(d.session?.blocks ?? [], hour, practicedToday(d.bank, d.today))
 
 const readinessLine = (d: PrepData) =>
   `Readiness *${d.war.overall}%* — ${readinessTier(d.war).label}` +
@@ -29,53 +27,27 @@ function restMorningMessage(): string {
   return [
     `🌿 *REST DAY*`,
     `No plan today. Walk, go to the gym, see people — rest is what keeps a 2–4 month search going.`,
-    `The streak carries over. Tomorrow starts with outreach.`,
+    `The streak carries over.`,
   ].join('\n')
 }
 
-// The week so far (Monday-start IST) for the rest-day evening message.
-export interface WeekSummary { sent: number; target: number; replies: number; screens: number; rounds: number }
-export async function weekSummary(db: SupabaseClient, userId: string, pipeline: PipelineStatus): Promise<WeekSummary> {
-  const { count } = await db.from('interview_rounds').select('id', { count: 'exact', head: true }).eq('user_id', userId)
-    .neq('status', 'cancelled').gte('scheduled_at', `${pipeline.week.week}T00:00:00+05:30`).lt('scheduled_at', new Date().toISOString())
-  return { sent: pipeline.week.sent, target: pipeline.target, replies: pipeline.week.replies, screens: pipeline.week.screens, rounds: count ?? 0 }
-}
-
-function restEveningMessage(w: WeekSummary | undefined): string {
-  return [
-    `🌙 *REST DAY — the week so far*`,
-    w ? `📤 Outreach: *${w.sent}/${w.target}* · ${w.replies} repl${w.replies === 1 ? 'y' : 'ies'} · ${w.screens} screen${w.screens === 1 ? '' : 's'}` : null,
-    w ? `📞 Interview rounds this week: *${w.rounds}*` : null,
-    '',
-    `Tomorrow starts with outreach. Enjoy the evening.`,
-  ].filter(l => l !== null).join('\n')
-}
-
-// `pipeline` (debriefs owed) and `lowMood` (mood ≤2 on 5 of the last 7 days
-// — one gentle support line) are added by the 7:30am cron; "what now" on the
-// Daily bot omits them.
-export function morningMessage(d: PrepData, pipeline?: PipelineStatus, lowMood = false): string {
-  if (d.restDay) return `${restMorningMessage()}${lowMood ? `\n\n${LOW_MOOD_LINE}` : ''}`
+// The 7:30am mission, also the Daily bot's "what now" reply.
+export function morningMessage(d: PrepData): string {
+  if (d.restDay) return restMorningMessage()
   const blocks = d.session?.blocks ?? []
   const risk = d.war.blockers[0]
   const due = d.revision.filter(r => r.status === 'overdue' || r.status === 'today')
   const now = nowBlock(blocks)
-  const outreach = blocks.find(b => b.key === 'outreach')
   return [
     `🎯 *INTERVIEW WAR MODE — ${levelOf(d.settings.hours_per_day).label} (${d.settings.hours_per_day}h)*`,
-    outreach ? (outreach.done ? `📤 Outreach done: ${d.outreachToday}/${blockQuota(outreach)} ✅` : `📤 *Start with outreach: ${d.outreachToday}/${blockQuota(outreach)}* — 5 referral messages + 5 roles posted in the last 48h`) : null,
     readinessLine(d),
     risk ? `🔴 Biggest risk: *${risk.label}* ${risk.score ?? 'no data'}/${risk.gate}` : null,
-    d.companyBlock ? `🏢 *Then company prep:* ${d.companyBlock.label}` : null,
-    d.nextInterview ? `📅 Next interview: *${d.nextInterview.company}* ${d.nextInterview.kind.replace(/_/g, ' ')} — ${new Date(d.nextInterview.scheduled_at).toLocaleString('en-IN', { weekday: 'short', day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit', timeZone: 'Asia/Kolkata' })}` : null,
     '',
     `*Today's mission (${hm(blocks.reduce((s, b) => s + b.minutes, 0))}):*`,
     ...blocks.map((b, i) => `${b.done ? '✅' : `${i + 1}.`} ${b.label} — ${hm(b.minutes)}`),
-    pipeline?.debriefsOwed.length ? `\n📝 Debrief owed (Career bot): ${pipeline.debriefsOwed.map(r => `${r.company} ${r.kind.replace(/_/g, ' ')}`).join(', ')}` : null,
     due.length ? `\n🔁 Revision due: ${due.map(r => `${r.topic} (${r.avgRating}/10)`).join(', ')}` : null,
     now ? `\n👉 Start with: *${now.label}*\nReply *START* to begin a focus session.` : null,
     `\n🎙️ Reply *DRILL* for a spoken rep.`,
-    lowMood ? `\n${LOW_MOOD_LINE}` : null,
   ].filter(l => l !== null).join('\n')
 }
 
@@ -92,9 +64,8 @@ export function middayMessage(d: PrepData): string | null {
   ].filter(l => l !== null).join('\n')
 }
 
-// `week` (outreach / calls so far) is passed by the 9:30pm cron for the rest-day message.
-export function eveningMessage(d: PrepData, week?: WeekSummary): string {
-  if (d.restDay) return restEveningMessage(week)
+export function eveningMessage(d: PrepData): string {
+  if (d.restDay) return `🌙 *REST DAY*\nTomorrow's plan comes at 7:30am. Enjoy the evening.`
   const today = d.focusSessions.filter(f => f.date === d.today)
   const pace = paceAt(d, 23)
   const interruptions = today.reduce((s, f) => s + f.interruptions, 0)
@@ -103,12 +74,10 @@ export function eveningMessage(d: PrepData, week?: WeekSummary): string {
   const weak = d.war.blockers.slice(0, 3)
   const blocks = d.session?.blocks ?? []
   const good = isGoodDay(blocks)
-  const outreach = blocks.find(b => b.key === 'outreach')
   return [
     `🌙 *DAY REVIEW — ${levelOf(d.settings.hours_per_day).label}*`,
     `Done: *${pace.blocksDone}/${pace.blocksTotal} blocks* (${pace.donePct}% of the plan)${interruptions ? ` · ${interruptions} interruption${interruptions === 1 ? '' : 's'}` : ''}`,
-    outreach ? `📤 Outreach: ${d.outreachToday}/${blockQuota(outreach)}${outreach.done ? ' ✅' : ''}` : null,
-    good ? `✓ *Good day* — outreach + ${blocks.filter(b => b.key !== 'outreach' && b.done).length} blocks.` : `A good day = outreach + 2 blocks.`,
+    good ? `✓ *Good day*` : `A good day = ${GOOD_DAY_BLOCKS} blocks.`,
     mocks.length ? `Mock: ${mocks.map(r => `${r.review!.score}/10`).join(', ')}` : `Mock: none reviewed today`,
     readinessLine(d),
     '',
@@ -139,30 +108,4 @@ export async function stillOpenLine(db: SupabaseClient, userId: string, today: s
     stale.length ? `not logged: ${stale.join(', ')}` : null,
   ].filter(Boolean)
   return items.length ? `📌 *Still open:* ${items.join(' · ')}` : null
-}
-
-// ---------------- Post-interview debrief (v4.0 §4.3) ----------------
-
-// Rounds that started 1–36h ago, are scheduled or done, have no questions
-// logged and no debrief sent yet get one Career-bot prompt each.
-export async function sendDebriefPrompts(db: SupabaseClient, userId: string, nowMs = Date.now()): Promise<number> {
-  const { sendMessage } = await import('@/lib/telegram/send')
-  const { data } = await db.from('interview_rounds')
-    .select('id, kind, scheduled_at, application:applications(company)')
-    .eq('user_id', userId).in('status', ['scheduled', 'done']).is('debrief_sent_at', null)
-    .gte('scheduled_at', new Date(nowMs - 36 * 3600_000).toISOString())
-    .lte('scheduled_at', new Date(nowMs - 3600_000).toISOString())
-  const rounds = (data ?? []) as unknown as { id: string; kind: string; scheduled_at: string; application: { company: string } | null }[]
-  let sent = 0
-  for (const r of rounds) {
-    const { count } = await db.from('interview_questions').select('id', { count: 'exact', head: true }).eq('round_id', r.id)
-    if (count) continue
-    // Claim first so a retry never double-sends.
-    const { data: claimed } = await db.from('interview_rounds').update({ debrief_sent_at: new Date(nowMs).toISOString() }).eq('id', r.id).is('debrief_sent_at', null).select('id')
-    if (!claimed?.length) continue
-    await sendMessage(process.env.TELEGRAM_BOT_TOKEN_CAREER!, Number(process.env.TELEGRAM_ALLOWED_CHAT_ID),
-      `📝 How did the *${r.application?.company ?? 'interview'}* ${r.kind.replace(/_/g, ' ')} round go?\n\nReply with what they asked (voice is fine): one question per line, plus how each went — e.g. "design an autocomplete — went ok".`)
-    sent++
-  }
-  return sent
 }

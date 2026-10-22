@@ -35,7 +35,6 @@ interface Props {
   initialCategory: string | null
   initialFormat: string | null
   initialTopic: string | null
-  nextInterview: { company: string; kind: string; scheduled_at: string } | null
   today: string
   session: PrepSession | null
   streak: number
@@ -45,7 +44,6 @@ interface Props {
   weakness: TopicWeakness[]
   revision: RevisionItem[]
   focusSessions: FocusSession[]
-  outreachToday: number
   restDay: boolean
   forecast: { date: string; forecast: Forecast } | null
   stories: Story[]
@@ -75,8 +73,8 @@ export default function PrepView(props: Props) {
   // Pace vs the 9am–7pm window (PACE_WINDOW), re-read every minute.
   const [, setTick] = useState(0)
   useEffect(() => { const t = setInterval(() => setTick(x => x + 1), 60_000); return () => clearInterval(t) }, [])
-  // Today's answers per category + today's logged outreach (block progress).
-  const doneToday: Record<string, number> = { ...practicedToday(bank, props.today), outreach: props.outreachToday }
+  // Today's answers per category (block progress).
+  const doneToday: Record<string, number> = practicedToday(bank, props.today)
   const pace = dayPace(session?.blocks ?? [], istHourNow(), doneToday)
   const activeFocus = focusSessions.find(f => f.status === 'active') ?? null
   const upsertFocus = (f: FocusSession) => setFocusSessions(prev => [...prev.filter(x => x.id !== f.id), f])
@@ -118,11 +116,11 @@ export default function PrepView(props: Props) {
     const t = setTimeout(() => setFocusEnded(null), 5000)
     return () => clearTimeout(t)
   }, [focusEnded])
-  // "3/7" for a question or outreach block.
+  // "3/7" for a question block.
   const focusProgress = (() => {
-    if (!activeFocus || (!activeFocus.block_key.startsWith('bank:') && activeFocus.block_key !== 'outreach')) return null
+    if (!activeFocus || !activeFocus.block_key.startsWith('bank:')) return null
     const quota = blockQuota(activeFocus)
-    return quota ? `${Math.min(doneToday[activeFocus.block_key === 'outreach' ? 'outreach' : activeFocus.block_key.slice(5)] ?? 0, quota)}/${quota}` : null
+    return quota ? `${Math.min(doneToday[activeFocus.block_key.slice(5)] ?? 0, quota)}/${quota}` : null
   })()
 
   const lastRound = rounds[0] ?? null
@@ -152,7 +150,7 @@ export default function PrepView(props: Props) {
 
       {tab === 'today' && (
         <>
-          <WarHeader war={props.war} settings={props.settings} questionsPerDay={props.coverage.reduce((s, c) => s + ('quota' in c ? c.quota : 0), 0)} pace={pace} blocks={session?.blocks ?? []} nextInterview={props.nextInterview} restDay={props.restDay} />
+          <WarHeader war={props.war} settings={props.settings} questionsPerDay={props.coverage.reduce((s, c) => s + ('quota' in c ? c.quota : 0), 0)} pace={pace} blocks={session?.blocks ?? []} restDay={props.restDay} />
           <div className="grid grid-cols-1 lg:grid-cols-[1fr_380px] gap-[var(--grid-gap)] items-start">
             <div className="space-y-[var(--grid-gap)]">
               <MissionCard session={session} focusSessions={todayFocus} doneToday={doneToday} onStart={startFocus} onOpen={openHref} />

@@ -30,8 +30,8 @@ export interface StoryRehearsal {
 }
 
 export interface PrepBlock {
-  // Interview War Mode: 'outreach', 'company:<applicationId>', 'bank:<category>',
-  // 'mock', 'lead', 'build' (a few older days hold 'fight:<area>' / 'mock:<format>').
+  // Interview War Mode: 'bank:<category>', 'mock', 'lead', 'build' (older days
+  // also hold 'outreach', 'company:<applicationId>', 'fight:<area>', 'mock:<format>').
   key: string
   label: string
   detail: string
@@ -45,10 +45,6 @@ export interface PrepBlock {
 export interface PrepSettings {
   // Daily load level hours (hunt.ts LEVELS: 4 / 6 / 8 / 12).
   hours_per_day: number
-  // Weekly outreach target for the Interviews pipeline (v4.0).
-  weekly_outreach_target: number
-  // Outreach logged per day that ticks the plan's first block (v4.2).
-  daily_outreach_target: number
   // Weekly rest day, IST weekday (0 = Sunday … 6 = Saturday).
   rest_day: number
 }
@@ -181,7 +177,7 @@ export const REHEARSAL_PROMPTS: Record<CompetencyKey, string[]> = {
 }
 
 // The Senior Frontend / AI Product Engineer interview surface, as the readiness matrix's
-// rows. Each area is fed by quiz topics (career QUIZ_TOPICS), coding
+// rows. Each area is fed by quiz topics, coding
 // question topics/categories, and/or story coverage.
 export const READINESS_AREAS = [
   { key: 'js', label: 'JavaScript depth', quizTopics: ['JavaScript'], codingTopics: ['JavaScript Fundamentals', 'Async & Promises', 'Array & Object Methods'], href: '/prep?tab=questions&cat=quiz' },
@@ -215,4 +211,17 @@ export interface ReadinessCell {
   score: number | null
   basis: string
   href: string
+}
+
+export type ReadinessTier = 'not_started' | 'needs_work' | 'developing' | 'ready' | 'strong'
+
+// Raw CSS-var color values (not Tailwind classes) — design's Interview Prep
+// tiles use the same color for both a plain colored-text readiness label and
+// a small corner dot, neither of which is a Tailwind bg+text pill.
+export const READINESS_CONFIG: Record<ReadinessTier, { label: string; color: string; bg: string }> = {
+  not_started: { label: 'Not Started', color: 'var(--border-strong)', bg: 'var(--surface-2)' },
+  needs_work:  { label: 'Needs Work',  color: 'var(--risk)',          bg: 'var(--risk-soft)' },
+  developing:  { label: 'Developing',  color: 'var(--warn)',          bg: 'var(--warn-soft)' },
+  ready:       { label: 'Ready',       color: 'var(--accent)',        bg: 'var(--accent-soft)' },
+  strong:      { label: 'Strong',      color: 'var(--good)',          bg: 'var(--good-soft)' },
 }

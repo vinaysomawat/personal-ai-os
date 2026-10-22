@@ -1,35 +1,27 @@
 import DashboardView from '@/features/dashboard/components/DashboardView'
-import { todayIST, daysAgoIST } from '@/lib/date'
-
-const today = todayIST()
+import { daysAgoIST } from '@/lib/date'
 
 const dummyData = {
-  recentApplications: [
-    { id: '1', company: 'Acme Corp', role: 'Senior Frontend Engineer', status: 'interview', applied_at: today },
-    { id: '2', company: 'Globex', role: 'Staff Engineer', status: 'applied', applied_at: today },
-  ],
   todayHealth: { weight_kg: 78, calories: 1850, protein_g: 120, steps: 6000 },
   scoreHistory: Array.from({ length: 14 }, (_, i) => ({
     date: daysAgoIST(13 - i),
     life: 55 + Math.round(Math.sin(i / 2) * 15 + i),
-    health: 60 + i, finance: 70 - i, career: 50 + i, projects: 40 + i * 2,
+    health: 60 + i, finance: 70 - i, projects: 40 + i * 2,
   })),
-  scores: { health: 72, finance: 68, career: 64, projects: 76, life: 68 },
+  scores: { health: 72, finance: 68, projects: 76, life: 72 },
   scoreBreakdown: {
     health: { today: 75, weeklyAvg: 68, blended: 72, delta: 2 },
     finance: { today: 70, weeklyAvg: 65, blended: 68, delta: -1 },
-    career: { today: 60, weeklyAvg: 68, blended: 64, delta: 0 },
     projects: { today: 80, weeklyAvg: 70, blended: 76, delta: 5 },
   },
   lifeDelta: 2,
   scoreTips: {
     health: 'Log today\'s steps for a full score',
     finance: 'Under budget — nothing to do here',
-    career: 'Run a Mock Round in Prep — up to 30 points',
     projects: 'Maxed out — consistent practice',
   },
   stats: {
-    activeApplications: 2, workoutsToday: 1,
+    workoutsToday: 1,
     monthSpend: 32000, monthBudget: 45000, practiced30d: 19,
     workoutStreak: 4, prepStreak: 3,
   },
@@ -37,7 +29,6 @@ const dummyData = {
   workoutCategory: 'Push Day',
   aiBudget: { callsToday: 6, costTodayUsd: 0.042, callsMonth: 118, costMonthUsd: 1.86, cacheHitRateMonth: 41 },
   topActions: [
-    { emoji: '🎯', text: '1 application in interview stage', href: '/interviews' },
     { emoji: '🔁', text: '2 revision topics due: Async & Promises (5/10)', href: '/prep?tab=questions' },
   ],
   todayProgress: {
@@ -54,18 +45,17 @@ const dummyData = {
   huntMode: true,
 }
 
-const dummyExecutive = { risks: [], opportunities: [] }
+const dummyExecutive = { risks: [] }
 
 const dummyHunt = {
   overall: 64,
   tier: { label: '✅ INTERVIEW-READY · 4 blockers to close', tone: 'good' as const },
   topBlocker: { label: 'System design', score: 58, gate: 80 },
   score: { today: 54, level: 'Intense', rest: false, good: false, recent: [{ date: '2026-10-05', score: 40 }, { date: '2026-10-06', score: 72 }, { date: '2026-10-07', score: null }, { date: '2026-10-08', score: 91 }, { date: '2026-10-09', score: 60 }, { date: '2026-10-10', score: 83 }] },
-  nextInterview: { company: 'Acme Corp', kind: 'system_design', scheduled_at: new Date(Date.now() + 2 * 86400_000).toISOString() },
-  outreach: { sent: 9, target: 25, replies: 2, screens: 1 },
+  mockAvg: 6.4,
+  revisionDue: 3,
   blocks: { done: 3, total: 7 },
   runway: 5.4,
-  mood: [13, 12, 11, 9, 8, 7, 6, 4, 3, 2, 1, 0].map((n, i) => ({ date: daysAgoIST(n), mood: [3, 2, 2, 3, 4, 3, 2, 3, 4, 4, 3, 4][i], energy: [4, 3, 2, 2, 3, 4, 3, 3, 3, 4, 4, 5][i], note: i === 5 ? 'gym + call with a friend' : null })),
 }
 
 export default function DashboardPreview() {

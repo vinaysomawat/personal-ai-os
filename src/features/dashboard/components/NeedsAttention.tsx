@@ -5,19 +5,18 @@ import Link from 'next/link'
 import Card from '@/components/Card'
 import { dismissDecisionQueueItem } from '@/features/brain/executive-actions'
 import { buildPriorityItems, KIND_HREF } from '../priority'
-import type { Risk, Opportunity } from '@/features/brain/risk-opportunity-engine'
+import type { Risk } from '@/features/brain/risk-opportunity-engine'
 import type { TopAction } from '../actions'
 
 // Every row shares one layout (bg-surface-2, colored left border, kind
-// badge under the text) regardless of type — risk/signal/opportunity used
+// badge under the text) regardless of type — risk/signal used
 // to each have their own bespoke row markup; this unifies them while
 // keeping risk's per-severity color nuance (design's own mockup flattens
 // risk to one flat red, but our impact tiers are real, worth keeping).
 //
 // Restyled 2026-08-18 to match the Claude Design source: a uniform colored
-// dot replaces the old per-type icon/emoji, and risk/opportunity rows show
-// a second "→ {action}" suggestion line (opportunity's action field split
-// out from its single sentence to match). Signal rows deliberately don't
+// dot replaces the old per-type icon/emoji, and risk rows show a second
+// "→ {action}" suggestion line. Signal rows deliberately don't
 // get a suggestion line — the 12 signal generators across the module
 // signals.ts files each write one blended sentence, and inventing a
 // separate action string for each risked reading as filler rather than
@@ -29,23 +28,18 @@ const MAX_ITEMS = 3
 interface NeedsAttentionProps {
   topActions: TopAction[]
   risks: Risk[]
-  opportunities: Opportunity[]
 }
 
 // Daily Operating System's "Needs Attention" (Phase 5 PRD, capped at 3 —
-// "anything more indicates prioritization failed"). Consolidates what used
-// to be three separate things (Today's Focus signals, the Decision Queue's
-// Risks, and its Opportunities) into one ranked list rather than showing
-// the same class of information across multiple cards. Risks lead (real,
-// time-sensitive problems) since they're more urgent than routine signals;
-// Opportunities trail since they're the lowest-urgency of the three.
-export default function NeedsAttention({ topActions, risks, opportunities }: NeedsAttentionProps) {
+// "anything more indicates prioritization failed"). Today's Focus signals
+// and the Risk engine's risks in one ranked list. Risks lead (real,
+// time-sensitive problems) since they're more urgent than routine signals.
+export default function NeedsAttention({ topActions, risks }: NeedsAttentionProps) {
   const [, startTransition] = useTransition()
   const [queue, updateQueue] = useOptimistic(
-    { risks, opportunities },
+    { risks },
     (state, dismissedKind: string) => ({
       risks: state.risks.filter(r => r.kind !== dismissedKind),
-      opportunities: state.opportunities.filter(o => o.kind !== dismissedKind),
     })
   )
 
@@ -56,7 +50,7 @@ export default function NeedsAttention({ topActions, risks, opportunities }: Nee
     })
   }
 
-  const items = buildPriorityItems(queue.risks, topActions, queue.opportunities).slice(0, MAX_ITEMS)
+  const items = buildPriorityItems(queue.risks, topActions).slice(0, MAX_ITEMS)
 
   return (
     <Card title="Needs Attention" action={<span className="text-[11px] text-fg-tertiary">capped at 3</span>}>
@@ -79,26 +73,13 @@ export default function NeedsAttention({ topActions, risks, opportunities }: Nee
                 </li>
               )
             }
-            if (item.type === 'risk') {
-              return (
-                <li key={item.kind} className="flex items-start gap-3 bg-surface-2 rounded-[10px] px-4 py-[14px]">
-                  <span className={`w-2.5 h-2.5 rounded-full shrink-0 mt-1 ${IMPACT_DOT[item.impact]}`} />
-                  <Link href={KIND_HREF[item.kind]} className="flex-1 min-w-0 group">
-                    <p className="text-sm leading-[1.4] text-fg-primary group-hover:text-accent transition-colors">{item.text}</p>
-                    <p className="text-xs text-fg-tertiary mt-1.5">→ {item.action}</p>
-                    <p className={`text-[10px] font-bold uppercase tracking-[0.3px] mt-2 ${IMPACT_TEXT[item.impact]}`}>Risk</p>
-                  </Link>
-                  <button onClick={() => dismiss(item.kind)} aria-label="Dismiss" className="shrink-0 text-fg-quaternary hover:text-fg-secondary text-xs px-1">✕</button>
-                </li>
-              )
-            }
             return (
               <li key={item.kind} className="flex items-start gap-3 bg-surface-2 rounded-[10px] px-4 py-[14px]">
-                <span className="w-2.5 h-2.5 rounded-full bg-good shrink-0 mt-1" />
+                <span className={`w-2.5 h-2.5 rounded-full shrink-0 mt-1 ${IMPACT_DOT[item.impact]}`} />
                 <Link href={KIND_HREF[item.kind]} className="flex-1 min-w-0 group">
                   <p className="text-sm leading-[1.4] text-fg-primary group-hover:text-accent transition-colors">{item.text}</p>
                   <p className="text-xs text-fg-tertiary mt-1.5">→ {item.action}</p>
-                  <p className="text-[10px] font-bold uppercase tracking-[0.3px] text-good mt-2">Opportunity</p>
+                  <p className={`text-[10px] font-bold uppercase tracking-[0.3px] mt-2 ${IMPACT_TEXT[item.impact]}`}>Risk</p>
                 </Link>
                 <button onClick={() => dismiss(item.kind)} aria-label="Dismiss" className="shrink-0 text-fg-quaternary hover:text-fg-secondary text-xs px-1">✕</button>
               </li>

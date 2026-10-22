@@ -1,7 +1,6 @@
 import { toISTDateStr } from '@/lib/date'
 import type { BankQuestion, PrepBlock, ReadinessAreaKey, ReadinessCell } from './types'
 import type { MockRound } from './mock'
-import { ROUND_AREAS } from './readiness'
 import { redoInterval } from './hunt'
 
 // Interview War Mode (ROADMAP-v2 §10) — every number here is deterministic.
@@ -76,8 +75,7 @@ export interface WarReadiness {
   mockAvg: number | null
   ready: boolean
   // v4.0 §4.7: the tier below TOP 1% that means "go take real interviews" —
-  // overall ≥60, no blind spot in the areas the next round tests (every area
-  // if none is booked), mock average ≥7.
+  // overall ≥60, no blind spot, mock average ≥7.
   interviewReady: boolean
 }
 export const INTERVIEW_READY = { overall: 60, mockAvg: 7 }
@@ -85,7 +83,7 @@ export const INTERVIEW_READY = { overall: 60, mockAvg: 7 }
 // Overall = weighted average × (0.5 + 0.5 × lowest/100): one weak area can
 // at most halve the score, so strength elsewhere can't hide it. Blind spots
 // (no data) count as 0 — an untested area is a risk, not a pass.
-export function warReadiness(cells: ReadinessCell[], rounds: MockRound[], nextRoundKind: string | null = null): WarReadiness {
+export function warReadiness(cells: ReadinessCell[], rounds: MockRound[]): WarReadiness {
   const reviewed = rounds.filter(r => r.review?.score != null).slice(0, 5)
   const mockAvg = reviewed.length ? Math.round((reviewed.reduce((s, r) => s + r.review!.score!, 0) / reviewed.length) * 10) / 10 : null
   let sum = 0, weights = 0
@@ -105,8 +103,7 @@ export function warReadiness(cells: ReadinessCell[], rounds: MockRound[], nextRo
     ...cells.filter(c => GATES[c.key] && (c.score ?? 0) < GATES[c.key].gate).map(c => ({ key: c.key, label: c.label, score: c.score, gate: GATES[c.key].gate })),
     ...((mockAvg ?? 0) < MOCK_GATE ? [{ key: 'mock', label: 'Mock average', score: mockAvg === null ? null : mockAvg * 10, gate: MOCK_GATE * 10 }] : []),
   ].sort((a, b) => (b.gate - (b.score ?? 0)) - (a.gate - (a.score ?? 0)))
-  const tested = nextRoundKind && ROUND_AREAS[nextRoundKind] ? ROUND_AREAS[nextRoundKind] : null
-  const blindSpot = cells.some(c => GATES[c.key] && c.score === null && (!tested || tested.includes(c.key)))
+  const blindSpot = cells.some(c => GATES[c.key] && c.score === null)
   const interviewReady = overall >= INTERVIEW_READY.overall && !blindSpot && (mockAvg ?? 0) >= INTERVIEW_READY.mockAvg
   return { overall, weightedAvg, lowest, blockers, mockAvg, ready: blockers.length === 0, interviewReady }
 }
@@ -249,10 +246,9 @@ export const blockQuota = (b: Pick<PrepBlock, 'label'>) => Number(b.label.match(
 export function dayPace(blocks: PrepBlock[], istHourFloat: number, doneToday: Record<string, number> = {}): DayPace {
   const progress = (b: PrepBlock) => {
     if (b.done) return 1
-    // Question blocks by today's answers in the category, outreach by
-    // today's logged outreach (doneToday.outreach).
-    const quota = b.key.startsWith('bank:') || b.key === 'outreach' ? blockQuota(b) : 0
-    return quota ? Math.min(1, (doneToday[b.key === 'outreach' ? 'outreach' : b.key.slice(5)] ?? 0) / quota) : 0
+    // Question blocks by today's answers in the category.
+    const quota = b.key.startsWith('bank:') ? blockQuota(b) : 0
+    return quota ? Math.min(1, (doneToday[b.key.slice(5)] ?? 0) / quota) : 0
   }
   const plannedMinutes = blocks.reduce((s, b) => s + b.minutes, 0)
   const doneMinutes = Math.round(blocks.reduce((s, b) => s + b.minutes * progress(b), 0))
@@ -279,9 +275,10 @@ export const istHourNow = () => { const d = new Date(Date.now() + 5.5 * 3600_000
 
 export const hm = (min: number) => min >= 60 ? `${Math.floor(min / 60)}h${min % 60 ? ` ${min % 60}m` : ''}` : `${min}m`
 
-// A good day = the outreach block plus 2 other blocks done (whatever the %).
-export function isGoodDay(blocks: Pick<PrepBlock, 'key' | 'done'>[]): boolean {
-  return blocks.some(b => b.key === 'outreach' && b.done) && blocks.filter(b => b.key !== 'outreach' && b.done).length >= 2
+// A good day = 3 blocks done (whatever the %).
+export const GOOD_DAY_BLOCKS = 3
+export function isGoodDay(blocks: Pick<PrepBlock, 'done'>[]): boolean {
+  return blocks.filter(b => b.done).length >= GOOD_DAY_BLOCKS
 }
 
 // Coach copy: what got done first, then the single next step. Factual and
@@ -289,7 +286,7 @@ export function isGoodDay(blocks: Pick<PrepBlock, 'key' | 'done'>[]): boolean {
 export function coachLine(p: DayPace, next: Pick<PrepBlock, 'label'> | null, good: boolean): string {
   const done = `${p.blocksDone}/${p.blocksTotal} blocks done${good ? ' — a good day ✓' : ''}`
   if (p.blocksTotal > 0 && p.blocksDone === p.blocksTotal) return `All ${p.blocksTotal} blocks done — a good day ✓`
-  if (p.dayPct >= 100) return `${done}. Tomorrow starts with outreach.`
+  if (p.dayPct >= 100) return `${done}.`
   if (!next) return `${done}.`
   if (p.blocksDone === 0) return `Start with ${next.label}.`
   return `${done}. Next: ${next.label}.`

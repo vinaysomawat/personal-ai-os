@@ -9,17 +9,15 @@ import type { ImageInput } from '@/lib/anthropic'
 import { todayIST, istMidnightUtc } from '@/lib/date'
 
 import * as planner   from './modules/planner'
-import * as career    from './modules/career'
 import * as finance   from './modules/finance'
 import * as health    from './modules/health'
 import * as astrology from './modules/astrology'
 
-const MODULES = { planner, career, finance, health, astrology } as const
+const MODULES = { planner, finance, health, astrology } as const
 type ModuleName = keyof typeof MODULES
 
 const MODULE_TOKENS: Record<ModuleName, string | undefined> = {
   planner:   process.env.TELEGRAM_BOT_TOKEN_PLANNER,
-  career:    process.env.TELEGRAM_BOT_TOKEN_CAREER,
   finance:   process.env.TELEGRAM_BOT_TOKEN_FINANCE,
   health:    process.env.TELEGRAM_BOT_TOKEN_HEALTH,
   astrology: process.env.TELEGRAM_BOT_TOKEN_ASTROLOGY,
@@ -100,11 +98,6 @@ async function handleCallbackQuery(moduleName: ModuleName, update: TelegramUpdat
         const { data } = await db.from(table).select('*').eq('id', id).maybeSingle()
         await db.from(table).delete().eq('id', id)
         row = data
-        // Undoing outreach can un-tick today's Prep outreach block.
-        if (table === 'outreach' && data?.user_id) {
-          const { syncOutreachBlock } = await import('@/features/prep/core')
-          await syncOutreachBlock(db, data.user_id as string)
-        }
       }
       const label = row ? UNDO_LABEL[table](row) : null
       await answerCallbackQuery(token, cq.id, label ? `🗑️ Undone: ${label}` : '🗑️ Undone')

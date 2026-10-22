@@ -1,7 +1,7 @@
 import type { ScoreExplanation, ScoreExplanationResult, ScoreModule } from './types'
 
 const MODULE_LABEL: Record<ScoreModule, string> = {
-  health: 'Health', finance: 'Finance', career: 'Career', projects: 'Coding',
+  health: 'Health', finance: 'Finance', projects: 'Coding',
 }
 
 export interface ModuleBreakdown {
@@ -22,7 +22,7 @@ export function explainScore(
   life: { score: number; delta: number | null },
   scoreTips: Record<ScoreModule, string>,
 ): ScoreExplanationResult {
-  const modules: ScoreExplanation[] = (['health', 'finance', 'career', 'projects'] as ScoreModule[])
+  const modules: ScoreExplanation[] = (['health', 'finance', 'projects'] as ScoreModule[])
     .map(module => ({
       module,
       label: MODULE_LABEL[module],

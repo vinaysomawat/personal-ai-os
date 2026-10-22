@@ -1,11 +1,10 @@
-export type ScoreModule = 'health' | 'finance' | 'career' | 'projects'
+export type ScoreModule = 'health' | 'finance' | 'projects'
 
 export interface ScoreHistoryEntry {
   date: string
   life: number
   health: number
   finance: number
-  career: number
   projects: number
 }
 
@@ -31,7 +30,6 @@ export interface BrainContext {
   today: string
   lifeScore: number
   career: {
-    activeApplications: number
     // "Memory" (Phase 2 PRD) — read straight from career_profile, the Brain
     // doesn't own or duplicate this data, per Core Principle 1.
     currentRole: string | null

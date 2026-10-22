@@ -8,12 +8,10 @@ import { getActiveWorkout, computeWorkoutStats } from '@/features/health/workout
 import { computeHealthPlan } from '@/features/health/calculations'
 import type { Workout } from '@/features/health/types'
 import { rankSignals, type Signal } from '@/lib/signals'
-import { checkUnscheduledProcess, checkUpcomingInterview } from '@/features/career/signals'
 import { checkBudget } from '@/features/finance/signals'
 import { checkRevisionDue } from '@/features/prep/signals'
 import { revisionQueue, type RevisionItem } from '@/features/prep/war'
 import { prepStreak } from '@/features/prep/core'
-import { weekStart } from '@/features/career/pipeline'
 import type { BankQuestion } from '@/features/prep/types'
 import { checkWorkoutPending, checkNoMetricsToday } from '@/features/health/signals'
 import { computeTodayProgress } from './daily-progress'
@@ -34,14 +32,11 @@ export interface TopAction {
 }
 
 interface TopActionInput {
-  applications: { status: string }[]
   monthSpend: number
   monthBudget: number
   todayMetric: Record<string, unknown> | null
   workoutPending: boolean
   revision: RevisionItem[]
-  nextRound: { company: string; kind: string; scheduled_at: string } | null
-  scheduledCompanies: Set<string>
 }
 
 // Deterministic ranking — no AI call. Per Product Principles (CLAUDE.md):
@@ -50,11 +45,9 @@ interface TopActionInput {
 // module's signals.ts (see src/lib/signals.ts) rather than being hand-rolled
 // here, so new modules can plug into Today's Focus without touching this file.
 function computeTopActions(input: TopActionInput): TopAction[] {
-  const { applications, monthSpend, monthBudget, todayMetric, workoutPending, revision, nextRound, scheduledCompanies } = input
+  const { monthSpend, monthBudget, todayMetric, workoutPending, revision } = input
 
   const signals = [
-    checkUpcomingInterview(nextRound),
-    checkUnscheduledProcess((applications as { company: string; status: string }[]).filter(a => a.status === 'screening' || a.status === 'interview'), scheduledCompanies),
     checkBudget(monthSpend, monthBudget),
     checkRevisionDue(revision),
     checkWorkoutPending(workoutPending),
@@ -73,19 +66,17 @@ export async function getDashboardData() {
   const since30 = daysAgoIST(30)
 
   if (!user) return {
-    recentApplications: [],
-    scores: { health: 0, finance: 50, career: 0, projects: 0, life: 0 },
-    scoreTips: { health: '', finance: '', career: '', projects: '' },
+    scores: { health: 0, finance: 50, projects: 0, life: 0 },
+    scoreTips: { health: '', finance: '', projects: '' },
     scoreBreakdown: {
       health: { today: 0, weeklyAvg: 0, blended: 0, delta: null },
       finance: { today: 0, weeklyAvg: 0, blended: 0, delta: null },
-      career: { today: 0, weeklyAvg: 0, blended: 0, delta: null },
       projects: { today: 0, weeklyAvg: 0, blended: 0, delta: null },
     } as Record<ScoreModule, ModuleBreakdown>,
     lifeDelta: null as number | null,
     todayHealth: null,
-    scoreHistory: [] as { date: string; life: number; health: number; finance: number; career: number; projects: number }[],
-    stats: { activeApplications: 0, workoutsToday: 0, monthSpend: 0, monthBudget: 0, practiced30d: 0, workoutStreak: 0, prepStreak: 0 },
+    scoreHistory: [] as { date: string; life: number; health: number; finance: number; projects: number }[],
+    stats: { workoutsToday: 0, monthSpend: 0, monthBudget: 0, practiced30d: 0, workoutStreak: 0, prepStreak: 0 },
     prepToday: null as { done: number; total: number } | null,
     workoutCategory: null as string | null,
     aiBudget: { callsToday: 0, costTodayUsd: 0, callsMonth: 0, costMonthUsd: 0, cacheHitRateMonth: 0 },
@@ -98,28 +89,25 @@ export async function getDashboardData() {
   }
 
   const [
-    appsRes, workoutsRes,
+    workoutsRes,
     expensesRes, budgetsRes,
-    healthMetricRes, careerProfileRes, mockRounds30dRes,
+    healthMetricRes, careerProfileRes,
     aiUsageMonthRes, prepSessionsRes, activeWorkout,
-    questions30dRes, workoutCompletedTodayRes,
+    workoutCompletedTodayRes,
     financialGoalsRes, progressRes,
-    workoutStats, astrologyProfileRes, panchangTodayRes, roundsRes, prepSettingsRes, outreachWeekRes,
+    workoutStats, astrologyProfileRes, panchangTodayRes, prepSettingsRes,
     healthProfileRes, healthMetricsHistoryRes,
     { data: historyData },
   ] = await Promise.all([
-    supabase.from('applications').select('id, company, role, status, applied_at').eq('user_id', user.id).order('created_at', { ascending: false }),
     supabase.from('workouts').select('id').eq('user_id', user.id).eq('date', today),
     supabase.from('expenses').select('amount, date').eq('user_id', user.id).gte('date', monthStart),
     supabase.from('budgets').select('amount').eq('user_id', user.id).eq('month', today.slice(0, 7)),
     supabase.from('health_metrics').select('*').eq('user_id', user.id).eq('date', today).single(),
     supabase.from('career_profile').select('current_role, target_role, current_company, current_salary, bio').eq('user_id', user.id).single(),
-    supabase.from('mock_rounds').select('id', { count: 'exact', head: true }).eq('user_id', user.id).gte('created_at', istMidnightUtc(30)),
     supabase.from('ai_usage_logs').select('estimated_cost_usd, cache_hit, created_at').eq('user_id', user.id).gte('created_at', istDateStrToUtcMidnight(monthStart)),
     // Prep sessions (today's plan for Daily Mission + the prep streak).
     supabase.from('prep_sessions').select('date, blocks, completed_at').eq('user_id', user.id).gte('date', daysAgoIST(60)).order('date', { ascending: false }),
     getActiveWorkout(supabase, user.id),
-    supabase.from('interview_questions').select('id', { count: 'exact', head: true }).eq('user_id', user.id).gte('created_at', istMidnightUtc(30)),
     supabase.from('daily_workouts').select('id').eq('user_id', user.id).eq('status', 'completed').gte('completed_at', istMidnightUtc()).limit(1),
     supabase.from('financial_goals').select('name, target_amount, current_amount, target_date').eq('user_id', user.id).order('priority', { ascending: true }),
     // Question Bank activity — the Practice sub-score and the revision queue.
@@ -130,12 +118,8 @@ export async function getDashboardData() {
     // already-cached panchang_daily row — no new AI/ephemeris cost added.
     supabase.from('astrology_profile').select('natal_chart').eq('user_id', user.id).maybeSingle(),
     supabase.from('panchang_daily').select('tithi, nakshatra').eq('date', today).maybeSingle(),
-    // Scheduled interview rounds from now on — the upcoming-interview signal.
-    supabase.from('interview_rounds').select('kind, scheduled_at, application:applications(company)').eq('user_id', user.id).eq('status', 'scheduled').gte('scheduled_at', new Date().toISOString()).order('scheduled_at', { ascending: true }),
-    // Job Hunt Mode (target date set) — changes what the Dashboard shows.
-    supabase.from('prep_settings').select('weekly_outreach_target, rest_day').eq('user_id', user.id).maybeSingle(),
-    // This week's outreach (Monday-start IST) — Career sub-score + Hunt Hero.
-    supabase.from('outreach').select('count, status').eq('user_id', user.id).gte('sent_at', weekStart(today)),
+    // The weekly rest day — the prep streak skips it.
+    supabase.from('prep_settings').select('rest_day').eq('user_id', user.id).maybeSingle(),
     // Life Score v2's Health sub-score reuses the Health module's own
     // nutrition/activity calc instead of a separate presence-only formula —
     // needs the profile (for targets) and enough metric history for the
@@ -146,17 +130,15 @@ export async function getDashboardData() {
     // other query, so it runs in this same batch (was a separate sequential
     // round-trip after it, ~600ms).
     supabase.from('life_score_logs')
-      .select('date, life_score, health_score, finance_score, career_score, projects_score')
+      .select('date, life_score, health_score, finance_score, projects_score')
       .eq('user_id', user.id).gte('date', daysAgoIST(30)).order('date', { ascending: true }),
   ])
 
-  const applications = appsRes.data ?? []
   const workoutsToday = workoutsRes.data ?? []
   const expenses = expensesRes.data ?? []
   const budgets = budgetsRes.data ?? []
   const todayMetric = healthMetricRes.data ?? null
 
-  const activeApps = applications.filter(a => ['screening', 'interview'].includes(a.status)).length
   const monthSpend = expenses.reduce((s, e) => s + (e.amount ?? 0), 0)
   const monthBudget = budgets.reduce((s, b) => s + (b.amount ?? 0), 0)
 
@@ -205,23 +187,6 @@ export async function getDashboardData() {
     financeScore = 60
   }
 
-  // Career (v4.0 Job Hunt Focus): profile 10 + this week's outreach vs the
-  // weekly target (≤25) + live processes ×10 (≤25) + mock rounds in 30 days
-  // ×4 (≤20) + interview questions logged in 30 days ×4 (≤20).
-  const profileFilled = !!(careerProfileRes.data?.current_role && careerProfileRes.data?.target_role)
-  const mockRounds30d = mockRounds30dRes.count ?? 0
-  const questions30d = questions30dRes.count ?? 0
-  const outreachTarget = prepSettingsRes.data?.weekly_outreach_target ?? 25
-  const outreachWeek = (outreachWeekRes.data ?? []).reduce((s, r) => s + (r.count ?? 1), 0)
-  const outreachPoints = Math.min(25, Math.round((outreachWeek / outreachTarget) * 25))
-  const careerScore = Math.min(100,
-    (profileFilled ? 10 : 0) +
-    outreachPoints +
-    Math.min(25, activeApps * 10) +
-    Math.min(20, mockRounds30d * 4) +
-    Math.min(20, questions30d * 4)
-  )
-
   // Practice (the projects_score column; was Coding until Coding was folded
   // into Prep, 2026-10-10): Question Bank / Mock answers in the last 30 days
   // by question_progress.last_seen_at — category-weighted volume × 0.5 +
@@ -261,16 +226,6 @@ export async function getDashboardData() {
         ? 'Close to your budget limit — slow down for the rest of the month'
         : 'Under budget — nothing to do here'
 
-  const careerDeficits: [number, string][] = [
-    [profileFilled ? 0 : 10, 'Fill in your career profile (current + target role) — worth 10 points'],
-    [25 - outreachPoints, `Outreach this week ${outreachWeek}/${outreachTarget} — referrals and recruiter DMs count`],
-    [25 - Math.min(25, activeApps * 10), 'No live interview process — add a company once a phone screen is booked'],
-    [20 - Math.min(20, mockRounds30d * 4), 'Run a Mock Round in Prep — up to 20 points'],
-    [20 - Math.min(20, questions30d * 4), 'Log the questions interviewers asked you — up to 20 points'],
-  ]
-  const topCareerDeficit = careerDeficits.reduce((a, b) => (b[0] > a[0] ? b : a))
-  const careerTip = topCareerDeficit[0] > 0 ? topCareerDeficit[1] : 'Career basics maxed — keep the interview pipeline moving'
-
   const projectsTip = practiceWeighted30d === 0
     ? 'No questions practiced in the last 30 days — start today\'s Prep plan'
     : practiceConsistency < practiceVolume
@@ -279,7 +234,7 @@ export async function getDashboardData() {
         ? 'Keep practicing — system-design and coding questions count for more'
         : 'Maxed out — consistent practice'
 
-  const scoreTips = { health: healthTip, finance: financeTip, career: careerTip, projects: projectsTip }
+  const scoreTips = { health: healthTip, finance: financeTip, projects: projectsTip }
 
   // --- Life Score v2 blend: daily raw × 0.6 + trailing-7-day average × 0.4 ---
   // life_score_logs only ever stores each module's pure daily raw score
@@ -290,13 +245,12 @@ export async function getDashboardData() {
   const priorHistory = (historyData ?? []).map(r => ({
     date: r.date as string, life: r.life_score as number,
     health: r.health_score as number, finance: r.finance_score as number,
-    career: r.career_score as number,
     projects: r.projects_score as number,
   }))
   const priorHistoryByDate = new Map(priorHistory.map(r => [r.date, r]))
 
   const todayRaw: Record<ScoreModule, number> = {
-    health: healthScore, finance: financeScore, career: careerScore,
+    health: healthScore, finance: financeScore,
     projects: projectsScore,
   }
 
@@ -339,7 +293,7 @@ export async function getDashboardData() {
   const yesterday = subtractDays(today, 1)
   const isFirstDay = accountCreatedDate === today
 
-  const moduleKeys: ScoreModule[] = ['health', 'finance', 'career', 'projects']
+  const moduleKeys: ScoreModule[] = ['health', 'finance', 'projects']
   const scoreBreakdown = Object.fromEntries(moduleKeys.map(key => {
     const blendedToday = blendedOn(today, key)
     const blendedYesterday = isFirstDay ? null : blendedOn(yesterday, key)
@@ -351,13 +305,10 @@ export async function getDashboardData() {
     }]
   })) as Record<ScoreModule, ModuleBreakdown>
 
-  // Reweighted 2026-10-08 when Learning was removed (was 25/20/20/20/15
-  // with Learning 20%); life_score_logs.learning_score was dropped in v4.0.
+  // Equal thirds; life_score_logs.career_score is no longer written (it
+  // keeps its default 0).
   const lifeScore = Math.round(
-    scoreBreakdown.health.blended    * 0.30 +
-    scoreBreakdown.finance.blended   * 0.25 +
-    scoreBreakdown.career.blended    * 0.25 +
-    scoreBreakdown.projects.blended  * 0.20
+    (scoreBreakdown.health.blended + scoreBreakdown.finance.blended + scoreBreakdown.projects.blended) / 3
   )
   const yesterdayLifeScore = isFirstDay ? null : (priorHistoryByDate.get(yesterday)?.life ?? null)
   const lifeDelta = yesterdayLifeScore === null ? null : lifeScore - yesterdayLifeScore
@@ -375,14 +326,13 @@ export async function getDashboardData() {
     await createServiceClient().from('life_score_logs').upsert({
       user_id: userId, date: today,
       health_score: healthScore, finance_score: financeScore,
-      career_score: careerScore,
       projects_score: projectsScore, life_score: lifeScore,
     }, { onConflict: 'user_id,date' })
   })
 
   const scoreHistory = [
     ...priorHistory.filter(r => r.date !== today),
-    { date: today, life: lifeScore, health: healthScore, finance: financeScore, career: careerScore, projects: projectsScore },
+    { date: today, life: lifeScore, health: healthScore, finance: financeScore, projects: projectsScore },
   ].sort((a, b) => a.date.localeCompare(b.date))
 
   // --- AI spend (from ai_usage_logs, written by the AI Gateway) ---
@@ -429,17 +379,11 @@ export async function getDashboardData() {
     nakshatra: panchangTodayRes.data?.nakshatra ?? null,
   } : null
 
-  const upcomingRounds = ((roundsRes.data ?? []) as unknown as { kind: string; scheduled_at: string; application: { company: string } | null }[])
-  const nextRound = upcomingRounds[0] ? { company: upcomingRounds[0].application?.company ?? 'Interview', kind: upcomingRounds[0].kind, scheduled_at: upcomingRounds[0].scheduled_at } : null
-  const scheduledCompanies = new Set(upcomingRounds.map(r => r.application?.company ?? ''))
-
   const topActions = computeTopActions({
-    applications, monthSpend, monthBudget, todayMetric, workoutPending,
-    revision, nextRound, scheduledCompanies,
+    monthSpend, monthBudget, todayMetric, workoutPending, revision,
   })
 
   return {
-    recentApplications: applications.slice(0, 3),
     todayHealth: todayMetric,
     scoreHistory,
     // The blended (daily×0.6 + weekly×0.4) figure per module — what the
@@ -449,14 +393,12 @@ export async function getDashboardData() {
     // (see the upsert comment above).
     scores: {
       health: scoreBreakdown.health.blended, finance: scoreBreakdown.finance.blended,
-      career: scoreBreakdown.career.blended,
       projects: scoreBreakdown.projects.blended, life: lifeScore,
     },
     scoreBreakdown,
     lifeDelta,
     scoreTips,
     stats: {
-      activeApplications: activeApps,
       workoutsToday: workoutsToday.length,
       monthSpend, monthBudget,
       practiced30d,

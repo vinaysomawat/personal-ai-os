@@ -55,7 +55,7 @@ export const ROADMAP: RoadmapWeek[] = [
     links: [{ label: 'Langfuse', href: 'https://langfuse.com/docs' }] },
   { week: 13, title: 'Package it', milestone: 'Write the README architecture diagram, record a 2-minute demo, and put the numbers (eval agreement, recall@5, cost per answer) on your resume',
     doneWhen: 'the demo link and numbers are on your resume and LinkedIn',
-    links: [{ label: 'Interviews', href: '/interviews?tab=profile' }] },
+    links: [] },
 ]
 
 // 1-based week for an IST date, or null before the start / after week 13.

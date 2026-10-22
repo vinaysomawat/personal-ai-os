@@ -16,7 +16,9 @@ export function buildContextSummary(ctx: BrainContext): string {
   const lines = [
     `Today: ${ctx.today}`,
     `Life Score: ${ctx.lifeScore}/100`,
-    `Career: ${ctx.career.activeApplications} active applications${ctx.career.currentRole ? `, currently ${ctx.career.currentRole}${ctx.career.currentCompany ? ` at ${ctx.career.currentCompany}` : ''}` : ''}${ctx.career.targetRole ? `, targeting ${ctx.career.targetRole}` : ''}${ctx.career.currentSalary ? `, current salary ₹${Math.round(ctx.career.currentSalary).toLocaleString('en-IN')}` : ''}${ctx.career.bio ? `. Bio/focus: ${ctx.career.bio}` : ''}`,
+    ctx.career.currentRole || ctx.career.targetRole || ctx.career.bio
+      ? `Career: ${[ctx.career.currentRole ? `currently ${ctx.career.currentRole}${ctx.career.currentCompany ? ` at ${ctx.career.currentCompany}` : ''}` : null, ctx.career.targetRole ? `targeting ${ctx.career.targetRole}` : null, ctx.career.currentSalary ? `current salary ₹${Math.round(ctx.career.currentSalary).toLocaleString('en-IN')}` : null].filter(Boolean).join(', ')}${ctx.career.bio ? `. Bio/focus: ${ctx.career.bio}` : ''}`
+      : null,
     `Finance: ₹${Math.round(ctx.finance.monthSpend)} spent of ₹${Math.round(ctx.finance.monthBudget)} budget this month`,
     `Health: ${ctx.health.workoutsToday} workout(s) today${ctx.health.todayMetric ? '' : ', no metrics logged today'}`,
     `Practice: ${ctx.practice.questions30d} interview questions practiced in the last 30 days`,
@@ -29,7 +31,7 @@ export function buildContextSummary(ctx: BrainContext): string {
     lines.push('Top open items: ' + ctx.signals.map(s => `${s.emoji} ${s.text}`).join('; '))
   }
 
-  return lines.join('\n')
+  return lines.filter(Boolean).join('\n')
 }
 
 export interface BrainMessage {

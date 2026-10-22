@@ -7,7 +7,6 @@ import BrainAdvisorTrigger from '@/features/brain/components/BrainAdvisorTrigger
 import NeedsAttention from './NeedsAttention'
 import QuickStats from './QuickStats'
 import HuntHero from './HuntHero'
-import MoodTrend from './MoodTrend'
 import type { HuntHero as HuntHeroData } from '../hunt-hero'
 import { explainScore } from '@/features/brain/calculations'
 import { buildBrainContext } from '@/features/brain/context-builder'
@@ -29,10 +28,10 @@ export default function DashboardView({ data, executive, hunt }: { data: Dashboa
   const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening'
 
   // Top-priority banner — same ranked list NeedsAttention renders (risks,
-  // then Today's Focus signals, then opportunities), just item 0 surfaced
+  // then Today's Focus signals), just item 0 surfaced
   // right under the greeting instead of buried after Quick Stats/What's
   // Changed/Morning Brief/the Life Score hero.
-  const topPriorityRaw = buildPriorityItems(executive.risks, topActions, executive.opportunities)[0] ?? null
+  const topPriorityRaw = buildPriorityItems(executive.risks, topActions)[0] ?? null
   const topPriority = topPriorityRaw && (
     topPriorityRaw.type === 'signal'
       ? { emoji: topPriorityRaw.emoji, text: topPriorityRaw.text, href: topPriorityRaw.href }
@@ -74,7 +73,7 @@ export default function DashboardView({ data, executive, hunt }: { data: Dashboa
       )}
 
       {/* Job Hunt Mode: the Hunt Hero replaces Life Score + Quick Stats. */}
-      {hunt ? <><HuntHero hero={hunt} /><MoodTrend logs={hunt.mood} /></> : (<>
+      {hunt ? <HuntHero hero={hunt} /> : (<>
         {/* Hero: Life Score card + Quick Stats/Goal Progress side by side,
             matching the design's [Life Score | Quick Stats] grid — Quick Stats
             (Phase 5 PRD's "Sidebar Widget") already stacks the 3 stat tiles
@@ -98,10 +97,10 @@ export default function DashboardView({ data, executive, hunt }: { data: Dashboa
         </div>
       </>)}
 
-      {/* Needs Attention (Today's Focus signals + risks/opportunities,
+      {/* Needs Attention (Today's Focus signals + risks,
           capped at 3) beside Daily Mission (a fresh checklist each day). */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-[var(--grid-gap)] items-start">
-        <NeedsAttention topActions={topActions} risks={executive.risks} opportunities={executive.opportunities} />
+        <NeedsAttention topActions={topActions} risks={executive.risks} />
         <Card title="Daily Mission" action={<span className="text-xs text-fg-tertiary">{todayProgress.completed}/{todayProgress.total} done</span>}>
           <div className="flex items-center gap-3.5">
             <div className="shrink-0">

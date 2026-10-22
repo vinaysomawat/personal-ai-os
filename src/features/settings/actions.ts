@@ -81,7 +81,7 @@ export async function getAiBudgetStatus() {
     .sort((a, b) => b.cost - a.cost)
 
   // Same spend, regrouped by module (TASK_MODULE) instead of raw task name —
-  // "Career cost $X this month" is more actionable than a flat task list.
+  // "Prep cost $X this month" is more actionable than a flat task list.
   const byModule = new Map<string, number>()
   for (const r of rows) {
     const mod = TASK_MODULE[r.task as AITask] ?? 'shared'

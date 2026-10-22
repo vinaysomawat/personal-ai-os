@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Personal OS is a single-user AI Operating System — a Next.js 15 web app backed by Supabase and deployed to Vercel. Since v4.0 it is built around an active job hunt: Dashboard (Hunt Hero in Job Hunt Mode, Life Score otherwise), Prep, Interviews (`/interviews`), Finance, Health, Astrology and Settings, with per-module Telegram bots (Daily — the Prep Coach, drills, digests, reminders — plus Career, Finance, Health, Astrology).
+Personal OS is a single-user AI Operating System — a Next.js 15 web app backed by Supabase and deployed to Vercel. Since v4.0 it is built around an active job hunt: Dashboard (Hunt Hero in Job Hunt Mode, Life Score otherwise), Prep, Finance, Health, Astrology and Settings, with per-module Telegram bots (Daily — the Prep Coach, drills, digests, reminders — plus Finance, Health, Astrology).
 
 **For the full, current, module-by-module spec (exact fields, formulas, AI features, Telegram capabilities, cron jobs, complete DB schema) — read `README.md`, not this section.** This file covers workflow/conventions only; README.md is the single source of truth for what the app does, and per the checklist below it's kept current with every functional change.
 
@@ -125,7 +125,7 @@ This project is Vinay's personal execution system — not a CRUD app, not a dash
 - **Budget enforcement** — `ai_usage_logs` table tracks cost per call; daily/monthly ceilings via `AI_DAILY_BUDGET_USD` / `AI_MONTHLY_BUDGET_USD` env vars; on exhaustion, calls return a friendly fallback string instead of erroring — no page or cron job can break from this
 - **Minimize Anthropic API usage.** Treat every call to `askAI()` as a real cost, not a free action. Before adding a new task, check whether an existing cached/computed result already answers it. For any task whose output only needs to reflect data that changes on a daily/weekly/monthly cadence (a cron-generated narrative, digest, or briefing — the kind of thing a user might also trigger on-demand the same day via Telegram), give it a non-null `cacheTTLSeconds` (`SIX_HOURS` is the default choice already used throughout this file) rather than leaving it uncached by default. Reserve `cacheTTLSeconds: null` for genuinely interactive tasks where each call's prompt is expected to differ (free-form Q&A, decision help, scenario simulation) — caching those wouldn't help anyway since the prompt text itself changes per call, and it's not worth the code complexity of trying.
 
-**AI features** (`src/features/ai/` and `src/features/brain/`) — see README.md §10 (AI Gateway) for the current task table and file list; don't maintain a second copy here, it drifts (same lesson as the Database Tables note below).
+**AI features** (`src/features/ai/` and `src/features/brain/`) — see README.md §9 (AI Gateway) for the current task table and file list; don't maintain a second copy here, it drifts (same lesson as the Database Tables note below).
 
 **Loading / error states:**
 - `src/app/[route]/loading.tsx` — skeleton shown by Next.js while server fetches data

@@ -8,8 +8,6 @@ import { todayIST, istMidnightUtc, istDateStrToUtcMidnight } from '@/lib/date'
 export type AITask =
   | 'telegram_intent'
   | 'telegram_vision'
-  | 'jd_analysis'
-  | 'company_insights'
   | 'finance_advisor'
   | 'health_advisor'
   | 'module_recommendations'
@@ -47,8 +45,6 @@ const BUDGET_FALLBACK = "I'm over my AI budget for today — try again tomorrow.
 const TASK_CONFIG: Record<AITask, TaskConfig> = {
   telegram_intent:        { model: HAIKU_MODEL,  cacheTTLSeconds: null,       fallback: '{"action":"help"}' },
   telegram_vision:        { model: SONNET_MODEL, cacheTTLSeconds: null,       fallback: '{"action":"help"}' },
-  jd_analysis:            { model: SONNET_MODEL, cacheTTLSeconds: null,       fallback: 'null' },
-  company_insights:       { model: SONNET_MODEL, cacheTTLSeconds: SEVEN_DAYS, fallback: 'null' },
   finance_advisor:        { model: SONNET_MODEL, cacheTTLSeconds: null,       fallback: BUDGET_FALLBACK },
   health_advisor:         { model: SONNET_MODEL, cacheTTLSeconds: null,       fallback: BUDGET_FALLBACK },
   module_recommendations: { model: SONNET_MODEL, cacheTTLSeconds: SIX_HOURS,  fallback: '[]' },

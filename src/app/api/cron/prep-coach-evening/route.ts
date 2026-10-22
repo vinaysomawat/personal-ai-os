@@ -4,11 +4,8 @@ import { sendMessage } from '@/lib/telegram/send'
 import { logCronRun } from '@/lib/cron-log'
 import { getReminderLines } from '@/lib/reminders'
 import { todayIST } from '@/lib/date'
-import { coachData, eveningMessage, stillOpenLine, weekSummary } from '@/features/prep/coach'
+import { coachData, eveningMessage, stillOpenLine } from '@/features/prep/coach'
 import { isRestDay } from '@/features/prep/hunt'
-import { loadPipelineStatus } from '@/features/career/pipeline-status'
-import { MOOD_PROMPT } from '@/features/health/mood'
-import { sendDebriefPrompts } from '@/features/prep/coach'
 import { generateForecast } from '@/features/prep/forecast'
 
 const CHAT_ID = process.env.TELEGRAM_ALLOWED_CHAT_ID!
@@ -16,8 +13,7 @@ const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN_PLANNER!
 
 // Prep Coach, 9:30pm IST: the day's review, a "Still open:" line (expenses,
 // open workout, stale health metrics — absorbed from the old evening
-// check-in) and evening reminders. On the rest day it's a short week-so-far
-// message instead (outreach, replies, screens, interview rounds). The evening
+// check-in) and evening reminders; a short note on the rest day. The evening
 // before the rest day also generates the weekly "if you interviewed
 // tomorrow" forecast (one AI call), so the rest day stays light. With Job
 // Hunt Mode off it still sends when reminders or open items exist.
@@ -30,8 +26,6 @@ export async function GET(req: Request) {
   const { data: users } = await supabase.auth.admin.listUsers()
   const user = users?.users?.[0]
   if (!user) return NextResponse.json({ error: 'No user' }, { status: 404 })
-  // Debrief prompts (Career bot) go out whether or not Job Hunt Mode is on.
-  const debriefs = await sendDebriefPrompts(supabase, user.id)
   const [data, reminders, open] = await Promise.all([
     coachData(supabase, user.id), getReminderLines(supabase, user.id, 'evening'), stillOpenLine(supabase, user.id, todayIST()),
   ])
@@ -41,8 +35,7 @@ export async function GET(req: Request) {
     await sendMessage(BOT_TOKEN, Number(CHAT_ID), text)
     return NextResponse.json({ ok: true, sent: true, hunt: false })
   }
-  const week = data.restDay ? await weekSummary(supabase, user.id, await loadPipelineStatus(supabase, user.id, data.settings.weekly_outreach_target)) : undefined
-  let text = `${eveningMessage(data, week)}${open ? `\n\n${open}` : ''}${reminders}`
+  let text = `${eveningMessage(data)}${open ? `\n\n${open}` : ''}${reminders}`
   const tomorrow = new Date(`${data.today}T00:00:00Z`)
   tomorrow.setUTCDate(tomorrow.getUTCDate() + 1)
   const beforeRest = isRestDay(tomorrow.toISOString().slice(0, 10), data.settings.rest_day)
@@ -55,8 +48,6 @@ export async function GET(req: Request) {
         (forecast.fixFirst.length ? `\n\nFix first:\n${forecast.fixFirst.map((x, i) => `${i + 1}. ${x}`).join('\n')}` : '')
     }
   }
-  // Always last: the mood / energy check-in (the reply is logged by the Daily bot).
-  text += `\n\n${MOOD_PROMPT}`
   await sendMessage(BOT_TOKEN, Number(CHAT_ID), text)
-  return NextResponse.json({ ok: true, sent: true, forecast: beforeRest, debriefs })
+  return NextResponse.json({ ok: true, sent: true, forecast: beforeRest })
 }

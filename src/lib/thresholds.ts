@@ -1,4 +1,4 @@
-// Tunable thresholds for the Risk/Opportunity/Automation Rules engines
+// Tunable thresholds for the Risk engine
 // (src/features/brain/risk-opportunity-engine.ts). Pulled into one file so
 // "how sensitive should this signal be" is a single place to look/change,
 // instead of magic numbers scattered across the engine's checks. Changing
@@ -17,12 +17,6 @@ export const RISK_THRESHOLDS = {
   proteinDeclineMinRatio: 0.2,
   proteinDeclineLookbackDays: 6,
   proteinDeclineWindowDays: 3,
-} as const
-
-export const OPPORTUNITY_THRESHOLDS = {
-  // Active interview-stage applications at/above which the "momentum"
-  // opportunity (batch-schedule extra practice) fires.
-  interviewMomentumMinCount: 3,
 } as const
 
 // Life Score v2 (2026-08-23) — every module score is a blend of today's fresh

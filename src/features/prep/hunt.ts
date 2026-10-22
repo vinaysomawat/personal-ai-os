@@ -141,12 +141,8 @@ export function buildHuntPlan(ctx: {
   mockDoneToday?: boolean
   // Interview-category questions rated under 7 (§4.1) — lead the day.
   interviewRedo?: number
-  // A Company Prep block for a round ≤72h away (§4.4), right after outreach.
-  companyBlock?: PrepBlock | null
   // This week's Build roadmap milestone (roadmap.ts), after the redo block.
   buildBlock?: PrepBlock | null
-  // Outreach block #1: today's target and what's logged so far.
-  outreach: { target: number; sent: number }
   // prep_settings.rest_day: that weekday's plan is empty.
   restDay: number
 }): { focus: string; blocks: PrepBlock[] } {
@@ -196,12 +192,9 @@ export function buildHuntPlan(ctx: {
     detail: 'Timed, no notes. Run the one-click AI review after.',
     href: `/prep?tab=mock&format=${format}`, done: !!ctx.mockDoneToday,
   }
-  // Outreach → company prep (round ≤72h) → redo real interview questions →
-  // Build milestone → weakest two areas → the mock round → the rest.
+  // Redo real interview questions → Build milestone → weakest two areas → the mock round → the rest.
   const redo = interviewRedoBlock(ctx.interviewRedo ?? 0)
   const blocks: PrepBlock[] = [
-    outreachBlock(ctx.outreach.target, ctx.outreach.sent),
-    ...(ctx.companyBlock ? [ctx.companyBlock] : []),
     ...(redo ? [redo] : []),
     ...(ctx.buildBlock ? [ctx.buildBlock] : []),
     ...bankBlocks.slice(0, 2), mock, ...bankBlocks.slice(2),
@@ -212,78 +205,6 @@ export function buildHuntPlan(ctx: {
     href: '/prep?tab=stories', done: false,
   })
   return { focus: `Interview War Mode · ${levelOf(ctx.hoursPerDay).label}`, blocks }
-}
-
-// Outreach (v4.2): the first block every day — the bottleneck is getting
-// interviews. Done only by logging outreach (web form or Career bot): today's
-// sum of outreach.count must reach the "× N" target (syncOutreachBlock).
-export const OUTREACH_MINUTES = 90
-export function outreachBlock(target: number, sent: number): PrepBlock {
-  return {
-    key: 'outreach', label: `Outreach × ${target}`, minutes: OUTREACH_MINUTES,
-    detail: 'Send 5 referral messages + apply to 5 roles posted in the last 48h — log each on the Interviews page or tell the Career bot',
-    href: '/interviews?tab=pipeline', done: sent >= target,
-  }
-}
-
-// Company Prep Mode (v4.0 §4.4): a round ≤72h away puts a block first —
-// 60 min when it's ≤24h away, else 40. Ticked manually or by finishing a
-// focus session on it (no auto-tick).
-export interface UpcomingRound {
-  applicationId: string
-  company: string
-  kind: string
-  scheduledAt: string
-  priorityTopics: string[]
-  priorQuestions: number
-  // Company segment (career/pipeline.ts SEGMENTS) — picks the mock and topics.
-  segment?: string
-}
-const MOCK_FOR_KIND: Record<string, string> = {
-  system_design: 'system-design', coding: 'machine-coding', behavioral: 'behavioral', hiring_manager: 'behavioral',
-}
-// What each company segment's loops lean on (v4.1): the suggested mock and
-// the Question Bank areas to drill. A round kind that names its own format
-// (system design, coding, behavioral) still picks the mock.
-const SEGMENT_PREP: Record<string, { mock: string; why: string; links: { label: string; href: string }[] }> = {
-  big_tech: { mock: 'code-review', why: 'big tech: reviewing AI-generated code, algorithms, system design', links: [
-    { label: 'Algorithms', href: '/prep?tab=questions&cat=algorithm' }, { label: 'System design', href: '/prep?tab=questions&cat=system-design' } ] },
-  product_india: { mock: 'machine-coding', why: 'Indian product company: machine coding, web fundamentals, algorithms', links: [
-    { label: 'Web fundamentals', href: '/prep?tab=questions&cat=quiz&topic=DOM%20%26%20Browser%20APIs' }, { label: 'Algorithms', href: '/prep?tab=questions&cat=algorithm' } ] },
-  startup: { mock: 'system-design', why: 'startup: backend, full-stack system design, a project deep-dive story', links: [
-    { label: 'Backend & APIs', href: '/prep?tab=questions&cat=backend' }, { label: 'Full-stack design', href: '/prep?tab=questions&cat=system-design&topic=Full-stack' }, { label: 'Deep-dive story', href: '/prep?tab=stories' } ] },
-  ai_company: { mock: 'ai-system-design', why: 'AI company: AI engineering (RAG, agents), AI-native, streaming UI, AI backend', links: [
-    { label: 'AI engineering', href: '/prep?tab=questions&cat=ai-engineering' }, { label: 'AI-native', href: '/prep?tab=questions&cat=ai-native' }, { label: 'Streaming UI', href: '/prep?tab=questions&cat=system-design&topic=AI' }, { label: 'AI backend', href: '/prep?tab=questions&cat=backend&topic=AI%20backend' } ] },
-}
-const DEFAULT_PREP = { mock: 'machine-coding', why: 'theory, machine coding, behavioral', links: [
-  { label: 'Theory', href: '/prep?tab=questions&cat=quiz' }, { label: 'Behavioral Q&A', href: '/prep?tab=questions&cat=behavioral' } ] }
-
-export function companyPrepBlock(r: UpcomingRound | null, nowMs: number, topicHref: (t: string) => string): PrepBlock | null {
-  if (!r) return null
-  const hours = (new Date(r.scheduledAt).getTime() - nowMs) / 3600_000
-  if (hours < 0 || hours > 72) return null
-  const when = new Date(r.scheduledAt).toLocaleString('en-IN', { weekday: 'short', hour: 'numeric', minute: '2-digit', timeZone: 'Asia/Kolkata' })
-  const kind = r.kind.replace(/_/g, ' ')
-  const seg = SEGMENT_PREP[r.segment ?? 'other'] ?? DEFAULT_PREP
-  const mock = MOCK_FOR_KIND[r.kind] ?? seg.mock
-  const behavioral = r.kind === 'behavioral' || r.kind === 'hiring_manager' || r.kind === 'onsite'
-  return {
-    key: `company:${r.applicationId}`, label: `Prep for ${r.company} · ${kind} · ${when}`, minutes: hours <= 24 ? 60 : 40,
-    detail: [
-      r.priorityTopics.length ? `JD priority topics: ${r.priorityTopics.join(', ')}` : 'No JD analysis yet — run it on the Interviews page',
-      `focus for a ${seg.why}`,
-      r.priorQuestions ? `redo the ${r.priorQuestions} question${r.priorQuestions === 1 ? '' : 's'} they asked before` : null,
-      `then a ${mock.replace(/-/g, ' ')} mock`,
-    ].filter(Boolean).join(' · '),
-    href: '/interviews', done: false,
-    links: [
-      ...r.priorityTopics.slice(0, 3).map(t => ({ label: t, href: topicHref(t) })),
-      ...seg.links.filter(l => !r.priorityTopics.includes(l.label)),
-      { label: 'Mock round', href: `/prep?tab=mock&format=${mock}` },
-      ...(behavioral && !seg.links.some(l => l.href === '/prep?tab=stories') ? [{ label: 'Story Bank', href: '/prep?tab=stories' }] : []),
-      { label: `${r.company} page`, href: '/interviews' },
-    ],
-  }
 }
 
 // "Redo real interview questions × N": 10 min each, at most 4 a day.

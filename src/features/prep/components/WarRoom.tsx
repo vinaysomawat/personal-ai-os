@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { Check, Pause, Play, Sparkles, Timer, X } from 'lucide-react'
 import Card from '@/components/Card'
 import { modalSaveButtonClass } from '@/components/Modal'
-import { READINESS_CONFIG, type ReadinessTier } from '@/features/career/types'
+import { READINESS_CONFIG, type ReadinessTier } from '../types'
 import { endFocusSession, generatePrepForecast, savePrepRestDay, savePrepSettings, toggleFocusSessionPause } from '../actions'
 import { LEVELS, WEEKDAYS, levelOf } from '../hunt'
 import { GATES, PACE_WINDOW, blockQuota, coachLine, isGoodDay, focusSeconds, hm, nowBlock, paceLabel, paceStatus, readinessTier, type DayPace, type FocusSession, type Forecast, type RevisionItem, type TopicWeakness, type WarReadiness } from '../war'
@@ -26,11 +26,10 @@ function useNow(active: boolean) {
 
 // ---------------- Header ----------------
 
-export function WarHeader({ war, settings, questionsPerDay, pace, blocks, nextInterview, restDay }: {
+export function WarHeader({ war, settings, questionsPerDay, pace, blocks, restDay }: {
   war: WarReadiness; settings: PrepSettings; questionsPerDay: number; pace: DayPace
   // Today's plan — the coach line names the next block.
   blocks: PrepBlock[]
-  nextInterview: { company: string; kind: string; scheduled_at: string } | null
   // Today is the weekly rest day (no plan).
   restDay: boolean
 }) {
@@ -38,8 +37,8 @@ export function WarHeader({ war, settings, questionsPerDay, pace, blocks, nextIn
   const router = useRouter()
   const [saving, startSave] = useTransition()
   const level = levelOf(settings.hours_per_day)
-  // A new level rebuilds today's plan (the stored outreach target is kept).
-  const save = (hours: number) => startSave(async () => { await savePrepSettings(hours, settings.weekly_outreach_target); router.refresh() })
+  // A new level rebuilds today's plan.
+  const save = (hours: number) => startSave(async () => { await savePrepSettings(hours); router.refresh() })
   // A new rest day rebuilds today's plan too.
   const saveRest = (day: number) => startSave(async () => { await savePrepRestDay(day); router.refresh() })
   return (
@@ -68,9 +67,6 @@ export function WarHeader({ war, settings, questionsPerDay, pace, blocks, nextIn
           {restDay
             ? <p className="text-[12.5px] mt-1 text-fg-secondary">🌿 Rest day — no plan. Walk, gym, see people. The streak carries over.</p>
             : <p className={`text-[12.5px] mt-1 ${isGoodDay(blocks) ? 'text-good' : 'text-fg-secondary'}`}>{coachLine(pace, nowBlock(blocks), isGoodDay(blocks))}</p>}
-          {nextInterview && (
-            <a href="/interviews" className="block text-[12px] font-semibold text-accent mt-0.5 hover:underline">📅 Next interview: {nextInterview.company} · {nextInterview.kind.replace(/_/g, ' ')} · {new Date(nextInterview.scheduled_at).toLocaleString('en-IN', { weekday: 'short', day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit', timeZone: 'Asia/Kolkata' })} →</a>
-          )}
           {!restDay && <p className="text-[11.5px] text-fg-tertiary mt-0.5 tabular-nums"><span className={`font-semibold ${status === 'behind' ? 'text-risk' : status === 'ahead' ? 'text-good' : 'text-fg-secondary'}`}>{paceLabel(pace)}</span> · {pace.donePct}% of plan done · {pace.dayPct}% of {PACE_WINDOW.label} gone · blocks {pace.blocksDone}/{pace.blocksTotal}</p>}
         </div>
         <div className="text-right shrink-0">
@@ -132,19 +128,19 @@ export function MissionCard({ session, focusSessions, doneToday, onStart, onOpen
       <ol className="flex flex-col gap-1.5">
         {session.blocks.map((b, i) => {
           const isActive = active?.block_key === b.key
-          const quota = b.key.startsWith('bank:') || b.key === 'outreach' ? blockQuota(b) : 0
+          const quota = b.key.startsWith('bank:') ? blockQuota(b) : 0
           return (
             <li key={b.key} className={`flex items-start gap-2.5 rounded-[9px] px-2.5 py-2 ${b.done ? 'bg-good-soft' : isActive ? 'bg-accent-soft' : 'bg-surface-2'}`}>
               {/* Status only — blocks complete from the work itself (quota met,
                   mock saved, focus Finish on non-question blocks), never by hand. */}
-              <span aria-label={b.done ? 'Done' : 'Not done'} title={!b.done && quota ? `Completes at ${quota}/${quota} ${b.key === 'outreach' ? 'logged' : 'answered'}` : undefined}
+              <span aria-label={b.done ? 'Done' : 'Not done'} title={!b.done && quota ? `Completes at ${quota}/${quota} answered` : undefined}
                 className={`mt-0.5 w-[18px] h-[18px] rounded-full border flex items-center justify-center shrink-0 ${b.done ? 'bg-good border-good text-on-good' : 'border-border-strong'}`}>
                 {b.done && <Check size={11} strokeWidth={3} />}
               </span>
               <div className="flex-1 min-w-0">
                 <div className="flex items-baseline justify-between gap-2">
                   <p className={`text-[12.5px] font-semibold ${b.done ? 'text-fg-tertiary line-through' : 'text-fg-primary'}`}>{i + 1}. {b.label}{isActive && <span className="text-accent font-bold"> ● focusing</span>}</p>
-                  <span className="text-[11px] text-fg-tertiary tabular-nums shrink-0">{quota && !b.done ? `${Math.min(quota, doneToday[b.key === 'outreach' ? 'outreach' : b.key.slice(5)] ?? 0)}/${quota} · ` : ''}{hm(b.minutes)}</span>
+                  <span className="text-[11px] text-fg-tertiary tabular-nums shrink-0">{quota && !b.done ? `${Math.min(quota, doneToday[b.key.slice(5)] ?? 0)}/${quota} · ` : ''}{hm(b.minutes)}</span>
                 </div>
                 <p className="text-[11.5px] text-fg-secondary mt-0.5 hidden sm:block">{b.detail}</p>
               </div>
@@ -196,8 +192,8 @@ export function FocusBar({ focus, progress, ended, onChange, onEnded, onGo }: {
       <button disabled={busy} onClick={() => start(async () => { const f = await toggleFocusSessionPause(focus.id); if (f) onChange(f) })} title={paused ? 'Resume' : 'Pause'} aria-label={paused ? 'Resume' : 'Pause'} className={icon}>
         {paused ? <Play size={13} /> : <Pause size={13} />}
       </button>
-      {/* Question and outreach blocks finish themselves when the quota is met — no ✓. */}
-      {!focus.block_key.startsWith('bank:') && focus.block_key !== 'outreach' && (
+      {/* Question blocks finish themselves when the quota is met — no ✓. */}
+      {!focus.block_key.startsWith('bank:') && (
         <button disabled={busy} onClick={() => start(async () => { const r = await endFocusSession(focus.id, true); onEnded(r.focus, r.session) })} title="Finish block" aria-label="Finish block" className={icon}>
           <Check size={14} strokeWidth={3} />
         </button>

@@ -33,14 +33,9 @@ Rules:
 - For "drill", "DRILL", "drill me", "drill system design", "drill behavioral", "drill interview", "drill backend", "drill resume", "drill architecture", "drill rag", "drill agents" → drill (category = the words after "drill", or null)
 - If message is unclear, return {"action":"help"}`
 
-// Runs before intent parsing: a mood check-in reply is logged first; a message
-// within 30 min of a drill question is that drill's answer (voice or text), not
-// a command.
+// Runs before intent parsing: a message within 30 min of a drill question is
+// that drill's answer (voice or text), not a command.
 export async function preIntercept(text: string, db: SupabaseClient, userId: string, spoken: boolean): Promise<string | null> {
-  // "mood 3 energy 4" — the 9:30pm check-in reply (regex, no AI).
-  const { logMoodReply } = await import('@/features/health/mood')
-  const mood = await logMoodReply(db, userId, text)
-  if (mood !== null) return mood
   const { answerPendingDrill } = await import('@/features/prep/drill')
   return answerPendingDrill(db, userId, text, spoken)
 }

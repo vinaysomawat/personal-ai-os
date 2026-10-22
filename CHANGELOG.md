@@ -5,6 +5,9 @@ append here whenever you deploy, same cadence as the version bump.
 
 ## 2026-10-22
 
+- **Interviews page and job-hunt pipeline removed.** The Interviews tab, the Career Telegram bot, outreach tracking, the "Outreach × 10" first block, company-prep blocks, debrief prompts and the JD analysis / company insights AI are gone. The Hunt Hero now shows Readiness, Mock average, Revision due and Runway. A good day is now 3 blocks done. The Life Score is Health, Finance and Coding, a third each; the Career score is gone. Questions already synced from past interviews stay in the bank, and the old data stays in the database and the Settings export.
+- **Mood and energy check-in removed.** The 9:30pm message no longer asks, the Dashboard card is gone, and "mood 3 energy 4" isn't parsed anymore.
+
 - **Prep now targets Senior Frontend / AI Product Engineer roles.** A daily Build block follows a 13-week roadmap of features built into Personal OS itself: streaming, pgvector search, RAG with citations, a tool-calling agent, evals, an MCP server with OAuth, A2A and tracing. Each week has a milestone, a "done when" and doc links, and you tick it with Finish. It takes 60 / 120 / 150 minutes by level, out of question time.
 - **More time on AI engineering, backend and system design.** AI engineering's share went from 8% to 14%, with less UI coding, JS functions, algorithms and theory. The AI engineering readiness gate rose to 75 and counts more toward overall readiness, so readiness may dip at first.
 - **24 new AI engineering questions.** MCP & A2A (14: primitives, transports, remote OAuth, token passthrough, tool design, security, A2A agent cards and tasks, an internal agent platform) and AI product UX (10: streaming render, tool steps, citations, approvals, generative UI, resumable chat, output security, accessibility). The category now has 91 questions.

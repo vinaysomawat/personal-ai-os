@@ -60,14 +60,14 @@ export async function generatePrepForecast() {
   return res
 }
 
-// Changing the daily load level (or the outreach target) rebuilds today's plan.
-export async function savePrepSettings(hoursPerDay: number, weeklyOutreachTarget = 25) {
+// Changing the daily load level rebuilds today's plan.
+export async function savePrepSettings(hoursPerDay: number) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) throw new Error('Not authenticated')
   const hours = Math.min(14, Math.max(1, Math.round(hoursPerDay)))
   const { error } = await supabase.from('prep_settings')
-    .upsert({ user_id: user.id, hours_per_day: hours, weekly_outreach_target: Math.min(200, Math.max(1, Math.round(weeklyOutreachTarget))), updated_at: new Date().toISOString() }, { onConflict: 'user_id' })
+    .upsert({ user_id: user.id, hours_per_day: hours, updated_at: new Date().toISOString() }, { onConflict: 'user_id' })
   if (error) throw new Error(error.message)
   await supabase.from('prep_sessions').delete().eq('user_id', user.id).eq('date', todayIST())
   revalidatePath('/prep')

@@ -26,7 +26,7 @@ async function generateDigest(
 
   const [{ data: logs }, { data: expenses }] = await Promise.all([
     db.from('life_score_logs')
-      .select('date, life_score, health_score, finance_score, career_score, projects_score')
+      .select('date, life_score, health_score, finance_score, projects_score')
       .eq('user_id', userId)
       .gte('date', since)
       .order('date', { ascending: true }),
@@ -64,7 +64,6 @@ Keep it personal, direct, under 80 words.`
     `Best: ${best.score} (${best.date}) · Worst: ${worst.score} (${worst.date})\n\n` +
     `Health   ${scoreBar(moduleAvgs.Health)} ${moduleAvgs.Health}\n` +
     `Finance  ${scoreBar(moduleAvgs.Finance)} ${moduleAvgs.Finance}\n` +
-    `Career   ${scoreBar(moduleAvgs.Career)} ${moduleAvgs.Career}\n` +
     `Projects ${scoreBar(moduleAvgs.Projects)} ${moduleAvgs.Projects}\n\n` +
     `${message}${spendSection}`
 }

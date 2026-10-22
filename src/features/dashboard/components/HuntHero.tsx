@@ -4,23 +4,15 @@ import type { HuntHero as HuntHeroData } from '../hunt-hero'
 
 const TONE = { good: 'text-good', warn: 'text-warn', risk: 'text-risk' } as const
 // Daily score (% of today's plan done): 90+ green, 70+ accent, 40+ amber,
-// else red — and green on a good day (outreach + 2 blocks) whatever the %.
+// else red — and green on a good day (3 blocks done) whatever the %.
 const scoreTone = (n: number, good = false) => good || n >= 90 ? 'text-good' : n >= 70 ? 'text-accent' : n >= 40 ? 'text-warn' : 'text-risk'
 const scoreBar = (n: number, good = false) => good || n >= 90 ? 'bg-good' : n >= 70 ? 'bg-accent' : n >= 40 ? 'bg-warn' : 'bg-risk'
-const when = (iso: string) => new Date(iso).toLocaleString('en-IN', { weekday: 'short', day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit', timeZone: 'Asia/Kolkata' })
 
 // Interview War Mode hero (v4.0 §3) — replaces Life Score + Quick Stats (War
-// Mode is always on). The score card + four tiles (outreach first — getting
-// interviews is the bottleneck), each linking to where you act on it.
+// Mode is always on). The score card + four tiles, each linking to where you
+// act on it.
 export default function HuntHero({ hero }: { hero: HuntHeroData }) {
-  const o = hero.outreach
   const tiles = [
-    {
-      label: 'Outreach this week', to: '/interviews?tab=pipeline',
-      value: `${o.sent}/${o.target}`, color: o.sent >= o.target ? 'text-good' : o.sent >= o.target / 2 ? 'text-warn' : 'text-risk',
-      sub: `${o.replies} repl${o.replies === 1 ? 'y' : 'ies'} · ${o.screens} screen${o.screens === 1 ? '' : 's'}`,
-      extra: null,
-    },
     {
       label: 'Readiness', to: '/prep',
       value: `${hero.overall}%`, color: TONE[hero.tier.tone],
@@ -28,10 +20,14 @@ export default function HuntHero({ hero }: { hero: HuntHeroData }) {
       extra: hero.topBlocker ? `Close: ${hero.topBlocker.label} ${hero.topBlocker.score ?? '—'}/${hero.topBlocker.gate}` : null,
     },
     {
-      label: 'Next interview', to: '/interviews',
-      value: hero.nextInterview?.company ?? 'None booked', color: hero.nextInterview ? 'text-accent' : 'text-fg-tertiary',
-      sub: hero.nextInterview ? `${hero.nextInterview.kind.replace(/_/g, ' ')} · ${when(hero.nextInterview.scheduled_at)}` : 'no round booked',
-      extra: null,
+      label: 'Mock average', to: '/prep?tab=mock',
+      value: hero.mockAvg === null ? '—' : `${hero.mockAvg}/10`, color: hero.mockAvg === null ? 'text-fg-tertiary' : hero.mockAvg >= 7 ? 'text-good' : hero.mockAvg >= 5 ? 'text-warn' : 'text-risk',
+      sub: hero.mockAvg === null ? 'no reviewed round yet' : 'last 5 reviewed · ready at 7', extra: null,
+    },
+    {
+      label: 'Revision due', to: '/prep',
+      value: String(hero.revisionDue), color: hero.revisionDue ? 'text-warn' : 'text-good',
+      sub: hero.revisionDue ? `topic${hero.revisionDue === 1 ? '' : 's'} due today or overdue` : 'nothing due', extra: null,
     },
     {
       label: 'Runway', to: '/finance',

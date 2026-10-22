@@ -1,8 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { todayIST, daysAgoIST, toISTDateStr, istMidnightUtc } from '@/lib/date'
 import { formatMinutes, mockFormatForDay, type MockRound } from './mock'
-import { BANK_CATEGORIES, DEFAULT_HOURS, OUTREACH_MINUTES, buildHuntPlan, isRestDay, isRedoDue, companyPrepBlock, computeQuotas, interviewRedoBlock, leadMinutes, type CategoryCoverage, type UpcomingRound } from './hunt'
-import { topicHref } from './links'
+import { BANK_CATEGORIES, DEFAULT_HOURS, buildHuntPlan, isRestDay, isRedoDue, computeQuotas, interviewRedoBlock, leadMinutes, type CategoryCoverage } from './hunt'
 import { buildBlock } from './roadmap'
 import { computeReadinessMatrix, type CodingHistoryRow } from './readiness'
 import { COMPETENCIES } from './types'
@@ -37,7 +36,7 @@ export async function loadPrepData(supabase: SupabaseClient, userId: string) {
   const user = { id: userId }
   const today = todayIST()
 
-  const [mockRes, storiesRes, rehearsalsRes, codingRes, sessionsRes, focusRes, forecastRes, nextRoundRes, decidedRoundsRes, outreachRes] = await Promise.all([
+  const [mockRes, storiesRes, rehearsalsRes, codingRes, sessionsRes, focusRes, forecastRes] = await Promise.all([
     supabase.from('mock_rounds').select('id, format, items, duration_seconds, created_at, review').eq('user_id', user.id).order('created_at', { ascending: false }).limit(500),
     supabase.from('stories').select('*').eq('user_id', user.id).order('updated_at', { ascending: false }),
     supabase.from('story_rehearsals').select('id, story_id, competency, prompt, answer, critique, rating, scorecard, created_at').eq('user_id', user.id).order('created_at', { ascending: false }).limit(10),
@@ -45,38 +44,23 @@ export async function loadPrepData(supabase: SupabaseClient, userId: string) {
     supabase.from('prep_sessions').select('*').eq('user_id', user.id).gte('date', daysAgoIST(60)).order('date', { ascending: false }),
     supabase.from('prep_focus_sessions').select('*').eq('user_id', user.id).gte('date', daysAgoIST(6)).order('started_at', { ascending: true }),
     supabase.from('prep_forecasts').select('date, forecast, created_at').eq('user_id', user.id).order('date', { ascending: false }).limit(1).maybeSingle(),
-    // The next scheduled interview round (Interviews / Career page).
-    supabase.from('interview_rounds').select('kind, scheduled_at, application:applications(id, company, jd_analysis, segment)').eq('user_id', user.id).eq('status', 'scheduled').gte('scheduled_at', new Date().toISOString()).order('scheduled_at').limit(1).maybeSingle(),
-    // Decided real rounds (last 180 days) — a readiness signal (§4.2).
-    supabase.from('interview_rounds').select('kind, outcome').eq('user_id', user.id).eq('status', 'done').in('outcome', ['passed', 'failed']).gte('scheduled_at', istMidnightUtc(180)),
-    // Today's logged outreach — ticks the plan's first block.
-    supabase.from('outreach').select('count').eq('user_id', user.id).eq('sent_at', today),
   ])
   const [settings, bank] = await Promise.all([getPrepSettings(supabase, user.id), getQuestionBank(supabase, user.id)])
   const coverage = bankCoverage(bank, today)
 
   const stories = (storiesRes.data ?? []) as Story[]
   const readiness = computeReadinessMatrix((codingRes.data ?? []) as unknown as CodingHistoryRow[], stories, coverage.find(c => c.key === 'ai-native') ?? null,
-    bank.filter(q => q.last_rating !== null).map(q => ({ category: q.category, topics: q.topics, rating: q.last_rating! })),
-    (decidedRoundsRes.data ?? []) as { kind: string; outcome: 'passed' | 'failed' }[])
+    bank.filter(q => q.last_rating !== null).map(q => ({ category: q.category, topics: q.topics, rating: q.last_rating! })))
   // Empty (not an error) until the mock_rounds migration has run.
   const mockRounds = (mockRes.data ?? []) as MockRound[]
   // War Mode: quotas weighted toward the biggest readiness gaps, sized to
   // the time left after today's mock round and STAR-story block.
   const storiesMissing = COMPETENCIES.some(c => !stories.some(s => (s.strength ?? 3) >= 3 && s.competencies.includes(c.key)))
-  // Company Prep Mode + the real-interview redo block take their time first.
-  const nextRow = nextRoundRes.data as unknown as { kind: string; scheduled_at: string; application: { id: string; company: string; jd_analysis: { priorityTopics?: string[] } | null; segment?: string } | null } | null
-  let upcoming: UpcomingRound | null = null
-  if (nextRow?.application) {
-    const { count } = await supabase.from('interview_questions').select('id', { count: 'exact', head: true }).eq('user_id', user.id).eq('application_id', nextRow.application.id)
-    upcoming = { applicationId: nextRow.application.id, company: nextRow.application.company, kind: nextRow.kind, scheduledAt: nextRow.scheduled_at, priorityTopics: nextRow.application.jd_analysis?.priorityTopics ?? [], priorQuestions: count ?? 0, segment: nextRow.application.segment ?? 'other' }
-  }
-  const companyBlock = companyPrepBlock(upcoming, Date.now(), topicHref)
+  // The real-interview redo block takes its time first.
   const interviewRedo = bank.filter(q => q.category === 'interview' && q.last_rating !== null && q.last_rating < 7).length
   const build = buildBlock(today, settings.hours_per_day)
   const reserved = formatMinutes(mockFormatForDay(today)) + leadMinutes(settings.hours_per_day * 60, storiesMissing)
-    + (companyBlock?.minutes ?? 0) + (interviewRedoBlock(interviewRedo)?.minutes ?? 0) + OUTREACH_MINUTES + (build?.minutes ?? 0)
-  const outreachToday = (outreachRes.data ?? []).reduce((s, r) => s + (r.count as number), 0)
+    + (interviewRedoBlock(interviewRedo)?.minutes ?? 0) + (build?.minutes ?? 0)
   const quotas = computeQuotas(coverage, settings.hours_per_day, categoryWeights(readiness), reserved)
       // On machine-coding / code-review days the mock round IS that practice.
       .map(q => (q.key === 'ui-coding' && mockFormatForDay(today) === 'machine-coding') || (q.key === 'code-review' && mockFormatForDay(today) === 'code-review') ? { ...q, quota: 0, minutes: 0 } : q)
@@ -93,8 +77,7 @@ export async function loadPrepData(supabase: SupabaseClient, userId: string) {
       gaps: Object.fromEntries(BANK_CATEGORIES.map(c => [c.key, categoryGap(c.key, readiness)])),
       focusTopic: weakness.find(w => w.category === 'quiz')?.topic ?? null,
       mockDoneToday: mockRounds.some(r => toISTDateStr(r.created_at) === today),
-      interviewRedo, companyBlock, buildBlock: build,
-      outreach: { target: settings.daily_outreach_target, sent: outreachToday },
+      interviewRedo, buildBlock: build,
       restDay: settings.rest_day,
     })
     const { data: inserted } = await supabase.from('prep_sessions')
@@ -124,18 +107,14 @@ export async function loadPrepData(supabase: SupabaseClient, userId: string) {
     }),
     mockRounds,
     // War Mode (all deterministic, war.ts).
-    war: warReadiness(readiness, mockRounds, nextRow?.kind ?? null),
+    war: warReadiness(readiness, mockRounds),
     weakness: weakness.slice(0, 8),
     revision: revisionQueue(bank, today),
     focusSessions: (focusRes.data ?? []) as FocusSession[],
-    nextInterview: nextRow ? { company: nextRow.application?.company ?? 'Interview', kind: nextRow.kind, scheduled_at: nextRow.scheduled_at } : null,
-    companyBlock,
     forecast: (forecastRes.data as { date: string; forecast: Forecast; created_at: string } | null) ?? null,
     stories,
     rehearsals: (rehearsalsRes.data ?? []) as StoryRehearsal[],
     readiness,
-    // Sum of today's outreach.count (the outreach block's progress).
-    outreachToday,
     settings,
     coverage: quotas,
     bank,
@@ -143,8 +122,8 @@ export async function loadPrepData(supabase: SupabaseClient, userId: string) {
 }
 
 export async function getPrepSettings(supabase: SupabaseClient, userId: string): Promise<PrepSettings> {
-  const { data } = await supabase.from('prep_settings').select('hours_per_day, weekly_outreach_target, daily_outreach_target, rest_day').eq('user_id', userId).maybeSingle()
-  return { hours_per_day: data?.hours_per_day ?? DEFAULT_HOURS, weekly_outreach_target: data?.weekly_outreach_target ?? 25, daily_outreach_target: data?.daily_outreach_target ?? 10, rest_day: data?.rest_day ?? 0 }
+  const { data } = await supabase.from('prep_settings').select('hours_per_day, rest_day').eq('user_id', userId).maybeSingle()
+  return { hours_per_day: data?.hours_per_day ?? DEFAULT_HOURS, rest_day: data?.rest_day ?? 0 }
 }
 
 // PostgREST caps a response at 1,000 rows, and the bank is past that —
@@ -238,20 +217,6 @@ export async function syncBankBlocks(supabase: SupabaseClient, userId: string, c
 }
 
 
-// The outreach block is done exactly when today's logged outreach (sum of
-// outreach.count) reaches its "× N" — re-checked after every add or delete,
-// so an undo un-ticks it. Called by the Interviews actions and the Career bot.
-export async function syncOutreachBlock(supabase: SupabaseClient, userId: string): Promise<PrepSession | null> {
-  const sent = await outreachSentToday(supabase, userId)
-  return updateBlocks(supabase, userId, todayIST(), blocks => blocks.map(b => b.key === 'outreach' ? { ...b, done: sent >= blockQuota(b) } : b))
-}
-
-async function outreachSentToday(supabase: SupabaseClient, userId: string): Promise<number> {
-  const { data } = await supabase.from('outreach').select('count').eq('user_id', userId).eq('sent_at', todayIST())
-  return (data ?? []).reduce((s, r) => s + (r.count as number), 0)
-}
-
-
 // ---------------- Focus sessions (War Mode) ----------------
 
 export async function getActiveFocus(supabase: SupabaseClient, userId: string): Promise<FocusSession | null> {
@@ -290,16 +255,11 @@ export async function toggleFocusPause(supabase: SupabaseClient, userId: string,
 }
 
 // A Question Bank block is done only by practice: today's answered count in
-// its category must reach the label's "× N" — the outreach block likewise by
-// today's logged outreach. null = neither kind of block, or met.
+// its category must reach the label's "× N". null = not a bank block, or met.
 export async function bankShortfall(supabase: SupabaseClient, userId: string, block: Pick<PrepBlock, 'key' | 'label'>): Promise<{ done: number; quota: number } | null> {
-  if (!block.key.startsWith('bank:') && block.key !== 'outreach') return null
+  if (!block.key.startsWith('bank:')) return null
   const quota = blockQuota(block)
   if (!quota) return null
-  if (block.key === 'outreach') {
-    const sent = await outreachSentToday(supabase, userId)
-    return sent >= quota ? null : { done: sent, quota }
-  }
   const { data } = await supabase.from('question_progress')
     .select('question_id, coding_questions!inner(category)').eq('user_id', userId)
     .eq('coding_questions.category', block.key.slice(5)).gte('last_seen_at', istMidnightUtc())

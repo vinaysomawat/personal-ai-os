@@ -4,7 +4,7 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { useRouter, usePathname } from 'next/navigation'
 import {
-  LayoutDashboard, Briefcase, DollarSign, HeartPulse,
+  LayoutDashboard, DollarSign, HeartPulse,
   Sun, Moon, ChevronDown, MoreHorizontal, Target,
 } from 'lucide-react'
 import { useTheme } from './ThemeProvider'
@@ -21,7 +21,6 @@ const MODULES = [
   { label: 'Dashboard', to: '/dashboard', icon: LayoutDashboard },
   // v2.0: Prep — the daily interview-prep session hub (ROADMAP-v2.md).
   { label: 'Prep', to: '/prep', icon: Target },
-  { label: 'Interviews', to: '/interviews', icon: Briefcase },
   { label: 'Finance', to: '/finance', icon: DollarSign },
   { label: 'Health', to: '/health', icon: HeartPulse },
 ]
@@ -36,7 +35,6 @@ const MOBILE_PRIMARY = [
 ]
 
 const MOBILE_MORE = [
-  { label: 'Interviews', to: '/interviews', icon: '💼' },
   { label: 'Astrology', to: '/astrology', icon: '🔮' },
   { label: 'Settings', to: '/settings', icon: '⚙' },
 ]
