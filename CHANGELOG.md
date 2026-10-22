@@ -3,13 +3,12 @@
 One line per shipped change, newest first. Sourced from commit messages —
 append here whenever you deploy, same cadence as the version bump.
 
-## 2026-10-23
+## 2026-10-22
 
+- **Question blocks are time boxes.** "Theme: RAG & retrieval · 1h 40m" instead of "× 12": a block ticks itself when you've put in its minutes, counted as time on its focus timer or answers × minutes per question, whichever is more. So one long system-design question no longer leaves a block behind, and Telegram drills and mock answers still count. Finish works from 80% of the time. Each block shows how many you answered, and ratings and readiness are unchanged.
 - **AI Engineer tab in Prep.** The 13-week Build roadmap as a checklist: mark a week shipped with a proof link (PR, commit or demo) and one key number, so you build the resume evidence as you go. It also shows this week's theme with its doc links, and how far you've got and how well you've scored in each AI-engineering topic.
 - **The day follows the week's theme.** Learn (read the week's docs) → Build → a themed drill on what you're building (e.g. RAG questions in the RAG week) → one frontend category for upkeep → STAR stories. The upkeep category is the weakest one you haven't had in three days. This replaces 10–12 small blocks across every category.
 - **Three mocks a week instead of daily.** Tuesday behavioral, Thursday AI system design, Saturday system design or machine coding on alternate weeks. The evening review only mentions mocks on those days.
-
-## 2026-10-22
 
 - **Interviews page and job-hunt pipeline removed.** The Interviews tab, the Career Telegram bot, outreach tracking, the "Outreach × 10" first block, company-prep blocks, debrief prompts and the JD analysis / company insights AI are gone. The Hunt Hero now shows Readiness, Mock average, Revision due and Runway. A good day is now 3 blocks done. The Life Score is Health, Finance and Coding, a third each; the Career score is gone. Questions already synced from past interviews stay in the bank, and the old data stays in the database and the Settings export.
 - **Mood and energy check-in removed.** The 9:30pm message no longer asks, the Dashboard card is gone, and "mood 3 energy 4" isn't parsed anymore.

@@ -9,6 +9,7 @@ import { modalSaveButtonClass, modalCancelButtonClass } from '@/components/Modal
 import { answerQuestion, critiqueAnswer, revealModelAnswer } from '../actions'
 import { BANK_CATEGORIES, isRedoDue, redoSlots, type BankCategory, type CategoryCoverage, type CategoryQuota } from '../hunt'
 import { toISTDateStr } from '@/lib/date'
+import { hm, minutesPerQuestion } from '../war'
 import type { BankQuestion, PrepSession } from '../types'
 import type { Scorecard } from '../scorecard'
 
@@ -190,15 +191,16 @@ export function QuestionsTab({ bank, setBank, topic, onTopicChange: setTopic, co
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-[1fr_340px] gap-[var(--grid-gap)] items-start">
-      <Card title="Sprint" action={<span className="text-[11px] text-fg-tertiary tabular-nums">{q ? `${doneToday[category] ?? 0}/${q.quota} today · ` : `${doneToday[category] ?? 0} today · `}{queue.length} questions{cs.leftMinutes ? ` · ≈ ${hrs(cs.leftMinutes)} to complete` : ''}</span>}>
+      <Card title="Sprint" action={<span className="text-[11px] text-fg-tertiary tabular-nums">{`${doneToday[category] ?? 0} answered today · `}{q && q.minutes ? `${hm(q.minutes)} planned · ` : ''}{queue.length} questions{cs.leftMinutes ? ` · ≈ ${hrs(cs.leftMinutes)} to complete` : ''}</span>}>
         <div className="flex flex-wrap gap-1.5 mb-2.5">
           {BANK_CATEGORIES.map(c => {
             const cq = quotaFor(c.key)
-            const met = cq && cq.quota > 0 && (doneToday[c.key] ?? 0) >= cq.quota
+            // Answers alone reached today's planned minutes (focus time counts on Today).
+            const met = cq && cq.minutes > 0 && (doneToday[c.key] ?? 0) * minutesPerQuestion(c.key) >= cq.minutes
             return (
               <button key={c.key} onClick={() => { setCategory(c.key); setTopic(''); resetCard(); setSelectedId(null); setOpen(false) }} aria-pressed={category === c.key}
                 className={`text-[11.5px] px-2.5 py-1 rounded-full border transition-colors ${category === c.key ? 'bg-accent-soft border-accent text-accent' : met ? 'bg-good-soft border-good/40 text-good' : 'border-border-strong text-fg-secondary hover:bg-surface-2'}`}>
-                {met ? '✓ ' : ''}{c.label}{cq ? ` · ${doneToday[c.key] ?? 0}/${cq.quota}` : ''}
+                {met ? '✓ ' : ''}{c.label}{doneToday[c.key] ? ` · ${doneToday[c.key]}` : ''}{cq && cq.minutes ? ` · ${hm(cq.minutes)}` : ''}
               </button>
             )
           })}
@@ -319,7 +321,7 @@ export function QuestionsTab({ bank, setBank, topic, onTopicChange: setTopic, co
                   <div className="h-[5px] rounded-[3px] bg-border mt-1 flex overflow-hidden">
                     <div className="h-full bg-good" style={{ width: `${s.total ? (s.seen / s.total) * 100 : 0}%` }} />
                   </div>
-                  {cq && cq.quota > 0 && <p className="text-[10.5px] text-fg-tertiary mt-0.5 tabular-nums">{cq.quota}/day today</p>}
+                  {cq && cq.minutes > 0 && <p className="text-[10.5px] text-fg-tertiary mt-0.5 tabular-nums">{hm(cq.minutes)} planned today</p>}
                 </button>
               </li>
             )

@@ -8,7 +8,7 @@ import { modalSaveButtonClass } from '@/components/Modal'
 import { READINESS_CONFIG, type ReadinessTier } from '../types'
 import { endFocusSession, generatePrepForecast, savePrepRestDay, savePrepSettings, toggleFocusSessionPause } from '../actions'
 import { LEVELS, WEEKDAYS, levelOf } from '../hunt'
-import { GATES, PACE_WINDOW, blockQuota, coachLine, isGoodDay, focusSeconds, hm, nowBlock, paceLabel, paceStatus, readinessTier, type DayPace, type FocusSession, type Forecast, type RevisionItem, type TopicWeakness, type WarReadiness } from '../war'
+import { FINISH_SHARE, GATES, PACE_WINDOW, blockProgress, coachLine, focusedMinutes, isGoodDay, focusSeconds, hm, nowBlock, paceLabel, paceStatus, readinessTier, type DayPace, type FocusSession, type Forecast, type RevisionItem, type TopicWeakness, type WarReadiness } from '../war'
 import type { PrepBlock, PrepSession, PrepSettings, ReadinessCell } from '../types'
 
 const mmss = (s: number) => `${s < 0 ? '-' : ''}${Math.floor(Math.abs(s) / 60)}:${String(Math.abs(s) % 60).padStart(2, '0')}`
@@ -26,8 +26,8 @@ function useNow(active: boolean) {
 
 // ---------------- Header ----------------
 
-export function WarHeader({ war, settings, questionsPerDay, pace, blocks, restDay }: {
-  war: WarReadiness; settings: PrepSettings; questionsPerDay: number; pace: DayPace
+export function WarHeader({ war, settings, questionMinutes, pace, blocks, restDay }: {
+  war: WarReadiness; settings: PrepSettings; questionMinutes: number; pace: DayPace
   // Today's plan — the coach line names the next block.
   blocks: PrepBlock[]
   // Today is the weekly rest day (no plan).
@@ -62,7 +62,7 @@ export function WarHeader({ war, settings, questionsPerDay, pace, blocks, restDa
                 {WEEKDAYS.map((d, i) => <option key={d} value={i}>{d}</option>)}
               </select>
             </label>
-            {!restDay && <span className="text-[11px] text-fg-tertiary tabular-nums">{questionsPerDay} questions/day</span>}
+            {!restDay && <span className="text-[11px] text-fg-tertiary tabular-nums">{hm(questionMinutes)} of questions/day</span>}
           </div>
           {restDay
             ? <p className="text-[12.5px] mt-1 text-fg-secondary">🌿 Rest day — no plan. Walk, gym, see people. The streak carries over.</p>
@@ -83,12 +83,13 @@ export function WarHeader({ war, settings, questionsPerDay, pace, blocks, restDa
 export function MissionCard({ session, focusSessions, doneToday, onStart, onOpen }: {
   session: PrepSession | null
   focusSessions: FocusSession[]
-  // Questions practiced today per category — "3/7" on bank blocks.
+  // Questions practiced today per category (block progress + "N answered").
   doneToday: Record<string, number>
   onStart: (key: string) => void
   onOpen: (href: string) => void
 }) {
   if (!session) return <Card title="Today's Mission"><p className="text-[12.5px] text-fg-tertiary">Couldn&apos;t build today&apos;s plan — reload.</p></Card>
+  const ctx = { answered: doneToday, focused: focusedMinutes(focusSessions, session.date) }
   if (session.blocks.length === 0) return (
     <Card title="Today's Mission">
       <p className="text-[13px] font-semibold text-fg-primary">🌿 Rest day — nothing planned.</p>
@@ -128,19 +129,20 @@ export function MissionCard({ session, focusSessions, doneToday, onStart, onOpen
       <ol className="flex flex-col gap-1.5">
         {session.blocks.map((b, i) => {
           const isActive = active?.block_key === b.key
-          const quota = b.key.startsWith('bank:') ? blockQuota(b) : 0
+          const isBank = b.key.startsWith('bank:')
+          const answered = isBank ? doneToday[b.key.slice(5)] ?? 0 : 0
           return (
             <li key={b.key} className={`flex items-start gap-2.5 rounded-[9px] px-2.5 py-2 ${b.done ? 'bg-good-soft' : isActive ? 'bg-accent-soft' : 'bg-surface-2'}`}>
-              {/* Status only — blocks complete from the work itself (quota met,
-                  mock saved, focus Finish on non-question blocks), never by hand. */}
-              <span aria-label={b.done ? 'Done' : 'Not done'} title={!b.done && quota ? `Completes at ${quota}/${quota} answered` : undefined}
+              {/* Status only — blocks complete from the work itself (a question
+                  block's minutes reached, mock saved, focus Finish), never by hand. */}
+              <span aria-label={b.done ? 'Done' : 'Not done'} title={!b.done && isBank ? `Completes at ${hm(b.minutes)} of practice (time focused, or answers × minutes per question)` : undefined}
                 className={`mt-0.5 w-[18px] h-[18px] rounded-full border flex items-center justify-center shrink-0 ${b.done ? 'bg-good border-good text-on-good' : 'border-border-strong'}`}>
                 {b.done && <Check size={11} strokeWidth={3} />}
               </span>
               <div className="flex-1 min-w-0">
                 <div className="flex items-baseline justify-between gap-2">
                   <p className={`text-[12.5px] font-semibold ${b.done ? 'text-fg-tertiary line-through' : 'text-fg-primary'}`}>{i + 1}. {b.label}{isActive && <span className="text-accent font-bold"> ● focusing</span>}</p>
-                  <span className="text-[11px] text-fg-tertiary tabular-nums shrink-0">{quota && !b.done ? `${Math.min(quota, doneToday[b.key.slice(5)] ?? 0)}/${quota} · ` : ''}{hm(b.minutes)}</span>
+                  <span className="text-[11px] text-fg-tertiary tabular-nums shrink-0">{isBank && !b.done ? `${hm(Math.floor(blockProgress(b, ctx)))}/${hm(b.minutes)} · ${answered} answered` : hm(b.minutes)}</span>
                 </div>
                 <p className="text-[11.5px] text-fg-secondary mt-0.5 hidden sm:block">{b.detail}</p>
               </div>
@@ -161,9 +163,11 @@ export function MissionCard({ session, focusSessions, doneToday, onStart, onOpen
 // The whole focus timer: a floating bar over the page (no separate screen).
 // Label = jump to the work; question blocks show today's progress. After a
 // session ends on its own (quota met), `ended` shows the result briefly.
-export function FocusBar({ focus, progress, ended, onChange, onEnded, onGo }: {
+export function FocusBar({ focus, progress, canFinish, ended, onChange, onEnded, onGo }: {
   focus: FocusSession | null
   progress: string | null
+  // A question block can be finished from FINISH_SHARE of its minutes.
+  canFinish: boolean
   ended: { label: string; seconds: number } | null
   onChange: (f: FocusSession) => void
   onEnded: (f: FocusSession | null, session: PrepSession | null) => void
@@ -192,12 +196,11 @@ export function FocusBar({ focus, progress, ended, onChange, onEnded, onGo }: {
       <button disabled={busy} onClick={() => start(async () => { const f = await toggleFocusSessionPause(focus.id); if (f) onChange(f) })} title={paused ? 'Resume' : 'Pause'} aria-label={paused ? 'Resume' : 'Pause'} className={icon}>
         {paused ? <Play size={13} /> : <Pause size={13} />}
       </button>
-      {/* Question blocks finish themselves when the quota is met — no ✓. */}
-      {!focus.block_key.startsWith('bank:') && (
-        <button disabled={busy} onClick={() => start(async () => { const r = await endFocusSession(focus.id, true); onEnded(r.focus, r.session) })} title="Finish block" aria-label="Finish block" className={icon}>
-          <Check size={14} strokeWidth={3} />
-        </button>
-      )}
+      {/* Question blocks also finish themselves at their minutes; Finish opens at FINISH_SHARE. */}
+      <button disabled={busy || !canFinish} onClick={() => start(async () => { const r = await endFocusSession(focus.id, true); onEnded(r.focus, r.session) })}
+        title={canFinish ? 'Finish block' : `Finish opens at ${Math.round(FINISH_SHARE * 100)}% of the block's minutes`} aria-label="Finish block" className={icon}>
+        <Check size={14} strokeWidth={3} />
+      </button>
       <button disabled={busy} onClick={() => start(async () => { const r = await endFocusSession(focus.id, false); onEnded(r.focus, null) })} title="Stop without finishing" aria-label="Stop without finishing" className={icon}>
         <X size={14} />
       </button>

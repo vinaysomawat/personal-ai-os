@@ -1,7 +1,7 @@
 import { toISTDateStr } from '@/lib/date'
 import type { BankQuestion, PrepBlock, ReadinessAreaKey, ReadinessCell } from './types'
 import type { MockRound } from './mock'
-import { redoInterval } from './hunt'
+import { BANK_CATEGORIES, redoInterval } from './hunt'
 
 // Interview War Mode (ROADMAP-v2 §10) — every number here is deterministic.
 // AI only writes answer reviews and the weekly forecast; it never scores,
@@ -214,9 +214,9 @@ export function revisionQueue(bank: BankQuestion[], today: string): RevisionItem
 // ---------------- Pace + tone ----------------
 
 // Pace: share of today's plan done vs share of the PACE_WINDOW (09:00–19:00 IST)
-// gone. Question blocks earn partial credit (answered today ÷ quota), so it
-// moves with every answer; other blocks count when done. Ahead/behind is that
-// gap in window time.
+// gone. Question blocks earn partial credit by time (blockProgress), so it
+// moves as you work; other blocks count when done. Ahead/behind is that gap
+// in window time.
 // The one pace window (IST hours): a realistic working day for a long search.
 export const PACE_WINDOW = { start: 9, end: 19, label: '9am–7pm' } as const
 const WINDOW_MINUTES = (PACE_WINDOW.end - PACE_WINDOW.start) * 60
@@ -240,16 +240,45 @@ export function practicedToday(bank: Pick<BankQuestion, 'category' | 'last_seen_
   return out
 }
 
-// A bank block's quota is its label's "× N".
-export const blockQuota = (b: Pick<PrepBlock, 'label'>) => Number(b.label.match(/× (\d+)$/)?.[1] ?? 0)
+// ---------------- Time-boxed question blocks ----------------
 
-export function dayPace(blocks: PrepBlock[], istHourFloat: number, doneToday: Record<string, number> = {}): DayPace {
-  const progress = (b: PrepBlock) => {
-    if (b.done) return 1
-    // Question blocks by today's answers in the category.
-    const quota = b.key.startsWith('bank:') ? blockQuota(b) : 0
-    return quota ? Math.min(1, (doneToday[b.key.slice(5)] ?? 0) / quota) : 0
-  }
+// A question block (bank:<category>) is a time box. Its progress in minutes
+// is the larger of the time focused on it today and today's answers in its
+// category × that category's minutes per question (so Telegram drills and
+// mock answers count without the timer). It ticks itself at its planned
+// minutes; FocusBar Finish is allowed from FINISH_SHARE of them.
+export const FINISH_SHARE = 0.8
+export interface ProgressCtx {
+  // Questions answered today per category (practicedToday).
+  answered: Record<string, number>
+  // Focused minutes today per block key (focusedMinutes).
+  focused: Record<string, number>
+}
+const NO_PROGRESS: ProgressCtx = { answered: {}, focused: {} }
+
+export const minutesPerQuestion = (category: string) => BANK_CATEGORIES.find(c => c.key === category)?.minutesPerQ ?? 10
+
+// Minutes focused per block key on `date`, the active session counted live.
+export function focusedMinutes(sessions: FocusSession[], date: string, nowMs = Date.now()): Record<string, number> {
+  const out: Record<string, number> = {}
+  for (const f of sessions) if (f.date === date) out[f.block_key] = (out[f.block_key] ?? 0) + focusSeconds(f, nowMs) / 60
+  return out
+}
+
+// Minutes of progress on a block, capped at its planned minutes. Non-question
+// blocks have none until done.
+export function blockProgress(b: Pick<PrepBlock, 'key' | 'minutes' | 'done'>, ctx: ProgressCtx): number {
+  if (b.done) return b.minutes
+  if (!b.key.startsWith('bank:')) return 0
+  const cat = b.key.slice(5)
+  return Math.min(b.minutes, Math.max(ctx.focused[b.key] ?? 0, (ctx.answered[cat] ?? 0) * minutesPerQuestion(cat)))
+}
+export const blockReached = (b: Pick<PrepBlock, 'key' | 'minutes' | 'done'>, ctx: ProgressCtx) => b.minutes > 0 && blockProgress(b, ctx) >= b.minutes
+export const canFinishBlock = (b: Pick<PrepBlock, 'key' | 'minutes' | 'done'>, ctx: ProgressCtx) =>
+  !b.key.startsWith('bank:') || blockProgress(b, ctx) >= b.minutes * FINISH_SHARE
+
+export function dayPace(blocks: PrepBlock[], istHourFloat: number, ctx: ProgressCtx = NO_PROGRESS): DayPace {
+  const progress = (b: PrepBlock) => b.minutes ? blockProgress(b, ctx) / b.minutes : (b.done ? 1 : 0)
   const plannedMinutes = blocks.reduce((s, b) => s + b.minutes, 0)
   const doneMinutes = Math.round(blocks.reduce((s, b) => s + b.minutes * progress(b), 0))
   const done = plannedMinutes ? doneMinutes / plannedMinutes : 0

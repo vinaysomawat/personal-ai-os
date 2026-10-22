@@ -115,29 +115,35 @@ export const DRILL_SHARE = 0.6
 function bankDetail(key: BankCategory, quota: number, focusTopic: string | null | undefined): string {
   const cat = BANK_CATEGORIES.find(c => c.key === key)!
   const s = quota === 1 ? '' : 's'
+  // A guide, not a target: the block is a time box.
+  const n = quota > 1 ? `about ${quota}` : `${quota}`
   switch (key) {
-    case 'quiz': return `Answer ${quota} theory questions out loud, type the gist, get the AI rating${focusTopic ? ` — focus: ${focusTopic}` : ''}`
-    case 'ai-native': return `Answer ${quota} AI-native question${s} from real experience, get the AI rating, tighten the answer`
-    case 'ui-coding': return `Machine coding: build ${quota} component${s} from scratch in your editor, timed — working, keyboard + ARIA, then summarize the trade-offs`
-    case 'system-design': return `Design ${quota} frontend system${s} end to end (Requirements → Architecture → Data → Interface → Optimizations), out loud, then get the AI rating`
-    case 'backend': return `Answer ${quota} backend & API question${s} out loud, get the AI rating`
-    case 'resume': return `Answer ${quota} resume deep-dive question${s} out loud from your real work — the decision, the trade-off, the number`
-    case 'architecture': return `Answer ${quota} architecture & lead question${s} out loud (rendering strategy, bundling, monorepo, micro-frontends, platform, leading teams) — the options, the trade-off, your call`
-    case 'ai-engineering': return `Answer ${quota} AI-engineering question${s} out loud — the pipeline, the trade-off, how you'd evaluate it`
-    case 'code-review': return `Review ${quota} AI-generated PR${s}: find the planted issues, rank them by severity, give the fix`
-    case 'javascript-functions': return `Implement ${quota} JS function${s} without looking anything up (polyfills, debounce, promise utilities), handle edge cases`
-    default: return `Solve ${quota} ${cat.label.toLowerCase()} problem${s} (medium, pattern-first), talking through complexity`
+    case 'quiz': return `Answer ${n} theory questions out loud, type the gist, get the AI rating${focusTopic ? ` — focus: ${focusTopic}` : ''}`
+    case 'ai-native': return `Answer ${n} AI-native question${s} from real experience, get the AI rating, tighten the answer`
+    case 'ui-coding': return `Machine coding: build ${n} component${s} from scratch in your editor, timed — working, keyboard + ARIA, then summarize the trade-offs`
+    case 'system-design': return `Design ${n} frontend system${s} end to end (Requirements → Architecture → Data → Interface → Optimizations), out loud, then get the AI rating`
+    case 'backend': return `Answer ${n} backend & API question${s} out loud, get the AI rating`
+    case 'resume': return `Answer ${n} resume deep-dive question${s} out loud from your real work — the decision, the trade-off, the number`
+    case 'architecture': return `Answer ${n} architecture & lead question${s} out loud (rendering strategy, bundling, monorepo, micro-frontends, platform, leading teams) — the options, the trade-off, your call`
+    case 'ai-engineering': return `Answer ${n} AI-engineering question${s} out loud — the pipeline, the trade-off, how you'd evaluate it`
+    case 'code-review': return `Review ${n} AI-generated PR${s}: find the planted issues, rank them by severity, give the fix`
+    case 'javascript-functions': return `Implement ${n} JS function${s} without looking anything up (polyfills, debounce, promise utilities), handle edge cases`
+    default: return `Solve ${n} ${cat.label.toLowerCase()} problem${s} (medium, pattern-first), talking through complexity`
   }
 }
 
-function bankBlock(c: CategoryCoverage, minutes: number, opts: { label?: string; prefix?: string; topic?: string; focusTopic?: string | null; gap: number }): PrepBlock {
+// A question block is a time box (war.ts blockProgress): its minutes are
+// the target, rounded to 5 and at least one question's worth. The question
+// count is only a guide (and sizes the redo slots).
+function bankBlock(c: CategoryCoverage, budget: number, opts: { label?: string; prefix?: string; topic?: string; focusTopic?: string | null; gap: number }): PrepBlock {
   const cat = BANK_CATEGORIES.find(x => x.key === c.key)!
+  const minutes = Math.max(cat.minutesPerQ, Math.round(budget / 5) * 5)
   const quota = Math.max(1, Math.floor(minutes / cat.minutesPerQ))
   const redo = Math.min(c.redoDue, redoSlots(quota))
   return {
-    key: `bank:${c.key}`, label: `${opts.label ?? cat.label} × ${quota}`, minutes: quota * cat.minutesPerQ,
+    key: `bank:${c.key}`, label: opts.label ?? cat.label, minutes,
     detail: `${opts.prefix ?? ''}${bankDetail(c.key, quota, opts.focusTopic)}${redo ? ` — the first ${redo} redo your weak answers` : ''} (${Math.round((1 - opts.gap) * 100)}% of gate)`,
-    href: `/prep?tab=questions&cat=${c.key}${opts.topic ? `&topic=${encodeURIComponent(opts.topic)}` : ''}`, done: c.doneToday >= quota,
+    href: `/prep?tab=questions&cat=${c.key}${opts.topic ? `&topic=${encodeURIComponent(opts.topic)}` : ''}`, done: c.doneToday * cat.minutesPerQ >= minutes,
   }
 }
 
@@ -187,6 +193,7 @@ export function buildHuntPlan(ctx: {
   })
   const upkeepKey = pickUpkeep(ctx.gaps ?? {}, ctx.recentCategories ?? [], format)
   const upkeep = bankBlock(cov(upkeepKey), questionMinutes - Math.round(questionMinutes * DRILL_SHARE), {
+    label: `Upkeep: ${BANK_CATEGORIES.find(c => c.key === upkeepKey)!.label}`,
     prefix: 'Frontend upkeep — ', focusTopic: ctx.focusTopic, gap: gap(upkeepKey),
   })
   // Redo real interview questions → Learn → Build → themed drill → mock → upkeep → STAR stories.
@@ -194,14 +201,14 @@ export function buildHuntPlan(ctx: {
   return { focus: `Interview War Mode · ${levelOf(ctx.hoursPerDay).label}`, blocks }
 }
 
-// "Redo real interview questions × N": 10 min each, at most 4 a day.
+// "Redo real interview questions": 10 min per question rated under 7, at most 4 a day.
 export const INTERVIEW_REDO_MAX = 4
 export function interviewRedoBlock(lowRated: number): PrepBlock | null {
   const n = Math.min(INTERVIEW_REDO_MAX, lowRated)
   if (n === 0) return null
   return {
-    key: 'bank:interview', label: `Redo real interview questions × ${n}`, minutes: n * 10,
-    detail: 'Questions real interviewers asked you that went badly or ok — answer them again out loud, get the AI rating, aim for 7+',
+    key: 'bank:interview', label: 'Redo real interview questions', minutes: n * 10,
+    detail: `${n} question${n === 1 ? '' : 's'} real interviewers asked you that went badly or ok — answer them again out loud, get the AI rating, aim for 7+`,
     href: '/prep?tab=questions&cat=interview', done: false,
   }
 }

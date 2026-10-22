@@ -121,7 +121,7 @@ export async function critiqueFollowUpAnswer(rubric: Rubric, original: string, f
 }
 
 // Records a Question Bank answer (the question counts as practiced); the
-// matching Job Hunt block auto-completes once today's quota is met.
+// matching question block auto-completes once its planned minutes are reached.
 export async function answerQuestion(questionId: string, answer: string | null, rating: number | null = null): Promise<PrepSession | null> {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()

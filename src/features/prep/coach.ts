@@ -1,7 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { toISTDateStr } from '@/lib/date'
 import { loadPrepData } from './core'
-import { GATES, GOOD_DAY_BLOCKS, coachLine, isGoodDay, dayPace, hm, istHourNow, nowBlock, practicedToday, readinessTier } from './war'
+import { GATES, GOOD_DAY_BLOCKS, coachLine, isGoodDay, dayPace, focusedMinutes, hm, istHourNow, nowBlock, practicedToday, readinessTier } from './war'
 import { levelOf } from './hunt'
 
 // Telegram Prep Coach (War Mode) — deterministic message builders for the
@@ -16,7 +16,7 @@ export async function coachData(db: SupabaseClient, userId: string): Promise<Pre
   return data
 }
 
-const paceAt = (d: PrepData, hour: number) => dayPace(d.session?.blocks ?? [], hour, practicedToday(d.bank, d.today))
+const paceAt = (d: PrepData, hour: number) => dayPace(d.session?.blocks ?? [], hour, { answered: practicedToday(d.bank, d.today), focused: focusedMinutes(d.focusSessions, d.today) })
 
 const readinessLine = (d: PrepData) =>
   `Readiness *${d.war.overall}%* — ${readinessTier(d.war).label}` +

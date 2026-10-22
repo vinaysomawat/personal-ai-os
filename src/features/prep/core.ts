@@ -5,7 +5,7 @@ import { BANK_CATEGORIES, DEFAULT_HOURS, buildHuntPlan, isRestDay, isRedoDue, ty
 import type { RoadmapProgress } from './roadmap'
 import { computeReadinessMatrix, type CodingHistoryRow } from './readiness'
 import { COMPETENCIES } from './types'
-import { blockQuota, categoryGap, dayPace, isGoodDay, focusSeconds, nowBlock, revisionQueue, topicWeakness, warReadiness, type FocusSession, type Forecast } from './war'
+import { blockProgress, blockReached, canFinishBlock, categoryGap, dayPace, focusedMinutes, minutesPerQuestion, type ProgressCtx, isGoodDay, focusSeconds, nowBlock, revisionQueue, topicWeakness, warReadiness, type FocusSession, type Forecast } from './war'
 import type { BankQuestion, PrepBlock, PrepSession, PrepSettings, Story, StoryRehearsal } from './types'
 
 // Prep's data layer — plain server module (not 'use server', so none of
@@ -112,11 +112,12 @@ export async function loadPrepData(supabase: SupabaseClient, userId: string) {
     rehearsals: (rehearsalsRes.data ?? []) as StoryRehearsal[],
     readiness,
     settings,
-    // Coverage + today's quota per category, read from the stored plan.
+    // Coverage + today's planned minutes per category, read from the stored
+    // plan; quota = the questions that fit them (sizes the redo slots).
     coverage: coverage.map(c => {
       const b = todaySession?.blocks.find(x => x.key === `bank:${c.key}`)
-      const quota = b ? blockQuota(b) : 0
-      return { ...c, quota, minutes: b?.minutes ?? 0 }
+      const minutes = b?.minutes ?? 0
+      return { ...c, minutes, quota: minutes ? Math.max(1, Math.floor(minutes / minutesPerQuestion(c.key))) : 0 }
     }),
     bank,
   }
@@ -195,26 +196,32 @@ export async function updateBlocks(supabase: SupabaseClient, userId: string, dat
   return (updated as PrepSession | null) ?? null
 }
 
-// Ticks Job Hunt bank blocks whose quota (the label's "× N") today's practiced
-// count in that category has reached. `extra` lets a caller tick more blocks
-// in the same write.
-export async function syncBankBlocks(supabase: SupabaseClient, userId: string, categories: string[], extra: (b: PrepBlock) => boolean = () => false): Promise<PrepSession | null> {
-  const counts = new Map<string, number>()
-  if (categories.length > 0) {
-    const { data } = await supabase.from('question_progress')
-      .select('question_id, coding_questions!inner(category)').eq('user_id', userId)
-      .in('coding_questions.category', categories).gte('last_seen_at', istMidnightUtc())
-    for (const row of (data ?? []) as unknown as { coding_questions: { category: string } }[]) {
-      counts.set(row.coding_questions.category, (counts.get(row.coding_questions.category) ?? 0) + 1)
-    }
+// Today's progress inputs for question blocks: answers per category and
+// focused minutes per block (war.ts blockProgress).
+async function progressToday(supabase: SupabaseClient, userId: string, categories: string[]): Promise<ProgressCtx> {
+  const answered: Record<string, number> = {}
+  const [{ data: answers }, { data: focus }] = await Promise.all([
+    categories.length
+      ? supabase.from('question_progress').select('question_id, coding_questions!inner(category)').eq('user_id', userId)
+        .in('coding_questions.category', categories).gte('last_seen_at', istMidnightUtc())
+      : Promise.resolve({ data: [] }),
+    supabase.from('prep_focus_sessions').select('*').eq('user_id', userId).eq('date', todayIST()),
+  ])
+  for (const row of (answers ?? []) as unknown as { coding_questions: { category: string } }[]) {
+    answered[row.coding_questions.category] = (answered[row.coding_questions.category] ?? 0) + 1
   }
-  return updateBlocks(supabase, userId, todayIST(), blocks => blocks.map(b => {
-    if (extra(b)) return { ...b, done: true }
-    const cat = b.key.startsWith('bank:') ? b.key.slice(5) : null
-    if (!cat || !categories.includes(cat)) return b
-    const quota = blockQuota(b)
-    return quota > 0 && (counts.get(cat) ?? 0) >= quota ? { ...b, done: true } : b
-  }))
+  return { answered, focused: focusedMinutes((focus ?? []) as FocusSession[], todayIST()) }
+}
+
+// Ticks question blocks that reached their planned minutes (answers ×
+// minutes per question, or focused time). `extra` lets a caller tick more
+// blocks in the same write. `categories` is kept for callers; every question
+// block in today's plan is re-checked.
+export async function syncBankBlocks(supabase: SupabaseClient, userId: string, categories: string[] = [], extra: (b: PrepBlock) => boolean = () => false): Promise<PrepSession | null> {
+  const { data: session } = await supabase.from('prep_sessions').select('blocks').eq('user_id', userId).eq('date', todayIST()).maybeSingle()
+  const planned = ((session?.blocks ?? []) as PrepBlock[]).filter(b => b.key.startsWith('bank:')).map(b => b.key.slice(5))
+  const ctx = await progressToday(supabase, userId, [...new Set([...planned, ...categories])])
+  return updateBlocks(supabase, userId, todayIST(), blocks => blocks.map(b => extra(b) || blockReached(b, ctx) ? { ...b, done: true } : b))
 }
 
 
@@ -255,32 +262,30 @@ export async function toggleFocusPause(supabase: SupabaseClient, userId: string,
   return (data as FocusSession | null) ?? null
 }
 
-// A Question Bank block is done only by practice: today's answered count in
-// its category must reach the label's "× N". null = not a bank block, or met.
-export async function bankShortfall(supabase: SupabaseClient, userId: string, block: Pick<PrepBlock, 'key' | 'label'>): Promise<{ done: number; quota: number } | null> {
+// FocusBar Finish on a question block needs FINISH_SHARE of its minutes
+// (time focused or answers × minutes per question). null = allowed.
+export async function bankShortfall(supabase: SupabaseClient, userId: string, block: Pick<PrepBlock, 'key' | 'minutes' | 'done'>): Promise<{ minutes: number; planned: number } | null> {
   if (!block.key.startsWith('bank:')) return null
-  const quota = blockQuota(block)
-  if (!quota) return null
-  const { data } = await supabase.from('question_progress')
-    .select('question_id, coding_questions!inner(category)').eq('user_id', userId)
-    .eq('coding_questions.category', block.key.slice(5)).gte('last_seen_at', istMidnightUtc())
-  const done = data?.length ?? 0
-  return done >= quota ? null : { done, quota }
+  const ctx = await progressToday(supabase, userId, [block.key.slice(5)])
+  return canFinishBlock(block, ctx) ? null : { minutes: Math.floor(blockProgress(block, ctx)), planned: block.minutes }
 }
 
 // Finish = the block is done (ticked in today's plan); abandon = time is
-// kept but the block stays open. Finishing a bank block under its quota is
-// refused: the session keeps running and `short` says how far off it is.
-export async function endFocus(supabase: SupabaseClient, userId: string, id: string, finished: boolean): Promise<{ focus: FocusSession | null; session: PrepSession | null; short?: { done: number; quota: number } }> {
+// kept but the block stays open (unless that time took it to its minutes).
+// Finishing a question block under FINISH_SHARE of its minutes is refused:
+// the session keeps running and `short` says how far off it is.
+export async function endFocus(supabase: SupabaseClient, userId: string, id: string, finished: boolean): Promise<{ focus: FocusSession | null; session: PrepSession | null; short?: { minutes: number; planned: number } }> {
   const { data: f } = await supabase.from('prep_focus_sessions').select('*').eq('id', id).eq('user_id', userId).single()
   if (!f || f.status !== 'active') return { focus: (f as FocusSession | null) ?? null, session: null }
   if (finished) {
     const { data: s } = await supabase.from('prep_sessions').select('blocks').eq('user_id', userId).eq('date', f.date).maybeSingle()
-    const short = await bankShortfall(supabase, userId, (s?.blocks as PrepBlock[] | undefined)?.find(b => b.key === f.block_key) ?? { key: f.block_key, label: f.label })
+    const short = await bankShortfall(supabase, userId, (s?.blocks as PrepBlock[] | undefined)?.find(b => b.key === f.block_key) ?? { key: f.block_key, minutes: f.planned_minutes, done: false })
     if (short) return { focus: f as FocusSession, session: null, short }
   }
   const focus = await closeFocus(supabase, f as FocusSession, finished ? 'completed' : 'abandoned')
-  const session = finished ? await updateBlocks(supabase, userId, f.date, blocks => blocks.map(b => b.key === f.block_key ? { ...b, done: true } : b)) : null
+  const session = finished
+    ? await updateBlocks(supabase, userId, f.date, blocks => blocks.map(b => b.key === f.block_key ? { ...b, done: true } : b))
+    : f.block_key.startsWith('bank:') ? await syncBankBlocks(supabase, userId) : null
   return { focus, session }
 }
 

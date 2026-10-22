@@ -1,7 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { daysAgoIST } from '@/lib/date'
 import { loadPrepData } from '@/features/prep/core'
-import { dayPace, isGoodDay, istHourNow, practicedToday, readinessTier } from '@/features/prep/war'
+import { dayPace, focusedMinutes, isGoodDay, istHourNow, practicedToday, readinessTier } from '@/features/prep/war'
 import { levelOf } from '@/features/prep/hunt'
 import { runwayMonths } from '@/features/finance/calculations'
 
@@ -32,7 +32,7 @@ export async function loadHuntHero(db: SupabaseClient, userId: string): Promise<
     db.from('expenses').select('amount').eq('user_id', userId).gte('date', daysAgoIST(90)),
   ])
   const blocks = prep.session?.blocks ?? []
-  const pace = dayPace(blocks, istHourNow(), practicedToday(prep.bank, prep.today))
+  const pace = dayPace(blocks, istHourNow(), { answered: practicedToday(prep.bank, prep.today), focused: focusedMinutes(prep.focusSessions, prep.today) })
   const avgSpend = Math.round((expensesRes.data ?? []).reduce((s, e) => s + Number(e.amount), 0) / 3)
   return {
     overall: prep.war.overall,

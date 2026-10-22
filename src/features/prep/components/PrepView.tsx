@@ -11,7 +11,7 @@ import Modal, { modalLabelClass, modalInputClass, modalCancelButtonClass, modalS
 import { useEscapeKey } from '@/lib/use-escape-key'
 import { daysAgoIST, toISTDateStr } from '@/lib/date'
 import { formatOf, type MockRound } from '../mock'
-import { startFocusSession, saveStory, deleteStory, rehearseStory, type StoryInput } from '../actions'
+import { endFocusSession, startFocusSession, saveStory, deleteStory, rehearseStory, type StoryInput } from '../actions'
 import { COMPETENCIES, REHEARSAL_PROMPTS, type BankQuestion, type CompetencyKey, type PrepSession, type PrepSettings, type ReadinessCell, type Story, type StoryRehearsal } from '../types'
 import type { CategoryCoverage, CategoryQuota } from '../hunt'
 import { QuestionsTab } from './QuestionsTab'
@@ -20,7 +20,7 @@ import { AiTab } from './AiTab'
 import type { RoadmapProgress } from '../roadmap'
 import AnswerReview from './AnswerReview'
 import { FocusBar, ForecastCard, GatesCard, MissionCard, RevisionCard, WarHeader, WeaknessCard } from './WarRoom'
-import { blockQuota, dayPace, focusSeconds, istHourNow, paceLabel, paceStatus, practicedToday, type FocusSession, type Forecast, type RevisionItem, type TopicWeakness, type WarReadiness } from '../war'
+import { blockProgress, blockReached, canFinishBlock, dayPace, focusSeconds, focusedMinutes, istHourNow, paceLabel, paceStatus, practicedToday, type FocusSession, type Forecast, type RevisionItem, type TopicWeakness, type WarReadiness } from '../war'
 import PageHeader, { HeaderChip } from '@/components/PageHeader'
 import StatCard from '@/components/StatCard'
 
@@ -80,7 +80,9 @@ export default function PrepView(props: Props) {
   useEffect(() => { const t = setInterval(() => setTick(x => x + 1), 60_000); return () => clearInterval(t) }, [])
   // Today's answers per category (block progress).
   const doneToday: Record<string, number> = practicedToday(bank, props.today)
-  const pace = dayPace(session?.blocks ?? [], istHourNow(), doneToday)
+  // Question blocks are time boxes: focused minutes or answers × minutes per question.
+  const progressCtx = { answered: doneToday, focused: focusedMinutes(focusSessions, props.today) }
+  const pace = dayPace(session?.blocks ?? [], istHourNow(), progressCtx)
   const activeFocus = focusSessions.find(f => f.status === 'active') ?? null
   const upsertFocus = (f: FocusSession) => setFocusSessions(prev => [...prev.filter(x => x.id !== f.id), f])
 
@@ -106,8 +108,8 @@ export default function PrepView(props: Props) {
     setFocusEnded(null)
     startTransition(async () => { const f = await startFocusSession(key); if (f) upsertFocus(f) })
   }
-  // The server completes the session when its block turns done (quota met,
-  // ticked); mirror that locally the moment the plan comes back done.
+  // The server completes the session when its block turns done (minutes
+  // reached, ticked); mirror that locally the moment the plan comes back done.
   const activeBlock = activeFocus ? session?.blocks.find(b => b.key === activeFocus.block_key) ?? null : null
   useEffect(() => {
     if (!activeFocus || !activeBlock?.done) return
@@ -121,12 +123,19 @@ export default function PrepView(props: Props) {
     const t = setTimeout(() => setFocusEnded(null), 5000)
     return () => clearTimeout(t)
   }, [focusEnded])
-  // "3/7" for a question block.
-  const focusProgress = (() => {
-    if (!activeFocus || !activeFocus.block_key.startsWith('bank:')) return null
-    const quota = blockQuota(activeFocus)
-    return quota ? `${Math.min(doneToday[activeFocus.block_key.slice(5)] ?? 0, quota)}/${quota}` : null
-  })()
+  // A question block whose timer reaches its minutes finishes itself
+  // (checked on the minute tick, so at most a minute late).
+  const reachedByTime = !!activeFocus && !!activeBlock && !activeBlock.done && activeBlock.key.startsWith('bank:') && blockReached(activeBlock, progressCtx)
+  useEffect(() => {
+    if (!reachedByTime || !activeFocus) return
+    startTransition(async () => { const r = await endFocusSession(activeFocus.id, true); if (r.focus) upsertFocus(r.focus); if (r.session) setSession(r.session) })
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- fires once when the block's minutes are reached
+  }, [reachedByTime])
+  // "45m/1h 40m · 3 answered" for a question block.
+  const focusProgress = activeFocus && activeBlock?.key.startsWith('bank:')
+    ? `${Math.floor(blockProgress(activeBlock, progressCtx))}/${activeBlock.minutes}m · ${doneToday[activeBlock.key.slice(5)] ?? 0} answered`
+    : null
+  const canFinish = !activeBlock || canFinishBlock(activeBlock, progressCtx)
 
   const lastRound = rounds[0] ?? null
   const roundsThisWeek = rounds.filter(r => toISTDateStr(r.created_at) >= daysAgoIST(6)).length
@@ -155,7 +164,7 @@ export default function PrepView(props: Props) {
 
       {tab === 'today' && (
         <>
-          <WarHeader war={props.war} settings={props.settings} questionsPerDay={props.coverage.reduce((s, c) => s + ('quota' in c ? c.quota : 0), 0)} pace={pace} blocks={session?.blocks ?? []} restDay={props.restDay} />
+          <WarHeader war={props.war} settings={props.settings} questionMinutes={(session?.blocks ?? []).filter(b => b.key.startsWith('bank:')).reduce((s, b) => s + b.minutes, 0)} pace={pace} blocks={session?.blocks ?? []} restDay={props.restDay} />
           <div className="grid grid-cols-1 lg:grid-cols-[1fr_380px] gap-[var(--grid-gap)] items-start">
             <div className="space-y-[var(--grid-gap)]">
               <MissionCard session={session} focusSessions={todayFocus} doneToday={doneToday} onStart={startFocus} onOpen={openHref} />
@@ -202,7 +211,7 @@ export default function PrepView(props: Props) {
           onRehearsed={r => setRehearsals(prev => [r, ...prev])}
         />
       )}
-      <FocusBar focus={activeFocus} progress={focusProgress} ended={focusEnded} onChange={upsertFocus}
+      <FocusBar focus={activeFocus} progress={focusProgress} canFinish={canFinish} ended={focusEnded} onChange={upsertFocus}
         onGo={() => activeFocus && goToWork(activeFocus.block_key)}
         onEnded={(f, s) => { if (f) upsertFocus(f); if (s) setSession(s) }} />
     </div>
