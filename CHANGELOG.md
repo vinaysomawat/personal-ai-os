@@ -3,6 +3,10 @@
 One line per shipped change, newest first. Sourced from commit messages —
 append here whenever you deploy, same cadence as the version bump.
 
+## 2026-10-23
+
+- **STAR stories are off the daily plan.** The Story Bank is still there to practise whenever you like.
+
 ## 2026-10-22
 
 - **Question blocks are time boxes.** "Theme: RAG & retrieval · 1h 40m" instead of "× 12": a block ticks itself when you've put in its minutes, counted as time on its focus timer or answers × minutes per question, whichever is more. So one long system-design question no longer leaves a block behind, and Telegram drills and mock answers still count. Finish works from 80% of the time. Each block shows how many you answered, and ratings and readiness are unchanged.

@@ -44,9 +44,6 @@ export const BANK_CATEGORIES: { key: BankCategory; label: string; minutesPerQ: n
   // RAG, agentic RAG, agents, human-in-the-loop, evals, MCP & A2A, AI product UX.
   { key: 'ai-engineering', label: 'AI engineering', minutesPerQ: 8 },
 ]
-// STAR stories get 12% of the day while any competency has no solid story
-// (writing them is the job), 6% once all are covered.
-export const leadMinutes = (dayMinutes: number, storiesMissing: boolean) => Math.round(dayMinutes * (storiesMissing ? 0.12 : 0.06))
 
 export interface CategoryCoverage {
   key: BankCategory
@@ -151,7 +148,6 @@ export function buildHuntPlan(ctx: {
   hoursPerDay: number
   date: string
   coverage: CategoryCoverage[]
-  uncoveredCompetency: string | null
   // 0–1 readiness gap per category (war.ts) — picks the upkeep category.
   gaps?: Record<string, number>
   // Weakest theory topic, named in the Theory block.
@@ -177,13 +173,9 @@ export function buildHuntPlan(ctx: {
     detail: 'Timed, no notes. Run the one-click AI review after.',
     href: `/prep?tab=mock&format=${format}`, done: !!ctx.mockDoneToday,
   } : null
-  const stories: PrepBlock = {
-    key: 'lead', label: 'STAR stories', minutes: leadMinutes(dayMinutes, !!ctx.uncoveredCompetency),
-    detail: ctx.uncoveredCompetency ? `Write a STAR story for "${ctx.uncoveredCompetency}", then rehearse one out loud` : 'Rehearse 2 stories out loud and get feedback on one',
-    href: '/prep?tab=stories', done: false,
-  }
   // Question time = the day minus the fixed blocks (at least an hour).
-  const fixed = [redo, learn, build, mock, stories].reduce((s, b) => s + (b?.minutes ?? 0), 0)
+  // STAR stories aren't a daily block — the Story Bank tab is there any time.
+  const fixed = [redo, learn, build, mock].reduce((s, b) => s + (b?.minutes ?? 0), 0)
   const questionMinutes = Math.max(60, dayMinutes - fixed)
   const theme = themeFor(ctx.date)
   const drill = bankBlock(cov(theme.category), Math.round(questionMinutes * DRILL_SHARE), {
@@ -196,8 +188,8 @@ export function buildHuntPlan(ctx: {
     label: `Upkeep: ${BANK_CATEGORIES.find(c => c.key === upkeepKey)!.label}`,
     prefix: 'Frontend upkeep — ', focusTopic: ctx.focusTopic, gap: gap(upkeepKey),
   })
-  // Redo real interview questions → Learn → Build → themed drill → mock → upkeep → STAR stories.
-  const blocks = [redo, learn, build, drill, mock, upkeep, stories].filter((b): b is PrepBlock => !!b)
+  // Redo real interview questions → Learn → Build → themed drill → mock → upkeep.
+  const blocks = [redo, learn, build, drill, mock, upkeep].filter((b): b is PrepBlock => !!b)
   return { focus: `Interview War Mode · ${levelOf(ctx.hoursPerDay).label}`, blocks }
 }
 

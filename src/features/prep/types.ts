@@ -30,8 +30,8 @@ export interface StoryRehearsal {
 }
 
 export interface PrepBlock {
-  // Interview War Mode: 'bank:<category>', 'mock', 'lead', 'build' (older days
-  // also hold 'outreach', 'company:<applicationId>', 'fight:<area>', 'mock:<format>').
+  // Interview War Mode: 'bank:<category>', 'mock', 'learn', 'build' (older days
+  // also hold 'lead', 'outreach', 'company:<applicationId>', 'fight:<area>', 'mock:<format>').
   key: string
   label: string
   detail: string

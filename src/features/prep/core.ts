@@ -4,7 +4,6 @@ import type { MockRound } from './mock'
 import { BANK_CATEGORIES, DEFAULT_HOURS, buildHuntPlan, isRestDay, isRedoDue, type CategoryCoverage } from './hunt'
 import type { RoadmapProgress } from './roadmap'
 import { computeReadinessMatrix, type CodingHistoryRow } from './readiness'
-import { COMPETENCIES } from './types'
 import { blockProgress, blockReached, canFinishBlock, categoryGap, dayPace, focusedMinutes, minutesPerQuestion, type ProgressCtx, isGoodDay, focusSeconds, nowBlock, revisionQueue, topicWeakness, warReadiness, type FocusSession, type Forecast } from './war'
 import type { BankQuestion, PrepBlock, PrepSession, PrepSettings, Story, StoryRehearsal } from './types'
 
@@ -61,14 +60,11 @@ export async function loadPrepData(supabase: SupabaseClient, userId: string) {
   let sessions = (sessionsRes.data ?? []) as PrepSession[]
   let todaySession = sessions.find(s => s.date === today) ?? null
   if (!todaySession) {
-    const covered = new Set(stories.filter(s => (s.strength ?? 3) >= 3).flatMap(s => s.competencies))
-    const uncovered = COMPETENCIES.find(c => !covered.has(c.key))
     // Bank categories planned in the last three days — the upkeep rotation.
     const recentCategories = sessions.filter(s => s.date >= daysAgoIST(3) && s.date < today)
       .flatMap(s => s.blocks.filter(b => b.key.startsWith('bank:')).map(b => b.key.slice(5)))
     const plan = buildHuntPlan({
       hoursPerDay: settings.hours_per_day, date: today, coverage,
-      uncoveredCompetency: uncovered?.label ?? null,
       gaps: Object.fromEntries(BANK_CATEGORIES.map(c => [c.key, categoryGap(c.key, readiness)])),
       focusTopic: weakness.find(w => w.category === 'quiz')?.topic ?? null,
       mockDoneToday: mockRounds.some(r => toISTDateStr(r.created_at) === today),
