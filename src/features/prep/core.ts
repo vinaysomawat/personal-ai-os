@@ -60,15 +60,16 @@ export async function loadPrepData(supabase: SupabaseClient, userId: string) {
   let sessions = (sessionsRes.data ?? []) as PrepSession[]
   let todaySession = sessions.find(s => s.date === today) ?? null
   if (!todaySession) {
-    // Bank categories planned in the last three days — the upkeep rotation.
-    const recentCategories = sessions.filter(s => s.date >= daysAgoIST(3) && s.date < today)
-      .flatMap(s => s.blocks.filter(b => b.key.startsWith('bank:')).map(b => b.key.slice(5)))
+    // Bank categories planned on each of the last three days, newest first —
+    // the frontend slot rotation.
+    const recentByDay = [1, 2, 3].map(n => sessions.find(s => s.date === daysAgoIST(n))?.blocks
+      .filter(b => b.key.startsWith('bank:')).map(b => b.key.slice(5)) ?? [])
     const plan = buildHuntPlan({
       hoursPerDay: settings.hours_per_day, date: today, coverage,
       gaps: Object.fromEntries(BANK_CATEGORIES.map(c => [c.key, categoryGap(c.key, readiness)])),
       focusTopic: weakness.find(w => w.category === 'quiz')?.topic ?? null,
       mockDoneToday: mockRounds.some(r => toISTDateStr(r.created_at) === today),
-      interviewRedo, recentCategories,
+      interviewRedo, recentByDay,
       restDay: settings.rest_day,
     })
     const { data: inserted } = await supabase.from('prep_sessions')

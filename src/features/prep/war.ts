@@ -45,7 +45,7 @@ export interface Forecast {
 export const GATES: Record<ReadinessAreaKey, { gate: number; weight: number }> = {
   js: { gate: 80, weight: 10 },
   ts: { gate: 75, weight: 5 },
-  react: { gate: 80, weight: 10 },
+  react: { gate: 80, weight: 12 },
   css: { gate: 70, weight: 3 },
   a11y: { gate: 70, weight: 3 },
   perf: { gate: 75, weight: 5 },
@@ -53,12 +53,13 @@ export const GATES: Record<ReadinessAreaKey, { gate: number; weight: number }> =
   browser: { gate: 75, weight: 5 },
   sysdesign: { gate: 80, weight: 15 },
   ainative: { gate: 75, weight: 10 },
-  uicoding: { gate: 80, weight: 8 },
+  uicoding: { gate: 80, weight: 12 },
   dsa: { gate: 70, weight: 5 },
-  backend: { gate: 70, weight: 10 },
+  // Backend and AI follow the day's split (60% frontend · 28% AI · 12%
+  // backend): real gates, but frontend areas weigh most.
+  backend: { gate: 60, weight: 5 },
   aiassisted: { gate: 75, weight: 8 },
-  // The AI Product Engineer target: AI engineering is a core gate.
-  aieng: { gate: 75, weight: 12 },
+  aieng: { gate: 70, weight: 10 },
   behavioral: { gate: 80, weight: 5 },
   leadership: { gate: 75, weight: 3 },
 }

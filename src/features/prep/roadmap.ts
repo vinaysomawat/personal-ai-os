@@ -95,10 +95,11 @@ export function roadmapWeek(date: string): RoadmapWeek | null {
   return ROADMAP[Math.floor(days / 7)] ?? null
 }
 
-// Build time per load level: Light 60 · Steady 120 · Intense 150 minutes.
-export const buildMinutes = (hoursPerDay: number) => hoursPerDay <= 4 ? 60 : hoursPerDay <= 6 ? 120 : 150
-// Learn time per load level: Light 20 · Steady 30 · Intense 40 minutes.
-export const learnMinutes = (hoursPerDay: number) => hoursPerDay <= 4 ? 20 : hoursPerDay <= 6 ? 30 : 40
+// Build time per load level: Light 40 · Steady 55 · Intense 70 minutes.
+export const buildMinutes = (hoursPerDay: number) => hoursPerDay <= 4 ? 40 : hoursPerDay <= 6 ? 55 : 70
+// Learn time per load level: Light 10 · Steady 15 · Intense 20 minutes. Both
+// come out of the day's AI share (hunt.ts DAY_SPLIT).
+export const learnMinutes = (hoursPerDay: number) => hoursPerDay <= 4 ? 10 : hoursPerDay <= 6 ? 15 : 20
 
 // Read the week's concept before building it. Ticked by FocusBar Finish.
 export function learnBlock(date: string, hoursPerDay: number): PrepBlock | null {

@@ -96,18 +96,29 @@ export const DEFAULT_HOURS = 6
 export const levelOf = (hours: number): Level =>
   LEVELS.reduce((best, l) => Math.abs(l.hours - hours) < Math.abs(best.hours - hours) ? l : best, LEVELS[1] as Level)
 
-// Frontend upkeep: one of these a day, the weakest not used in the last
-// three days (and not the one today's mock already practises).
-export const UPKEEP_CATEGORIES: BankCategory[] = ['quiz', 'javascript-functions', 'ui-coding', 'system-design', 'architecture', 'code-review', 'ai-native', 'algorithm']
-const MOCK_PRACTISES: Record<string, BankCategory> = { 'machine-coding': 'ui-coding', 'system-design': 'system-design' }
-export function pickUpkeep(gaps: Record<string, number>, recent: string[], mockFormat: string | null): BankCategory {
-  const allowed = UPKEEP_CATEGORIES.filter(c => c !== (mockFormat ? MOCK_PRACTISES[mockFormat] : undefined))
-  const fresh = allowed.filter(c => !recent.includes(c))
+// The day's split (everything except the interview-redo block and the
+// behavioral mock): 60% frontend, 40% backend + AI — of which 70% AI
+// (Learn, Build, the week's themed drill, the AI system design mock) and
+// 30% backend. Senior frontend first; AI product engineering as the edge.
+export const DAY_SPLIT = { frontend: 0.6, ai: 0.4 * 0.7, backend: 0.4 * 0.3 } as const
+
+// Frontend gets three blocks a day — what senior frontend loops test:
+// coding 40%, system design / architecture 30%, theory quick-fire 30%. Each
+// picks the weakest category of its group not planned in the last days
+// (group size − 1 days, so the group rotates).
+export const FRONTEND_SLOTS: { key: 'coding' | 'design' | 'theory'; label: string; share: number; categories: BankCategory[] }[] = [
+  { key: 'coding', label: 'Frontend coding', share: 0.4, categories: ['ui-coding', 'javascript-functions', 'algorithm'] },
+  { key: 'design', label: 'Frontend design', share: 0.3, categories: ['system-design', 'architecture'] },
+  { key: 'theory', label: 'Frontend theory', share: 0.3, categories: ['quiz', 'code-review', 'ai-native'] },
+]
+// A frontend mock that day stands in for its slot.
+const MOCK_SLOT: Record<string, 'coding' | 'design'> = { 'machine-coding': 'coding', 'system-design': 'design' }
+export function pickFrom(categories: BankCategory[], gaps: Record<string, number>, recentByDay: string[][]): BankCategory {
+  const recent = recentByDay.slice(0, categories.length - 1).flat()
+  const fresh = categories.filter(c => !recent.includes(c))
   // Stable sort keeps list order on ties.
-  return [...(fresh.length ? fresh : allowed)].sort((a, b) => (gaps[b] ?? 0) - (gaps[a] ?? 0))[0]
+  return [...(fresh.length ? fresh : categories)].sort((a, b) => (gaps[b] ?? 0) - (gaps[a] ?? 0))[0]
 }
-// Question time after the fixed blocks: 60% themed drill, 40% upkeep.
-export const DRILL_SHARE = 0.6
 
 function bankDetail(key: BankCategory, quota: number, focusTopic: string | null | undefined): string {
   const cat = BANK_CATEGORIES.find(c => c.key === key)!
@@ -155,8 +166,9 @@ export function buildHuntPlan(ctx: {
   mockDoneToday?: boolean
   // Interview-category questions rated under 7 (§4.1) — lead the day.
   interviewRedo?: number
-  // Bank categories planned in the last three days' sessions (upkeep rotation).
-  recentCategories?: string[]
+  // Bank categories planned in each of the last days' sessions, newest
+  // first (frontend slot rotation).
+  recentByDay?: string[][]
   // prep_settings.rest_day: that weekday's plan is empty.
   restDay: number
 }): { focus: string; blocks: PrepBlock[] } {
@@ -173,23 +185,45 @@ export function buildHuntPlan(ctx: {
     detail: 'Timed, no notes. Run the one-click AI review after.',
     href: `/prep?tab=mock&format=${format}`, done: !!ctx.mockDoneToday,
   } : null
-  // Question time = the day minus the fixed blocks (at least an hour).
-  // STAR stories aren't a daily block — the Story Bank tab is there any time.
-  const fixed = [redo, learn, build, mock].reduce((s, b) => s + (b?.minutes ?? 0), 0)
-  const questionMinutes = Math.max(60, dayMinutes - fixed)
+  // The split covers the day minus the redo block and a behavioral mock.
+  const neutral = (redo?.minutes ?? 0) + (format === 'behavioral' ? mock!.minutes : 0)
+  const day = Math.max(120, dayMinutes - neutral)
+  const feMinutes = Math.round(day * DAY_SPLIT.frontend)
+  const aiMinutes = Math.round(day * DAY_SPLIT.ai)
+  const backendMinutes = day - feMinutes - aiMinutes
+  const recent = ctx.recentByDay ?? []
+
+  // AI: Learn + Build + the week's themed drill (an AI system design mock
+  // takes the drill's place).
   const theme = themeFor(ctx.date)
-  const drill = bankBlock(cov(theme.category), Math.round(questionMinutes * DRILL_SHARE), {
+  const aiMock = format === 'ai-system-design' ? mock!.minutes : 0
+  const drillMinutes = aiMinutes - (learn?.minutes ?? 0) - (build?.minutes ?? 0) - aiMock
+  // Backend: its own block; a backend-themed week folds the drill into it.
+  const backendBudget = backendMinutes + (theme.category === 'backend' ? Math.max(0, drillMinutes) : 0)
+  const drill = theme.category !== 'backend' && drillMinutes >= 15 ? bankBlock(cov(theme.category), drillMinutes, {
     label: theme.topics.length ? `Theme: ${theme.topics.join(' + ')}` : undefined,
     prefix: theme.topics.length ? `This week's theme (${theme.topics.join(', ')}) — ` : "This week's theme — ",
     topic: theme.topics[0], gap: gap(theme.category),
+  }) : null
+  const backend = bankBlock(cov('backend'), backendBudget, {
+    label: theme.category === 'backend' && theme.topics.length ? `Backend: ${theme.topics.join(' + ')}` : 'Backend & APIs',
+    prefix: theme.category === 'backend' && theme.topics.length ? `This week's theme (${theme.topics.join(', ')}) — ` : 'Backend — ',
+    topic: theme.category === 'backend' ? theme.topics[0] : undefined, gap: gap('backend'),
   })
-  const upkeepKey = pickUpkeep(ctx.gaps ?? {}, ctx.recentCategories ?? [], format)
-  const upkeep = bankBlock(cov(upkeepKey), questionMinutes - Math.round(questionMinutes * DRILL_SHARE), {
-    label: `Upkeep: ${BANK_CATEGORIES.find(c => c.key === upkeepKey)!.label}`,
-    prefix: 'Frontend upkeep — ', focusTopic: ctx.focusTopic, gap: gap(upkeepKey),
+
+  // Frontend: coding, design and theory, weakest first; a frontend mock
+  // stands in for its slot.
+  const mockSlot = format ? MOCK_SLOT[format] : undefined
+  const frontend = FRONTEND_SLOTS.filter(slot => slot.key !== mockSlot).map(slot => {
+    const key = pickFrom(slot.categories, ctx.gaps ?? {}, recent)
+    return bankBlock(cov(key), Math.round(feMinutes * slot.share), {
+      label: `${slot.label}: ${BANK_CATEGORIES.find(c => c.key === key)!.label}`,
+      prefix: '', focusTopic: key === 'quiz' ? ctx.focusTopic : null, gap: gap(key),
+    })
   })
-  // Redo real interview questions → Learn → Build → themed drill → mock → upkeep.
-  const blocks = [redo, learn, build, drill, mock, upkeep].filter((b): b is PrepBlock => !!b)
+  // Redo real interview questions → frontend (coding, design, theory) →
+  // mock → Learn → Build → themed drill → backend.
+  const blocks = [redo, ...frontend, mock, learn, build, drill, backend].filter((b): b is PrepBlock => !!b)
   return { focus: `Interview War Mode · ${levelOf(ctx.hoursPerDay).label}`, blocks }
 }
 
