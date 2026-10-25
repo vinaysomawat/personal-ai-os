@@ -4,10 +4,11 @@ import { formatMinutes, formatOf, mockFormatForDay } from './mock'
 import { buildBlock, learnBlock, themeFor } from './roadmap'
 
 // Interview War Mode — a deterministic full-day plan sized to the daily load
-// level (Light 4h · Steady 6h · Intense 8h), built around the week's theme:
-// Learn → Build → a themed drill on what you're building → (mock, 3 days a
-// week) → one frontend upkeep category → STAR stories. Question quotas are
-// what fits in each block's minutes at the category's time per question.
+// level (Light 4h · Steady 6h · Intense 8h), split 60% frontend · 28% AI ·
+// 12% backend (DAY_SPLIT): three frontend blocks (coding, design, theory) →
+// (mock, 3 days a week) → Learn → Build → a themed drill on what you're
+// building → backend. Question quotas are what fits in each block's minutes
+// at the category's time per question.
 
 export type BankCategory = 'interview' | 'quiz' | 'angular' | 'ai-native' | 'behavioral' | 'javascript-functions' | 'ui-coding' | 'system-design' | 'algorithm' | 'backend' | 'code-review' | 'resume' | 'architecture' | 'ai-engineering'
 
@@ -159,7 +160,7 @@ export function buildHuntPlan(ctx: {
   hoursPerDay: number
   date: string
   coverage: CategoryCoverage[]
-  // 0–1 readiness gap per category (war.ts) — picks the upkeep category.
+  // 0–1 readiness gap per category (war.ts) — picks each frontend slot's category.
   gaps?: Record<string, number>
   // Weakest theory topic, named in the Theory block.
   focusTopic?: string | null
@@ -214,9 +215,14 @@ export function buildHuntPlan(ctx: {
   // Frontend: coding, design and theory, weakest first; a frontend mock
   // stands in for its slot.
   const mockSlot = format ? MOCK_SLOT[format] : undefined
-  const frontend = FRONTEND_SLOTS.filter(slot => slot.key !== mockSlot).map(slot => {
+  const slots = FRONTEND_SLOTS.filter(slot => slot.key !== mockSlot)
+  // A mock shorter than the slot it replaces hands the rest to the others.
+  const replaced = FRONTEND_SLOTS.find(slot => slot.key === mockSlot)
+  const leftover = replaced ? Math.max(0, Math.round(feMinutes * replaced.share) - mock!.minutes) : 0
+  const slotShare = slots.reduce((sum, slot) => sum + slot.share, 0)
+  const frontend = slots.map(slot => {
     const key = pickFrom(slot.categories, ctx.gaps ?? {}, recent)
-    return bankBlock(cov(key), Math.round(feMinutes * slot.share), {
+    return bankBlock(cov(key), Math.round(feMinutes * slot.share + leftover * (slot.share / slotShare)), {
       label: `${slot.label}: ${BANK_CATEGORIES.find(c => c.key === key)!.label}`,
       prefix: '', focusTopic: key === 'quiz' ? ctx.focusTopic : null, gap: gap(key),
     })

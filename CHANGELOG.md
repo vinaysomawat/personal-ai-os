@@ -5,6 +5,7 @@ append here whenever you deploy, same cadence as the version bump.
 
 ## 2026-10-23
 
+- **The day is 60% frontend.** Every plan now splits 60% frontend, 28% AI and 12% backend. Frontend gets three blocks a day (coding, design and theory, weakest first, rotating), Learn and Build are shorter (Steady: 15 and 55 min), and backend has its own block. Thursday's mock alternates between frontend and AI system design. In readiness, frontend areas now count most, and the backend and AI gates are lower (60 and 70).
 - **STAR stories are off the daily plan.** The Story Bank is still there to practise whenever you like.
 
 ## 2026-10-22
