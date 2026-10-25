@@ -5,6 +5,7 @@ append here whenever you deploy, same cadence as the version bump.
 
 ## 2026-10-23
 
+- **The AI roadmap is 11 weeks, built UI-first.** Backend gaps and queues are now one week (1), and MCP and its auth are another (9). Each week's build now leads with the frontend of the feature: a streaming chat UI, citation chips, a live tool-call timeline, approve/reject cards. Weeks 6 and 7 no longer point at the removed job-hunt pipeline.
 - **The day is 60% frontend.** Every plan now splits 60% frontend, 28% AI and 12% backend. Frontend gets three blocks a day (coding, design and theory, weakest first, rotating), Learn and Build are shorter (Steady: 15 and 55 min), and backend has its own block. Thursday's mock alternates between frontend and AI system design. In readiness, frontend areas now count most, and the backend and AI gates are lower (60 and 70).
 - **STAR stories are off the daily plan.** The Story Bank is still there to practise whenever you like.
 

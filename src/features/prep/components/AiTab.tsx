@@ -8,7 +8,7 @@ import { BUILD_START, ROADMAP, THEMES, roadmapWeek, type RoadmapProgress } from 
 import { saveRoadmapWeek, undoRoadmapWeek } from '../actions'
 import type { BankQuestion } from '../types'
 
-// AI Engineer tab: the 13-week Build roadmap with proof per shipped week,
+// AI Engineer tab: the 11-week Build roadmap with proof per shipped week,
 // this week's theme, and mastery per AI-engineering topic. All
 // deterministic — no AI.
 
@@ -70,10 +70,10 @@ export function AiTab({ today, progress, setProgress, bank, onOpenTopic }: {
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-[1fr_340px] gap-[var(--grid-gap)] items-start">
-      <Card title={`Roadmap · ${current >= 1 && current <= 13 ? `week ${current} of 13` : current === 0 ? 'starts soon' : 'finished'}`}
-        action={<span className="text-[11px] text-fg-tertiary tabular-nums">{done.size}/13 shipped · {[...done.values()].filter(p => p.proof_url).length} with proof</span>}>
+      <Card title={`Roadmap · ${current >= 1 && current <= ROADMAP.length ? `week ${current} of ${ROADMAP.length}` : current === 0 ? 'starts soon' : 'finished'}`}
+        action={<span className="text-[11px] text-fg-tertiary tabular-nums">{done.size}/{ROADMAP.length} shipped · {[...done.values()].filter(p => p.proof_url).length} with proof</span>}>
         <div className="h-[5px] rounded-[3px] bg-border mb-2.5">
-          <div className="h-full rounded-[3px] bg-good transition-all" style={{ width: `${(done.size / 13) * 100}%` }} />
+          <div className="h-full rounded-[3px] bg-good transition-all" style={{ width: `${(done.size / ROADMAP.length) * 100}%` }} />
         </div>
         <ol className="flex flex-col gap-1">
           {ROADMAP.map(w => {
@@ -134,7 +134,7 @@ export function AiTab({ today, progress, setProgress, bank, onOpenTopic }: {
               )}
             </>
           ) : (
-            <p className="text-[12px] text-fg-secondary">{current === 0 ? `The roadmap starts ${fmt(weekStart(1))}.` : 'All 13 weeks are behind you — the daily drill now covers any AI-engineering topic.'}</p>
+            <p className="text-[12px] text-fg-secondary">{current === 0 ? `The roadmap starts ${fmt(weekStart(1))}.` : `All ${ROADMAP.length} weeks are behind you — the daily drill now covers any AI-engineering topic.`}</p>
           )}
         </Card>
 

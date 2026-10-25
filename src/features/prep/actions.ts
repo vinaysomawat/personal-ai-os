@@ -9,7 +9,7 @@ import { COMPETENCIES } from './types'
 import type { PrepSession, Story, StoryRehearsal } from './types'
 import { endFocus, loadPrepData, startFocus, syncBankBlocks, toggleFocusPause } from './core'
 import type { FocusSession } from './war'
-import type { RoadmapProgress } from './roadmap'
+import { ROADMAP, type RoadmapProgress } from './roadmap'
 import { critiqueFollowUp, critiqueQuestion, critiqueStory, modelAnswer, SPOKEN_NOTE } from './critique'
 import type { Rubric, Scorecard } from './scorecard'
 import { speechStats } from '@/lib/speech-stats'
@@ -318,7 +318,7 @@ export async function saveRoadmapWeek(week: number, input: { proof_url: string; 
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) throw new Error('Not authenticated')
-  if (!Number.isInteger(week) || week < 1 || week > 13) throw new Error('Unknown week')
+  if (!Number.isInteger(week) || week < 1 || week > ROADMAP.length) throw new Error('Unknown week')
   const url = input.proof_url.trim()
   if (url && !/^https?:\/\//i.test(url)) throw new Error('Proof link must start with http:// or https://')
   const { data, error } = await supabase.from('roadmap_progress')
