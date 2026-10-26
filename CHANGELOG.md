@@ -3,6 +3,11 @@
 One line per shipped change, newest first. Sourced from commit messages —
 append here whenever you deploy, same cadence as the version bump.
 
+## 2026-10-26
+
+- **"Asked in interviews" removed from Prep.** The Questions tab no longer has it, the day no longer starts with a "Redo real interview questions" block (those minutes go to the normal frontend / AI / backend split), and "drill interview" is gone from the Daily bot. The questions stay in the database, and their old ratings still count toward readiness.
+- **Coverage shows your overall %.** The Questions tab's Coverage card leads with how much of the bank you've seen (e.g. 33%) in the accent color, with an overall bar above the per-category ones.
+
 ## 2026-10-23
 
 - **The AI roadmap is 11 weeks, built UI-first.** Backend gaps and queues are now one week (1), and MCP and its auth are another (9). Each week's build now leads with the frontend of the feature: a streaming chat UI, citation chips, a live tool-call timeline, approve/reject cards. Weeks 6 and 7 no longer point at the removed job-hunt pipeline.

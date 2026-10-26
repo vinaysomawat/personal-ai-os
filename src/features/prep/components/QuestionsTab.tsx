@@ -163,6 +163,7 @@ export function QuestionsTab({ bank, setBank, topic, onTopicChange: setTopic, co
     return { total: qs.length, seen, leftMinutes: (qs.length - seen) * minutesPerQ }
   }
   const totals = BANK_CATEGORIES.reduce((acc, c) => { const s = stats(c.key); return { seen: acc.seen + s.seen, total: acc.total + s.total, leftMinutes: acc.leftMinutes + s.leftMinutes } }, { seen: 0, total: 0, leftMinutes: 0 })
+  const totalPct = totals.total ? Math.round((totals.seen / totals.total) * 100) : 0
   // Time to answer every unseen question once, at the plan's minutes per question.
   const hrs = (min: number) => `${Math.ceil(min / 60)}h`
 
@@ -306,7 +307,10 @@ export function QuestionsTab({ bank, setBank, topic, onTopicChange: setTopic, co
         )}
       </Card>
 
-      <Card title="Coverage" action={<span className="text-[11px] text-fg-tertiary tabular-nums">{totals.seen}/{totals.total} seen · ≈ {hrs(totals.leftMinutes)}</span>}>
+      <Card title="Coverage" action={<span className="text-[11px] text-fg-tertiary tabular-nums"><span className="text-[12.5px] font-semibold text-accent">{totalPct}%</span> · {totals.seen}/{totals.total} seen · ≈ {hrs(totals.leftMinutes)}</span>}>
+        <div className="h-[7px] rounded-[3px] bg-border mb-3 flex overflow-hidden">
+          <div className="h-full bg-accent" style={{ width: `${totalPct}%` }} />
+        </div>
         <ul className="flex flex-col gap-2.5">
           {BANK_CATEGORIES.map(c => {
             const s = stats(c.key)

@@ -54,7 +54,6 @@ export async function loadPrepData(supabase: SupabaseClient, userId: string) {
     bank.filter(q => q.last_rating !== null).map(q => ({ category: q.category, topics: q.topics, rating: q.last_rating! })))
   // Empty (not an error) until the mock_rounds migration has run.
   const mockRounds = (mockRes.data ?? []) as MockRound[]
-  const interviewRedo = bank.filter(q => q.category === 'interview' && q.last_rating !== null && q.last_rating < 7).length
   const weakness = topicWeakness(bank, today)
 
   let sessions = (sessionsRes.data ?? []) as PrepSession[]
@@ -69,7 +68,7 @@ export async function loadPrepData(supabase: SupabaseClient, userId: string) {
       gaps: Object.fromEntries(BANK_CATEGORIES.map(c => [c.key, categoryGap(c.key, readiness)])),
       focusTopic: weakness.find(w => w.category === 'quiz')?.topic ?? null,
       mockDoneToday: mockRounds.some(r => toISTDateStr(r.created_at) === today),
-      interviewRedo, recentByDay,
+      recentByDay,
       restDay: settings.rest_day,
     })
     const { data: inserted } = await supabase.from('prep_sessions')

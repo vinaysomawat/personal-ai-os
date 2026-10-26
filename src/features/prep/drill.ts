@@ -11,7 +11,7 @@ import type { BankQuestion } from './types'
 // the rating also lands in question_progress like a Question Bank answer.
 
 // Categories that make sense answered out loud — coding categories don't.
-const SPOKEN = ['behavioral', 'ai-native', 'system-design', 'quiz', 'angular', 'backend', 'interview', 'resume', 'architecture', 'ai-engineering'] as const
+const SPOKEN = ['behavioral', 'ai-native', 'system-design', 'quiz', 'angular', 'backend', 'resume', 'architecture', 'ai-engineering'] as const
 const ALIASES: [RegExp, string][] = [
   [/\brag\b|agent|llm|vector|embedding|hitl|langchain|llama.?index|ai.?eng/i, 'ai-engineering'],
   [/resume|\bcv\b|experience/i, 'resume'],
@@ -19,7 +19,6 @@ const ALIASES: [RegExp, string][] = [
   [/backend|\bapis?\b|server|node|database|\bdb\b/i, 'backend'],
   [/system|design|hld/i, 'system-design'],
   [/behaviou?ral|\bfit\b|\bhr\b|story/i, 'behavioral'],
-  [/interview|real|asked/i, 'interview'],
   [/\bai\b/i, 'ai-native'],
   [/angular/i, 'angular'],
   [/theory|quiz|js|react|frontend/i, 'quiz'],
@@ -42,7 +41,7 @@ function pickQuestion(bank: BankQuestion[], category: string, skip: Set<string>)
 export async function startDrill(db: SupabaseClient, userId: string, requested: string | null): Promise<string> {
   const data = await loadPrepData(db, userId)
   // Default: the spoken category with the biggest readiness gap.
-  const category = requested ?? [...SPOKEN].filter(c => c !== 'interview')
+  const category = requested ?? [...SPOKEN]
     .sort((a, b) => categoryGap(b, data.readiness) - categoryGap(a, data.readiness))[0]
   const { data: recent } = await db.from('telegram_drills').select('question_id').eq('user_id', userId)
     .gte('asked_at', new Date(Date.now() - 7 * 86400_000).toISOString())

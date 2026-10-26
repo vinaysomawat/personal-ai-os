@@ -10,13 +10,10 @@ import { buildBlock, learnBlock, themeFor } from './roadmap'
 // building → backend. Question quotas are what fits in each block's minutes
 // at the category's time per question.
 
-export type BankCategory = 'interview' | 'quiz' | 'angular' | 'ai-native' | 'behavioral' | 'javascript-functions' | 'ui-coding' | 'system-design' | 'algorithm' | 'backend' | 'code-review' | 'resume' | 'architecture' | 'ai-engineering'
+export type BankCategory = 'quiz' | 'angular' | 'ai-native' | 'behavioral' | 'javascript-functions' | 'ui-coding' | 'system-design' | 'algorithm' | 'backend' | 'code-review' | 'resume' | 'architecture' | 'ai-engineering'
 
 // Question Bank categories and the minutes one question takes.
 export const BANK_CATEGORIES: { key: BankCategory; label: string; minutesPerQ: number }[] = [
-  // Questions real interviewers asked (v4.0 §4.1) — their own "redo" block
-  // while any is rated under 7.
-  { key: 'interview', label: 'Asked in interviews', minutesPerQ: 10 },
   // Machine coding: build a component from scratch, timed (the #1 round at
   // Indian product companies).
   { key: 'ui-coding', label: 'UI coding', minutesPerQ: 45 },
@@ -165,8 +162,6 @@ export function buildHuntPlan(ctx: {
   // Weakest theory topic, named in the Theory block.
   focusTopic?: string | null
   mockDoneToday?: boolean
-  // Interview-category questions rated under 7 (§4.1) — lead the day.
-  interviewRedo?: number
   // Bank categories planned in each of the last days' sessions, newest
   // first (frontend slot rotation).
   recentByDay?: string[][]
@@ -178,7 +173,6 @@ export function buildHuntPlan(ctx: {
   const format = mockFormatForDay(ctx.date)
   const gap = (key: string) => ctx.gaps?.[key] ?? 0
   const cov = (key: BankCategory) => ctx.coverage.find(c => c.key === key)!
-  const redo = interviewRedoBlock(ctx.interviewRedo ?? 0)
   const learn = learnBlock(ctx.date, ctx.hoursPerDay)
   const build = buildBlock(ctx.date, ctx.hoursPerDay)
   const mock: PrepBlock | null = format ? {
@@ -186,8 +180,8 @@ export function buildHuntPlan(ctx: {
     detail: 'Timed, no notes. Run the one-click AI review after.',
     href: `/prep?tab=mock&format=${format}`, done: !!ctx.mockDoneToday,
   } : null
-  // The split covers the day minus the redo block and a behavioral mock.
-  const neutral = (redo?.minutes ?? 0) + (format === 'behavioral' ? mock!.minutes : 0)
+  // The split covers the day minus a behavioral mock.
+  const neutral = format === 'behavioral' ? mock!.minutes : 0
   const day = Math.max(120, dayMinutes - neutral)
   const feMinutes = Math.round(day * DAY_SPLIT.frontend)
   const aiMinutes = Math.round(day * DAY_SPLIT.ai)
@@ -227,22 +221,10 @@ export function buildHuntPlan(ctx: {
       prefix: '', focusTopic: key === 'quiz' ? ctx.focusTopic : null, gap: gap(key),
     })
   })
-  // Redo real interview questions → frontend (coding, design, theory) →
-  // mock → Learn → Build → themed drill → backend.
-  const blocks = [redo, ...frontend, mock, learn, build, drill, backend].filter((b): b is PrepBlock => !!b)
+  // Frontend (coding, design, theory) → mock → Learn → Build → themed
+  // drill → backend.
+  const blocks = [...frontend, mock, learn, build, drill, backend].filter((b): b is PrepBlock => !!b)
   return { focus: `Interview War Mode · ${levelOf(ctx.hoursPerDay).label}`, blocks }
-}
-
-// "Redo real interview questions": 10 min per question rated under 7, at most 4 a day.
-export const INTERVIEW_REDO_MAX = 4
-export function interviewRedoBlock(lowRated: number): PrepBlock | null {
-  const n = Math.min(INTERVIEW_REDO_MAX, lowRated)
-  if (n === 0) return null
-  return {
-    key: 'bank:interview', label: 'Redo real interview questions', minutes: n * 10,
-    detail: `${n} question${n === 1 ? '' : 's'} real interviewers asked you that went badly or ok — answer them again out loud, get the AI rating, aim for 7+`,
-    href: '/prep?tab=questions&cat=interview', done: false,
-  }
 }
 
 // Interview War Mode is always on (there is no target date to switch it off
