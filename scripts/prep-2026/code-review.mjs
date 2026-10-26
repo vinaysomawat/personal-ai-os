@@ -1,5 +1,6 @@
-// Code review practice (category 'code-review') — 15 "AI-generated PR"
-// diffs (body = the diff, from ./code-review/*.diff). answer_hints = the
+// Code review practice (category 'code-review') — 37 "AI-generated PR"
+// diffs: React / Next.js / Node / CSS (01–15, 24–30), Angular (16–23) and
+// FE lead & architecture (31–37) (body = the diff, from ./code-review/*.diff). answer_hints = the
 // planted issues; the code-review scorecard grades how many you found, how
 // you prioritized them and how good your fixes are.
 import { readFileSync } from 'node:fs'
@@ -121,6 +122,176 @@ const ROWS = [
     'no consent check, no batching or sendBeacon, and fetch failures are unhandled',
     'inconsistent event naming ("Page View" vs "checkout_clicked"), define a typed event schema',
     'no Content-Type header on the JSON body',
+  ]),
+  // Angular (17–19: standalone, control flow, signals, functional interceptors and guards).
+  q('16-ng-customer-dashboard', 'Review PR #702: Angular customer dashboard with live polling', 'medium', ['Angular', 'RxJS'], [
+    'subscriptions are never torn down (paramMap, inner calls), they leak and keep firing after navigating away, use takeUntilDestroyed or the async pipe',
+    'nested subscribes instead of switchMap: switching customers quickly lets an older response overwrite the newer one',
+    'setInterval is never cleared, keeps polling after destroy, and its first tick can run before customer is loaded (this.customer.id throws)',
+    'no error handling: one failed request leaves the page half-loaded with no error state',
+    'totals are derived state stored separately: the poll updates orders but not totals, compute them (computed signal or in the pipe)',
+    'any types for customer and orders hide shape mistakes',
+  ]),
+  q('17-ng-task-board', 'Review PR #709: OnPush Angular task board', 'medium', ['Angular', 'Performance'], [
+    'mutates @Input data in place (tasks.push, task.done =): OnPush children keep the same reference and do not re-render, and the parent owns the state',
+    'emits the same array reference in tasksChange, so the parent sees no change, emit a new array',
+    'track $index: adding or reordering re-creates or mismatches cards, track task.id',
+    'formatLabel() and completedCount() are called from the template on every change detection run, use computed signals, a pure pipe or precomputed values',
+    'clickable div card with a decorative checkbox: not keyboard-operable and the checkbox state is not announced correctly',
+  ]),
+  q('18-ng-signals-search', 'Review PR #716: migrate Angular product search to signals', 'medium', ['Angular', 'Signals'], [
+    'derived state written from an effect (results.set inside effect): use computed(), effects are for side effects and this adds extra change detection and glitches',
+    'api.all() is subscribed twice (toSignal and total$ with the async pipe), two HTTP requests that can disagree, derive total with computed from products',
+    'logSearch fires an HTTP call on every keystroke with no debounce, and the subscribe() is never cleaned up',
+    'localStorage in an effect breaks under SSR, guard with isPlatformBrowser or afterNextRender',
+    '$any($event.target) throws away typing, and the search input has no label',
+  ]),
+  q('19-ng-auth-interceptor', 'Review PR #723: Angular auth interceptor with token refresh', 'hard', ['Angular', 'Security', 'RxJS'], [
+    'token leak: the Authorization header is added to every request, including the CDN, analytics and S3 pre-signed URLs, only attach it for your API origin',
+    'infinite loop: the refresh call goes through the interceptor too, and a retried request that 401s again refreshes again, skip the refresh URL and retry once',
+    'concurrent 401s each start their own refresh (no shared in-flight refresh with shareReplay), so rotating refresh tokens invalidate each other',
+    'sends "Bearer null" when there is no token',
+    'logs the Authorization header',
+    'access token in localStorage is readable by any XSS, prefer an HttpOnly cookie or memory',
+  ]),
+  q('20-ng-comment-preview', 'Review PR #731: Angular Markdown comment preview', 'hard', ['Angular', 'Security'], [
+    'XSS: bypassSecurityTrustHtml on user Markdown turns off Angular sanitization, sanitize with DOMPurify or keep Angular\'s [innerHTML] sanitizer',
+    'authorUrl is concatenated into HTML unescaped: javascript: URLs and attribute breakout, and target="_blank" without rel="noopener noreferrer"',
+    'direct DOM access (nativeElement.innerHTML, querySelectorAll) bypasses Angular and breaks SSR, bind {{ markdown.length }} in the template instead',
+    'click listeners are added once in ngAfterViewInit: links rendered by later changes get none, they are never removed, and each click opens the link twice (default + window.open)',
+    'the counter is empty on the first change because @ViewChild is not set yet in the first ngOnChanges',
+  ]),
+  q('21-ng-signup-form', 'Review PR #738: Angular signup form with plan-based validation', 'medium', ['Angular', 'Forms', 'Accessibility'], [
+    'matchPassword is passed unbound, so this is undefined inside the validator, and as a control validator it does not re-run when password changes, put a cross-field validator on the FormGroup',
+    'email has no required or email validators',
+    'submit ignores form.valid, does not markAllAsTouched, has no pending or double-submit guard, and ignores errors',
+    'valueChanges subscription never ends, setValidators without updateValueAndValidity, and the required validator is never removed when switching back to free',
+    'placeholders instead of labels, errors not linked with aria-describedby or aria-invalid, and the mismatch error shows before the field is touched',
+  ]),
+  q('22-ng-routes-guard', 'Review PR #744: Angular admin guard and invoice edit route', 'hard', ['Angular', 'Security', 'Routing'], [
+    'the admin guard only checks logged in, not the admin role, and route guards are UX only, the API must enforce authorization',
+    'the resolver swallows errors as null and the component then crashes on this.invoice.amount, redirect to a 404 or return a UrlTree',
+    'inject() inside save() runs outside an injection context (NG0203), inject the services as fields',
+    'snapshot.data does not update when the router reuses the component for another invoice id, use the data observable or withComponentInputBinding',
+    'no canDeactivate guard, unsaved edits are lost on navigation',
+    'isLoggedIn() answers synchronously while the session is still loading, so a refresh on /admin can bounce a logged-in user',
+  ]),
+  q('23-ng-cart-store', 'Review PR #751: Angular CartStore service with live prices', 'hard', ['Angular', 'RxJS', 'State'], [
+    'public BehaviorSubject: any component can next() it, expose a read-only observable or signal and intent methods',
+    'add() mutates .value without next(), so subscribers never hear about it',
+    'remove(): findIndex returns -1 for an unknown id and splice(-1, 1) removes the last item',
+    'in-place mutation then next() with the same array reference breaks OnPush and distinctUntilChanged consumers, emit new arrays',
+    'price refresh runs outside the zone and mutates items without emitting, so the UI never updates, and a missing price becomes undefined (NaN totals)',
+    'the total getter is read in an OnPush template and goes stale, and money is stored as floats',
+  ]),
+  // React, Next.js, TypeScript and Node.
+  q('24-server-action-team', 'Review PR #758: Next.js server actions for team roles', 'hard', ['Next.js', 'Security', 'React'], [
+    'server actions are public POST endpoints: no session or authorization check, so anyone can change any member\'s role or delete any team',
+    'hiding the controls with isOwner is not security, the client can call the action directly',
+    'role, teamId and userId are trusted from the form, validate with a schema (zod enum for role)',
+    'deleteTeam has no confirmation, no transaction or cascade for members and data',
+    'revalidatePath("/") revalidates the wrong page and misses /teams/[id]',
+    'no error handling or pending state (useFormStatus / useActionState), double submits',
+  ]),
+  q('25-next-dashboard-cache', 'Review PR #765: cache the Next.js dashboard to cut API load', 'hard', ['Next.js', 'Security', 'Performance'], [
+    'data leak: the module-level accountCache is shared by every request in the server process, so user B sees user A\'s account',
+    'Cache-Control public, s-maxage on a per-user response lets the CDN serve one user\'s billing to others, use private or no-store',
+    'force-cache on an authenticated per-user fetch puts it in the shared Data Cache, use no-store',
+    'sequential awaits for invoices and usage are a waterfall, use Promise.all',
+    'session! crashes with a 500 when logged out, return 401',
+    'include billing returns the whole billing record (over-fetching sensitive fields)',
+  ]),
+  q('26-orders-derived-state', 'Review PR #772: React orders page filters and summary', 'medium', ['React', 'State', 'Performance'], [
+    'derived state through effects: filtered and total are computed in effects, causing extra renders and an empty first frame, compute them during render (useMemo)',
+    'orders is missing from the effect deps, so refetched orders never show',
+    'the context value object is recreated every render, every consumer re-renders on any change, memoize and split',
+    'selected is compared by object reference and is dropped after every refetch, store the selected id',
+    'createContext<any> and filter as a plain string, use typed values and a status union',
+  ]),
+  q('27-ts-api-client', 'Review PR #779: TypeScript API client for users', 'medium', ['TypeScript', 'API'], [
+    'any everywhere and as User casts trust unvalidated JSON, return unknown and parse with a schema (zod)',
+    'res.ok is never checked, a 404 or 500 body is returned as a User, and res.json() throws on 204',
+    'options.headers is overwritten by the Content-Type header, so callers cannot pass auth headers (authToken is silently dropped)',
+    'the body is not JSON.stringify-ed, it sends [object Object]',
+    'user! in isAdmin crashes on undefined, and == instead of ===',
+    'page undefined sends ?page=undefined, and ids are not encodeURIComponent-ed',
+  ]),
+  q('28-virtual-contact-list', 'Review PR #786: virtualize the React contacts list', 'medium', ['React', 'Performance', 'Accessibility'], [
+    'contacts.sort mutates the props array and re-sorts the whole list on every scroll render, copy and useMemo',
+    'key={i} inside the window: rows remount and swap state while scrolling, use contact.id',
+    'memo on ContactRow is defeated by a new style object and inline onClick every render',
+    'no overscan and HEIGHT / ROW_HEIGHT is 12.5, so the last partial row is missing and fast scrolls show blank gaps',
+    'not accessible: clickable divs, img with no alt, no list semantics or keyboard navigation',
+  ]),
+  q('29-optimistic-like', 'Review PR #793: optimistic likes and todos in React', 'medium', ['React', 'State'], [
+    'no rollback: the fetch result and res.ok are ignored, so a failed like leaves the wrong count',
+    'stale closure on fast double clicks: liked and count come from the last render, the count drifts and POST/DELETE requests race out of order, use functional updates and serialize',
+    'state initialized from props never syncs when the post prop changes',
+    'onMutate does not cancelQueries (an in-flight refetch overwrites the optimistic item), returns no snapshot for onError rollback, and never invalidates onSettled',
+    'the optimistic todo has no temporary id, so keys collide and it duplicates after the refetch',
+    'the button has no aria-pressed or accessible label, it reads "♥ 12"',
+  ]),
+  q('30-csv-export-stream', 'Review PR #799: stream transaction exports as CSV', 'hard', ['Node.js', 'Security', 'Performance'], [
+    'IDOR: accountId comes from the query string and is never checked against req.user',
+    'no backpressure: the res.write return value is ignored, a slow client makes memory grow, use stream.pipeline with a Transform',
+    'CSV injection and broken rows: description is not quoted or escaped (commas, quotes, newlines) and cells starting with = + - @ run as formulas',
+    'header injection: the unsanitized name goes into Content-Disposition',
+    'on a mid-stream error, status().json() after headers were sent throws, and it leaks the stack and db config (credentials)',
+    'a client disconnect does not destroy the cursor, it keeps reading the whole collection',
+  ]),
+  // FE lead & architecture: design systems, micro-frontends, monorepos, builds, CI, flags, state architecture.
+  q('31-ds-button-api', 'Review PR #806: design system Button API change', 'hard', ['Architecture', 'Design systems', 'Tech lead'], [
+    'breaking change shipped as a patch: variant and size are removed and the HTML props are gone, 14 apps break, needs a major or a deprecation path with a codemod',
+    'boolean prop explosion with conflicting combinations (isSmall + isLarge, isDanger + kind), use one variant and one size union',
+    'color and marginTop escape hatches bypass design tokens and theming, spacing belongs to the parent',
+    'no forwardRef or rest props: type, disabled, aria-* and form are lost, and the button defaults to submit inside forms',
+    'loading state: not disabled, no aria-busy, the width jumps, and a missing loadingText leaves an empty button',
+    'string-named icons import the whole icon set, nothing tree-shakes',
+  ]),
+  q('32-mfe-federation', 'Review PR #813: Module Federation shell for checkout and account', 'hard', ['Architecture', 'Micro-frontends'], [
+    'React is not shared as a singleton and the shell (^18.3.1) and checkout (^17.0.2) disagree, two React copies cause invalid hook calls and broken context',
+    'the design system is not a singleton and checkout pins 3.0.0, duplicate CSS and theme context mismatches',
+    'eager: true puts shared deps in the initial chunk and defeats lazy loading',
+    'remotes load from a mutable "latest" URL with no versioning, contract tests or rollback, any remote deploy can break production',
+    'no error boundary or Suspense fallback around remotes, a remote outage white-screens the whole shell',
+    'a window global for the shared cart, use a typed contract (events, URL state or a small shared store package)',
+  ]),
+  q('33-monorepo-boundaries', 'Review PR #820: reuse admin utils and the payments client in web', 'medium', ['Architecture', 'Monorepo', 'Tech lead'], [
+    'web imports another app\'s internals (apps/admin), so admin refactors break web, move formatMoney to a shared lib',
+    'deep import into @acme/payments/src/internal bypasses the package\'s public API (exports field)',
+    'packages/ui imports from apps/web: the layers are inverted, it creates a cycle and ui can no longer build or publish on its own, pass flags in as props',
+    'turns off @nx/enforce-module-boundaries to make CI pass instead of fixing the imports',
+    'two date-fns majors (2 and 4) ship duplicate code and mismatched types, keep one version (single-version policy or a catalog)',
+  ]),
+  q('34-vite-build-config', 'Review PR #827: Vite production build tweaks', 'hard', ['Architecture', 'Build & bundling', 'Security'], [
+    'define process.env: process.env inlines every build-time env var, including secrets, into the client bundle, use import.meta.env with the VITE_ prefix',
+    'public source maps in production expose the source, use hidden maps uploaded to error tracking',
+    'no content hash in file names plus a 1-year immutable cache: users keep old JS after a deploy and lazy chunks mismatch',
+    'one vendor chunk for all node_modules: any dependency bump invalidates it and it is huge, the 10 MB warning limit hides it, set a size budget',
+    'minify: false ships unminified code',
+    'import * as Icons from lucide-react with a dynamic lookup defeats tree shaking',
+  ]),
+  q('35-gha-pr-preview', 'Review PR #834: GitHub Actions preview deploys for every PR', 'hard', ['Architecture', 'CI/CD', 'Security'], [
+    'pull_request_target plus checking out the PR head runs untrusted fork code with secrets (a pwn request), use pull_request or split into a trusted workflow',
+    'script injection: the PR title is interpolated into run, use an env variable',
+    'third-party action pinned to @main, pin a commit SHA, and no permissions block (default write token)',
+    'npm test || true means failing tests never fail the job, and npm install instead of npm ci with no cache',
+    'deploys every PR with --prod to production, and passes the token on the command line',
+    'no concurrency group, pushes stack up parallel deploys',
+  ]),
+  q('36-feature-flag-rollout', 'Review PR #841: new checkout behind a feature flag', 'hard', ['Architecture', 'Platform', 'Tech lead'], [
+    'Math.random per evaluation: the same user flips between flows across renders and requests, bucket by a hash of userId + flag',
+    'client and server evaluate independently, so the UI can show the new flow while the server charges with legacy, evaluate once and pass it along',
+    'a network call per check with no cache or timeout, and if the flag service is down checkout throws, default to the old flow',
+    'client-side evaluation after mount flashes the old checkout, then swaps (layout shift, double analytics), evaluate on the server',
+    'no exposure logging, metrics or kill switch to judge the rollout, and no owner or expiry for removing the flag',
+  ]),
+  q('37-redux-everything', 'Review PR #848: move all app data into one Redux store', 'medium', ['Architecture', 'State', 'Tech lead'], [
+    'server data in a global client store with no staleness, refetching, dedup or invalidation, use a server-state cache (TanStack Query) or server components',
+    'one god slice with a generic set reducer and as any: no intent-level actions or types, anything can overwrite anything',
+    'ephemeral UI state (hoveredRow, modalOpen, searchText) in the global store: every hover re-renders every subscriber, keep it local',
+    'useSelector(s => s.app) selects the whole slice, so any change re-renders TaskPage',
+    'loadEverything fetches every collection on every page mount, has no error handling, and loading stays true forever on failure',
   ]),
 ]
 

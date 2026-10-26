@@ -1,0 +1,41 @@
+PR #793 — "Optimistic likes and todo creation" (AI-generated)
+
+diff --git a/src/features/feed/LikeButton.tsx b/src/features/feed/LikeButton.tsx
+new file mode 100644
+--- /dev/null
++++ b/src/features/feed/LikeButton.tsx
+@@ -0,0 +1,14 @@
++import { useState } from 'react'
++
++export function LikeButton({ post }: { post: Post }) {
++  const [liked, setLiked] = useState(post.likedByMe)
++  const [count, setCount] = useState(post.likes)
++
++  async function toggle() {
++    setLiked(!liked)
++    setCount(count + (liked ? -1 : 1))
++    fetch(`/api/posts/${post.id}/like`, { method: liked ? 'DELETE' : 'POST' })
++  }
++
++  return <button onClick={toggle}>{liked ? '♥' : '♡'} {count}</button>
++}
+
+diff --git a/src/features/todos/useAddTodo.ts b/src/features/todos/useAddTodo.ts
+new file mode 100644
+--- /dev/null
++++ b/src/features/todos/useAddTodo.ts
+@@ -0,0 +1,14 @@
++import { useMutation, useQueryClient } from '@tanstack/react-query'
++import { toast } from '@/lib/toast'
++import { api } from '@/lib/api'
++
++export function useAddTodo() {
++  const queryClient = useQueryClient()
++  return useMutation({
++    mutationFn: (todo: { title: string }) => api('/todos', { method: 'POST', body: JSON.stringify(todo) }),
++    onMutate: todo => {
++      queryClient.setQueryData(['todos'], (old: Todo[]) => [...old, { ...todo, done: false }])
++    },
++    onSuccess: () => toast('Saved'),
++  })
++}

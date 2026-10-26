@@ -1,0 +1,47 @@
+PR #702 — "Customer dashboard with live order polling" (AI-generated)
+
+diff --git a/src/app/customers/customer-dashboard.component.ts b/src/app/customers/customer-dashboard.component.ts
+new file mode 100644
+--- /dev/null
++++ b/src/app/customers/customer-dashboard.component.ts
+@@ -0,0 +1,40 @@
++import { Component, OnInit } from '@angular/core'
++import { ActivatedRoute } from '@angular/router'
++import { CustomersService } from './customers.service'
++import { OrdersService } from '../orders/orders.service'
++
++@Component({
++  selector: 'app-customer-dashboard',
++  standalone: true,
++  templateUrl: './customer-dashboard.component.html',
++})
++export class CustomerDashboardComponent implements OnInit {
++  customer: any
++  orders: any[] = []
++  totals = { count: 0, revenue: 0 }
++
++  constructor(
++    private route: ActivatedRoute,
++    private customers: CustomersService,
++    private ordersApi: OrdersService,
++  ) {}
++
++  ngOnInit() {
++    this.route.paramMap.subscribe(params => {
++      const id = params.get('id')!
++      this.customers.get(id).subscribe(customer => {
++        this.customer = customer
++        this.ordersApi.list(customer.id).subscribe(orders => {
++          this.orders = orders
++          this.totals.count = orders.length
++          this.totals.revenue = orders.reduce((sum, o) => sum + o.total, 0)
++        })
++      })
++    })
++
++    // Keep the orders fresh while the page is open.
++    setInterval(() => {
++      this.ordersApi.list(this.customer.id).subscribe(orders => (this.orders = orders))
++    }, 30000)
++  }
++}

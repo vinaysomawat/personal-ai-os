@@ -1,0 +1,65 @@
+PR #751 — "Shared CartStore service with live prices" (AI-generated)
+
+diff --git a/src/app/cart/cart.store.ts b/src/app/cart/cart.store.ts
+new file mode 100644
+--- /dev/null
++++ b/src/app/cart/cart.store.ts
+@@ -0,0 +1,38 @@
++import { HttpClient } from '@angular/common/http'
++import { Injectable, NgZone } from '@angular/core'
++import { BehaviorSubject } from 'rxjs'
++
++export interface CartItem { id: string; name: string; price: number; qty: number }
++
++@Injectable({ providedIn: 'root' })
++export class CartStore {
++  readonly items$ = new BehaviorSubject<CartItem[]>([])
++  private ticker: any
++
++  constructor(private http: HttpClient, private zone: NgZone) {
++    // Outside the zone so the timer doesn't trigger change detection.
++    this.zone.runOutsideAngular(() => {
++      this.ticker = setInterval(() => this.refreshPrices(), 60000)
++    })
++  }
++
++  add(item: CartItem) {
++    this.items$.value.push(item)
++  }
++
++  remove(id: string) {
++    const items = this.items$.value
++    items.splice(items.findIndex(i => i.id === id), 1)
++    this.items$.next(items)
++  }
++
++  refreshPrices() {
++    this.http.get<Record<string, number>>('/api/prices').subscribe(prices => {
++      this.items$.value.forEach(i => (i.price = prices[i.id]))
++    })
++  }
++
++  get total() {
++    return this.items$.value.reduce((sum, i) => sum + i.price * i.qty, 0)
++  }
++}
+
+diff --git a/src/app/cart/cart-badge.component.ts b/src/app/cart/cart-badge.component.ts
+new file mode 100644
+--- /dev/null
++++ b/src/app/cart/cart-badge.component.ts
+@@ -0,0 +1,14 @@
++import { AsyncPipe } from '@angular/common'
++import { ChangeDetectionStrategy, Component, inject } from '@angular/core'
++import { CartStore } from './cart.store'
++
++@Component({
++  selector: 'app-cart-badge',
++  standalone: true,
++  imports: [AsyncPipe],
++  changeDetection: ChangeDetectionStrategy.OnPush,
++  template: `<span class="badge">{{ (cart.items$ | async)?.length }} · {{ cart.total }}</span>`,
++})
++export class CartBadgeComponent {
++  cart = inject(CartStore)
++}

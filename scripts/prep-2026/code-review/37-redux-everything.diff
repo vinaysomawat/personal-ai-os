@@ -1,0 +1,56 @@
+PR #848 — "Move all app data into one Redux store" (AI-generated)
+
+diff --git a/src/store/appSlice.ts b/src/store/appSlice.ts
+new file mode 100644
+--- /dev/null
++++ b/src/store/appSlice.ts
+@@ -0,0 +1,21 @@
++import { createSlice } from '@reduxjs/toolkit'
++import { api } from '@/lib/api'
++
++// One place for everything, so every page shares the same data.
++export const appSlice = createSlice({
++  name: 'app',
++  initialState: {
++    user: null, projects: [], tasks: [], comments: [],
++    loading: false, error: null,
++    modalOpen: false, searchText: '', hoveredRow: null,
++  } as any,
++  reducers: {
++    set: (state, action) => ({ ...state, ...action.payload }),
++  },
++})
++
++export const loadEverything = () => async (dispatch: AppDispatch) => {
++  dispatch(appSlice.actions.set({ loading: true }))
++  const [user, projects, tasks, comments] = await Promise.all([api.me(), api.projects(), api.tasks(), api.comments()])
++  dispatch(appSlice.actions.set({ user, projects, tasks, comments, loading: false }))
++}
+
+diff --git a/src/features/tasks/TaskPage.tsx b/src/features/tasks/TaskPage.tsx
+new file mode 100644
+--- /dev/null
++++ b/src/features/tasks/TaskPage.tsx
+@@ -0,0 +1,22 @@
++import { useEffect } from 'react'
++import { useDispatch, useSelector } from 'react-redux'
++import { appSlice, loadEverything } from '@/store/appSlice'
++
++export function TaskPage() {
++  const state = useSelector((s: RootState) => s.app)
++  const dispatch = useDispatch<AppDispatch>()
++
++  useEffect(() => {
++    dispatch(loadEverything())
++  }, [])
++
++  if (state.loading) return <Spinner />
++  return (
++    <TaskTable
++      tasks={state.tasks}
++      search={state.searchText}
++      onSearch={(text: string) => dispatch(appSlice.actions.set({ searchText: text }))}
++      onHover={(id: string) => dispatch(appSlice.actions.set({ hoveredRow: id }))}
++    />
++  )
++}

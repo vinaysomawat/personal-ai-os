@@ -1,0 +1,46 @@
+PR #716 — "Migrate product search to signals" (AI-generated)
+
+diff --git a/src/app/products/product-search.component.ts b/src/app/products/product-search.component.ts
+new file mode 100644
+--- /dev/null
++++ b/src/app/products/product-search.component.ts
+@@ -0,0 +1,39 @@
++import { Component, effect, inject, signal } from '@angular/core'
++import { toSignal } from '@angular/core/rxjs-interop'
++import { AsyncPipe } from '@angular/common'
++import { map } from 'rxjs'
++import { ProductsService, type Product } from './products.service'
++import { ProductCardComponent } from './product-card.component'
++
++@Component({
++  selector: 'app-product-search',
++  standalone: true,
++  imports: [AsyncPipe, ProductCardComponent],
++  template: `
++    <input [value]="query()" (input)="query.set($any($event.target).value)" />
++    <p>{{ results().length }} results · total {{ total$ | async }}</p>
++    @for (p of results(); track p.id) {
++      <app-product-card [product]="p" />
++    }
++  `,
++})
++export class ProductSearchComponent {
++  private api = inject(ProductsService)
++
++  query = signal('')
++  products = toSignal(this.api.all(), { initialValue: [] as Product[] })
++  results = signal<Product[]>([])
++  total$ = this.api.all().pipe(map(ps => ps.reduce((sum, p) => sum + p.price, 0)))
++
++  constructor() {
++    effect(() => {
++      const q = this.query().toLowerCase()
++      this.results.set(this.products().filter(p => p.name.toLowerCase().includes(q)))
++    })
++
++    effect(() => {
++      localStorage.setItem('lastQuery', this.query())
++      this.api.logSearch(this.query()).subscribe()
++    })
++  }
++}

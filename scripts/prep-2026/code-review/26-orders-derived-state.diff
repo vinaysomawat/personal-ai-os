@@ -1,0 +1,38 @@
+PR #772 — "Orders page: filters and summary" (AI-generated)
+
+diff --git a/src/features/orders/OrdersPage.tsx b/src/features/orders/OrdersPage.tsx
+new file mode 100644
+--- /dev/null
++++ b/src/features/orders/OrdersPage.tsx
+@@ -0,0 +1,31 @@
++import { createContext, useEffect, useState } from 'react'
++
++export const OrdersContext = createContext<any>(null)
++
++export function OrdersPage({ orders }: { orders: Order[] }) {
++  const [filter, setFilter] = useState('all')
++  const [filtered, setFiltered] = useState<Order[]>([])
++  const [total, setTotal] = useState(0)
++  const [selected, setSelected] = useState<Order | null>(null)
++
++  useEffect(() => {
++    setFiltered(filter === 'all' ? orders : orders.filter(o => o.status === filter))
++  }, [filter])
++
++  useEffect(() => {
++    setTotal(filtered.reduce((sum, o) => sum + o.amount, 0))
++  }, [filtered])
++
++  useEffect(() => {
++    if (selected && !filtered.includes(selected)) setSelected(null)
++  }, [filtered, selected])
++
++  return (
++    <OrdersContext.Provider value={{ filter, setFilter, filtered, total, selected, setSelected }}>
++      <Toolbar />
++      <OrdersTable />
++      <Summary />
++      <OrderDrawer />
++    </OrdersContext.Provider>
++  )
++}

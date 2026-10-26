@@ -1,0 +1,69 @@
+PR #709 — "OnPush task board for faster rendering" (AI-generated)
+
+diff --git a/src/app/board/task-board.component.ts b/src/app/board/task-board.component.ts
+new file mode 100644
+--- /dev/null
++++ b/src/app/board/task-board.component.ts
+@@ -0,0 +1,38 @@
++import { ChangeDetectionStrategy, Component, EventEmitter, Input, Output } from '@angular/core'
++import { TaskCardComponent } from './task-card.component'
++import type { Task } from './task'
++
++@Component({
++  selector: 'app-task-board',
++  standalone: true,
++  imports: [TaskCardComponent],
++  changeDetection: ChangeDetectionStrategy.OnPush,
++  template: `
++    <button (click)="addTask()">Add task</button>
++    @for (task of tasks; track $index) {
++      <app-task-card [task]="task" [label]="formatLabel(task)" (toggle)="toggle(task)" />
++    }
++    <p>{{ completedCount() }} of {{ tasks.length }} done</p>
++  `,
++})
++export class TaskBoardComponent {
++  @Input() tasks: Task[] = []
++  @Output() tasksChange = new EventEmitter<Task[]>()
++
++  addTask() {
++    this.tasks.push({ id: crypto.randomUUID(), title: 'New task', done: false, tags: [] })
++    this.tasksChange.emit(this.tasks)
++  }
++
++  toggle(task: Task) {
++    task.done = !task.done
++  }
++
++  formatLabel(task: Task) {
++    return `${task.title} · ${task.tags.map(t => t.toUpperCase()).join(', ')}`
++  }
++
++  completedCount() {
++    return this.tasks.filter(t => t.done).length
++  }
++}
+
+diff --git a/src/app/board/task-card.component.ts b/src/app/board/task-card.component.ts
+new file mode 100644
+--- /dev/null
++++ b/src/app/board/task-card.component.ts
+@@ -0,0 +1,18 @@
++import { ChangeDetectionStrategy, Component, EventEmitter, Input, Output } from '@angular/core'
++import type { Task } from './task'
++
++@Component({
++  selector: 'app-task-card',
++  standalone: true,
++  changeDetection: ChangeDetectionStrategy.OnPush,
++  template: `
++    <div class="card" [class.done]="task.done" (click)="toggle.emit()">
++      <input type="checkbox" [checked]="task.done" /> {{ label }}
++    </div>
++  `,
++})
++export class TaskCardComponent {
++  @Input() task!: Task
++  @Input() label = ''
++  @Output() toggle = new EventEmitter<void>()
++}

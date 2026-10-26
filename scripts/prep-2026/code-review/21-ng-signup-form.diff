@@ -1,0 +1,62 @@
+PR #738 — "Signup form with plan-based validation" (AI-generated)
+
+diff --git a/src/app/signup/signup.component.ts b/src/app/signup/signup.component.ts
+new file mode 100644
+--- /dev/null
++++ b/src/app/signup/signup.component.ts
+@@ -0,0 +1,35 @@
++import { Component, OnInit } from '@angular/core'
++import { AbstractControl, FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms'
++import { SignupService } from './signup.service'
++
++@Component({
++  selector: 'app-signup',
++  standalone: true,
++  imports: [ReactiveFormsModule],
++  templateUrl: './signup.component.html',
++})
++export class SignupComponent implements OnInit {
++  form = new FormGroup({
++    email: new FormControl(''),
++    password: new FormControl('', [Validators.required, Validators.minLength(8)]),
++    confirm: new FormControl('', [this.matchPassword]),
++    plan: new FormControl('free'),
++    company: new FormControl(''),
++  })
++
++  constructor(private api: SignupService) {}
++
++  matchPassword(control: AbstractControl) {
++    return control.value === this.form?.get('password')?.value ? null : { mismatch: true }
++  }
++
++  ngOnInit() {
++    this.form.get('plan')!.valueChanges.subscribe(plan => {
++      if (plan === 'team') this.form.get('company')!.setValidators(Validators.required)
++    })
++  }
++
++  submit() {
++    this.api.create(this.form.value).subscribe()
++  }
++}
+
+diff --git a/src/app/signup/signup.component.html b/src/app/signup/signup.component.html
+new file mode 100644
+--- /dev/null
++++ b/src/app/signup/signup.component.html
+@@ -0,0 +1,14 @@
++<form [formGroup]="form" (ngSubmit)="submit()">
++  <input formControlName="email" placeholder="Email" />
++  <input formControlName="password" type="password" placeholder="Password" />
++  <input formControlName="confirm" type="password" placeholder="Confirm password" />
++  @if (form.get('confirm')?.errors?.['mismatch']) {
++    <span class="error">Passwords don't match</span>
++  }
++  <select formControlName="plan">
++    <option value="free">Free</option>
++    <option value="team">Team</option>
++  </select>
++  <input formControlName="company" placeholder="Company" />
++  <button>Create account</button>
++</form>

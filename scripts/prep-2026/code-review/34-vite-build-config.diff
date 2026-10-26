@@ -1,0 +1,49 @@
+PR #827 — "Production build tweaks for easier debugging" (AI-generated)
+
+diff --git a/vite.config.ts b/vite.config.ts
+new file mode 100644
+--- /dev/null
++++ b/vite.config.ts
+@@ -0,0 +1,21 @@
++import { defineConfig } from 'vite'
++import react from '@vitejs/plugin-react'
++
++export default defineConfig({
++  plugins: [react()],
++  // Some libs read process.env, pass it through.
++  define: { 'process.env': process.env },
++  build: {
++    sourcemap: true,
++    minify: false,
++    chunkSizeWarningLimit: 10000,
++    rollupOptions: {
++      output: {
++        entryFileNames: 'assets/[name].js',
++        chunkFileNames: 'assets/[name].js',
++        assetFileNames: 'assets/[name][extname]',
++        manualChunks: id => (id.includes('node_modules') ? 'vendor' : undefined),
++      },
++    },
++  },
++})
+
+diff --git a/src/components/IconPicker.tsx b/src/components/IconPicker.tsx
+new file mode 100644
+--- /dev/null
++++ b/src/components/IconPicker.tsx
+@@ -0,0 +1,6 @@
++import * as Icons from 'lucide-react'
++
++export function IconPicker({ value, onChange }: { value: string; onChange: (name: string) => void }) {
++  const Selected = (Icons as any)[value]
++  return <button onClick={() => onChange('Star')}>{Selected ? <Selected /> : 'Pick'}</button>
++}
+
+diff --git a/deploy/nginx.conf b/deploy/nginx.conf
+new file mode 100644
+--- /dev/null
++++ b/deploy/nginx.conf
+@@ -0,0 +1,3 @@
++location /assets/ {
++  add_header Cache-Control "public, max-age=31536000, immutable";
++}

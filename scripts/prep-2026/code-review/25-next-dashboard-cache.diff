@@ -1,0 +1,47 @@
+PR #765 — "Cache the dashboard to cut API load" (AI-generated)
+
+diff --git a/src/app/dashboard/page.tsx b/src/app/dashboard/page.tsx
+new file mode 100644
+--- /dev/null
++++ b/src/app/dashboard/page.tsx
+@@ -0,0 +1,24 @@
++import { cookies } from 'next/headers'
++import { Dashboard } from './Dashboard'
++import { getInvoices, getUsage } from '@/lib/billing'
++
++// Account rarely changes, keep it in memory for a minute.
++let accountCache: { data: Account; at: number } | null = null
++
++async function getAccount(): Promise<Account> {
++  if (accountCache && Date.now() - accountCache.at < 60_000) return accountCache.data
++  const token = (await cookies()).get('session')?.value
++  const res = await fetch(`${process.env.API_URL}/me`, {
++    headers: { Authorization: `Bearer ${token}` },
++    cache: 'force-cache',
++  })
++  accountCache = { data: await res.json(), at: Date.now() }
++  return accountCache.data
++}
++
++export default async function DashboardPage() {
++  const account = await getAccount()
++  const invoices = await getInvoices(account.id)
++  const usage = await getUsage(account.id)
++  return <Dashboard account={account} invoices={invoices} usage={usage} />
++}
+
+diff --git a/src/app/api/me/route.ts b/src/app/api/me/route.ts
+new file mode 100644
+--- /dev/null
++++ b/src/app/api/me/route.ts
+@@ -0,0 +1,10 @@
++import { getSession } from '@/lib/session'
++import { db } from '@/lib/db'
++
++export async function GET() {
++  const session = await getSession()
++  const user = await db.user.findUnique({ where: { id: session!.userId }, include: { billing: true } })
++  return Response.json(user, {
++    headers: { 'Cache-Control': 'public, s-maxage=600, stale-while-revalidate=86400' },
++  })
++}

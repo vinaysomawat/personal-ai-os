@@ -1,0 +1,42 @@
+PR #841 — "Roll out the new checkout behind a flag" (AI-generated)
+
+diff --git a/src/lib/flags.ts b/src/lib/flags.ts
+new file mode 100644
+--- /dev/null
++++ b/src/lib/flags.ts
+@@ -0,0 +1,6 @@
++export async function isEnabled(flag: string, user: User): Promise<boolean> {
++  const res = await fetch(`https://flags.acme.com/api/flags/${flag}`)
++  const cfg = await res.json()
++  if (cfg.rollout === 100) return true
++  return Math.random() * 100 < cfg.rollout
++}
+
+diff --git a/src/features/checkout/Checkout.tsx b/src/features/checkout/Checkout.tsx
+new file mode 100644
+--- /dev/null
++++ b/src/features/checkout/Checkout.tsx
+@@ -0,0 +1,11 @@
++'use client'
++import { useEffect, useState } from 'react'
++import { isEnabled } from '@/lib/flags'
++
++export function Checkout({ user }: { user: User }) {
++  const [newFlow, setNewFlow] = useState(false)
++  useEffect(() => {
++    isEnabled('new-checkout', user).then(setNewFlow)
++  }, [])
++  return newFlow ? <NewCheckout /> : <OldCheckout />
++}
+
+diff --git a/src/server/payments.ts b/src/server/payments.ts
+new file mode 100644
+--- /dev/null
++++ b/src/server/payments.ts
+@@ -0,0 +1,6 @@
++import { isEnabled } from '@/lib/flags'
++
++export async function charge(order: Order) {
++  if (await isEnabled('new-checkout', order.user)) return stripeV2.charge(order)
++  return legacy.charge(order)
++}

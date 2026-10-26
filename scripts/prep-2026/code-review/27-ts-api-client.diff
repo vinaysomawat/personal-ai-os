@@ -1,0 +1,52 @@
+PR #779 — "Typed API client for users" (AI-generated)
+
+diff --git a/src/lib/api.ts b/src/lib/api.ts
+new file mode 100644
+--- /dev/null
++++ b/src/lib/api.ts
+@@ -0,0 +1,32 @@
++const BASE_URL = process.env.NEXT_PUBLIC_API_URL
++
++export async function api(path: string, options: any = {}): Promise<any> {
++  const res = await fetch(BASE_URL + path, { ...options, headers: { 'Content-Type': 'application/json' } })
++  return res.json()
++}
++
++export interface User {
++  id: string
++  name: string
++  email: string
++  role: 'admin' | 'member'
++  createdAt: string
++}
++
++export async function getUser(id: string) {
++  const data = await api(`/users/${id}`)
++  return data as User
++}
++
++export async function updateUser(id: string, patch: any) {
++  return api(`/users/${id}`, { method: 'PUT', body: patch }) as Promise<User>
++}
++
++export function isAdmin(user: User | undefined) {
++  return user!.role == 'admin'
++}
++
++export async function listUsers(page?: number) {
++  const data = await api(`/users?page=${page}`)
++  return (data.items as User[]).map(u => ({ ...u, createdAt: new Date(u.createdAt) }))
++}
+
+diff --git a/src/features/admin/useAdminUser.ts b/src/features/admin/useAdminUser.ts
+new file mode 100644
+--- /dev/null
++++ b/src/features/admin/useAdminUser.ts
+@@ -0,0 +1,7 @@
++import { getUser, isAdmin } from '@/lib/api'
++
++export async function loadAdmin(id: string, authToken: string) {
++  const user = await getUser(id)
++  // TODO pass authToken
++  return { user, canEdit: isAdmin(user) }
++}

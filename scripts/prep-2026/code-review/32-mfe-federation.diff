@@ -1,0 +1,68 @@
+PR #813 — "Load checkout and account as micro-frontends" (AI-generated)
+
+diff --git a/apps/shell/webpack.config.js b/apps/shell/webpack.config.js
+new file mode 100644
+--- /dev/null
++++ b/apps/shell/webpack.config.js
+@@ -0,0 +1,18 @@
++const { ModuleFederationPlugin } = require('webpack').container
++
++module.exports = {
++  plugins: [
++    new ModuleFederationPlugin({
++      name: 'shell',
++      remotes: {
++        checkout: 'checkout@https://checkout.acme.com/remoteEntry.js',
++        account: 'account@https://account.acme.com/latest/remoteEntry.js',
++      },
++      shared: {
++        react: { eager: true, requiredVersion: '^18.3.1' },
++        'react-dom': { eager: true, requiredVersion: '^18.3.1' },
++        '@acme/design-system': {},
++      },
++    }),
++  ],
++}
+
+diff --git a/apps/checkout/webpack.config.js b/apps/checkout/webpack.config.js
+new file mode 100644
+--- /dev/null
++++ b/apps/checkout/webpack.config.js
+@@ -0,0 +1,14 @@
++module.exports = {
++  plugins: [
++    new ModuleFederationPlugin({
++      name: 'checkout',
++      filename: 'remoteEntry.js',
++      exposes: { './App': './src/App' },
++      shared: {
++        react: { requiredVersion: '^17.0.2' },
++        'react-dom': { requiredVersion: '^17.0.2' },
++        '@acme/design-system': { version: '3.0.0' },
++      },
++    }),
++  ],
++}
+
+diff --git a/apps/shell/src/App.tsx b/apps/shell/src/App.tsx
+new file mode 100644
+--- /dev/null
++++ b/apps/shell/src/App.tsx
+@@ -0,0 +1,17 @@
++import { lazy } from 'react'
++import { Route, Routes } from 'react-router-dom'
++
++const Checkout = lazy(() => import('checkout/App'))
++const Account = lazy(() => import('account/App'))
++
++// Shared cart between the shell and the remotes.
++window.__ACME_CART__ = window.__ACME_CART__ || []
++
++export function App() {
++  return (
++    <Routes>
++      <Route path="/checkout/*" element={<Checkout cart={window.__ACME_CART__} />} />
++      <Route path="/account/*" element={<Account />} />
++    </Routes>
++  )
++}

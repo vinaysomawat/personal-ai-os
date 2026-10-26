@@ -1,0 +1,64 @@
+PR #744 — "Admin area and invoice edit route" (AI-generated)
+
+diff --git a/src/app/app.routes.ts b/src/app/app.routes.ts
+new file mode 100644
+--- /dev/null
++++ b/src/app/app.routes.ts
+@@ -0,0 +1,18 @@
++import { inject } from '@angular/core'
++import { Routes } from '@angular/router'
++import { AuthService } from './core/auth.service'
++import { InvoiceEditComponent } from './invoices/invoice-edit.component'
++import { invoiceResolver } from './invoices/invoice.resolver'
++
++export const routes: Routes = [
++  {
++    path: 'admin',
++    loadComponent: () => import('./admin/admin.component').then(m => m.AdminComponent),
++    canActivate: [() => inject(AuthService).isLoggedIn()],
++  },
++  {
++    path: 'invoices/:id/edit',
++    component: InvoiceEditComponent,
++    resolve: { invoice: invoiceResolver },
++  },
++]
+
+diff --git a/src/app/invoices/invoice.resolver.ts b/src/app/invoices/invoice.resolver.ts
+new file mode 100644
+--- /dev/null
++++ b/src/app/invoices/invoice.resolver.ts
+@@ -0,0 +1,7 @@
++import { inject } from '@angular/core'
++import { ResolveFn } from '@angular/router'
++import { catchError, of } from 'rxjs'
++import { InvoicesService, type Invoice } from './invoices.service'
++
++export const invoiceResolver: ResolveFn<Invoice | null> = route =>
++  inject(InvoicesService).get(route.paramMap.get('id')!).pipe(catchError(() => of(null)))
+
+diff --git a/src/app/invoices/invoice-edit.component.ts b/src/app/invoices/invoice-edit.component.ts
+new file mode 100644
+--- /dev/null
++++ b/src/app/invoices/invoice-edit.component.ts
+@@ -0,0 +1,20 @@
++import { Component, inject } from '@angular/core'
++import { FormBuilder, ReactiveFormsModule } from '@angular/forms'
++import { ActivatedRoute, Router } from '@angular/router'
++import { InvoicesService, type Invoice } from './invoices.service'
++
++@Component({
++  selector: 'app-invoice-edit',
++  standalone: true,
++  imports: [ReactiveFormsModule],
++  templateUrl: './invoice-edit.component.html',
++})
++export class InvoiceEditComponent {
++  invoice = inject(ActivatedRoute).snapshot.data['invoice'] as Invoice
++  form = inject(FormBuilder).group({ amount: [this.invoice.amount], note: [this.invoice.note] })
++
++  save() {
++    inject(InvoicesService).update(this.invoice.id, this.form.value)
++      .subscribe(() => inject(Router).navigate(['/invoices']))
++  }
++}

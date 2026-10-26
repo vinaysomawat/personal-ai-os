@@ -1,0 +1,41 @@
+PR #731 — "Markdown preview for comments" (AI-generated)
+
+diff --git a/src/app/comments/comment-preview.component.ts b/src/app/comments/comment-preview.component.ts
+new file mode 100644
+--- /dev/null
++++ b/src/app/comments/comment-preview.component.ts
+@@ -0,0 +1,34 @@
++import { AfterViewInit, Component, ElementRef, Input, OnChanges, ViewChild } from '@angular/core'
++import { DomSanitizer, SafeHtml } from '@angular/platform-browser'
++import { marked } from 'marked'
++
++@Component({
++  selector: 'app-comment-preview',
++  standalone: true,
++  template: `
++    <div class="preview" [innerHTML]="html"></div>
++    <div class="counter" #counter></div>
++  `,
++})
++export class CommentPreviewComponent implements OnChanges, AfterViewInit {
++  @Input() markdown = ''
++  @Input() authorUrl = ''
++  @ViewChild('counter') counter!: ElementRef<HTMLDivElement>
++  html: SafeHtml = ''
++
++  constructor(private sanitizer: DomSanitizer, private el: ElementRef) {}
++
++  ngOnChanges() {
++    const rendered = marked.parse(this.markdown) as string
++    const withAuthor = `${rendered}<a href="${this.authorUrl}" target="_blank">Author profile</a>`
++    // Angular was stripping our styles and embeds, so trust it.
++    this.html = this.sanitizer.bypassSecurityTrustHtml(withAuthor)
++    if (this.counter) this.counter.nativeElement.innerHTML = `${this.markdown.length} chars`
++  }
++
++  ngAfterViewInit() {
++    this.el.nativeElement.querySelectorAll('a').forEach((a: HTMLAnchorElement) => {
++      a.addEventListener('click', () => window.open(a.href))
++    })
++  }
++}

@@ -1,0 +1,41 @@
+PR #786 — "Virtualize the contacts list for performance" (AI-generated)
+
+diff --git a/src/features/contacts/ContactList.tsx b/src/features/contacts/ContactList.tsx
+new file mode 100644
+--- /dev/null
++++ b/src/features/contacts/ContactList.tsx
+@@ -0,0 +1,34 @@
++import { memo, useState } from 'react'
++
++const ROW_HEIGHT = 48
++const HEIGHT = 600
++
++export function ContactList({ contacts, onSelect }: { contacts: Contact[]; onSelect: (c: Contact) => void }) {
++  const [scrollTop, setScrollTop] = useState(0)
++  const sorted = contacts.sort((a, b) => a.name.localeCompare(b.name))
++  const start = Math.floor(scrollTop / ROW_HEIGHT)
++  const visible = sorted.slice(start, start + HEIGHT / ROW_HEIGHT)
++
++  return (
++    <div style={{ height: HEIGHT, overflowY: 'auto' }} onScroll={e => setScrollTop(e.currentTarget.scrollTop)}>
++      <div style={{ height: sorted.length * ROW_HEIGHT, position: 'relative' }}>
++        {visible.map((c, i) => (
++          <ContactRow
++            key={i}
++            contact={c}
++            style={{ position: 'absolute', top: (start + i) * ROW_HEIGHT, height: ROW_HEIGHT }}
++            onClick={() => onSelect(c)}
++          />
++        ))}
++      </div>
++    </div>
++  )
++}
++
++const ContactRow = memo(function ContactRow({ contact, style, onClick }: RowProps) {
++  return (
++    <div className="row" style={style} onClick={onClick}>
++      <img src={contact.avatar} /> {contact.name}
++    </div>
++  )
++})

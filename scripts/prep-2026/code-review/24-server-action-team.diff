@@ -1,0 +1,52 @@
+PR #758 — "Server actions for team member roles" (AI-generated)
+
+diff --git a/src/app/teams/[id]/actions.ts b/src/app/teams/[id]/actions.ts
+new file mode 100644
+--- /dev/null
++++ b/src/app/teams/[id]/actions.ts
+@@ -0,0 +1,17 @@
++'use server'
++import { revalidatePath } from 'next/cache'
++import { db } from '@/lib/db'
++
++export async function updateTeamMember(formData: FormData) {
++  const teamId = formData.get('teamId') as string
++  const userId = formData.get('userId') as string
++  const role = formData.get('role') as string
++  await db.query('UPDATE team_members SET role = $1 WHERE team_id = $2 AND user_id = $3', [role, teamId, userId])
++  revalidatePath('/')
++  return { ok: true }
++}
++
++export async function deleteTeam(teamId: string) {
++  await db.query('DELETE FROM teams WHERE id = $1', [teamId])
++  revalidatePath('/')
++}
+
+diff --git a/src/app/teams/[id]/MemberRow.tsx b/src/app/teams/[id]/MemberRow.tsx
+new file mode 100644
+--- /dev/null
++++ b/src/app/teams/[id]/MemberRow.tsx
+@@ -0,0 +1,22 @@
++'use client'
++import { deleteTeam, updateTeamMember } from './actions'
++
++export function MemberRow({ member, isOwner }: { member: Member; isOwner: boolean }) {
++  return (
++    <form action={updateTeamMember}>
++      <input type="hidden" name="teamId" value={member.teamId} />
++      <input type="hidden" name="userId" value={member.userId} />
++      <span>{member.name}</span>
++      {isOwner && (
++        <select name="role" defaultValue={member.role}>
++          <option>member</option>
++          <option>admin</option>
++          <option>owner</option>
++        </select>
++      )}
++      <button>Save</button>
++      {/* Only owners see this, so it's safe. */}
++      {isOwner && <button formAction={() => deleteTeam(member.teamId)}>Delete team</button>}
++    </form>
++  )
++}
