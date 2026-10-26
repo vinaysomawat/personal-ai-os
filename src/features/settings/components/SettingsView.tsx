@@ -14,6 +14,7 @@ import type { CronJobHealth } from '@/lib/cron-log'
 import { useEscapeKey } from '@/lib/use-escape-key'
 import { TASK_LABEL } from '@/lib/ai-task-modules'
 import PageHeader from '@/components/PageHeader'
+import { guard } from '@/lib/guard'
 
 const MODULE_LABEL: Record<string, string> = {
   planner: 'Daily', finance: 'Finance', health: 'Health',
@@ -93,17 +94,17 @@ export default function SettingsView({ email, initialReminders, aiBudget, system
     }
     setLabel('')
     setShowForm(false)
-    startTransition(async () => {
+    startTransition(guard(async () => {
       updateReminders({ type: 'add', payload: optimistic })
       await addReminder(text, slot, module)
-    })
+    }))
   }
 
   const handleDelete = (id: string) => {
-    startTransition(async () => {
+    startTransition(guard(async () => {
       updateReminders({ type: 'delete', payload: { id } })
       await deleteReminder(id)
-    })
+    }))
   }
 
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
@@ -114,10 +115,10 @@ export default function SettingsView({ email, initialReminders, aiBudget, system
   }
 
   const handleToggle = (id: string, active: boolean) => {
-    startTransition(async () => {
+    startTransition(guard(async () => {
       updateReminders({ type: 'toggle', payload: { id, active } })
       await toggleReminder(id, active)
-    })
+    }))
   }
 
   const [exporting, setExporting] = useState(false)

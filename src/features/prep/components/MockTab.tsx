@@ -13,6 +13,7 @@ import { MOCK_FORMATS, buildMockRound, formatMinutes, formatOf, type MockFormat,
 import { MockCalendar, RoundDetail, categoryLabel, mmss } from './MockHistory'
 import { CodeBlock } from './AnswerReview'
 import { COMPETENCIES, READINESS_AREAS, type BankQuestion, type CompetencyKey, type PrepSession, type ReadinessCell } from '../types'
+import { guard } from '@/lib/guard'
 
 // Topics the fixed Frontend-screen slots already cover — the "weakest area"
 // slot draws from the rest.
@@ -85,7 +86,7 @@ export function MockTab({ bank, readiness, covered, rounds, today, format: forma
   // reading the key points and the one-click AI review.
   const save = (r: Running) => {
     setSaveError(null)
-    startSave(async () => {
+    startSave(guard(async () => {
       try {
         const { round, session } = await saveMockRound(r.format, r.items, r.items.reduce((s, i) => s + i.seconds, 0))
         setSelectedId(round.id)
@@ -94,7 +95,7 @@ export function MockTab({ bank, readiness, covered, rounds, today, format: forma
       } catch (e) {
         setSaveError(e instanceof Error ? e.message : 'Could not save the round')
       }
-    })
+    }))
   }
 
   // ---------------- Running ----------------

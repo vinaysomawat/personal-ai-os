@@ -6,6 +6,7 @@ import { addExpense } from '@/features/finance/actions'
 import { todayIST } from '@/lib/date'
 import { upsertTodayMetric } from '@/features/health/actions'
 import { useEscapeKey } from '@/lib/use-escape-key'
+import { guard } from '@/lib/guard'
 
 type Mode = null | 'expense' | 'metric'
 
@@ -35,7 +36,7 @@ export default function QuickAdd() {
   const handleExpense = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     const fd = new FormData(e.currentTarget)
-    startTransition(async () => { await addExpense(fd); flash() })
+    startTransition(guard(async () => { await addExpense(fd); flash() }))
   }
 
   const handleMetric = (e: React.FormEvent<HTMLFormElement>) => {
@@ -44,7 +45,7 @@ export default function QuickAdd() {
     const field = fd.get('field') as string
     const value = parseFloat(fd.get('value') as string)
     if (!isNaN(value)) {
-      startTransition(async () => { await upsertTodayMetric(field as Parameters<typeof upsertTodayMetric>[0], value); flash() })
+      startTransition(guard(async () => { await upsertTodayMetric(field as Parameters<typeof upsertTodayMetric>[0], value); flash() }))
     }
   }
 

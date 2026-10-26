@@ -9,6 +9,7 @@ import { reviewMockRound } from '../actions'
 import { BANK_CATEGORIES } from '../hunt'
 import { formatOf, type MockItem, type MockRound } from '../mock'
 import AnswerReview, { CodeBlock } from './AnswerReview'
+import { guard } from '@/lib/guard'
 
 export const categoryLabel = (c: string) => c === 'star' ? 'STAR story' : BANK_CATEGORIES.find(b => b.key === c)?.label ?? c
 export const mmss = (s: number) => `${s < 0 ? '-' : ''}${Math.floor(Math.abs(s) / 60)}:${String(Math.floor(Math.abs(s) % 60)).padStart(2, '0')}`
@@ -38,11 +39,11 @@ export function RoundDetail({ round, saving = false, onReviewed, action }: {
 
   const runReview = () => {
     setError(null)
-    startReview(async () => {
+    startReview(guard(async () => {
       const res = await reviewMockRound(round.id)
       if (res.review) onReviewed({ ...round, review: res.review })
       else setError(res.error)
-    })
+    }))
   }
 
   return (

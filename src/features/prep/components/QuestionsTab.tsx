@@ -12,6 +12,7 @@ import { toISTDateStr } from '@/lib/date'
 import { hm, minutesPerQuestion } from '../war'
 import type { BankQuestion, PrepSession } from '../types'
 import type { Scorecard } from '../scorecard'
+import { guard } from '@/lib/guard'
 
 const DIFFICULTY_ORDER: Record<string, number> = { medium: 0, easy: 1, hard: 2 }
 
@@ -134,17 +135,17 @@ export function QuestionsTab({ bank, setBank, topic, onTopicChange: setTopic, co
     if (!currentFeedback) setPeeked(prev => new Set(prev).add(id))
     setShownAnswer(id)
     if (modelAnswers[id]) return
-    startReveal(async () => {
+    startReveal(guard(async () => {
       try { const text = await revealModelAnswer(id); setModelAnswers(prev => ({ ...prev, [id]: text })) }
       catch (e) { setModelAnswers(prev => ({ ...prev, [id]: `Couldn't load the answer: ${e instanceof Error ? e.message : 'unknown error'}` })) }
-    })
+    }))
   }
 
   const getFeedback = () => {
     if (!current || !reviewable) return
     const id = current.id
     const text = answer.trim()
-    startReview(async () => {
+    startReview(guard(async () => {
       try {
         const r = await critiqueAnswer(id, text, spokenIds.has(id))
         setFeedback({ id, answer: text, text: r.feedback, rating: r.rating, card: r.card })
@@ -152,7 +153,7 @@ export function QuestionsTab({ bank, setBank, topic, onTopicChange: setTopic, co
         // A failed review mustn't block Next.
         setFeedback({ id, answer: text, text: `Review failed: ${e instanceof Error ? e.message : 'unknown error'}`, rating: null, card: null })
       }
-    })
+    }))
   }
   const select = (id: string) => { resetCard(); setSelectedId(id); setOpen(true) }
 
@@ -183,7 +184,7 @@ export function QuestionsTab({ bank, setBank, topic, onTopicChange: setTopic, co
     advance(id)
     setBank(prev => prev.map(q => q.id === id ? { ...q, last_seen_at: now, last_answer: text ?? q.last_answer, ...(rating !== null ? { last_rating: rating, last_rated_at: now } : {}) } : q))
     resetCard()
-    startTransition(async () => onGraded(await answerQuestion(id, text, rating)))
+    startTransition(guard(async () => onGraded(await answerQuestion(id, text, rating))))
   }
 
   const quotaFor = (key: string) => { const c = coverage.find(x => x.key === key); return c && isQuota(c) ? c : null }

@@ -10,6 +10,7 @@ import { endFocusSession, generatePrepForecast, savePrepRestDay, savePrepSetting
 import { LEVELS, WEEKDAYS, levelOf } from '../hunt'
 import { FINISH_SHARE, GATES, PACE_WINDOW, blockProgress, coachLine, focusedMinutes, isGoodDay, focusSeconds, hm, nowBlock, paceLabel, paceStatus, readinessTier, type DayPace, type FocusSession, type Forecast, type RevisionItem, type TopicWeakness, type WarReadiness } from '../war'
 import type { PrepBlock, PrepSession, PrepSettings, ReadinessCell } from '../types'
+import { guard } from '@/lib/guard'
 
 const mmss = (s: number) => `${s < 0 ? '-' : ''}${Math.floor(Math.abs(s) / 60)}:${String(Math.abs(s) % 60).padStart(2, '0')}`
 const scoreCls = (s: number | null, gate: number) => s === null ? 'text-fg-tertiary' : s >= gate ? 'text-good' : s >= gate - 15 ? 'text-warn' : 'text-risk'
@@ -38,9 +39,9 @@ export function WarHeader({ war, settings, questionMinutes, pace, blocks, restDa
   const [saving, startSave] = useTransition()
   const level = levelOf(settings.hours_per_day)
   // A new level rebuilds today's plan.
-  const save = (hours: number) => startSave(async () => { await savePrepSettings(hours); router.refresh() })
+  const save = (hours: number) => startSave(guard(async () => { await savePrepSettings(hours); router.refresh() }))
   // A new rest day rebuilds today's plan too.
-  const saveRest = (day: number) => startSave(async () => { await savePrepRestDay(day); router.refresh() })
+  const saveRest = (day: number) => startSave(guard(async () => { await savePrepRestDay(day); router.refresh() }))
   return (
     <Card padding="p-[var(--card-pad-sm)]">
       <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2">
@@ -193,15 +194,15 @@ export function FocusBar({ focus, progress, canFinish, ended, onChange, onEnded,
         {paused && <span className="font-normal opacity-85 shrink-0">· paused</span>}
       </button>
       <span className="w-px h-4 bg-white/30 mx-1 shrink-0" aria-hidden />
-      <button disabled={busy} onClick={() => start(async () => { const f = await toggleFocusSessionPause(focus.id); if (f) onChange(f) })} title={paused ? 'Resume' : 'Pause'} aria-label={paused ? 'Resume' : 'Pause'} className={icon}>
+      <button disabled={busy} onClick={() => start(guard(async () => { const f = await toggleFocusSessionPause(focus.id); if (f) onChange(f) }))} title={paused ? 'Resume' : 'Pause'} aria-label={paused ? 'Resume' : 'Pause'} className={icon}>
         {paused ? <Play size={13} /> : <Pause size={13} />}
       </button>
       {/* Question blocks also finish themselves at their minutes; Finish opens at FINISH_SHARE. */}
-      <button disabled={busy || !canFinish} onClick={() => start(async () => { const r = await endFocusSession(focus.id, true); onEnded(r.focus, r.session) })}
+      <button disabled={busy || !canFinish} onClick={() => start(guard(async () => { const r = await endFocusSession(focus.id, true); onEnded(r.focus, r.session) }))}
         title={canFinish ? 'Finish block' : `Finish opens at ${Math.round(FINISH_SHARE * 100)}% of the block's minutes`} aria-label="Finish block" className={icon}>
         <Check size={14} strokeWidth={3} />
       </button>
-      <button disabled={busy} onClick={() => start(async () => { const r = await endFocusSession(focus.id, false); onEnded(r.focus, null) })} title="Stop without finishing" aria-label="Stop without finishing" className={icon}>
+      <button disabled={busy} onClick={() => start(guard(async () => { const r = await endFocusSession(focus.id, false); onEnded(r.focus, null) }))} title="Stop without finishing" aria-label="Stop without finishing" className={icon}>
         <X size={14} />
       </button>
     </div>
@@ -302,7 +303,7 @@ export function ForecastCard({ forecast, today }: { forecast: { date: string; fo
   return (
     <Card title="If you interviewed tomorrow…" action={
       state?.date !== today ? (
-        <button disabled={busy} onClick={() => { setError(null); start(async () => { const r = await generatePrepForecast(); if (r.forecast) setState({ date: today, forecast: r.forecast }); else setError(r.error) }) }}
+        <button disabled={busy} onClick={() => { setError(null); start(guard(async () => { const r = await generatePrepForecast(); if (r.forecast) setState({ date: today, forecast: r.forecast }); else setError(r.error) })) }}
           className="text-[11.5px] text-accent hover:underline inline-flex items-center gap-1 disabled:opacity-50"><Sparkles size={12} /> {busy ? 'Forecasting…' : state ? 'Refresh' : 'Forecast'}</button>
       ) : <span className="text-[11px] text-fg-tertiary">{state.date}</span>
     }>

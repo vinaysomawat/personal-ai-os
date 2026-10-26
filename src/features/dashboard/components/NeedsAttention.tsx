@@ -7,6 +7,7 @@ import { dismissDecisionQueueItem } from '@/features/brain/executive-actions'
 import { buildPriorityItems, KIND_HREF } from '../priority'
 import type { Risk } from '@/features/brain/risk-opportunity-engine'
 import type { TopAction } from '../actions'
+import { guard } from '@/lib/guard'
 
 // Every row shares one layout (bg-surface-2, colored left border, kind
 // badge under the text) regardless of type — risk/signal used
@@ -44,10 +45,10 @@ export default function NeedsAttention({ topActions, risks }: NeedsAttentionProp
   )
 
   const dismiss = (kind: string) => {
-    startTransition(async () => {
+    startTransition(guard(async () => {
       updateQueue(kind)
       await dismissDecisionQueueItem(kind)
-    })
+    }))
   }
 
   const items = buildPriorityItems(queue.risks, topActions).slice(0, MAX_ITEMS)

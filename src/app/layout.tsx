@@ -6,6 +6,7 @@ import QuickAdd from '@/features/dashboard/components/QuickAdd'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { AIAdvisorProvider } from '@/components/AIAdvisorProvider'
 import { ThemeProvider } from '@/components/ThemeProvider'
+import { ActionErrorToast } from '@/components/ActionErrorToast'
 import { Analytics } from "@vercel/analytics/next"
 import { SpeedInsights } from "@vercel/speed-insights/next"
 
@@ -61,6 +62,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                   sits permanently behind it. */}
               <main className="max-w-[1180px] mx-auto px-6 pt-3 pb-[154px] md:pb-24 animate-in fade-in duration-200">{children}</main>
               <QuickAdd />
+              <ActionErrorToast />
             </AIAdvisorProvider>
           </TooltipProvider>
         </ThemeProvider>

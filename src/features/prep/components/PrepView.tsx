@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useTransition } from 'react'
+import { useEffect, useRef, useState, useTransition } from 'react'
 import { ChevronRight, MessageSquareQuote, Plus, RotateCcw, Shuffle, Sparkles } from 'lucide-react'
 import Card from '@/components/Card'
 import MicButton, { appendText } from '@/components/MicButton'
@@ -23,6 +23,7 @@ import { FocusBar, ForecastCard, GatesCard, MissionCard, RevisionCard, WarHeader
 import { blockProgress, blockReached, canFinishBlock, dayPace, focusSeconds, focusedMinutes, istHourNow, paceLabel, paceStatus, practicedToday, type FocusSession, type Forecast, type RevisionItem, type TopicWeakness, type WarReadiness } from '../war'
 import PageHeader, { HeaderChip } from '@/components/PageHeader'
 import StatCard from '@/components/StatCard'
+import { guard } from '@/lib/guard'
 
 export type PrepTab = 'today' | 'ai' | 'questions' | 'mock' | 'stories'
 const TABS: { key: PrepTab; label: string }[] = [
@@ -76,7 +77,7 @@ export default function PrepView(props: Props) {
   const [focusEnded, setFocusEnded] = useState<{ label: string; seconds: number } | null>(null)
   const todayFocus = focusSessions.filter(f => f.date === props.today)
   // Pace vs the 9am–7pm window (PACE_WINDOW), re-read every minute.
-  const [, setTick] = useState(0)
+  const [tick, setTick] = useState(0)
   useEffect(() => { const t = setInterval(() => setTick(x => x + 1), 60_000); return () => clearInterval(t) }, [])
   // Today's answers per category (block progress).
   const doneToday: Record<string, number> = practicedToday(bank, props.today)
@@ -106,7 +107,7 @@ export default function PrepView(props: Props) {
     goToWork(key)
     if (activeFocus?.block_key === key) return
     setFocusEnded(null)
-    startTransition(async () => { const f = await startFocusSession(key); if (f) upsertFocus(f) })
+    startTransition(guard(async () => { const f = await startFocusSession(key); if (f) upsertFocus(f) }))
   }
   // The server completes the session when its block turns done (minutes
   // reached, ticked); mirror that locally the moment the plan comes back done.
@@ -124,13 +125,24 @@ export default function PrepView(props: Props) {
     return () => clearTimeout(t)
   }, [focusEnded])
   // A question block whose timer reaches its minutes finishes itself
-  // (checked on the minute tick, so at most a minute late).
+  // (checked on the minute tick, so at most a minute late; a failed request
+  // is tried again on the next tick).
   const reachedByTime = !!activeFocus && !!activeBlock && !activeBlock.done && activeBlock.key.startsWith('bank:') && blockReached(activeBlock, progressCtx)
+  const finishing = useRef(false)
   useEffect(() => {
-    if (!reachedByTime || !activeFocus) return
-    startTransition(async () => { const r = await endFocusSession(activeFocus.id, true); if (r.focus) upsertFocus(r.focus); if (r.session) setSession(r.session) })
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- fires once when the block's minutes are reached
-  }, [reachedByTime])
+    if (!reachedByTime || !activeFocus || finishing.current) return
+    finishing.current = true
+    startTransition(guard(async () => {
+      try {
+        const r = await endFocusSession(activeFocus.id, true)
+        if (r.focus) upsertFocus(r.focus)
+        if (r.session) setSession(r.session)
+      } finally {
+        finishing.current = false
+      }
+    }))
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- fires when the block's minutes are reached, and again each tick until it succeeds
+  }, [reachedByTime, tick])
   // "45m/1h 40m · 3 answered" for a question block.
   const focusProgress = activeFocus && activeBlock?.key.startsWith('bank:')
     ? `${Math.floor(blockProgress(activeBlock, progressCtx))}/${activeBlock.minutes}m · ${doneToday[activeBlock.key.slice(5)] ?? 0} answered`
@@ -253,11 +265,11 @@ function StoriesTab({ stories, rehearsals, covered, onSaved, onDeleted, onRehear
   const submitRehearsal = () => {
     if (answer.trim().length < 40) return
     setLatest(null)
-    startTransition(async () => {
+    startTransition(guard(async () => {
       const r = await rehearseStory(competency, prompt, answer.trim(), storyId || null, spoken)
       setLatest(r)
       onRehearsed(r)
-    })
+    }))
   }
   const retry = (r: StoryRehearsal) => {
     setCompetency(r.competency as CompetencyKey); setRetryPrompt(r.prompt); setAnswer(r.answer)
@@ -384,11 +396,11 @@ function StoriesTab({ stories, rehearsals, covered, onSaved, onDeleted, onRehear
 
       {editing && (
         <StoryModal initial={editing.input} isNew={!editing.id} onClose={() => setEditing(null)}
-          onSave={input => { const id = editing.id; setEditing(null); startTransition(async () => onSaved(await saveStory(id, input))) }} />
+          onSave={input => { const id = editing.id; setEditing(null); startTransition(guard(async () => onSaved(await saveStory(id, input)))) }} />
       )}
       {confirmDelete && (
         <ConfirmDialog title="Delete story?" description={`"${confirmDelete.title}" will be permanently removed.`} onCancel={() => setConfirmDelete(null)}
-          onConfirm={() => { const id = confirmDelete.id; setConfirmDelete(null); onDeleted(id); startTransition(() => deleteStory(id)) }} />
+          onConfirm={() => { const id = confirmDelete.id; setConfirmDelete(null); onDeleted(id); startTransition(guard(() => deleteStory(id))) }} />
       )}
     </div>
   )

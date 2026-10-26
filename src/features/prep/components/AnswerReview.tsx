@@ -6,6 +6,7 @@ import MicButton, { appendText } from '@/components/MicButton'
 import { modalSaveButtonClass } from '@/components/Modal'
 import { critiqueFollowUpAnswer } from '../actions'
 import { CRITERIA, type PointStatus, type Rubric, type Scorecard } from '../scorecard'
+import { guard } from '@/lib/guard'
 
 const rateCls = (r: number) => r >= 8 ? 'text-good bg-good-soft' : r >= 6 ? 'text-warn bg-warn-soft' : 'text-risk bg-risk-soft'
 const VERDICT_CLS: Record<Scorecard['verdict'], string> = { Strong: 'text-good', Good: 'text-warn', 'Needs work': 'text-risk' }
@@ -121,14 +122,14 @@ function FollowUpAnswer({ rubric, question, followUp }: { rubric: Rubric; questi
   const review = () => {
     if (!ready) return
     const answer = text.trim()
-    start(async () => {
+    start(guard(async () => {
       try {
         const r = await critiqueFollowUpAnswer(rubric, question, followUp, answer, spoken)
         setResult({ answer, text: r.feedback, rating: r.rating, card: r.card })
       } catch (e) {
         setResult({ answer, text: `Review failed: ${e instanceof Error ? e.message : 'unknown error'}`, rating: null, card: null })
       }
-    })
+    }))
   }
   if (!open) return <button onClick={() => setOpen(true)} className="mt-1.5 text-[11.5px] font-semibold text-accent hover:underline">Answer follow-up →</button>
   return (

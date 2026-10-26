@@ -7,6 +7,7 @@ import Modal, { modalCancelButtonClass, modalInputClass, modalLabelClass, modalS
 import { BUILD_START, ROADMAP, THEMES, roadmapWeek, type RoadmapProgress } from '../roadmap'
 import { saveRoadmapWeek, undoRoadmapWeek } from '../actions'
 import type { BankQuestion } from '../types'
+import { guard } from '@/lib/guard'
 
 // AI Engineer tab: the 11-week Build roadmap with proof per shipped week,
 // this week's theme, and mastery per AI-engineering topic. All
@@ -54,18 +55,18 @@ export function AiTab({ today, progress, setProgress, bank, onOpenTopic }: {
 
   const save = (w: number, input: { proof_url: string; metric: string; notes: string }) => {
     setError(null)
-    startTransition(async () => {
+    startTransition(guard(async () => {
       try {
         const row = await saveRoadmapWeek(w, input)
         setProgress(prev => [...prev.filter(p => p.week !== w), row].sort((a, b) => a.week - b.week))
         setEditing(null)
       } catch (e) { setError(e instanceof Error ? e.message : 'Could not save') }
-    })
+    }))
   }
   const undo = (w: number) => {
     const prev = progress
     setProgress(p => p.filter(x => x.week !== w))
-    startTransition(async () => { try { await undoRoadmapWeek(w) } catch { setProgress(() => prev) } })
+    startTransition(guard(async () => { try { await undoRoadmapWeek(w) } catch { setProgress(() => prev) } }))
   }
 
   return (

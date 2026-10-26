@@ -26,6 +26,7 @@ import { useFormValidation } from '@/lib/use-form-validation'
 import FieldError from '@/components/FieldError'
 import PageHeader, { HeaderChip } from '@/components/PageHeader'
 import StatCard from '@/components/StatCard'
+import { guard } from '@/lib/guard'
 
 const CATEGORY_COLOR: Record<string, string> = {
   Food: 'bg-orange-500/15 text-orange-400', Transport: 'bg-blue-500/15 text-blue-400',
@@ -209,36 +210,36 @@ export default function FinanceView({ expenses, budgets, profile, loans, investm
   const handleLiquidSavings = (v: string) => {
     const n = parseFloat(v) || null
     setLocalProfile(p => p ? { ...p, liquid_savings: n } : { id: '', user_id: '', monthly_salary: null, emergency_fund_months: 6, liquid_savings: n, updated_at: new Date().toISOString() })
-    startTransition(() => saveLiquidSavings(n))
+    startTransition(guard(() => saveLiquidSavings(n)))
   }
   const handleSalary = (v: string) => {
     const n = parseFloat(v) || 0
     setLocalProfile(p => p ? { ...p, monthly_salary: n } : { id: '', user_id: '', monthly_salary: n, emergency_fund_months: 6, updated_at: new Date().toISOString() })
-    startTransition(() => upsertProfile(n, localProfile?.emergency_fund_months ?? 6))
+    startTransition(guard(() => upsertProfile(n, localProfile?.emergency_fund_months ?? 6)))
   }
 
   const handleDeleteLoan = (id: string) => {
     setLocalLoans(prev => prev.filter(l => l.id !== id))
-    startTransition(() => deleteLoan(id))
+    startTransition(guard(() => deleteLoan(id)))
   }
 
   const handleDeleteInvestment = (id: string) => {
     setLocalInvestments(prev => prev.filter(i => i.id !== id))
-    startTransition(() => deleteInvestment(id))
+    startTransition(guard(() => deleteInvestment(id)))
   }
 
   const handleInvValueSave = (id: string, v: string) => {
     const n = parseFloat(v)
     if (isNaN(n)) return
     setLocalInvestments(prev => prev.map(i => i.id === id ? { ...i, current_value: n } : i))
-    startTransition(() => updateInvestmentValue(id, n))
+    startTransition(guard(() => updateInvestmentValue(id, n)))
   }
 
   const handleInvAmountSave = (id: string, v: string) => {
     const n = parseFloat(v)
     if (isNaN(n)) return
     setLocalInvestments(prev => prev.map(i => i.id === id ? { ...i, invested_amount: n } : i))
-    startTransition(() => updateInvestmentAmount(id, n))
+    startTransition(guard(() => updateInvestmentAmount(id, n)))
   }
 
   // A rate change or a principal prepayment shows up here without deleting
@@ -247,28 +248,28 @@ export default function FinanceView({ expenses, budgets, profile, loans, investm
     const n = parseFloat(v)
     if (isNaN(n)) return
     setLocalLoans(prev => prev.map(l => l.id === id ? { ...l, emi: n } : l))
-    startTransition(() => updateLoanTerms(id, { emi: n }))
+    startTransition(guard(() => updateLoanTerms(id, { emi: n })))
   }
 
   const handleLoanRateSave = (id: string, v: string) => {
     const n = v.trim() === '' ? null : parseFloat(v)
     if (n !== null && isNaN(n)) return
     setLocalLoans(prev => prev.map(l => l.id === id ? { ...l, interest_rate: n } : l))
-    startTransition(() => updateLoanTerms(id, { interestRate: n }))
+    startTransition(guard(() => updateLoanTerms(id, { interestRate: n })))
   }
 
   const handleLoanMonthsSave = (id: string, v: string) => {
     const n = v.trim() === '' ? null : parseInt(v, 10)
     if (n !== null && isNaN(n)) return
     setLocalLoans(prev => prev.map(l => l.id === id ? { ...l, remaining_months: n } : l))
-    startTransition(() => updateLoanTerms(id, { remainingMonths: n }))
+    startTransition(guard(() => updateLoanTerms(id, { remainingMonths: n })))
   }
 
   const handleGoalProgressSave = (id: string) => {
     const v = parseFloat(editInput)
     if (!isNaN(v)) {
       setLocalGoals(prev => prev.map(g => g.id === id ? { ...g, current_amount: v } : g))
-      startTransition(() => updateGoalProgress(id, v))
+      startTransition(guard(() => updateGoalProgress(id, v)))
     }
     setEditingGoalId(null)
   }
@@ -276,13 +277,13 @@ export default function FinanceView({ expenses, budgets, profile, loans, investm
   const handleGoalDateSave = (id: string, v: string) => {
     const date = v || null
     setLocalGoals(prev => prev.map(g => g.id === id ? { ...g, target_date: date } : g))
-    startTransition(() => updateGoalTargetDate(id, date))
+    startTransition(guard(() => updateGoalTargetDate(id, date)))
     setEditingGoalDateId(null)
   }
 
   const handleDeleteGoal = (id: string) => {
     setLocalGoals(prev => prev.filter(g => g.id !== id))
-    startTransition(() => deleteGoal(id))
+    startTransition(guard(() => deleteGoal(id)))
   }
 
   const handleBudgetSave = (category: string) => {
@@ -293,7 +294,7 @@ export default function FinanceView({ expenses, budgets, profile, loans, investm
       if (exists) return prev.map(b => b.category === category ? { ...b, amount } : b)
       return [...prev, { id: `temp-${Date.now()}`, user_id: '', category, amount, month }]
     })
-    startTransition(() => upsertBudget(category, amount))
+    startTransition(guard(() => upsertBudget(category, amount)))
     setEditingBudget(null); setBudgetInput('')
   }
 
@@ -303,7 +304,7 @@ export default function FinanceView({ expenses, budgets, profile, loans, investm
   // getFinanceData's carry-forward logic).
   const handleBudgetRemove = (category: string) => {
     setLocalBudgets(prev => prev.map(b => b.category === category ? { ...b, amount: 0 } : b))
-    startTransition(() => upsertBudget(category, 0))
+    startTransition(guard(() => upsertBudget(category, 0)))
     setEditingBudget(null); setBudgetInput('')
   }
 
@@ -314,13 +315,13 @@ export default function FinanceView({ expenses, budgets, profile, loans, investm
       const added = rows.filter(r => !prev.some(b => b.category === r.category)).map(r => ({ id: `temp-${r.category}`, user_id: '', category: r.category, amount: r.amount, month }))
       return [...next, ...added]
     })
-    startTransition(() => upsertBudgets(rows))
+    startTransition(guard(() => upsertBudgets(rows)))
     setShowSuggest(false)
   }
 
   const handleDeleteExpense = (id: string) => {
     setLocalExpenses(prev => prev.filter(e => e.id !== id))
-    startTransition(() => deleteExpense(id))
+    startTransition(guard(() => deleteExpense(id)))
   }
 
   const confirmPendingDelete = () => {

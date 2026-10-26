@@ -6,6 +6,7 @@ import EmptyState from '@/components/EmptyState'
 import { completeWorkout, skipWorkout, swapWorkout, getActiveOrGenerateWorkout } from '../daily-workout'
 import { WORKOUT_CATEGORIES } from '../workout-core'
 import type { DailyWorkout, WorkoutStats } from '../workout-core'
+import { guard } from '@/lib/guard'
 
 const STATUS_CONFIG: Record<string, { label: string; color: string }> = {
   pending: { label: 'Pending', color: 'text-amber-400' },
@@ -39,26 +40,26 @@ export default function DailyWorkoutCard({ initialWorkout, stats }: Props) {
 
   const handleComplete = () => {
     setWorkout(prev => prev ? { ...prev, status: 'completed' } : prev)
-    startTransition(async () => {
+    startTransition(guard(async () => {
       await completeWorkout(workout.id)
       setWorkout(await getActiveOrGenerateWorkout())
-    })
+    }))
   }
   const handleSkip = () => {
     setWorkout(prev => prev ? { ...prev, status: 'skipped' } : prev)
-    startTransition(async () => {
+    startTransition(guard(async () => {
       await skipWorkout(workout.id)
       setWorkout(await getActiveOrGenerateWorkout())
-    })
+    }))
   }
 
   // Pick a different category for today without recording a skip.
   const handleChange = (category: string) => {
     setShowChange(false)
-    startTransition(async () => {
+    startTransition(guard(async () => {
       const swapped = await swapWorkout(workout.id, category)
       if (swapped) setWorkout(swapped)
-    })
+    }))
   }
 
   const isDone = workout.status === 'completed' || workout.status === 'skipped'
