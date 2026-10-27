@@ -1,4 +1,4 @@
-import { toISTDateStr } from '@/lib/date'
+import { toPrepDateStr } from '@/lib/date'
 import type { BankQuestion, PrepBlock } from './types'
 import { formatMinutes, formatOf, mockFormatForDay } from './mock'
 import { buildBlock, learnBlock, themeFor } from './roadmap'
@@ -69,8 +69,8 @@ export const redoInterval = (rating: number) => rating < 5 ? 1 : rating < 6 ? 2 
 export const redoSlots = (quota: number) => Math.round(quota * REDO_SHARE)
 export function isRedoDue(q: Pick<BankQuestion, 'last_rating' | 'last_rated_at' | 'last_seen_at'>, today: string): boolean {
   if (q.last_rating === null || q.last_rating >= 7 || !q.last_rated_at) return false
-  if (q.last_seen_at && toISTDateStr(q.last_seen_at) === today) return false
-  const d = new Date(`${toISTDateStr(q.last_rated_at)}T00:00:00Z`)
+  if (q.last_seen_at && toPrepDateStr(q.last_seen_at) === today) return false
+  const d = new Date(`${toPrepDateStr(q.last_rated_at)}T00:00:00Z`)
   d.setUTCDate(d.getUTCDate() + redoInterval(q.last_rating))
   return d.toISOString().slice(0, 10) <= today
 }

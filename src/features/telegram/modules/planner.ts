@@ -49,8 +49,8 @@ export async function execute(action: Record<string, unknown>, db: SupabaseClien
       const { startFocus } = await import('@/features/prep/core')
       const f = await startFocus(db, userId)
       if (!f) {
-        const { todayIST } = await import('@/lib/date')
-        const { data: session } = await db.from('prep_sessions').select('blocks').eq('user_id', userId).eq('date', todayIST()).maybeSingle()
+        const { prepToday } = await import('@/lib/date')
+        const { data: session } = await db.from('prep_sessions').select('blocks').eq('user_id', userId).eq('date', prepToday()).maybeSingle()
         return (session?.blocks as unknown[] | undefined)?.length === 0 ? '🌿 Rest day — nothing planned. Enjoy it.' : '✅ Every block in today\'s plan is done.'
       }
       const fresh = Date.now() - new Date(f.started_at).getTime() < 15_000
@@ -76,10 +76,12 @@ export async function execute(action: Record<string, unknown>, db: SupabaseClien
         (next ? `\n\n👉 Next: *${next.label}* — ${next.minutes}m. Reply *START*.` : finished ? '\n\nThat was the last block today.' : '')
     }
     case 'prep_now': {
-      const { coachData, middayMessage, morningMessage } = await import('@/features/prep/coach')
+      const { coachData, middayMessage, morningMessage, nowLine } = await import('@/features/prep/coach')
       const data = await coachData(db, userId)
       if (!data) return 'Couldn\'t load today\'s plan — open the Prep page once.'
-      return middayMessage(data) ?? morningMessage(data)
+      // Where the timeline says you are, then the check-in or the mission.
+      const now = nowLine(data)
+      return `${now ? `${now}\n\n` : ''}${middayMessage(data) ?? morningMessage(data)}`
     }
     case 'drill': {
       const { drillCategory, startDrill } = await import('@/features/prep/drill')

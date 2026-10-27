@@ -3,7 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { askAI } from '@/lib/ai-gateway'
-import { todayIST } from '@/lib/date'
+import { prepToday } from '@/lib/date'
 import { formatOf, roundScore, type MockFormat, type MockItem, type MockReview, type MockRound } from './mock'
 import { COMPETENCIES } from './types'
 import type { PrepSession, Story, StoryRehearsal } from './types'
@@ -70,7 +70,7 @@ export async function savePrepSettings(hoursPerDay: number) {
   const { error } = await supabase.from('prep_settings')
     .upsert({ user_id: user.id, hours_per_day: hours, updated_at: new Date().toISOString() }, { onConflict: 'user_id' })
   if (error) throw new Error(error.message)
-  await supabase.from('prep_sessions').delete().eq('user_id', user.id).eq('date', todayIST())
+  await supabase.from('prep_sessions').delete().eq('user_id', user.id).eq('date', prepToday())
   revalidatePath('/prep')
   revalidatePath('/dashboard')
 }
@@ -83,7 +83,22 @@ export async function savePrepRestDay(day: number) {
   if (!Number.isInteger(day) || day < 0 || day > 6) throw new Error('Invalid day')
   const { error } = await supabase.from('prep_settings').upsert({ user_id: user.id, rest_day: day, updated_at: new Date().toISOString() }, { onConflict: 'user_id' })
   if (error) throw new Error(error.message)
-  await supabase.from('prep_sessions').delete().eq('user_id', user.id).eq('date', todayIST())
+  await supabase.from('prep_sessions').delete().eq('user_id', user.id).eq('date', prepToday())
+  revalidatePath('/prep')
+  revalidatePath('/dashboard')
+}
+
+// The day window (minutes after IST midnight; an end before the start runs
+// past midnight). Pace and the Today timeline only — the plan is unchanged.
+export async function savePrepWindow(startMin: number, endMin: number) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) throw new Error('Not authenticated')
+  const ok = (m: number) => Number.isInteger(m) && m >= 0 && m <= 1439
+  const length = ((endMin - startMin) + 1440) % 1440
+  if (!ok(startMin) || !ok(endMin) || length < 240 || length > 1200) throw new Error('The day window must be 4–20 hours')
+  const { error } = await supabase.from('prep_settings').upsert({ user_id: user.id, day_start_min: startMin, day_end_min: endMin, updated_at: new Date().toISOString() }, { onConflict: 'user_id' })
+  if (error) throw new Error(error.message)
   revalidatePath('/prep')
   revalidatePath('/dashboard')
 }

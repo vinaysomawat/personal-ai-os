@@ -6,9 +6,9 @@ import { Check, Pause, Play, Sparkles, Timer, X } from 'lucide-react'
 import Card from '@/components/Card'
 import { modalSaveButtonClass } from '@/components/Modal'
 import { READINESS_CONFIG, type ReadinessTier } from '../types'
-import { endFocusSession, generatePrepForecast, savePrepRestDay, savePrepSettings, toggleFocusSessionPause } from '../actions'
+import { endFocusSession, generatePrepForecast, savePrepRestDay, savePrepWindow, savePrepSettings, toggleFocusSessionPause } from '../actions'
 import { LEVELS, WEEKDAYS, levelOf } from '../hunt'
-import { FINISH_SHARE, GATES, PACE_WINDOW, blockProgress, coachLine, focusedMinutes, isGoodDay, focusSeconds, hm, nowBlock, paceLabel, paceStatus, readinessTier, type DayPace, type FocusSession, type Forecast, type RevisionItem, type TopicWeakness, type WarReadiness } from '../war'
+import { FINISH_SHARE, GATES, blockProgress, dayWindow, coachLine, focusedMinutes, isGoodDay, focusSeconds, hm, nowBlock, paceLabel, paceStatus, readinessTier, type DayPace, type FocusSession, type Forecast, type RevisionItem, type TopicWeakness, type WarReadiness } from '../war'
 import type { PrepBlock, PrepSession, PrepSettings, ReadinessCell } from '../types'
 import { guard } from '@/lib/guard'
 
@@ -27,6 +27,10 @@ function useNow(active: boolean) {
 
 // ---------------- Header ----------------
 
+const TIME_INPUT = 'bg-surface-2 border border-border-strong rounded-[6px] px-1 py-[2px] text-[11.5px] text-fg-secondary outline-none focus:border-accent w-[88px]'
+const toHHMM = (min: number) => `${String(Math.floor(min / 60)).padStart(2, '0')}:${String(min % 60).padStart(2, '0')}`
+const fromHHMM = (v: string) => { const [h, m] = v.split(':').map(Number); return h * 60 + m }
+
 export function WarHeader({ war, settings, questionMinutes, pace, blocks, restDay }: {
   war: WarReadiness; settings: PrepSettings; questionMinutes: number; pace: DayPace
   // Today's plan — the coach line names the next block.
@@ -42,6 +46,7 @@ export function WarHeader({ war, settings, questionMinutes, pace, blocks, restDa
   const save = (hours: number) => startSave(guard(async () => { await savePrepSettings(hours); router.refresh() }))
   // A new rest day rebuilds today's plan too.
   const saveRest = (day: number) => startSave(guard(async () => { await savePrepRestDay(day); router.refresh() }))
+  const saveWindow = (start: number, end: number) => startSave(guard(async () => { await savePrepWindow(start, end); router.refresh() }))
   return (
     <Card padding="p-[var(--card-pad-sm)]">
       <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2">
@@ -63,12 +68,21 @@ export function WarHeader({ war, settings, questionMinutes, pace, blocks, restDa
                 {WEEKDAYS.map((d, i) => <option key={d} value={i}>{d}</option>)}
               </select>
             </label>
+            {/* The day window: pace and the timeline (an end before the start runs past midnight). */}
+            <span className="inline-flex items-center gap-1 text-[11px] text-fg-tertiary">
+              Day
+              <input type="time" step={900} value={toHHMM(settings.day_start_min)} disabled={saving} aria-label="Day starts"
+                onChange={e => e.target.value && saveWindow(fromHHMM(e.target.value), settings.day_end_min)} className={TIME_INPUT} />
+              –
+              <input type="time" step={900} value={toHHMM(settings.day_end_min)} disabled={saving} aria-label="Day ends"
+                onChange={e => e.target.value && saveWindow(settings.day_start_min, fromHHMM(e.target.value))} className={TIME_INPUT} />
+            </span>
             {!restDay && <span className="text-[11px] text-fg-tertiary tabular-nums">{hm(questionMinutes)} of questions/day</span>}
           </div>
           {restDay
             ? <p className="text-[12.5px] mt-1 text-fg-secondary">🌿 Rest day — no plan. Walk, gym, see people. The streak carries over.</p>
             : <p className={`text-[12.5px] mt-1 ${isGoodDay(blocks) ? 'text-good' : 'text-fg-secondary'}`}>{coachLine(pace, nowBlock(blocks), isGoodDay(blocks))}</p>}
-          {!restDay && <p className="text-[11.5px] text-fg-tertiary mt-0.5 tabular-nums"><span className={`font-semibold ${status === 'behind' ? 'text-risk' : status === 'ahead' ? 'text-good' : 'text-fg-secondary'}`}>{paceLabel(pace)}</span> · {pace.donePct}% of plan done · {pace.dayPct}% of {PACE_WINDOW.label} gone · blocks {pace.blocksDone}/{pace.blocksTotal}</p>}
+          {!restDay && <p className="text-[11.5px] text-fg-tertiary mt-0.5 tabular-nums"><span className={`font-semibold ${status === 'behind' ? 'text-risk' : status === 'ahead' ? 'text-good' : 'text-fg-secondary'}`}>{paceLabel(pace)}</span> · {pace.donePct}% of plan done · {pace.dayPct}% of {dayWindow(settings).label} gone · blocks {pace.blocksDone}/{pace.blocksTotal}</p>}
         </div>
         <div className="text-right shrink-0">
           <p className={`text-[22px] font-bold leading-none tabular-nums ${war.ready || war.interviewReady ? 'text-good' : war.overall >= 60 ? 'text-warn' : 'text-risk'}`}>{war.overall}%</p>

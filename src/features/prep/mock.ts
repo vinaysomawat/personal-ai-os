@@ -1,4 +1,4 @@
-import { toISTDateStr } from '@/lib/date'
+import { toPrepDateStr } from '@/lib/date'
 import { COMPETENCIES, REHEARSAL_PROMPTS, type BankQuestion, type CompetencyKey } from './types'
 import type { Scorecard } from './scorecard'
 
@@ -149,7 +149,7 @@ export function buildMockRound(format: MockFormat, bank: BankQuestion[], ctx: {
   roundsSoFar: number
 }): MockItem[] {
   const picked = new Set<string>()
-  const seenToday = (q: BankQuestion) => !!q.last_seen_at && toISTDateStr(q.last_seen_at) === ctx.today
+  const seenToday = (q: BankQuestion) => !!q.last_seen_at && toPrepDateStr(q.last_seen_at) === ctx.today
   const items: MockItem[] = []
   let starIdx = 0
   for (const slot of formatOf(format).slots) {

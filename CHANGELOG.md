@@ -3,6 +3,10 @@
 One line per shipped change, newest first. Sourced from commit messages —
 append here whenever you deploy, same cadence as the version bump.
 
+## 2026-10-27
+
+- **Today has a timeline, and your day runs 12pm–1am.** A new Timeline card puts your plan on the clock, with lunch, dinner, a walk, two job-application slots, breaks, a flex slot and a 5-minute review. It re-plans every minute: anything you didn't finish moves to now, and the flex slot absorbs the delay. Set your day window next to the level switch. Pace uses that window, and Prep's day now rolls over at 4am, so work after midnight counts for the day you started. The 7:30am message shows start times, and "what now" tells you which slot you're in and what's next.
+
 ## 2026-10-26
 
 - **A dropped connection no longer crashes the page.** When a save, the timer's Pause / Finish / Stop, or any other action can't reach the server, you now get a short "Couldn't reach the server — nothing was saved" notice at the top and the page stays as it was, instead of "Something went wrong". A question block that finishes itself on time tries again a minute later.

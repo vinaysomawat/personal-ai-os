@@ -4,7 +4,7 @@ import { useMemo, useState, useTransition } from 'react'
 import { ExternalLink, Sparkles } from 'lucide-react'
 import Card from '@/components/Card'
 import { modalSaveButtonClass } from '@/components/Modal'
-import { todayIST, toISTDateStr } from '@/lib/date'
+import { prepToday, toPrepDateStr } from '@/lib/date'
 import { reviewMockRound } from '../actions'
 import { BANK_CATEGORIES } from '../hunt'
 import { formatOf, type MockItem, type MockRound } from '../mock'
@@ -47,7 +47,7 @@ export function RoundDetail({ round, saving = false, onReviewed, action }: {
   }
 
   return (
-    <Card title={`${formatOf(round.format).label} · ${toISTDateStr(round.created_at)} ${timeLabel(round.created_at)}`}
+    <Card title={`${formatOf(round.format).label} · ${toPrepDateStr(round.created_at)} ${timeLabel(round.created_at)}`}
       action={<span className="text-[11px] text-fg-tertiary tabular-nums">{answeredOf(round.items)}/{round.items.length} answered · {mmss(total)}{saving ? ' · saving…' : ''}</span>}>
       {review ? (
         <div className="rounded-[10px] bg-accent-soft border border-accent/30 px-3 py-2.5 mb-2.5">
@@ -119,24 +119,24 @@ export function MockCalendar({ rounds, selectedId, onSelect }: {
   selectedId: string | null
   onSelect: (id: string) => void
 }) {
-  const today = todayIST()
+  const today = prepToday()
   const byDate = useMemo(() => {
     const m = new Map<string, MockRound[]>()
-    for (const r of rounds) { const d = toISTDateStr(r.created_at); m.set(d, [...(m.get(d) ?? []), r]) }
+    for (const r of rounds) { const d = toPrepDateStr(r.created_at); m.set(d, [...(m.get(d) ?? []), r]) }
     return m
   }, [rounds])
   const [view, setView] = useState(() => ({ y: Number(today.slice(0, 4)), m: Number(today.slice(5, 7)) - 1 }))
   const [picked, setDay] = useState<string | null>(null)
   // Defaults to the open round's day, else the latest round's.
   const fallback = rounds.find(r => r.id === selectedId) ?? rounds[0]
-  const day = picked ?? (fallback ? toISTDateStr(fallback.created_at) : null)
+  const day = picked ?? (fallback ? toPrepDateStr(fallback.created_at) : null)
 
   const first = new Date(view.y, view.m, 1)
   const daysInMonth = new Date(view.y, view.m + 1, 0).getDate()
   const monthKey = `${view.y}-${pad(view.m + 1)}`
-  const monthRounds = rounds.filter(r => toISTDateStr(r.created_at).startsWith(monthKey))
+  const monthRounds = rounds.filter(r => toPrepDateStr(r.created_at).startsWith(monthKey))
   const reviewed = rounds.filter(r => r.review).length
-  const earliest = rounds.length ? toISTDateStr(rounds[rounds.length - 1].created_at).slice(0, 7) : monthKey
+  const earliest = rounds.length ? toPrepDateStr(rounds[rounds.length - 1].created_at).slice(0, 7) : monthKey
   const shift = (d: number) => setView(v => { const n = new Date(v.y, v.m + d, 1); return { y: n.getFullYear(), m: n.getMonth() } })
   const dayRounds = day ? byDate.get(day) ?? [] : []
 

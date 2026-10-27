@@ -3,7 +3,7 @@
 import { after } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createServiceClient } from '@/lib/supabase/service'
-import { todayIST, daysAgoIST, istMidnightUtc, istDateStrToUtcMidnight, toISTDateStr } from '@/lib/date'
+import { todayIST, daysAgoIST, istMidnightUtc, istDateStrToUtcMidnight, toISTDateStr, prepToday } from '@/lib/date'
 import { getActiveWorkout, computeWorkoutStats } from '@/features/health/workout-core'
 import { computeHealthPlan } from '@/features/health/calculations'
 import type { Workout } from '@/features/health/types'
@@ -354,7 +354,9 @@ export async function getDashboardData() {
   const expenseLoggedToday = (expensesRes.data ?? []).some(e => (e as { date: string }).date === today)
 
   const prepSessions = (prepSessionsRes.data ?? []) as { date: string; blocks: { done: boolean }[]; completed_at: string | null }[]
-  const todaySession = prepSessions.find(p => p.date === today) ?? null
+  // Prep's day rolls over at 4am (prepToday), not midnight.
+  const prepDay = prepToday()
+  const todaySession = prepSessions.find(p => p.date === prepDay) ?? null
   const todayProgress = computeTodayProgress({
     metricsLoggedToday,
     workoutStatus,
@@ -403,7 +405,7 @@ export async function getDashboardData() {
       monthSpend, monthBudget,
       practiced30d,
       workoutStreak: workoutStats.currentStreakDays,
-      prepStreak: prepStreak(prepSessions, today, prepSettingsRes.data?.rest_day ?? 0),
+      prepStreak: prepStreak(prepSessions, prepDay, prepSettingsRes.data?.rest_day ?? 0),
     },
     prepToday: todaySession ? { done: todaySession.blocks.filter(b => b.done).length, total: todaySession.blocks.length } : null,
     workoutCategory: activeWorkout?.workout?.category ?? null,

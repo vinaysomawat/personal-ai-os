@@ -1,10 +1,10 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { todayIST, daysAgoIST, toISTDateStr, istMidnightUtc } from '@/lib/date'
+import { prepToday, prepDaysAgo, toPrepDateStr, prepDayStartUtc } from '@/lib/date'
 import type { MockRound } from './mock'
 import { BANK_CATEGORIES, DEFAULT_HOURS, buildHuntPlan, isRestDay, isRedoDue, type CategoryCoverage } from './hunt'
 import type { RoadmapProgress } from './roadmap'
 import { computeReadinessMatrix, type CodingHistoryRow } from './readiness'
-import { blockProgress, blockReached, canFinishBlock, categoryGap, dayPace, focusedMinutes, minutesPerQuestion, type ProgressCtx, isGoodDay, focusSeconds, nowBlock, revisionQueue, topicWeakness, warReadiness, type FocusSession, type Forecast } from './war'
+import { DEFAULT_DAY_WINDOW, blockProgress, blockReached, canFinishBlock, categoryGap, dayPace, focusedMinutes, minutesPerQuestion, type ProgressCtx, isGoodDay, focusSeconds, nowBlock, revisionQueue, topicWeakness, warReadiness, type FocusSession, type Forecast } from './war'
 import type { BankQuestion, PrepBlock, PrepSession, PrepSettings, Story, StoryRehearsal } from './types'
 
 // Prep's data layer — plain server module (not 'use server', so none of
@@ -33,15 +33,15 @@ export function prepStreak(sessions: { date: string; completed_at: string | null
 // page action and the service-role crons share one code path.
 export async function loadPrepData(supabase: SupabaseClient, userId: string) {
   const user = { id: userId }
-  const today = todayIST()
+  const today = prepToday()
 
   const [mockRes, storiesRes, rehearsalsRes, codingRes, sessionsRes, focusRes, roadmapRes, forecastRes] = await Promise.all([
     supabase.from('mock_rounds').select('id, format, items, duration_seconds, created_at, review').eq('user_id', user.id).order('created_at', { ascending: false }).limit(500),
     supabase.from('stories').select('*').eq('user_id', user.id).order('updated_at', { ascending: false }),
     supabase.from('story_rehearsals').select('id, story_id, competency, prompt, answer, critique, rating, scorecard, created_at').eq('user_id', user.id).order('created_at', { ascending: false }).limit(10),
-    supabase.from('coding_daily_questions').select('completed, outcome, completed_at, question:coding_questions(category, topics)').eq('user_id', user.id).eq('completed', true).gte('completed_at', istMidnightUtc(90)),
-    supabase.from('prep_sessions').select('*').eq('user_id', user.id).gte('date', daysAgoIST(60)).order('date', { ascending: false }),
-    supabase.from('prep_focus_sessions').select('*').eq('user_id', user.id).gte('date', daysAgoIST(6)).order('started_at', { ascending: true }),
+    supabase.from('coding_daily_questions').select('completed, outcome, completed_at, question:coding_questions(category, topics)').eq('user_id', user.id).eq('completed', true).gte('completed_at', prepDayStartUtc(90)),
+    supabase.from('prep_sessions').select('*').eq('user_id', user.id).gte('date', prepDaysAgo(60)).order('date', { ascending: false }),
+    supabase.from('prep_focus_sessions').select('*').eq('user_id', user.id).gte('date', prepDaysAgo(6)).order('started_at', { ascending: true }),
     // AI Engineer tab: finished roadmap weeks with their proof.
     supabase.from('roadmap_progress').select('week, proof_url, metric, notes, completed_at').eq('user_id', user.id).order('week'),
     supabase.from('prep_forecasts').select('date, forecast, created_at').eq('user_id', user.id).order('date', { ascending: false }).limit(1).maybeSingle(),
@@ -61,13 +61,13 @@ export async function loadPrepData(supabase: SupabaseClient, userId: string) {
   if (!todaySession) {
     // Bank categories planned on each of the last three days, newest first —
     // the frontend slot rotation.
-    const recentByDay = [1, 2, 3].map(n => sessions.find(s => s.date === daysAgoIST(n))?.blocks
+    const recentByDay = [1, 2, 3].map(n => sessions.find(s => s.date === prepDaysAgo(n))?.blocks
       .filter(b => b.key.startsWith('bank:')).map(b => b.key.slice(5)) ?? [])
     const plan = buildHuntPlan({
       hoursPerDay: settings.hours_per_day, date: today, coverage,
       gaps: Object.fromEntries(BANK_CATEGORIES.map(c => [c.key, categoryGap(c.key, readiness)])),
       focusTopic: weakness.find(w => w.category === 'quiz')?.topic ?? null,
-      mockDoneToday: mockRounds.some(r => toISTDateStr(r.created_at) === today),
+      mockDoneToday: mockRounds.some(r => toPrepDateStr(r.created_at) === today),
       recentByDay,
       restDay: settings.rest_day,
     })
@@ -87,14 +87,14 @@ export async function loadPrepData(supabase: SupabaseClient, userId: string) {
     session: todaySession,
     streak: prepStreak(sessions, today, settings.rest_day),
     restDay: isRestDay(today, settings.rest_day),
-    sessionsLast7: sessions.filter(s => s.date >= daysAgoIST(6) && s.completed_at).length,
+    sessionsLast7: sessions.filter(s => s.date >= prepDaysAgo(6) && s.completed_at).length,
     // The 13 days before today, oldest first: % of each day's plan done (whole
     // blocks only — per-question partial credit isn't kept for past days). A
     // rest day with nothing planned has no score (`rest`: a neutral bar).
-    recentScores: Array.from({ length: 13 }, (_, i) => daysAgoIST(13 - i)).map(date => {
+    recentScores: Array.from({ length: 13 }, (_, i) => prepDaysAgo(13 - i)).map(date => {
       const s = sessions.find(x => x.date === date)
       const rest = isRestDay(date, settings.rest_day) && !s?.blocks.length
-      return { date, score: s?.blocks.length ? dayPace(s.blocks, 24).donePct : null, rest, good: !!s && isGoodDay(s.blocks) }
+      return { date, score: s?.blocks.length ? dayPace(s.blocks, 99).donePct : null, rest, good: !!s && isGoodDay(s.blocks) }
     }),
     mockRounds,
     // War Mode (all deterministic, war.ts).
@@ -120,8 +120,11 @@ export async function loadPrepData(supabase: SupabaseClient, userId: string) {
 }
 
 export async function getPrepSettings(supabase: SupabaseClient, userId: string): Promise<PrepSettings> {
-  const { data } = await supabase.from('prep_settings').select('hours_per_day, rest_day').eq('user_id', userId).maybeSingle()
-  return { hours_per_day: data?.hours_per_day ?? DEFAULT_HOURS, rest_day: data?.rest_day ?? 0 }
+  const { data } = await supabase.from('prep_settings').select('hours_per_day, rest_day, day_start_min, day_end_min').eq('user_id', userId).maybeSingle()
+  return {
+    hours_per_day: data?.hours_per_day ?? DEFAULT_HOURS, rest_day: data?.rest_day ?? 0,
+    day_start_min: data?.day_start_min ?? DEFAULT_DAY_WINDOW.day_start_min, day_end_min: data?.day_end_min ?? DEFAULT_DAY_WINDOW.day_end_min,
+  }
 }
 
 // PostgREST caps a response at 1,000 rows, and the bank is past that —
@@ -167,7 +170,7 @@ export function bankCoverage(bank: BankQuestion[], today: string): CategoryCover
     return {
       key: cat.key, label: cat.label, total: qs.length,
       seen: qs.filter(q => q.last_seen_at).length,
-      doneToday: qs.filter(q => q.last_seen_at && toISTDateStr(q.last_seen_at) === today).length,
+      doneToday: qs.filter(q => q.last_seen_at && toPrepDateStr(q.last_seen_at) === today).length,
       redoDue: qs.filter(q => isRedoDue(q, today)).length,
     }
   })
@@ -199,14 +202,14 @@ async function progressToday(supabase: SupabaseClient, userId: string, categorie
   const [{ data: answers }, { data: focus }] = await Promise.all([
     categories.length
       ? supabase.from('question_progress').select('question_id, coding_questions!inner(category)').eq('user_id', userId)
-        .in('coding_questions.category', categories).gte('last_seen_at', istMidnightUtc())
+        .in('coding_questions.category', categories).gte('last_seen_at', prepDayStartUtc())
       : Promise.resolve({ data: [] }),
-    supabase.from('prep_focus_sessions').select('*').eq('user_id', userId).eq('date', todayIST()),
+    supabase.from('prep_focus_sessions').select('*').eq('user_id', userId).eq('date', prepToday()),
   ])
   for (const row of (answers ?? []) as unknown as { coding_questions: { category: string } }[]) {
     answered[row.coding_questions.category] = (answered[row.coding_questions.category] ?? 0) + 1
   }
-  return { answered, focused: focusedMinutes((focus ?? []) as FocusSession[], todayIST()) }
+  return { answered, focused: focusedMinutes((focus ?? []) as FocusSession[], prepToday()) }
 }
 
 // Ticks question blocks that reached their planned minutes (answers ×
@@ -214,10 +217,10 @@ async function progressToday(supabase: SupabaseClient, userId: string, categorie
 // blocks in the same write. `categories` is kept for callers; every question
 // block in today's plan is re-checked.
 export async function syncBankBlocks(supabase: SupabaseClient, userId: string, categories: string[] = [], extra: (b: PrepBlock) => boolean = () => false): Promise<PrepSession | null> {
-  const { data: session } = await supabase.from('prep_sessions').select('blocks').eq('user_id', userId).eq('date', todayIST()).maybeSingle()
+  const { data: session } = await supabase.from('prep_sessions').select('blocks').eq('user_id', userId).eq('date', prepToday()).maybeSingle()
   const planned = ((session?.blocks ?? []) as PrepBlock[]).filter(b => b.key.startsWith('bank:')).map(b => b.key.slice(5))
   const ctx = await progressToday(supabase, userId, [...new Set([...planned, ...categories])])
-  return updateBlocks(supabase, userId, todayIST(), blocks => blocks.map(b => extra(b) || blockReached(b, ctx) ? { ...b, done: true } : b))
+  return updateBlocks(supabase, userId, prepToday(), blocks => blocks.map(b => extra(b) || blockReached(b, ctx) ? { ...b, done: true } : b))
 }
 
 
@@ -233,7 +236,7 @@ export async function getActiveFocus(supabase: SupabaseClient, userId: string): 
 export async function startFocus(supabase: SupabaseClient, userId: string, blockKey?: string): Promise<FocusSession | null> {
   const active = await getActiveFocus(supabase, userId)
   if (active) return active
-  const today = todayIST()
+  const today = prepToday()
   let { data: session } = await supabase.from('prep_sessions').select('blocks').eq('user_id', userId).eq('date', today).maybeSingle()
   if (!session) { await loadPrepData(supabase, userId); ({ data: session } = await supabase.from('prep_sessions').select('blocks').eq('user_id', userId).eq('date', today).maybeSingle()) }
   const blocks = (session?.blocks ?? []) as PrepBlock[]

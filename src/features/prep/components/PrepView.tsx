@@ -9,7 +9,7 @@ import EmptyState from '@/components/EmptyState'
 import ConfirmDialog from '@/components/ConfirmDialog'
 import Modal, { modalLabelClass, modalInputClass, modalCancelButtonClass, modalSaveButtonClass } from '@/components/Modal'
 import { useEscapeKey } from '@/lib/use-escape-key'
-import { daysAgoIST, toISTDateStr } from '@/lib/date'
+import { prepDaysAgo, toPrepDateStr } from '@/lib/date'
 import { formatOf, type MockRound } from '../mock'
 import { endFocusSession, startFocusSession, saveStory, deleteStory, rehearseStory, type StoryInput } from '../actions'
 import { COMPETENCIES, REHEARSAL_PROMPTS, type BankQuestion, type CompetencyKey, type PrepSession, type PrepSettings, type ReadinessCell, type Story, type StoryRehearsal } from '../types'
@@ -19,8 +19,10 @@ import { MockTab } from './MockTab'
 import { AiTab } from './AiTab'
 import type { RoadmapProgress } from '../roadmap'
 import AnswerReview from './AnswerReview'
+import TimelineCard from './TimelineCard'
+import { buildTimeline } from '../timeline'
 import { FocusBar, ForecastCard, GatesCard, MissionCard, RevisionCard, WarHeader, WeaknessCard } from './WarRoom'
-import { blockProgress, blockReached, canFinishBlock, dayPace, focusSeconds, focusedMinutes, istHourNow, paceLabel, paceStatus, practicedToday, type FocusSession, type Forecast, type RevisionItem, type TopicWeakness, type WarReadiness } from '../war'
+import { blockProgress, blockReached, canFinishBlock, dayPace, dayWindow, focusSeconds, focusedMinutes, prepHourNow, paceLabel, paceStatus, practicedToday, type FocusSession, type Forecast, type RevisionItem, type TopicWeakness, type WarReadiness } from '../war'
 import PageHeader, { HeaderChip } from '@/components/PageHeader'
 import StatCard from '@/components/StatCard'
 import { guard } from '@/lib/guard'
@@ -76,14 +78,17 @@ export default function PrepView(props: Props) {
   // Shown briefly after a session ends itself (its block got done).
   const [focusEnded, setFocusEnded] = useState<{ label: string; seconds: number } | null>(null)
   const todayFocus = focusSessions.filter(f => f.date === props.today)
-  // Pace vs the 9am–7pm window (PACE_WINDOW), re-read every minute.
+  // Pace vs your day window (prep_settings, dayWindow), re-read every minute.
   const [tick, setTick] = useState(0)
   useEffect(() => { const t = setInterval(() => setTick(x => x + 1), 60_000); return () => clearInterval(t) }, [])
   // Today's answers per category (block progress).
   const doneToday: Record<string, number> = practicedToday(bank, props.today)
   // Question blocks are time boxes: focused minutes or answers × minutes per question.
   const progressCtx = { answered: doneToday, focused: focusedMinutes(focusSessions, props.today) }
-  const pace = dayPace(session?.blocks ?? [], istHourNow(), progressCtx)
+  const dayWin = dayWindow(props.settings)
+  const pace = dayPace(session?.blocks ?? [], prepHourNow(), progressCtx, dayWin)
+  // The plan on the clock, re-flowed with the same minute tick.
+  const timeline = buildTimeline(session?.blocks ?? [], dayWin, prepHourNow())
   const activeFocus = focusSessions.find(f => f.status === 'active') ?? null
   const upsertFocus = (f: FocusSession) => setFocusSessions(prev => [...prev.filter(x => x.id !== f.id), f])
 
@@ -150,7 +155,7 @@ export default function PrepView(props: Props) {
   const canFinish = !activeBlock || canFinishBlock(activeBlock, progressCtx)
 
   const lastRound = rounds[0] ?? null
-  const roundsThisWeek = rounds.filter(r => toISTDateStr(r.created_at) >= daysAgoIST(6)).length
+  const roundsThisWeek = rounds.filter(r => toPrepDateStr(r.created_at) >= prepDaysAgo(6)).length
   const coveredCompetencies = new Set(stories.filter(s => (s.strength ?? 3) >= 3).flatMap(s => s.competencies))
 
 
@@ -164,7 +169,7 @@ export default function PrepView(props: Props) {
 
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-[var(--grid-gap-sm)]">
         <StatCard label="Interview readiness" value={`${props.war.overall}%`} sub={props.war.ready ? 'all gates passed' : `${props.war.interviewReady ? 'interview-ready' : 'not ready'} · ${props.war.blockers.length} blockers`} valueClassName={props.war.ready || props.war.interviewReady ? 'text-good' : props.war.overall >= 60 ? 'text-warn' : 'text-risk'} />
-        <StatCard label="Mock rounds" value={roundsThisWeek} sub={lastRound ? `this week · last ${formatOf(lastRound.format).label} ${toISTDateStr(lastRound.created_at).slice(5)}${lastRound.review?.score != null ? ` · ${lastRound.review.score}/10` : ''}` : 'this week · none yet'} />
+        <StatCard label="Mock rounds" value={roundsThisWeek} sub={lastRound ? `this week · last ${formatOf(lastRound.format).label} ${toPrepDateStr(lastRound.created_at).slice(5)}${lastRound.review?.score != null ? ` · ${lastRound.review.score}/10` : ''}` : 'this week · none yet'} />
         <StatCard label="Story Bank" value={stories.length} sub={`${coveredCompetencies.size}/${COMPETENCIES.length} competencies covered`} />
         {props.restDay
           ? <StatCard label="Pace" value="Rest day" valueClassName="text-fg-secondary" sub={`no plan today · ${props.sessionsLast7}/7 full days`} />
@@ -179,6 +184,10 @@ export default function PrepView(props: Props) {
           <WarHeader war={props.war} settings={props.settings} questionMinutes={(session?.blocks ?? []).filter(b => b.key.startsWith('bank:')).reduce((s, b) => s + b.minutes, 0)} pace={pace} blocks={session?.blocks ?? []} restDay={props.restDay} />
           <div className="grid grid-cols-1 lg:grid-cols-[1fr_380px] gap-[var(--grid-gap)] items-start">
             <div className="space-y-[var(--grid-gap)]">
+              {(session?.blocks.length ?? 0) > 0 && (
+                <TimelineCard timeline={timeline} windowLabel={dayWin.label} nowMin={Math.round(prepHourNow() * 60)}
+                  activeKey={activeFocus?.block_key ?? null} onStart={startFocus} />
+              )}
               <MissionCard session={session} focusSessions={todayFocus} doneToday={doneToday} onStart={startFocus} onOpen={openHref} />
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-[var(--grid-gap)] items-start">
                 <RevisionCard items={props.revision} onOpen={openTopic} />
@@ -334,7 +343,7 @@ function StoriesTab({ stories, rehearsals, covered, onSaved, onDeleted, onRehear
                       <button onClick={() => setOpenRehearsal(isOpen ? null : r.id)} aria-expanded={isOpen}
                         className={`w-full text-left px-2.5 py-[7px] flex items-center gap-2 transition-colors ${isOpen ? 'bg-accent-soft' : 'hover:bg-surface-2'}`}>
                         <ChevronRight size={12} className={`shrink-0 text-fg-tertiary transition-transform ${isOpen ? 'rotate-90' : ''}`} />
-                        <span className="text-[11px] text-fg-tertiary tabular-nums shrink-0">{toISTDateStr(r.created_at).slice(5)}</span>
+                        <span className="text-[11px] text-fg-tertiary tabular-nums shrink-0">{toPrepDateStr(r.created_at).slice(5)}</span>
                         <span className="text-[12px] text-fg-primary min-w-0 flex-1 truncate">
                           <span className="font-medium">{COMPETENCIES.find(c => c.key === r.competency)?.label ?? r.competency}</span>
                           <span className="text-fg-tertiary"> · {r.prompt}</span>

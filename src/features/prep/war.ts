@@ -1,4 +1,4 @@
-import { toISTDateStr } from '@/lib/date'
+import { PREP_DAY_ROLLOVER_HOUR, toPrepDateStr } from '@/lib/date'
 import type { BankQuestion, PrepBlock, ReadinessAreaKey, ReadinessCell } from './types'
 import type { MockRound } from './mock'
 import { BANK_CATEGORIES, redoInterval } from './hunt'
@@ -145,7 +145,7 @@ export interface TopicWeakness {
 }
 
 const daysBetween = (from: string, today: string) =>
-  Math.max(0, Math.round((new Date(`${today}T00:00:00Z`).getTime() - new Date(`${toISTDateStr(from)}T00:00:00Z`).getTime()) / 86400000))
+  Math.max(0, Math.round((new Date(`${today}T00:00:00Z`).getTime() - new Date(`${toPrepDateStr(from)}T00:00:00Z`).getTime()) / 86400000))
 
 // weakness = struggleRate×40 + (1 − avgRating/10)×25 + recency×15 + importance×20,
 // where a struggle is a rating ≤5, recency grows to 1 over 14 days without
@@ -196,7 +196,7 @@ export function revisionQueue(bank: BankQuestion[], today: string): RevisionItem
     if (avg >= 7) continue
     const last = qs.reduce((m, q) => q.last_rated_at! > m ? q.last_rated_at! : m, qs[0].last_rated_at!)
     const interval = redoInterval(avg)
-    const d = new Date(`${toISTDateStr(last)}T00:00:00Z`)
+    const d = new Date(`${toPrepDateStr(last)}T00:00:00Z`)
     d.setUTCDate(d.getUTCDate() + interval)
     const due = d.toISOString().slice(0, 10)
     const diff = Math.round((new Date(`${due}T00:00:00Z`).getTime() - new Date(`${today}T00:00:00Z`).getTime()) / 86400000)
@@ -214,13 +214,27 @@ export function revisionQueue(bank: BankQuestion[], today: string): RevisionItem
 
 // ---------------- Pace + tone ----------------
 
-// Pace: share of today's plan done vs share of the PACE_WINDOW (09:00–19:00 IST)
-// gone. Question blocks earn partial credit by time (blockProgress), so it
-// moves as you work; other blocks count when done. Ahead/behind is that gap
-// in window time.
-// The one pace window (IST hours): a realistic working day for a long search.
-export const PACE_WINDOW = { start: 9, end: 19, label: '9am–7pm' } as const
-const WINDOW_MINUTES = (PACE_WINDOW.end - PACE_WINDOW.start) * 60
+// Pace: share of today's plan done vs share of your day window gone.
+// Question blocks earn partial credit by time (blockProgress), so it moves as
+// you work; other blocks count when done. Ahead/behind is that gap in window
+// time.
+//
+// The day window (prep_settings.day_start_min / day_end_min, minutes after
+// IST midnight; an end before the start runs past midnight, default 12:00 →
+// 01:00) is read in "prep hours": after midnight they keep counting past 24
+// (1am = 25) until the 4am rollover, when the Prep day changes.
+export interface DayWindow { start: number; end: number; label: string }
+export const DEFAULT_DAY_WINDOW = { day_start_min: 720, day_end_min: 60 }
+export function clock(min: number): string {
+  const m = ((Math.round(min) % 1440) + 1440) % 1440
+  const h = Math.floor(m / 60)
+  return `${h % 12 || 12}:${String(m % 60).padStart(2, '0')}${h < 12 ? 'am' : 'pm'}`
+}
+export function dayWindow(s: { day_start_min: number; day_end_min: number } = DEFAULT_DAY_WINDOW): DayWindow {
+  const start = s.day_start_min / 60
+  const end = (s.day_end_min <= s.day_start_min ? s.day_end_min + 1440 : s.day_end_min) / 60
+  return { start, end, label: `${clock(s.day_start_min)}–${clock(s.day_end_min)}` }
+}
 const ON_PACE_MINUTES = 10
 
 export interface DayPace {
@@ -237,7 +251,7 @@ export interface DayPace {
 // Questions practiced today per category (feeds partial block credit).
 export function practicedToday(bank: Pick<BankQuestion, 'category' | 'last_seen_at'>[], today: string): Record<string, number> {
   const out: Record<string, number> = {}
-  for (const q of bank) if (q.last_seen_at && toISTDateStr(q.last_seen_at) === today) out[q.category] = (out[q.category] ?? 0) + 1
+  for (const q of bank) if (q.last_seen_at && toPrepDateStr(q.last_seen_at) === today) out[q.category] = (out[q.category] ?? 0) + 1
   return out
 }
 
@@ -278,16 +292,16 @@ export const blockReached = (b: Pick<PrepBlock, 'key' | 'minutes' | 'done'>, ctx
 export const canFinishBlock = (b: Pick<PrepBlock, 'key' | 'minutes' | 'done'>, ctx: ProgressCtx) =>
   !b.key.startsWith('bank:') || blockProgress(b, ctx) >= b.minutes * FINISH_SHARE
 
-export function dayPace(blocks: PrepBlock[], istHourFloat: number, ctx: ProgressCtx = NO_PROGRESS): DayPace {
+export function dayPace(blocks: PrepBlock[], prepHour: number, ctx: ProgressCtx = NO_PROGRESS, window: DayWindow = dayWindow()): DayPace {
   const progress = (b: PrepBlock) => b.minutes ? blockProgress(b, ctx) / b.minutes : (b.done ? 1 : 0)
   const plannedMinutes = blocks.reduce((s, b) => s + b.minutes, 0)
   const doneMinutes = Math.round(blocks.reduce((s, b) => s + b.minutes * progress(b), 0))
   const done = plannedMinutes ? doneMinutes / plannedMinutes : 0
-  const day = Math.min(1, Math.max(0, (istHourFloat - PACE_WINDOW.start) / (PACE_WINDOW.end - PACE_WINDOW.start)))
+  const day = Math.min(1, Math.max(0, (prepHour - window.start) / (window.end - window.start)))
   return {
     plannedMinutes, doneMinutes,
     donePct: Math.round(done * 100), dayPct: Math.round(day * 100),
-    deltaMinutes: Math.round((done - day) * WINDOW_MINUTES),
+    deltaMinutes: Math.round((done - day) * (window.end - window.start) * 60),
     blocksDone: blocks.filter(b => b.done).length, blocksTotal: blocks.length,
   }
 }
@@ -300,8 +314,13 @@ export const paceLabel = (p: Pick<DayPace, 'deltaMinutes'>) => {
   return s === 'on' ? 'On pace' : `${s === 'ahead' ? 'Ahead' : 'Behind'} ${hm(Math.abs(p.deltaMinutes))}`
 }
 
-// IST wall-clock hour as a float (the prep day is judged in IST).
-export const istHourNow = () => { const d = new Date(Date.now() + 5.5 * 3600_000); return d.getUTCHours() + d.getUTCMinutes() / 60 }
+// The current IST hour as a float in prep hours: before the 4am rollover it
+// still belongs to the previous Prep day, so 12:30am reads 24.5.
+export const prepHourNow = () => {
+  const d = new Date(Date.now() + 5.5 * 3600_000)
+  const h = d.getUTCHours() + d.getUTCMinutes() / 60
+  return h < PREP_DAY_ROLLOVER_HOUR ? h + 24 : h
+}
 
 export const hm = (min: number) => min >= 60 ? `${Math.floor(min / 60)}h${min % 60 ? ` ${min % 60}m` : ''}` : `${min}m`
 

@@ -43,10 +43,14 @@ export interface PrepBlock {
 }
 
 export interface PrepSettings {
-  // Daily load level hours (hunt.ts LEVELS: 4 / 6 / 8 / 12).
+  // Daily load level hours (hunt.ts LEVELS: 4 / 6 / 8).
   hours_per_day: number
   // Weekly rest day, IST weekday (0 = Sunday … 6 = Saturday).
   rest_day: number
+  // The day window, minutes after IST midnight (an end before the start runs
+  // past midnight): pace and the Today timeline (war.ts dayWindow).
+  day_start_min: number
+  day_end_min: number
 }
 
 // A coding_questions row plus when it was last practiced (in the Question

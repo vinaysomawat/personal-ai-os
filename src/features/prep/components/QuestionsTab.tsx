@@ -8,7 +8,7 @@ import MicButton, { appendText } from '@/components/MicButton'
 import { modalSaveButtonClass, modalCancelButtonClass } from '@/components/Modal'
 import { answerQuestion, critiqueAnswer, revealModelAnswer } from '../actions'
 import { BANK_CATEGORIES, isRedoDue, redoSlots, type BankCategory, type CategoryCoverage, type CategoryQuota } from '../hunt'
-import { toISTDateStr } from '@/lib/date'
+import { toPrepDateStr } from '@/lib/date'
 import { hm, minutesPerQuestion } from '../war'
 import type { BankQuestion, PrepSession } from '../types'
 import type { Scorecard } from '../scorecard'
@@ -74,7 +74,7 @@ export function QuestionsTab({ bank, setBank, topic, onTopicChange: setTopic, co
 }) {
   const doneToday = useMemo(() => {
     const counts: Record<string, number> = {}
-    for (const q of bank) if (q.last_seen_at && toISTDateStr(q.last_seen_at) === today) counts[q.category] = (counts[q.category] ?? 0) + 1
+    for (const q of bank) if (q.last_seen_at && toPrepDateStr(q.last_seen_at) === today) counts[q.category] = (counts[q.category] ?? 0) + 1
     return counts
   }, [bank, today])
   const category: BankCategory = BANK_CATEGORIES.some(c => c.key === categoryParam) ? categoryParam as BankCategory : 'quiz'
@@ -115,7 +115,7 @@ export function QuestionsTab({ bank, setBank, topic, onTopicChange: setTopic, co
   const current = queue.find(q => q.id === selectedId) ?? queue[0] ?? null
   // A repeat on a later day starts blank (answer from memory, not your old
   // text); one answered today keeps it, so going back shows what you wrote.
-  const answeredToday = !!current?.last_seen_at && toISTDateStr(current.last_seen_at) === today
+  const answeredToday = !!current?.last_seen_at && toPrepDateStr(current.last_seen_at) === today
   const answer = current && draft?.id === current.id ? draft.text : answeredToday ? (current?.last_answer ?? '') : ''
   const setAnswer = (text: string) => { if (current) setDraft({ id: current.id, text }) }
   const resetCard = () => { setDraft(null); setShowHints(false); setShownAnswer(null) }
@@ -224,7 +224,7 @@ export function QuestionsTab({ bank, setBank, topic, onTopicChange: setTopic, co
             <ul className={`${open ? 'hidden xl:flex' : 'flex'} flex-col max-h-[62vh] xl:max-h-[640px] overflow-y-auto rounded-[8px] border border-border divide-y divide-border`}>
               {queue.map(q => {
                 const sel = q.id === current.id
-                const doneNow = !!q.last_seen_at && toISTDateStr(q.last_seen_at) === today
+                const doneNow = !!q.last_seen_at && toPrepDateStr(q.last_seen_at) === today
                 return (
                   <li key={q.id}>
                     <button onClick={() => select(q.id)} aria-current={sel ? 'true' : undefined}
@@ -233,7 +233,7 @@ export function QuestionsTab({ bank, setBank, topic, onTopicChange: setTopic, co
                         ? <Check size={11} strokeWidth={3} className="text-good shrink-0" />
                         : <span className={`w-[6px] h-[6px] rounded-full shrink-0 mx-[2.5px] ${isRedoDue(q, today) ? 'bg-warn' : q.last_seen_at ? 'bg-border-strong' : 'bg-accent'}`} title={isRedoDue(q, today) ? 'Redo — weak answer due' : q.last_seen_at ? 'Review' : 'New'} />}
                       <span className={`text-[12.5px] leading-snug min-w-0 flex-1 truncate ${sel ? 'text-accent font-medium' : 'text-fg-primary'}`}>{q.title}</span>
-                      <span className="text-[10.5px] text-fg-tertiary tabular-nums shrink-0">{q.last_seen_at ? toISTDateStr(q.last_seen_at).slice(5) : q.difficulty[0]?.toUpperCase()}</span>
+                      <span className="text-[10.5px] text-fg-tertiary tabular-nums shrink-0">{q.last_seen_at ? toPrepDateStr(q.last_seen_at).slice(5) : q.difficulty[0]?.toUpperCase()}</span>
                       {q.last_rating !== null && <span className={`text-[10.5px] font-bold tabular-nums rounded-[4px] px-1 shrink-0 ${rateCls(q.last_rating)}`}>{q.last_rating}</span>}
                     </button>
                   </li>
@@ -244,7 +244,7 @@ export function QuestionsTab({ bank, setBank, topic, onTopicChange: setTopic, co
             <div className={`${open ? '' : 'hidden xl:block'} min-w-0`}>
               <div className="flex items-baseline justify-between gap-2 mb-1.5">
                 <p className="text-[10.5px] font-bold uppercase tracking-[0.4px] text-fg-tertiary min-w-0">
-                  {isRedoDue(current, today) ? `Redo · was ${current.last_rating}/10 on ${toISTDateStr(current.last_rated_at!).slice(5)}` : current.last_seen_at ? `Review · last ${toISTDateStr(current.last_seen_at).slice(5)}` : 'New'} · {current.difficulty}{current.topics.length ? ` · ${current.topics.join(', ')}` : ''}
+                  {isRedoDue(current, today) ? `Redo · was ${current.last_rating}/10 on ${toPrepDateStr(current.last_rated_at!).slice(5)}` : current.last_seen_at ? `Review · last ${toPrepDateStr(current.last_seen_at).slice(5)}` : 'New'} · {current.difficulty}{current.topics.length ? ` · ${current.topics.join(', ')}` : ''}
                 </p>
                 <button onClick={() => setOpen(false)} className="xl:hidden text-[11.5px] text-accent inline-flex items-center gap-1 shrink-0"><ArrowLeft size={12} /> All questions</button>
               </div>

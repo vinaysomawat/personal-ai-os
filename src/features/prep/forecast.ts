@@ -1,6 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { askAI } from '@/lib/ai-gateway'
-import { todayIST } from '@/lib/date'
+import { prepToday } from '@/lib/date'
 import { loadPrepData } from './core'
 import { levelOf } from './hunt'
 import { GATES, focusSeconds, type Forecast } from './war'
@@ -40,7 +40,7 @@ export async function generateForecast(db: SupabaseClient, userId: string): Prom
     fixFirst: parseList(parsed.fixFirst).slice(0, 3),
     confidence: data.war.overall,
   }
-  const { error } = await db.from('prep_forecasts').upsert({ user_id: userId, date: todayIST(), forecast }, { onConflict: 'user_id,date' })
+  const { error } = await db.from('prep_forecasts').upsert({ user_id: userId, date: prepToday(), forecast }, { onConflict: 'user_id,date' })
   if (error) return { forecast, error: error.message }
   return { forecast, error: null }
 }

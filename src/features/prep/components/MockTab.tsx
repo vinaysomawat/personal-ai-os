@@ -6,7 +6,7 @@ import Card from '@/components/Card'
 import MicButton, { appendText } from '@/components/MicButton'
 import ConfirmDialog from '@/components/ConfirmDialog'
 import { modalCancelButtonClass, modalSaveButtonClass } from '@/components/Modal'
-import { toISTDateStr } from '@/lib/date'
+import { toPrepDateStr } from '@/lib/date'
 import { saveMockRound } from '../actions'
 import { weakestAreas } from '../readiness'
 import { MOCK_FORMATS, buildMockRound, formatMinutes, formatOf, type MockFormat, type MockItem, type MockRound } from '../mock'
@@ -199,7 +199,7 @@ export function MockTab({ bank, readiness, covered, rounds, today, format: forma
                 <p className="text-[11.5px] text-fg-secondary mt-0.5 leading-snug">{f.detail}</p>
                 <p className="text-[11px] text-fg-tertiary mt-1 tabular-nums">
                   {f.slots.length} question{f.slots.length === 1 ? '' : 's'} · {formatMinutes(f.key)} min
-                  {last && <> · last {toISTDateStr(last.created_at).slice(5)}</>}
+                  {last && <> · last {toPrepDateStr(last.created_at).slice(5)}</>}
                 </p>
               </button>
             )

@@ -79,3 +79,33 @@ export function daysAgoIST(n: number): string {
 export function toISTHour(iso: string): number {
   return new Date(new Date(iso).getTime() + IST_OFFSET_MS).getUTCHours()
 }
+
+// ---------------- Prep day (rolls over at 4am IST) ----------------
+// Prep's day window can run past midnight (default 12:00 → 01:00), so its
+// "today" — plan, block ticks, streak, pace, focus time — rolls over at
+// 04:00 IST instead of midnight: work at 12:30am still counts for the day
+// it started. Everything else in the app keeps the IST calendar day.
+export const PREP_DAY_ROLLOVER_HOUR = 4
+const PREP_DAY_OFFSET_MS = IST_OFFSET_MS - PREP_DAY_ROLLOVER_HOUR * 3600_000
+
+export function prepToday(): string {
+  return new Date(Date.now() + PREP_DAY_OFFSET_MS).toISOString().split('T')[0]
+}
+
+export function toPrepDateStr(date: Date | string): string {
+  const d = typeof date === 'string' ? new Date(date) : date
+  return new Date(d.getTime() + PREP_DAY_OFFSET_MS).toISOString().split('T')[0]
+}
+
+// Prep date N days before today's prep date.
+export function prepDaysAgo(n: number): string {
+  const p = new Date(Date.now() + PREP_DAY_OFFSET_MS)
+  return new Date(Date.UTC(p.getUTCFullYear(), p.getUTCMonth(), p.getUTCDate() - n)).toISOString().split('T')[0]
+}
+
+// The UTC instant a prep day starts (04:00 IST), N days ago — for
+// timestamptz comparisons.
+export function prepDayStartUtc(daysAgo = 0): string {
+  const p = new Date(Date.now() + PREP_DAY_OFFSET_MS)
+  return new Date(Date.UTC(p.getUTCFullYear(), p.getUTCMonth(), p.getUTCDate() - daysAgo) - PREP_DAY_OFFSET_MS).toISOString()
+}

@@ -1,8 +1,9 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { toISTDateStr } from '@/lib/date'
+import { toPrepDateStr } from '@/lib/date'
 import { loadPrepData } from './core'
-import { GATES, GOOD_DAY_BLOCKS, coachLine, isGoodDay, dayPace, focusedMinutes, hm, istHourNow, nowBlock, practicedToday, readinessTier } from './war'
+import { clock, GATES, GOOD_DAY_BLOCKS, coachLine, isGoodDay, dayPace, dayWindow, focusedMinutes, hm, prepHourNow, nowBlock, practicedToday, readinessTier } from './war'
 import { levelOf } from './hunt'
+import { buildTimeline, overHint, planTimeline, span, type TimelineRow } from './timeline'
 
 // Telegram Prep Coach (War Mode) — deterministic message builders for the
 // Daily bot's 7:30am / 1pm / 9:30pm crons and its START/DONE/"what now"
@@ -16,7 +17,7 @@ export async function coachData(db: SupabaseClient, userId: string): Promise<Pre
   return data
 }
 
-const paceAt = (d: PrepData, hour: number) => dayPace(d.session?.blocks ?? [], hour, { answered: practicedToday(d.bank, d.today), focused: focusedMinutes(d.focusSessions, d.today) })
+const paceAt = (d: PrepData, hour: number) => dayPace(d.session?.blocks ?? [], hour, { answered: practicedToday(d.bank, d.today), focused: focusedMinutes(d.focusSessions, d.today) }, dayWindow(d.settings))
 
 const readinessLine = (d: PrepData) =>
   `Readiness *${d.war.overall}%* — ${readinessTier(d.war).label}` +
@@ -43,23 +44,38 @@ export function morningMessage(d: PrepData): string {
     readinessLine(d),
     risk ? `🔴 Biggest risk: *${risk.label}* ${risk.score ?? 'no data'}/${risk.gate}` : null,
     '',
-    `*Today's mission (${hm(blocks.reduce((s, b) => s + b.minutes, 0))}):*`,
-    ...blocks.map((b, i) => `${b.done ? '✅' : `${i + 1}.`} ${b.label} — ${hm(b.minutes)}`),
+    `*Today's mission (${hm(blocks.reduce((s, b) => s + b.minutes, 0))}, ${dayWindow(d.settings).label}):*`,
+    ...blocks.map(b => `${b.done ? '✅' : `${clock(startOf(d, b.key))}`} ${b.label} — ${hm(b.minutes)}`),
     due.length ? `\n🔁 Revision due: ${due.map(r => `${r.topic} (${r.avgRating}/10)`).join(', ')}` : null,
     now ? `\n👉 Start with: *${now.label}*\nReply *START* to begin a focus session.` : null,
     `\n🎙️ Reply *DRILL* for a spoken rep.`,
   ].filter(l => l !== null).join('\n')
 }
 
-// A 1pm check-in, only when ≥30 min under the PACE_WINDOW (9am–7pm) pace —
-// otherwise silent. What's done, then the one next step.
+// The planned start of a block on today's timeline (timeline.ts), in prep minutes.
+const startOf = (d: PrepData, key: string) => planTimeline(d.session?.blocks ?? [], dayWindow(d.settings)).find(r => r.blockKey === key)?.start ?? 0
+
+// "what now": the timeline row the clock is in, and the next one.
+export function nowLine(d: PrepData): string | null {
+  if (d.restDay || !d.session?.blocks.length) return null
+  const t = buildTimeline(d.session.blocks, dayWindow(d.settings), prepHourNow())
+  const row = (r: TimelineRow) => `*${r.label}* (${span(r)})`
+  return [
+    t.current ? `🕐 Now: ${row(t.current)}` : `🕐 ${prepHourNow() * 60 < dayWindow(d.settings).start * 60 ? `Your day starts at ${clock(dayWindow(d.settings).start * 60)}.` : 'The timeline is done for today.'}`,
+    t.next ? `Next: ${row(t.next)}` : null,
+    t.over ? `The day ${overHint(t.over)}.` : null,
+  ].filter(Boolean).join('\n')
+}
+
+// A midway check-in (6:30pm), only when ≥30 min under the day window's pace
+// — otherwise silent. What's done, then the one next step.
 export function middayMessage(d: PrepData): string | null {
   if (d.restDay) return null
-  const pace = paceAt(d, istHourNow())
+  const pace = paceAt(d, prepHourNow())
   if (pace.deltaMinutes > -30) return null
   const now = nowBlock(d.session?.blocks ?? [])
   return [
-    `🕐 *1pm check-in:* ${pace.blocksDone}/${pace.blocksTotal} blocks done (${pace.donePct}% of the plan).`,
+    `🕐 *Check-in:* ${pace.blocksDone}/${pace.blocksTotal} blocks done (${pace.donePct}% of the plan).`,
     now ? `👉 Next: *${now.label}* — ${hm(now.minutes)}\nReply *START* when you're ready.` : null,
   ].filter(l => l !== null).join('\n')
 }
@@ -67,9 +83,10 @@ export function middayMessage(d: PrepData): string | null {
 export function eveningMessage(d: PrepData): string {
   if (d.restDay) return `🌙 *REST DAY*\nTomorrow's plan comes at 7:30am. Enjoy the evening.`
   const today = d.focusSessions.filter(f => f.date === d.today)
-  const pace = paceAt(d, 23)
+  // The day review: judged as if the window were over.
+  const pace = paceAt(d, dayWindow(d.settings).end)
   const interruptions = today.reduce((s, f) => s + f.interruptions, 0)
-  const mocks = d.mockRounds.filter(r => toISTDateStr(r.created_at) === d.today && r.review?.score != null)
+  const mocks = d.mockRounds.filter(r => toPrepDateStr(r.created_at) === d.today && r.review?.score != null)
   const strong = d.readiness.filter(c => c.score !== null && c.score >= GATES[c.key].gate)
   const weak = d.war.blockers.slice(0, 3)
   const blocks = d.session?.blocks ?? []
