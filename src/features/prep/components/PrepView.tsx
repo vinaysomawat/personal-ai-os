@@ -11,7 +11,7 @@ import Modal, { modalLabelClass, modalInputClass, modalCancelButtonClass, modalS
 import { useEscapeKey } from '@/lib/use-escape-key'
 import { prepDaysAgo, toPrepDateStr } from '@/lib/date'
 import { formatOf, type MockRound } from '../mock'
-import { endFocusSession, startFocusSession, saveStory, deleteStory, rehearseStory, type StoryInput } from '../actions'
+import { endFocusSession, startFocusSession, toggleFocusSessionPause, saveStory, deleteStory, rehearseStory, type StoryInput } from '../actions'
 import { COMPETENCIES, REHEARSAL_PROMPTS, type BankQuestion, type CompetencyKey, type PrepSession, type PrepSettings, type ReadinessCell, type Story, type StoryRehearsal } from '../types'
 import type { CategoryCoverage, CategoryQuota } from '../hunt'
 import { QuestionsTab } from './QuestionsTab'
@@ -57,6 +57,9 @@ interface Props {
   bank: BankQuestion[]
   roadmap: RoadmapProgress[]
 }
+
+// A focus session shown before the server has saved it (optimistic start).
+const TEMP_FOCUS = 'tmp-'
 
 export default function PrepView(props: Props) {
   const [tab, setTab] = useState<PrepTab>(props.initialTab)
@@ -104,11 +107,50 @@ export default function PrepView(props: Props) {
     const href = session?.blocks.find(b => b.key === key)?.href
     if (href?.startsWith('/prep')) openHref(href)
   }
+  // The timer is optimistic: the bar appears, pauses and stops at once, and
+  // the server call runs behind it (its row replaces the local one; a
+  // failed start removes the local bar again).
   const startFocus = (key: string) => {
     goToWork(key)
-    if (activeFocus?.block_key === key) return
+    const block = session?.blocks.find(b => b.key === key)
+    if (activeFocus || !block) return
     setFocusEnded(null)
-    startTransition(guard(async () => { const f = await startFocusSession(key); if (f) upsertFocus(f) }))
+    const temp: FocusSession = {
+      id: `${TEMP_FOCUS}${Date.now()}`, date: props.today, block_key: key, label: block.label, planned_minutes: block.minutes,
+      started_at: new Date().toISOString(), paused_at: null, paused_seconds: 0, interruptions: 0, ended_at: null, actual_seconds: null, status: 'active',
+    }
+    upsertFocus(temp)
+    startTransition(guard(async () => {
+      try {
+        const f = await startFocusSession({ key, label: block.label, minutes: block.minutes })
+        setFocusSessions(prev => [...prev.filter(x => x.id !== temp.id && x.id !== f.id), f])
+      } catch (e) {
+        setFocusSessions(prev => prev.filter(x => x.id !== temp.id))
+        throw e
+      }
+    }))
+  }
+  const pauseFocus = (f: FocusSession) => {
+    const now = new Date()
+    upsertFocus(f.paused_at
+      ? { ...f, paused_at: null, paused_seconds: f.paused_seconds + Math.round((now.getTime() - new Date(f.paused_at).getTime()) / 1000) }
+      : { ...f, paused_at: now.toISOString(), interruptions: f.interruptions + 1 })
+    startTransition(guard(async () => { const r = await toggleFocusSessionPause(f.id); if (r) upsertFocus(r) }))
+  }
+  // Finish ticks the block locally at once; Stop keeps the time (the server
+  // may still tick a question block whose minutes that time reached).
+  const endFocus = (f: FocusSession, finished: boolean) => {
+    const seconds = focusSeconds(f)
+    upsertFocus({ ...f, status: finished ? 'completed' : 'abandoned', ended_at: new Date().toISOString(), actual_seconds: seconds, paused_at: null })
+    if (finished) {
+      setSession(prev => prev && { ...prev, blocks: prev.blocks.map(b => b.key === f.block_key ? { ...b, done: true } : b) })
+      setFocusEnded({ label: f.label, seconds })
+    }
+    startTransition(guard(async () => {
+      const r = await endFocusSession(f.id, finished)
+      if (r.focus) upsertFocus(r.focus)
+      if (r.session) setSession(r.session)
+    }))
   }
   // The server completes the session when its block turns done (minutes
   // reached, ticked); mirror that locally the moment the plan comes back done.
@@ -215,9 +257,9 @@ export default function PrepView(props: Props) {
           onRehearsed={r => setRehearsals(prev => [r, ...prev])}
         />
       )}
-      <FocusBar focus={activeFocus} progress={focusProgress} canFinish={canFinish} ended={focusEnded} onChange={upsertFocus}
-        onGo={() => activeFocus && goToWork(activeFocus.block_key)}
-        onEnded={(f, s) => { if (f) upsertFocus(f); if (s) setSession(s) }} />
+      <FocusBar focus={activeFocus} progress={focusProgress} canFinish={canFinish} ended={focusEnded}
+        onPause={pauseFocus} onFinish={f => endFocus(f, true)} onStop={f => endFocus(f, false)}
+        onGo={() => activeFocus && goToWork(activeFocus.block_key)} />
     </div>
   )
 }

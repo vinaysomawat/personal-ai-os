@@ -5,6 +5,7 @@ append here whenever you deploy, same cadence as the version bump.
 
 ## 2026-10-28
 
+- **The focus timer responds instantly.** Start, Pause, Finish and Stop update the bar at once and save in the background. Before, every click reloaded the whole Prep page on the server, about 4 seconds of waiting.
 - **A leaner Today tab and no Prep coach messages.** Removed: the readiness gates card, "If you interviewed tomorrow…" (and its weekly AI call), Today's Mission, Revision Queue and Weakest Topics. The Timeline is the whole Today tab now. The scheduled Prep coach messages (morning plan, 6:30pm check-in, night review) are off. Your reminders now arrive on their own at 9:00am and 9:30pm, the evening one with the "Still open" line, and "what now" still works whenever you ask.
 
 ## 2026-10-27

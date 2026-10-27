@@ -4,10 +4,10 @@ import { useEffect, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { Check, Pause, Play, Timer, X } from 'lucide-react'
 import Card from '@/components/Card'
-import { endFocusSession, savePrepRestDay, savePrepWindow, savePrepSettings, toggleFocusSessionPause } from '../actions'
+import { savePrepRestDay, savePrepWindow, savePrepSettings } from '../actions'
 import { LEVELS, WEEKDAYS, levelOf } from '../hunt'
 import { FINISH_SHARE, dayWindow, coachLine, isGoodDay, focusSeconds, hm, nowBlock, paceLabel, paceStatus, readinessTier, type DayPace, type FocusSession, type WarReadiness } from '../war'
-import type { PrepBlock, PrepSession, PrepSettings } from '../types'
+import type { PrepBlock, PrepSettings } from '../types'
 import { guard } from '@/lib/guard'
 
 const mmss = (s: number) => `${s < 0 ? '-' : ''}${Math.floor(Math.abs(s) / 60)}:${String(Math.abs(s) % 60).padStart(2, '0')}`
@@ -95,18 +95,22 @@ export function WarHeader({ war, settings, questionMinutes, pace, blocks, restDa
 // The whole focus timer: a floating bar over the page (no separate screen).
 // Label = jump to the work; question blocks show today's progress. After a
 // session ends on its own (quota met), `ended` shows the result briefly.
-export function FocusBar({ focus, progress, canFinish, ended, onChange, onEnded, onGo }: {
+// Pure UI: the page applies each action optimistically (PrepView), so the
+// buttons respond at once; they wait only while a just-started session is
+// still being saved (its id is local).
+export function FocusBar({ focus, progress, canFinish, ended, onPause, onFinish, onStop, onGo }: {
   focus: FocusSession | null
   progress: string | null
   // A question block can be finished from FINISH_SHARE of its minutes.
   canFinish: boolean
   ended: { label: string; seconds: number } | null
-  onChange: (f: FocusSession) => void
-  onEnded: (f: FocusSession | null, session: PrepSession | null) => void
+  onPause: (f: FocusSession) => void
+  onFinish: (f: FocusSession) => void
+  onStop: (f: FocusSession) => void
   onGo: () => void
 }) {
   const now = useNow(!!focus && !focus.paused_at)
-  const [busy, start] = useTransition()
+  const busy = !!focus?.id.startsWith('tmp-')
   const shell = 'fixed bottom-[86px] md:bottom-7 left-1/2 -translate-x-1/2 z-[30] max-w-[calc(100vw-24px)] rounded-full shadow-[0_8px_24px_var(--shadow-lg)] text-[12.5px] font-semibold tabular-nums'
   if (!focus) {
     if (!ended) return null
@@ -125,15 +129,15 @@ export function FocusBar({ focus, progress, canFinish, ended, onChange, onEnded,
         {paused && <span className="font-normal opacity-85 shrink-0">· paused</span>}
       </button>
       <span className="w-px h-4 bg-white/30 mx-1 shrink-0" aria-hidden />
-      <button disabled={busy} onClick={() => start(guard(async () => { const f = await toggleFocusSessionPause(focus.id); if (f) onChange(f) }))} title={paused ? 'Resume' : 'Pause'} aria-label={paused ? 'Resume' : 'Pause'} className={icon}>
+      <button disabled={busy} onClick={() => onPause(focus)} title={paused ? 'Resume' : 'Pause'} aria-label={paused ? 'Resume' : 'Pause'} className={icon}>
         {paused ? <Play size={13} /> : <Pause size={13} />}
       </button>
       {/* Question blocks also finish themselves at their minutes; Finish opens at FINISH_SHARE. */}
-      <button disabled={busy || !canFinish} onClick={() => start(guard(async () => { const r = await endFocusSession(focus.id, true); onEnded(r.focus, r.session) }))}
+      <button disabled={busy || !canFinish} onClick={() => onFinish(focus)}
         title={canFinish ? 'Finish block' : `Finish opens at ${Math.round(FINISH_SHARE * 100)}% of the block's minutes`} aria-label="Finish block" className={icon}>
         <Check size={14} strokeWidth={3} />
       </button>
-      <button disabled={busy} onClick={() => start(guard(async () => { const r = await endFocusSession(focus.id, false); onEnded(r.focus, null) }))} title="Stop without finishing" aria-label="Stop without finishing" className={icon}>
+      <button disabled={busy} onClick={() => onStop(focus)} title="Stop without finishing" aria-label="Stop without finishing" className={icon}>
         <X size={14} />
       </button>
     </div>

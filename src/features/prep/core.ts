@@ -174,7 +174,7 @@ export function bankCoverage(bank: BankQuestion[], today: string): CategoryCover
   })
 }
 
-export async function updateBlocks(supabase: SupabaseClient, userId: string, date: string, fn: (blocks: PrepBlock[]) => PrepBlock[]): Promise<PrepSession | null> {
+export async function updateBlocks(supabase: SupabaseClient, userId: string, date: string, fn: (blocks: PrepBlock[]) => PrepBlock[], closeActive = true): Promise<PrepSession | null> {
   const { data } = await supabase.from('prep_sessions').select('*').eq('user_id', userId).eq('date', date).maybeSingle()
   if (!data) return null
   const prev = data.blocks as PrepBlock[]
@@ -182,7 +182,7 @@ export async function updateBlocks(supabase: SupabaseClient, userId: string, dat
   // A block turning done (quota met, ticked, Finish) completes the focus
   // session running on it, from any path — web, Telegram drill, mock round.
   const newlyDone = blocks.filter(b => b.done && !prev.find(p => p.key === b.key)?.done).map(b => b.key)
-  if (newlyDone.length > 0) {
+  if (closeActive && newlyDone.length > 0) {
     const active = await getActiveFocus(supabase, userId)
     if (active && active.date === date && newlyDone.includes(active.block_key)) await closeFocus(supabase, active, 'completed')
   }
@@ -230,18 +230,25 @@ export async function getActiveFocus(supabase: SupabaseClient, userId: string): 
 }
 
 // Starts a focus session on a block of today's plan (the NOW block when no
-// key is given). One active session at a time — an existing one is returned.
+// key is given — Telegram "start"). One active session at a time — an
+// existing one is returned.
 export async function startFocus(supabase: SupabaseClient, userId: string, blockKey?: string): Promise<FocusSession | null> {
-  const active = await getActiveFocus(supabase, userId)
-  if (active) return active
   const today = prepToday()
   let { data: session } = await supabase.from('prep_sessions').select('blocks').eq('user_id', userId).eq('date', today).maybeSingle()
   if (!session) { await loadPrepData(supabase, userId); ({ data: session } = await supabase.from('prep_sessions').select('blocks').eq('user_id', userId).eq('date', today).maybeSingle()) }
   const blocks = (session?.blocks ?? []) as PrepBlock[]
   const block = blockKey ? blocks.find(b => b.key === blockKey) : nowBlock(blocks)
-  if (!block) return null
+  if (!block) return getActiveFocus(supabase, userId)
+  return startFocusOn(supabase, userId, block)
+}
+
+// The fast path (the web timer, which already has the block): two queries —
+// the running session if any, else one insert.
+export async function startFocusOn(supabase: SupabaseClient, userId: string, block: Pick<PrepBlock, 'key' | 'label' | 'minutes'>): Promise<FocusSession> {
+  const active = await getActiveFocus(supabase, userId)
+  if (active) return active
   const { data, error } = await supabase.from('prep_focus_sessions')
-    .insert({ user_id: userId, date: today, block_key: block.key, label: block.label, planned_minutes: block.minutes })
+    .insert({ user_id: userId, date: prepToday(), block_key: block.key, label: block.label, planned_minutes: block.minutes })
     .select('*').single()
   if (error) throw new Error(error.message)
   return data as FocusSession
@@ -271,17 +278,19 @@ export async function bankShortfall(supabase: SupabaseClient, userId: string, bl
 // kept but the block stays open (unless that time took it to its minutes).
 // Finishing a question block under FINISH_SHARE of its minutes is refused:
 // the session keeps running and `short` says how far off it is.
-export async function endFocus(supabase: SupabaseClient, userId: string, id: string, finished: boolean): Promise<{ focus: FocusSession | null; session: PrepSession | null; short?: { minutes: number; planned: number } }> {
+// `verified`: the web timer already checked FINISH_SHARE on the client
+// (canFinishBlock), so the server skips re-reading today's progress.
+export async function endFocus(supabase: SupabaseClient, userId: string, id: string, finished: boolean, verified = false): Promise<{ focus: FocusSession | null; session: PrepSession | null; short?: { minutes: number; planned: number } }> {
   const { data: f } = await supabase.from('prep_focus_sessions').select('*').eq('id', id).eq('user_id', userId).single()
   if (!f || f.status !== 'active') return { focus: (f as FocusSession | null) ?? null, session: null }
-  if (finished) {
+  if (finished && !verified) {
     const { data: s } = await supabase.from('prep_sessions').select('blocks').eq('user_id', userId).eq('date', f.date).maybeSingle()
     const short = await bankShortfall(supabase, userId, (s?.blocks as PrepBlock[] | undefined)?.find(b => b.key === f.block_key) ?? { key: f.block_key, minutes: f.planned_minutes, done: false })
     if (short) return { focus: f as FocusSession, session: null, short }
   }
   const focus = await closeFocus(supabase, f as FocusSession, finished ? 'completed' : 'abandoned')
   const session = finished
-    ? await updateBlocks(supabase, userId, f.date, blocks => blocks.map(b => b.key === f.block_key ? { ...b, done: true } : b))
+    ? await updateBlocks(supabase, userId, f.date, blocks => blocks.map(b => b.key === f.block_key ? { ...b, done: true } : b), false)
     : f.block_key.startsWith('bank:') ? await syncBankBlocks(supabase, userId) : null
   return { focus, session }
 }

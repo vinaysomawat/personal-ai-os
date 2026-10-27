@@ -7,7 +7,7 @@ import { prepToday } from '@/lib/date'
 import { formatOf, roundScore, type MockFormat, type MockItem, type MockReview, type MockRound } from './mock'
 import { COMPETENCIES } from './types'
 import type { PrepSession, Story, StoryRehearsal } from './types'
-import { endFocus, loadPrepData, startFocus, syncBankBlocks, toggleFocusPause } from './core'
+import { endFocus, loadPrepData, startFocusOn, syncBankBlocks, toggleFocusPause } from './core'
 import type { FocusSession } from './war'
 import { ROADMAP, type RoadmapProgress } from './roadmap'
 import { critiqueFollowUp, critiqueQuestion, critiqueStory, modelAnswer, SPOKEN_NOTE } from './critique'
@@ -23,13 +23,14 @@ export async function getPrepData() {
 
 // ---------------- Focus sessions (War Mode) ----------------
 
-export async function startFocusSession(blockKey: string): Promise<FocusSession | null> {
+// The focus timer actions don't revalidate the page: the client already
+// holds the new state (optimistic), and a page refresh re-runs every Prep
+// query — that was what made Start / Pause / Stop feel slow.
+export async function startFocusSession(block: { key: string; label: string; minutes: number }): Promise<FocusSession> {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) throw new Error('Not authenticated')
-  const f = await startFocus(supabase, user.id, blockKey)
-  revalidatePath('/prep')
-  return f
+  return startFocusOn(supabase, user.id, block)
 }
 
 export async function toggleFocusSessionPause(id: string): Promise<FocusSession | null> {
@@ -43,10 +44,7 @@ export async function endFocusSession(id: string, finished: boolean): Promise<{ 
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) throw new Error('Not authenticated')
-  const res = await endFocus(supabase, user.id, id, finished)
-  revalidatePath('/prep')
-  revalidatePath('/dashboard')
-  return res
+  return endFocus(supabase, user.id, id, finished, true)
 }
 
 // Changing the daily load level rebuilds today's plan.
