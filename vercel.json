@@ -22,11 +22,11 @@
     },
     {
       "path": "/api/cron/prep-coach-midday",
-      "schedule": "30 7 * * *"
+      "schedule": "0 13 * * *"
     },
     {
       "path": "/api/cron/prep-coach-evening",
-      "schedule": "0 16 * * *"
+      "schedule": "35 19 * * *"
     }
   ]
 }

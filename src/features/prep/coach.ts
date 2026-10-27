@@ -6,7 +6,7 @@ import { levelOf } from './hunt'
 import { buildTimeline, overHint, planTimeline, span, type TimelineRow } from './timeline'
 
 // Telegram Prep Coach (War Mode) — deterministic message builders for the
-// Daily bot's 7:30am / 1pm / 9:30pm crons and its START/DONE/"what now"
+// Daily bot's 7:30am / 6:30pm / 1:05am crons and its START/DONE/"what now"
 // replies. War Mode is always on, so coachData always returns the data.
 
 type PrepData = NonNullable<Awaited<ReturnType<typeof loadPrepData>>>
@@ -81,7 +81,7 @@ export function middayMessage(d: PrepData): string | null {
 }
 
 export function eveningMessage(d: PrepData): string {
-  if (d.restDay) return `🌙 *REST DAY*\nTomorrow's plan comes at 7:30am. Enjoy the evening.`
+  if (d.restDay) return `🌙 *REST DAY*\nTomorrow's plan comes at 7:30am. Sleep well.`
   const today = d.focusSessions.filter(f => f.date === d.today)
   // The day review: judged as if the window were over.
   const pace = paceAt(d, dayWindow(d.settings).end)
@@ -109,7 +109,7 @@ export function eveningMessage(d: PrepData): string {
 
 // ---------------- Still open (absorbed from the evening check-in) ----------------
 
-// One compact line for the 9:30pm message: no expense logged today, a daily
+// One compact line for the 1:05am day review: no expense logged today, a daily
 // workout still open, and health metrics stale for 3+ days. null when
 // nothing is open.
 export async function stillOpenLine(db: SupabaseClient, userId: string, today: string): Promise<string | null> {

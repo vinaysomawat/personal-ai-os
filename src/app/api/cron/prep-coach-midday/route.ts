@@ -7,7 +7,8 @@ import { coachData, middayMessage } from '@/features/prep/coach'
 const CHAT_ID = process.env.TELEGRAM_ALLOWED_CHAT_ID!
 const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN_PLANNER!
 
-// Prep Coach, 1pm IST: only messages when ≥30 min behind the day's pace.
+// Prep Coach, 6:30pm IST (midway through the default 12pm–1am day window):
+// only messages when ≥30 min behind the day's pace.
 export async function GET(req: Request) {
   if (req.headers.get('authorization') !== `Bearer ${process.env.CRON_SECRET}`) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })

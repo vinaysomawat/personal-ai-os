@@ -84,7 +84,7 @@ export const LEVELS = [
 ] as const
 export type Level = typeof LEVELS[number]
 // Weekly rest day (prep_settings.rest_day, IST weekday 0 = Sunday): no plan,
-// the streak carries over, no 1pm nudge, a short rest-day coach message.
+// the streak carries over, no midway nudge, a short rest-day coach message.
 export const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'] as const
 export const isRestDay = (date: string, restDay: number) => new Date(`${date}T00:00:00Z`).getUTCDay() === restDay
 

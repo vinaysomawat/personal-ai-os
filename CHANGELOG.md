@@ -5,6 +5,7 @@ append here whenever you deploy, same cadence as the version bump.
 
 ## 2026-10-27
 
+- **Coach times fit the 12pm–1am day.** The behind-pace nudge moves from 1pm to 6:30pm, and the day review (with evening reminders and the weekly forecast) moves from 9:30pm to 1:05am, after your day ends.
 - **Today has a timeline, and your day runs 12pm–1am.** A new Timeline card puts your plan on the clock, with lunch, dinner, a walk, two job-application slots, breaks, a flex slot and a 5-minute review. It re-plans every minute: anything you didn't finish moves to now, and the flex slot absorbs the delay. Set your day window next to the level switch. Pace uses that window, and Prep's day now rolls over at 4am, so work after midnight counts for the day you started. The 7:30am message shows start times, and "what now" tells you which slot you're in and what's next.
 
 ## 2026-10-26

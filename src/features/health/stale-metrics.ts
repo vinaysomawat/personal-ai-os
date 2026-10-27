@@ -11,7 +11,7 @@ const STALE_METRICS: { key: StaleMetricKey; label: string; thresholdDays: number
 
 // A metric only surfaces once it has actually gone stale (≥3 days since it
 // was last logged), phrased with the real gap — not a flat "not logged
-// today" nag every evening. Used by the 9:30pm Prep Coach "Still open:" line.
+// today" nag every evening. Used by the 1:05am Prep Coach "Still open:" line.
 export async function computeStaleMetrics(supabase: SupabaseClient, userId: string, today: string): Promise<string[]> {
   const since = daysAgoIST(90)
   const { data } = await supabase.from('health_metrics').select('date, weight_kg, steps, calories')

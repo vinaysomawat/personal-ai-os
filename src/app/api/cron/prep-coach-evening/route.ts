@@ -3,7 +3,7 @@ import { createServiceClient } from '@/lib/supabase/service'
 import { sendMessage } from '@/lib/telegram/send'
 import { logCronRun } from '@/lib/cron-log'
 import { getReminderLines } from '@/lib/reminders'
-import { todayIST } from '@/lib/date'
+import { prepToday } from '@/lib/date'
 import { coachData, eveningMessage, stillOpenLine } from '@/features/prep/coach'
 import { isRestDay } from '@/features/prep/hunt'
 import { generateForecast } from '@/features/prep/forecast'
@@ -11,7 +11,8 @@ import { generateForecast } from '@/features/prep/forecast'
 const CHAT_ID = process.env.TELEGRAM_ALLOWED_CHAT_ID!
 const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN_PLANNER!
 
-// Prep Coach, 9:30pm IST: the day's review, a "Still open:" line (expenses,
+// Prep Coach, 1:05am IST (just after the default 12pm–1am day window; the
+// Prep day rolls over at 4am, so this still reviews the day that ended): the day's review, a "Still open:" line (expenses,
 // open workout, stale health metrics — absorbed from the old evening
 // check-in) and evening reminders; a short note on the rest day. The evening
 // before the rest day also generates the weekly "if you interviewed
@@ -27,7 +28,7 @@ export async function GET(req: Request) {
   const user = users?.users?.[0]
   if (!user) return NextResponse.json({ error: 'No user' }, { status: 404 })
   const [data, reminders, open] = await Promise.all([
-    coachData(supabase, user.id), getReminderLines(supabase, user.id, 'evening'), stillOpenLine(supabase, user.id, todayIST()),
+    coachData(supabase, user.id), getReminderLines(supabase, user.id, 'evening'), stillOpenLine(supabase, user.id, prepToday()),
   ])
   if (!data) {
     const text = [open, reminders.trim()].filter(Boolean).join('\n\n')
