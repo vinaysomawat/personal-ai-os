@@ -209,21 +209,20 @@ export function revisionQueue(bank: BankQuestion[], today: string): RevisionItem
 // you work; other blocks count when done. Ahead/behind is that gap in window
 // time.
 //
-// The day window (prep_settings.day_start_min / day_end_min, minutes after
-// IST midnight; an end before the start runs past midnight, default 12:00 →
-// 01:00) is read in "prep hours": after midnight they keep counting past 24
-// (1am = 25) until the 4am rollover, when the Prep day changes.
+// The day window for pace: from the first to the last row of today's
+// timeline (dayplan.ts layoutDay), in "prep hours" — after midnight they keep
+// counting past 24 (1am = 25) until the 4am rollover, when the Prep day changes.
 export interface DayWindow { start: number; end: number; label: string }
-export const DEFAULT_DAY_WINDOW = { day_start_min: 720, day_end_min: 60 }
 export function clock(min: number): string {
   const m = ((Math.round(min) % 1440) + 1440) % 1440
   const h = Math.floor(m / 60)
   return `${h % 12 || 12}:${String(m % 60).padStart(2, '0')}${h < 12 ? 'am' : 'pm'}`
 }
-export function dayWindow(s: { day_start_min: number; day_end_min: number } = DEFAULT_DAY_WINDOW): DayWindow {
-  const start = s.day_start_min / 60
-  const end = (s.day_end_min <= s.day_start_min ? s.day_end_min + 1440 : s.day_end_min) / 60
-  return { start, end, label: `${clock(s.day_start_min)}–${clock(s.day_end_min)}` }
+const FALLBACK_WINDOW: DayWindow = { start: 11, end: 24.5, label: '11:00am–12:30am' }
+export function windowOf(rows: { start: number; end: number }[]): DayWindow {
+  if (!rows.length) return FALLBACK_WINDOW
+  const start = Math.min(...rows.map(r => r.start)), end = Math.max(...rows.map(r => r.end))
+  return { start: start / 60, end: end / 60, label: `${clock(start)}–${clock(end)}` }
 }
 const ON_PACE_MINUTES = 10
 
@@ -282,7 +281,7 @@ export const blockReached = (b: Pick<PrepBlock, 'key' | 'minutes' | 'done'>, ctx
 export const canFinishBlock = (b: Pick<PrepBlock, 'key' | 'minutes' | 'done'>, ctx: ProgressCtx) =>
   !b.key.startsWith('bank:') || blockProgress(b, ctx) >= b.minutes * FINISH_SHARE
 
-export function dayPace(blocks: PrepBlock[], prepHour: number, ctx: ProgressCtx = NO_PROGRESS, window: DayWindow = dayWindow()): DayPace {
+export function dayPace(blocks: PrepBlock[], prepHour: number, ctx: ProgressCtx = NO_PROGRESS, window: DayWindow = FALLBACK_WINDOW): DayPace {
   const progress = (b: PrepBlock) => b.minutes ? blockProgress(b, ctx) / b.minutes : (b.done ? 1 : 0)
   const plannedMinutes = blocks.reduce((s, b) => s + b.minutes, 0)
   const doneMinutes = Math.round(blocks.reduce((s, b) => s + b.minutes * progress(b), 0))

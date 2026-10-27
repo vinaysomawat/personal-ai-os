@@ -69,10 +69,11 @@ export const MOCK_FORMATS: { key: MockFormat; label: string; detail: string; slo
 export const formatOf = (key: string) => MOCK_FORMATS.find(f => f.key === key) ?? MOCK_FORMATS[0]
 export const formatMinutes = (key: string) => formatOf(key).slots.reduce((s, x) => s + x.minutes, 0)
 
-// Three mocks a week as checkpoints, frontend-weighted: Tue behavioral; on
+// Four mocks a week as checkpoints, frontend-weighted: Tue behavioral; on
 // alternate weeks Thu AI system design + Sat frontend system design, or Thu
-// frontend system design + Sat machine coding. Other days: none. (The week
-// bucket runs Thu–Wed, so a week's Thu and Sat always pair up.)
+// frontend system design + Sat machine coding; Sun a frontend screen. Mon /
+// Wed / Fri: none. (The week bucket runs Thu–Wed, so a week's Thu and Sat
+// always pair up.)
 export function mockFormatForDay(date: string): MockFormat | null {
   const d = new Date(`${date}T00:00:00Z`)
   const day = d.getUTCDay()
@@ -80,6 +81,7 @@ export function mockFormatForDay(date: string): MockFormat | null {
   if (day === 2) return 'behavioral'
   if (day === 4) return odd ? 'ai-system-design' : 'system-design'
   if (day === 6) return odd ? 'system-design' : 'machine-coding'
+  if (day === 0) return 'screen'
   return null
 }
 

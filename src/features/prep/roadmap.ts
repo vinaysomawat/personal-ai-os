@@ -89,18 +89,13 @@ export function roadmapWeek(date: string): RoadmapWeek | null {
   return ROADMAP[Math.floor(days / 7)] ?? null
 }
 
-// Build time per load level: Light 40 · Steady 55 · Intense 70 minutes.
-export const buildMinutes = (hoursPerDay: number) => hoursPerDay <= 4 ? 40 : hoursPerDay <= 6 ? 55 : 70
-// Learn time per load level: Light 10 · Steady 15 · Intense 20 minutes. Both
-// come out of the day's AI share (hunt.ts DAY_SPLIT).
-export const learnMinutes = (hoursPerDay: number) => hoursPerDay <= 4 ? 10 : hoursPerDay <= 6 ? 15 : 20
-
+// Learn and Build take their minutes from the day template (dayplan.ts).
 // Read the week's concept before building it. Ticked by FocusBar Finish.
-export function learnBlock(date: string, hoursPerDay: number): PrepBlock | null {
+export function learnBlock(date: string, minutes: number): PrepBlock | null {
   const w = roadmapWeek(date)
   if (!w) return null
   return {
-    key: 'learn', label: `Learn · W${w.week}: ${w.title}`, minutes: learnMinutes(hoursPerDay),
+    key: 'learn', label: `Learn · W${w.week}: ${w.title}`, minutes,
     detail: w.links.length
       ? `Read the docs below before you build — note 3 things you'd say about it in an interview`
       : `Re-read your proof links and numbers from weeks 1–${ROADMAP.length - 1} — note the 3 strongest for your resume`,
@@ -109,11 +104,11 @@ export function learnBlock(date: string, hoursPerDay: number): PrepBlock | null 
 }
 
 // Ticked by FocusBar Finish (not a question block, so no quota).
-export function buildBlock(date: string, hoursPerDay: number): PrepBlock | null {
+export function buildBlock(date: string, minutes: number): PrepBlock | null {
   const w = roadmapWeek(date)
   if (!w) return null
   return {
-    key: 'build', label: `Build · W${w.week}: ${w.title}`, minutes: buildMinutes(hoursPerDay),
+    key: 'build', label: `Build · W${w.week}: ${w.title}`, minutes,
     detail: `${w.milestone}. Done when ${w.doneWhen}.`,
     href: '/prep?tab=ai', done: false,
   }

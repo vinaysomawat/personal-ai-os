@@ -20,9 +20,11 @@ import { AiTab } from './AiTab'
 import type { RoadmapProgress } from '../roadmap'
 import AnswerReview from './AnswerReview'
 import TimelineCard from './TimelineCard'
-import { buildTimeline } from '../timeline'
-import { FocusBar, WarHeader } from './WarRoom'
-import { blockProgress, blockReached, canFinishBlock, dayPace, dayWindow, focusSeconds, focusedMinutes, prepHourNow, paceLabel, paceStatus, practicedToday, type FocusSession, type WarReadiness } from '../war'
+import { liveTimeline } from '../timeline'
+import { layoutDay, type DayTemplate } from '../dayplan'
+import { EditDefaultPlan, EditToday } from './DayEditor'
+import { FocusBar, TodayHeader } from './WarRoom'
+import { blockProgress, blockReached, canFinishBlock, dayPace, windowOf, clock, focusSeconds, focusedMinutes, prepHourNow, paceLabel, paceStatus, practicedToday, type FocusSession, type WarReadiness } from '../war'
 import PageHeader, { HeaderChip } from '@/components/PageHeader'
 import StatCard from '@/components/StatCard'
 import { guard } from '@/lib/guard'
@@ -48,7 +50,7 @@ interface Props {
   mockRounds: MockRound[]
   war: WarReadiness
   focusSessions: FocusSession[]
-  restDay: boolean
+  template: DayTemplate
   stories: Story[]
   rehearsals: StoryRehearsal[]
   readiness: ReadinessCell[]
@@ -77,17 +79,22 @@ export default function PrepView(props: Props) {
   const [bankTopic, setBankTopic] = useState(props.initialTopic ?? '')
   // Shown briefly after a session ends itself (its block got done).
   const [focusEnded, setFocusEnded] = useState<{ label: string; seconds: number } | null>(null)
-  // Pace vs your day window (prep_settings, dayWindow), re-read every minute.
+  // Pace vs today's timeline (first to last slot), re-read every minute.
   const [tick, setTick] = useState(0)
   useEffect(() => { const t = setInterval(() => setTick(x => x + 1), 60_000); return () => clearInterval(t) }, [])
   // Today's answers per category (block progress).
   const doneToday: Record<string, number> = practicedToday(bank, props.today)
   // Question blocks are time boxes: focused minutes or answers × minutes per question.
   const progressCtx = { answered: doneToday, focused: focusedMinutes(focusSessions, props.today) }
-  const dayWin = dayWindow(props.settings)
+  // Today on the clock (dayplan.ts layoutDay) from the session's own start /
+  // interview, re-flowed on the minute tick.
+  const planned = layoutDay(session?.blocks ?? [], props.template, session?.start_min ?? props.settings.day_start_min, session?.interview ?? null)
+  const dayWin = windowOf(planned.rows)
   const pace = dayPace(session?.blocks ?? [], prepHourNow(), progressCtx, dayWin)
   // The plan on the clock, re-flowed with the same minute tick.
-  const timeline = buildTimeline(session?.blocks ?? [], dayWin, prepHourNow())
+  const timeline = liveTimeline(planned.rows, Math.round(prepHourNow() * 60))
+  // Which editor is open on the Today tab (nothing saves until its Save).
+  const [editing, setEditing] = useState<null | 'items' | 'interview' | 'default'>(null)
   const activeFocus = focusSessions.find(f => f.status === 'active') ?? null
   const upsertFocus = (f: FocusSession) => setFocusSessions(prev => [...prev.filter(x => x.id !== f.id), f])
 
@@ -209,9 +216,7 @@ export default function PrepView(props: Props) {
         <StatCard label="Interview readiness" value={`${props.war.overall}%`} sub={props.war.ready ? 'all gates passed' : `${props.war.interviewReady ? 'interview-ready' : 'not ready'} · ${props.war.blockers.length} blockers`} valueClassName={props.war.ready || props.war.interviewReady ? 'text-good' : props.war.overall >= 60 ? 'text-warn' : 'text-risk'} />
         <StatCard label="Mock rounds" value={roundsThisWeek} sub={lastRound ? `this week · last ${formatOf(lastRound.format).label} ${toPrepDateStr(lastRound.created_at).slice(5)}${lastRound.review?.score != null ? ` · ${lastRound.review.score}/10` : ''}` : 'this week · none yet'} />
         <StatCard label="Story Bank" value={stories.length} sub={`${coveredCompetencies.size}/${COMPETENCIES.length} competencies covered`} />
-        {props.restDay
-          ? <StatCard label="Pace" value="Rest day" valueClassName="text-fg-secondary" sub={`no plan today · ${props.sessionsLast7}/7 full days`} />
-          : <StatCard label="Pace" value={paceLabel(pace)} valueClassName={PACE_CLS[paceStatus(pace)]} sub={`${pace.donePct}% done · ${pace.dayPct}% of day gone · ${props.sessionsLast7}/7 full days`} />}
+        <StatCard label="Pace" value={paceLabel(pace)} valueClassName={PACE_CLS[paceStatus(pace)]} sub={`${pace.donePct}% done · ${pace.dayPct}% of day gone · ${props.sessionsLast7}/7 full days`} />
       </div>
 
       <PageTabs tabs={TABS} active={tab} onChange={setTab} />
@@ -219,9 +224,15 @@ export default function PrepView(props: Props) {
 
       {tab === 'today' && (
         <>
-          <WarHeader war={props.war} settings={props.settings} questionMinutes={(session?.blocks ?? []).filter(b => b.key.startsWith('bank:')).reduce((s, b) => s + b.minutes, 0)} pace={pace} blocks={session?.blocks ?? []} restDay={props.restDay} />
-          {(session?.blocks.length ?? 0) > 0 && (
-            <TimelineCard timeline={timeline} windowLabel={dayWin.label} nowMin={Math.round(prepHourNow() * 60)}
+          <TodayHeader windowLabel={dayWin.label} interviewAt={session?.interview ? clock(session.interview.start) : null} pace={pace} blocks={session?.blocks ?? []}
+            onInterview={() => setEditing('interview')} onEditToday={() => setEditing('items')} onEditDefault={() => setEditing('default')} />
+          {editing === 'default' && <EditDefaultPlan template={props.template} dayStartMin={props.settings.day_start_min} onCancel={() => setEditing(null)} />}
+          {session && (editing === 'items' || editing === 'interview') && (
+            <EditToday key={editing} date={props.today} template={props.template} startMin={session.start_min ?? props.settings.day_start_min} interview={session.interview}
+              blocks={session.blocks} focus={editing} onSaved={s => { setSession(s); setEditing(null) }} onCancel={() => setEditing(null)} />
+          )}
+          {(session?.blocks.length ?? 0) > 0 && editing !== 'items' && editing !== 'interview' && (
+            <TimelineCard timeline={timeline} windowLabel={dayWin.label} nowMin={Math.round(prepHourNow() * 60)} dropped={planned.dropped.map(b => b.label)}
               activeKey={activeFocus?.block_key ?? null} onStart={startFocus} />
           )}
         </>

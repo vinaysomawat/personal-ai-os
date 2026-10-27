@@ -95,7 +95,7 @@ export async function getDashboardData() {
     aiUsageMonthRes, prepSessionsRes, activeWorkout,
     workoutCompletedTodayRes,
     financialGoalsRes, progressRes,
-    workoutStats, astrologyProfileRes, panchangTodayRes, prepSettingsRes,
+    workoutStats, astrologyProfileRes, panchangTodayRes,
     healthProfileRes, healthMetricsHistoryRes,
     { data: historyData },
   ] = await Promise.all([
@@ -119,7 +119,6 @@ export async function getDashboardData() {
     supabase.from('astrology_profile').select('natal_chart').eq('user_id', user.id).maybeSingle(),
     supabase.from('panchang_daily').select('tithi, nakshatra').eq('date', today).maybeSingle(),
     // The weekly rest day — the prep streak skips it.
-    supabase.from('prep_settings').select('rest_day').eq('user_id', user.id).maybeSingle(),
     // Life Score v2's Health sub-score reuses the Health module's own
     // nutrition/activity calc instead of a separate presence-only formula —
     // needs the profile (for targets) and enough metric history for the
@@ -405,7 +404,7 @@ export async function getDashboardData() {
       monthSpend, monthBudget,
       practiced30d,
       workoutStreak: workoutStats.currentStreakDays,
-      prepStreak: prepStreak(prepSessions, prepDay, prepSettingsRes.data?.rest_day ?? 0),
+      prepStreak: prepStreak(prepSessions, prepDay),
     },
     prepToday: todaySession ? { done: todaySession.blocks.filter(b => b.done).length, total: todaySession.blocks.length } : null,
     workoutCategory: activeWorkout?.workout?.category ?? null,

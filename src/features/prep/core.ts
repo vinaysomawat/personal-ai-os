@@ -1,10 +1,11 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { prepToday, prepDaysAgo, toPrepDateStr, prepDayStartUtc } from '@/lib/date'
 import type { MockRound } from './mock'
-import { BANK_CATEGORIES, DEFAULT_HOURS, buildHuntPlan, isRestDay, isRedoDue, type CategoryCoverage } from './hunt'
+import { BANK_CATEGORIES, isRedoDue, type CategoryCoverage } from './hunt'
+import { DEFAULT_TEMPLATE, layoutDay, planItems, templateOf } from './dayplan'
 import type { RoadmapProgress } from './roadmap'
 import { computeReadinessMatrix, type CodingHistoryRow } from './readiness'
-import { DEFAULT_DAY_WINDOW, blockProgress, blockReached, canFinishBlock, categoryGap, dayPace, focusedMinutes, minutesPerQuestion, type ProgressCtx, isGoodDay, focusSeconds, nowBlock, revisionQueue, topicWeakness, warReadiness, type FocusSession } from './war'
+import { blockProgress, windowOf, blockReached, canFinishBlock, categoryGap, dayPace, focusedMinutes, minutesPerQuestion, type ProgressCtx, isGoodDay, focusSeconds, nowBlock, revisionQueue, topicWeakness, warReadiness, type FocusSession } from './war'
 import type { BankQuestion, PrepBlock, PrepSession, PrepSettings, Story, StoryRehearsal } from './types'
 
 // Prep's data layer — plain server module (not 'use server', so none of
@@ -12,16 +13,14 @@ import type { BankQuestion, PrepBlock, PrepSession, PrepSettings, Story, StoryRe
 // signed-in user; the War Mode crons and the Daily bot call it with the
 // service client.
 
-// Consecutive days with a completed session (today given grace). The weekly
-// rest day is stepped over: it neither breaks nor adds to the streak.
-export function prepStreak(sessions: { date: string; completed_at: string | null }[], today: string, restDay: number | null = null): number {
+// Consecutive days with a completed session (today given grace).
+export function prepStreak(sessions: { date: string; completed_at: string | null }[], today: string): number {
   const done = new Set(sessions.filter(s => s.completed_at).map(s => s.date))
   let streak = 0
   const cursor = new Date(`${today}T00:00:00Z`)
   for (let i = 0; i < 3650; i++) {
     const d = cursor.toISOString().slice(0, 10)
-    if (restDay !== null && isRestDay(d, restDay) && !done.has(d)) cursor.setUTCDate(cursor.getUTCDate() - 1)
-    else if (done.has(d)) { streak++; cursor.setUTCDate(cursor.getUTCDate() - 1) }
+    if (done.has(d)) { streak++; cursor.setUTCDate(cursor.getUTCDate() - 1) }
     else if (i === 0) cursor.setUTCDate(cursor.getUTCDate() - 1)
     else break
   }
@@ -52,26 +51,22 @@ export async function loadPrepData(supabase: SupabaseClient, userId: string) {
   const readiness = computeReadinessMatrix((codingRes.data ?? []) as unknown as CodingHistoryRow[], stories, coverage.find(c => c.key === 'ai-native') ?? null,
     bank.filter(q => q.last_rating !== null).map(q => ({ category: q.category, topics: q.topics, rating: q.last_rating! })))
   // Empty (not an error) until the mock_rounds migration has run.
+  const template = templateOf(settings.day_template)
   const mockRounds = (mockRes.data ?? []) as MockRound[]
   const weakness = topicWeakness(bank, today)
 
   let sessions = (sessionsRes.data ?? []) as PrepSession[]
   let todaySession = sessions.find(s => s.date === today) ?? null
   if (!todaySession) {
-    // Bank categories planned on each of the last three days, newest first —
-    // the frontend slot rotation.
-    const recentByDay = [1, 2, 3].map(n => sessions.find(s => s.date === prepDaysAgo(n))?.blocks
-      .filter(b => b.key.startsWith('bank:')).map(b => b.key.slice(5)) ?? [])
-    const plan = buildHuntPlan({
-      hoursPerDay: settings.hours_per_day, date: today, coverage,
+    // The recommended plan: the day template's minutes for this weekday.
+    const blocks = planItems(today, template, {
+      coverage,
       gaps: Object.fromEntries(BANK_CATEGORIES.map(c => [c.key, categoryGap(c.key, readiness)])),
       focusTopic: weakness.find(w => w.category === 'quiz')?.topic ?? null,
       mockDoneToday: mockRounds.some(r => toPrepDateStr(r.created_at) === today),
-      recentByDay,
-      restDay: settings.rest_day,
     })
     const { data: inserted } = await supabase.from('prep_sessions')
-      .upsert({ user_id: user.id, date: today, focus: plan.focus, blocks: plan.blocks }, { onConflict: 'user_id,date', ignoreDuplicates: true })
+      .upsert({ user_id: user.id, date: today, focus: 'Today', blocks }, { onConflict: 'user_id,date', ignoreDuplicates: true })
       .select('*')
     todaySession = ((inserted ?? [])[0] as PrepSession | undefined) ?? null
     if (!todaySession) {
@@ -81,19 +76,24 @@ export async function loadPrepData(supabase: SupabaseClient, userId: string) {
     if (todaySession) sessions = [todaySession, ...sessions]
   }
 
+  // Today on the clock: the plan's items laid into the template's sessions
+  // from today's start, around an interview (dayplan.ts).
+  const layout = layoutDay(todaySession?.blocks ?? [], template, todaySession?.start_min ?? settings.day_start_min, todaySession?.interview ?? null)
+
   return {
     today,
     session: todaySession,
-    streak: prepStreak(sessions, today, settings.rest_day),
-    restDay: isRestDay(today, settings.rest_day),
+    template,
+    planned: layout.rows,
+    dropped: layout.dropped,
+    window: windowOf(layout.rows),
+    streak: prepStreak(sessions, today),
     sessionsLast7: sessions.filter(s => s.date >= prepDaysAgo(6) && s.completed_at).length,
     // The 13 days before today, oldest first: % of each day's plan done (whole
-    // blocks only — per-question partial credit isn't kept for past days). A
-    // rest day with nothing planned has no score (`rest`: a neutral bar).
+    // blocks only — per-question partial credit isn't kept for past days).
     recentScores: Array.from({ length: 13 }, (_, i) => prepDaysAgo(13 - i)).map(date => {
       const s = sessions.find(x => x.date === date)
-      const rest = isRestDay(date, settings.rest_day) && !s?.blocks.length
-      return { date, score: s?.blocks.length ? dayPace(s.blocks, 99).donePct : null, rest, good: !!s && isGoodDay(s.blocks) }
+      return { date, score: s?.blocks.length ? dayPace(s.blocks, 99).donePct : null, good: !!s && isGoodDay(s.blocks) }
     }),
     mockRounds,
     // War Mode (all deterministic, war.ts).
@@ -118,10 +118,10 @@ export async function loadPrepData(supabase: SupabaseClient, userId: string) {
 }
 
 export async function getPrepSettings(supabase: SupabaseClient, userId: string): Promise<PrepSettings> {
-  const { data } = await supabase.from('prep_settings').select('hours_per_day, rest_day, day_start_min, day_end_min').eq('user_id', userId).maybeSingle()
+  const { data } = await supabase.from('prep_settings').select('day_start_min, day_template').eq('user_id', userId).maybeSingle()
   return {
-    hours_per_day: data?.hours_per_day ?? DEFAULT_HOURS, rest_day: data?.rest_day ?? 0,
-    day_start_min: data?.day_start_min ?? DEFAULT_DAY_WINDOW.day_start_min, day_end_min: data?.day_end_min ?? DEFAULT_DAY_WINDOW.day_end_min,
+    day_start_min: data?.day_start_min ?? DEFAULT_TEMPLATE.sessions[0].start,
+    day_template: (data?.day_template as PrepSettings['day_template']) ?? null,
   }
 }
 

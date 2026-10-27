@@ -9,11 +9,13 @@ import { overHint, span, type Timeline, type TimelineRow } from '../timeline'
 // window, life slots between blocks, re-flowed every minute — blocks not done
 // in their slot move to now and the flex slot shrinks first. Plan rows can
 // start their focus timer; life rows are just time.
-const LIFE: Partial<Record<TimelineRow['kind'], string>> = { break: 'text-fg-tertiary', meal: 'text-fg-secondary', walk: 'text-fg-secondary', apps: 'text-fg-secondary', flex: 'text-fg-secondary', review: 'text-fg-tertiary' }
+const LIFE: Partial<Record<TimelineRow['kind'], string>> = { break: 'text-fg-tertiary', meal: 'text-fg-secondary', flex: 'text-fg-secondary', warmup: 'text-accent', interview: 'text-accent font-semibold', debrief: 'text-accent' }
 
-export default function TimelineCard({ timeline, windowLabel, nowMin, activeKey, onStart }: {
+export default function TimelineCard({ timeline, windowLabel, nowMin, dropped, activeKey, onStart }: {
   timeline: Timeline
   windowLabel: string
+  // Plan items that don't fit today's sessions (Edit today to fix).
+  dropped: string[]
   // Prep minutes now (war.ts prepHourNow × 60).
   nowMin: number
   // The block a focus session is running on, if any.
@@ -57,6 +59,7 @@ export default function TimelineCard({ timeline, windowLabel, nowMin, activeKey,
         })}
       </ol>
       {over > 0 && <p className="text-[11px] text-warn mt-1.5">The day {overHint(over)}.</p>}
+      {dropped.length > 0 && <p className="text-[11px] text-warn mt-1">Doesn&apos;t fit today: {dropped.join(', ')} — use Edit today.</p>}
     </Card>
   )
 }

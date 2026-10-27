@@ -51,7 +51,7 @@ const dummyHunt = {
   overall: 64,
   tier: { label: '✅ INTERVIEW-READY · 4 blockers to close', tone: 'good' as const },
   topBlocker: { label: 'System design', score: 58, gate: 80 },
-  score: { today: 54, level: 'Intense', rest: false, good: false, recent: [{ date: '2026-10-05', score: 40 }, { date: '2026-10-06', score: 72 }, { date: '2026-10-07', score: null }, { date: '2026-10-08', score: 91 }, { date: '2026-10-09', score: 60 }, { date: '2026-10-10', score: 83 }] },
+  score: { today: 54, window: '11:00am–12:30am', good: false, recent: [{ date: '2026-10-05', score: 40 }, { date: '2026-10-06', score: 72 }, { date: '2026-10-07', score: null }, { date: '2026-10-08', score: 91 }, { date: '2026-10-09', score: 60 }, { date: '2026-10-10', score: 83 }] },
   mockAvg: 6.4,
   revisionDue: 3,
   blocks: { done: 3, total: 7 },

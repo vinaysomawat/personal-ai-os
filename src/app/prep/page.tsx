@@ -20,7 +20,7 @@ export default async function PrepPage({ searchParams }: { searchParams: Promise
       mockRounds={data.mockRounds}
       war={data.war}
       focusSessions={data.focusSessions}
-      restDay={data.restDay}
+      template={data.template}
       stories={data.stories}
       rehearsals={data.rehearsals}
       readiness={data.readiness}

@@ -1,3 +1,4 @@
+import type { DayTemplate, Interview } from './dayplan'
 import type { Scorecard } from './scorecard'
 
 export interface Story {
@@ -43,14 +44,11 @@ export interface PrepBlock {
 }
 
 export interface PrepSettings {
-  // Daily load level hours (hunt.ts LEVELS: 4 / 6 / 8).
-  hours_per_day: number
-  // Weekly rest day, IST weekday (0 = Sunday … 6 = Saturday).
-  rest_day: number
-  // The day window, minutes after IST midnight (an end before the start runs
-  // past midnight): pace and the Today timeline (war.ts dayWindow).
+  // When the day starts by default, minutes after IST midnight (the first
+  // session's start — dayplan.ts; a day can override it).
   day_start_min: number
-  day_end_min: number
+  // The day template over the defaults (dayplan.ts DayTemplate), null = defaults.
+  day_template: Partial<DayTemplate> | null
 }
 
 // A coding_questions row plus when it was last practiced (in the Question
@@ -80,8 +78,13 @@ export interface PrepSession {
   id: string
   date: string
   focus: string
+  // The day's plan items in their order (dayplan.ts layoutDay puts them on the clock).
   blocks: PrepBlock[]
   completed_at: string | null
+  // Today's own start (Edit today), null = prep_settings.day_start_min.
+  start_min: number | null
+  // Interview today: warm-up before, debrief after (dayplan.ts).
+  interview: Interview | null
 }
 
 // Behavioral + leadership competencies senior/lead UI loops probe. Split
