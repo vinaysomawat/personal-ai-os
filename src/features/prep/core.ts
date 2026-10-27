@@ -1,4 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { unstable_cache } from 'next/cache'
+import { createServiceClient } from '@/lib/supabase/service'
 import { prepToday, prepDaysAgo, toPrepDateStr, prepDayStartUtc } from '@/lib/date'
 import type { MockRound } from './mock'
 import { BANK_CATEGORIES, isRedoDue, type CategoryCoverage } from './hunt'
@@ -34,7 +36,8 @@ export async function loadPrepData(supabase: SupabaseClient, userId: string) {
   const user = { id: userId }
   const today = prepToday()
 
-  const [mockRes, storiesRes, rehearsalsRes, codingRes, sessionsRes, focusRes, roadmapRes] = await Promise.all([
+  // One round of parallel reads (settings and the bank included).
+  const [mockRes, storiesRes, rehearsalsRes, codingRes, sessionsRes, focusRes, roadmapRes, settings, bank] = await Promise.all([
     supabase.from('mock_rounds').select('id, format, items, duration_seconds, created_at, review').eq('user_id', user.id).order('created_at', { ascending: false }).limit(500),
     supabase.from('stories').select('*').eq('user_id', user.id).order('updated_at', { ascending: false }),
     supabase.from('story_rehearsals').select('id, story_id, competency, prompt, answer, critique, rating, scorecard, created_at').eq('user_id', user.id).order('created_at', { ascending: false }).limit(10),
@@ -43,8 +46,9 @@ export async function loadPrepData(supabase: SupabaseClient, userId: string) {
     supabase.from('prep_focus_sessions').select('*').eq('user_id', user.id).gte('date', prepDaysAgo(6)).order('started_at', { ascending: true }),
     // AI Engineer tab: finished roadmap weeks with their proof.
     supabase.from('roadmap_progress').select('week, proof_url, metric, notes, completed_at').eq('user_id', user.id).order('week'),
+    getPrepSettings(supabase, user.id),
+    getQuestionBank(supabase, user.id),
   ])
-  const [settings, bank] = await Promise.all([getPrepSettings(supabase, user.id), getQuestionBank(supabase, user.id)])
   const coverage = bankCoverage(bank, today)
 
   const stories = (storiesRes.data ?? []) as Story[]
@@ -126,22 +130,33 @@ export async function getPrepSettings(supabase: SupabaseClient, userId: string):
 }
 
 // PostgREST caps a response at 1,000 rows, and the bank is past that —
-// page through it so no category gets silently truncated.
-async function fetchAllQuestions(supabase: SupabaseClient) {
+// page through it so no category gets silently truncated. Pages are read
+// two at a time (the pool is ~1,200 rows, so usually one round trip).
+type PoolRow = { id: string; title: string; difficulty: string; url: string | null; category: string; topics: string[] | null; sort_order: number | null; answer_hints: string | null; body: string | null }
+async function fetchAllQuestions(supabase: SupabaseClient): Promise<PoolRow[]> {
   const PAGE = 1000
-  const rows: { id: string; title: string; difficulty: string; url: string | null; category: string; topics: string[] | null; sort_order: number | null; answer_hints: string | null; body: string | null }[] = []
-  for (let from = 0; ; from += PAGE) {
+  const page = async (n: number) => {
     const { data, error } = await supabase.from('coding_questions')
-      .select('id, title, difficulty, url, category, topics, sort_order, answer_hints, body').order('id').range(from, from + PAGE - 1)
+      .select('id, title, difficulty, url, category, topics, sort_order, answer_hints, body').order('id').range(n * PAGE, n * PAGE + PAGE - 1)
     if (error) throw new Error(error.message)
-    rows.push(...(data ?? []))
-    if (!data || data.length < PAGE) return rows
+    return (data ?? []) as PoolRow[]
+  }
+  const rows: PoolRow[] = []
+  for (let n = 0; ; n += 2) {
+    const [a, b] = await Promise.all([page(n), page(n + 1)])
+    rows.push(...a, ...b)
+    if (b.length < PAGE) return rows
   }
 }
 
+// The question pool is global (no user_id) and only changes when the seed
+// scripts run, so it is cached for an hour across requests — the Prep page,
+// the Daily bot and the crons all read it. Your own progress is never cached.
+const questionPool = unstable_cache(() => fetchAllQuestions(createServiceClient()), ['prep-question-pool-v1'], { revalidate: 3600, tags: ['question-pool'] })
+
 export async function getQuestionBank(supabase: SupabaseClient, userId: string): Promise<BankQuestion[]> {
   const [questions, { data: progress }, { data: coding }] = await Promise.all([
-    fetchAllQuestions(supabase),
+    questionPool(),
     supabase.from('question_progress').select('question_id, last_seen_at, last_answer, last_rating, last_rated_at').eq('user_id', userId),
     supabase.from('coding_daily_questions').select('question_id, completed_at').eq('user_id', userId).eq('completed', true),
   ])

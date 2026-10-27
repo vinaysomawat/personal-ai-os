@@ -60,7 +60,7 @@ Every module score blends today with the trailing week:
 
 ## 2. Prep (`/prep`)
 
-The center of the app: *what do I practice today, and am I interview-ready?* for Senior Frontend / AI Product Engineer roles. Code in `src/features/prep/`. `loadPrepData(db, userId)` (`core.ts`, a plain server module, not `'use server'`) is the one data path for the page, the crons and the Telegram bot. Tabs (`PageTabs`): **Today / AI Engineer / Questions / Mock Round / Story Bank**, deep-linkable via `?tab=` (`today` / `ai` / `questions` / `mock` / `stories`), `&cat=<category>`, `&topic=`, `&format=screen|behavioral|system-design|machine-coding|code-review|ai-system-design`.
+The center of the app: *what do I practice today, and am I interview-ready?* for Senior Frontend / AI Product Engineer roles. Code in `src/features/prep/`. `loadPrepData(db, userId)` (`core.ts`, a plain server module, not `'use server'`) is the one data path for the page, the crons and the Telegram bot. It runs all its reads in one parallel round (settings and the question bank included); the **global question pool** (`coding_questions`, ~1,200 rows, no user_id) is cached for an hour across requests (`unstable_cache`, tag `question-pool`; pages read two at a time when cold), so a re-seed shows up within the hour — your own progress (`question_progress`) is read fresh every time. Tabs (`PageTabs`): **Today / AI Engineer / Questions / Mock Round / Story Bank**, deep-linkable via `?tab=` (`today` / `ai` / `questions` / `mock` / `stories`), `&cat=<category>`, `&topic=`, `&format=screen|behavioral|system-design|machine-coding|code-review|ai-system-design`.
 
 ### Interview War Mode and the day plan
 
