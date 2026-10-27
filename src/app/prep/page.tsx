@@ -25,7 +25,6 @@ export default async function PrepPage({ searchParams }: { searchParams: Promise
       rehearsals={data.rehearsals}
       readiness={data.readiness}
       settings={data.settings}
-      coverage={data.coverage}
       bank={data.bank}
       roadmap={data.roadmap}
     />

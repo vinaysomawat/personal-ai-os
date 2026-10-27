@@ -5,6 +5,7 @@ append here whenever you deploy, same cadence as the version bump.
 
 ## 2026-10-28
 
+- **The Questions tab agrees with the timeline.** A category's ✓ now uses the same done state as Today, so focus time counts as well as answers, and its planned minutes update after Edit today.
 - **The Prep page loads about twice as fast.** The question pool, which is the same for everyone, is now cached for an hour instead of read on every visit, and the page's other reads run in parallel. Server time went from about 3.3s to about 1–1.7s.
 - **Edit today saves instantly.** Save now sends only what you changed, and the timeline updates right away while it saves in the background. Before, it sent the whole day and waited for about 7 database round trips.
 - **Simpler default plan, your own breaks.** The default plan now has one minutes-per-day value per slot, the same every day, instead of a Sun–Sat table. It adds Angular and Job applications at 30 min each. Automatic breaks are gone; add a break with a start and end time in Edit today and the plan flows around it. Short slots now fill gaps that a longer one can't, so less time turns into Flex. Missed blocks take over from an in-progress Flex slot.

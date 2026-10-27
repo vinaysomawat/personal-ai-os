@@ -7,16 +7,15 @@ import AnswerReview, { CodeBlock, Rich } from './AnswerReview'
 import MicButton, { appendText } from '@/components/MicButton'
 import { modalSaveButtonClass, modalCancelButtonClass } from '@/components/Modal'
 import { answerQuestion, critiqueAnswer, revealModelAnswer } from '../actions'
-import { BANK_CATEGORIES, isRedoDue, redoSlots, type BankCategory, type CategoryCoverage, type CategoryQuota } from '../hunt'
+import { BANK_CATEGORIES, isRedoDue, redoSlots, type BankCategory } from '../hunt'
 import { toPrepDateStr } from '@/lib/date'
 import { hm, minutesPerQuestion } from '../war'
-import type { BankQuestion, PrepSession } from '../types'
+import type { BankQuestion, PrepBlock, PrepSession } from '../types'
 import type { Scorecard } from '../scorecard'
 import { guard } from '@/lib/guard'
 
 const DIFFICULTY_ORDER: Record<string, number> = { medium: 0, easy: 1, hard: 2 }
 
-const isQuota = (c: CategoryCoverage | CategoryQuota): c is CategoryQuota => 'quota' in c
 
 // Weak answers due for a redo lead (lowest rating first), up to `redoFirst`
 // of them — today's redo slots not yet used. Then unseen, in the question's
@@ -59,14 +58,16 @@ const VERBAL_PLACEHOLDER: Record<string, string> = {
   'system-design': 'Outline it (Requirements → Architecture → Data model → Interface → Optimizations), then paste or summarize here.',
 }
 
-export function QuestionsTab({ bank, setBank, topic, onTopicChange: setTopic, coverage, category: categoryParam, onCategoryChange, today, onGraded }: {
+export function QuestionsTab({ bank, setBank, topic, onTopicChange: setTopic, blocks, category: categoryParam, onCategoryChange, today, onGraded }: {
   // Owned by PrepView so Mock Round answers show up here too.
   bank: BankQuestion[]
   setBank: (fn: (prev: BankQuestion[]) => BankQuestion[]) => void
   // Owned by PrepView so the War Room's revision queue can deep-link a topic.
   topic: string
   onTopicChange: (topic: string) => void
-  coverage: (CategoryCoverage | CategoryQuota)[]
+  // Today's plan blocks, live (PrepView's session) — the same done state and
+  // planned minutes the Today timeline shows.
+  blocks: PrepBlock[]
   category: string | null
   onCategoryChange: (key: BankCategory) => void
   today: string
@@ -107,10 +108,17 @@ export function QuestionsTab({ bank, setBank, topic, onTopicChange: setTopic, co
   }, [bank, category])
   // A topic picked under another category doesn't apply here.
   const activeTopic = topics.some(([t]) => t === topic) ? topic : ''
+  // Today's block for a category: its planned minutes, done state (focus
+  // time or answers — the timeline's), and the question guide that sizes the
+  // redo slots.
+  const planFor = (key: string) => {
+    const b = blocks.find(x => x.key === `bank:${key}`)
+    return b ? { minutes: b.minutes, done: b.done, quota: Math.max(1, Math.floor(b.minutes / minutesPerQuestion(key))) } : null
+  }
   // Redo slots left today: the first answers of the day in a category go to
   // due weak answers, up to REDO_SHARE of its quota.
-  const quotaForCategory = coverage.find(c => c.key === category)
-  const redoFirst = quotaForCategory && isQuota(quotaForCategory) ? Math.max(0, redoSlots(quotaForCategory.quota) - (doneToday[category] ?? 0)) : 0
+  const planned = planFor(category)
+  const redoFirst = planned ? Math.max(0, redoSlots(planned.quota) - (doneToday[category] ?? 0)) : 0
   const queue = useMemo(() => buildQueue(bank, category, activeTopic, today, redoFirst), [bank, category, activeTopic, today, redoFirst])
   const current = queue.find(q => q.id === selectedId) ?? queue[0] ?? null
   // A repeat on a later day starts blank (answer from memory, not your old
@@ -187,8 +195,7 @@ export function QuestionsTab({ bank, setBank, topic, onTopicChange: setTopic, co
     startTransition(guard(async () => onGraded(await answerQuestion(id, text, rating))))
   }
 
-  const quotaFor = (key: string) => { const c = coverage.find(x => x.key === key); return c && isQuota(c) ? c : null }
-  const q = quotaFor(category)
+  const q = planned
   const cs = stats(category)
 
   return (
@@ -196,9 +203,9 @@ export function QuestionsTab({ bank, setBank, topic, onTopicChange: setTopic, co
       <Card title="Sprint" action={<span className="text-[11px] text-fg-tertiary tabular-nums">{`${doneToday[category] ?? 0} answered today · `}{q && q.minutes ? `${hm(q.minutes)} planned · ` : ''}{queue.length} questions{cs.leftMinutes ? ` · ≈ ${hrs(cs.leftMinutes)} to complete` : ''}</span>}>
         <div className="flex flex-wrap gap-1.5 mb-2.5">
           {BANK_CATEGORIES.map(c => {
-            const cq = quotaFor(c.key)
-            // Answers alone reached today's planned minutes (focus time counts on Today).
-            const met = cq && cq.minutes > 0 && (doneToday[c.key] ?? 0) * minutesPerQuestion(c.key) >= cq.minutes
+            const cq = planFor(c.key)
+            // Done the same way as on Today (focus time or answers).
+            const met = !!cq?.done
             return (
               <button key={c.key} onClick={() => { setCategory(c.key); setTopic(''); resetCard(); setSelectedId(null); setOpen(false) }} aria-pressed={category === c.key}
                 className={`text-[11.5px] px-2.5 py-1 rounded-full border transition-colors ${category === c.key ? 'bg-accent-soft border-accent text-accent' : met ? 'bg-good-soft border-good/40 text-good' : 'border-border-strong text-fg-secondary hover:bg-surface-2'}`}>
@@ -315,7 +322,7 @@ export function QuestionsTab({ bank, setBank, topic, onTopicChange: setTopic, co
         <ul className="flex flex-col gap-2.5">
           {BANK_CATEGORIES.map(c => {
             const s = stats(c.key)
-            const cq = quotaFor(c.key)
+            const cq = planFor(c.key)
             return (
               <li key={c.key}>
                 <button onClick={() => { setCategory(c.key); setSelectedId(null); setOpen(false) }} className="w-full text-left">
@@ -326,7 +333,7 @@ export function QuestionsTab({ bank, setBank, topic, onTopicChange: setTopic, co
                   <div className="h-[5px] rounded-[3px] bg-border mt-1 flex overflow-hidden">
                     <div className="h-full bg-good" style={{ width: `${s.total ? (s.seen / s.total) * 100 : 0}%` }} />
                   </div>
-                  {cq && cq.minutes > 0 && <p className="text-[10.5px] text-fg-tertiary mt-0.5 tabular-nums">{hm(cq.minutes)} planned today</p>}
+                  {cq && cq.minutes > 0 && <p className={`text-[10.5px] mt-0.5 tabular-nums ${cq.done ? 'text-good' : 'text-fg-tertiary'}`}>{cq.done ? '✓ ' : ''}{hm(cq.minutes)} planned today</p>}
                 </button>
               </li>
             )

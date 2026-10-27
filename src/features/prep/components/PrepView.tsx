@@ -13,7 +13,6 @@ import { prepDaysAgo, toPrepDateStr } from '@/lib/date'
 import { formatOf, type MockRound } from '../mock'
 import { savePrepToday, endFocusSession, startFocusSession, toggleFocusSessionPause, saveStory, deleteStory, rehearseStory, type StoryInput } from '../actions'
 import { COMPETENCIES, REHEARSAL_PROMPTS, type BankQuestion, type CompetencyKey, type PrepSession, type PrepSettings, type ReadinessCell, type Story, type StoryRehearsal } from '../types'
-import type { CategoryCoverage, CategoryQuota } from '../hunt'
 import { QuestionsTab } from './QuestionsTab'
 import { MockTab } from './MockTab'
 import { AiTab } from './AiTab'
@@ -55,7 +54,6 @@ interface Props {
   rehearsals: StoryRehearsal[]
   readiness: ReadinessCell[]
   settings: PrepSettings
-  coverage: (CategoryCoverage | CategoryQuota)[]
   bank: BankQuestion[]
   roadmap: RoadmapProgress[]
 }
@@ -263,7 +261,7 @@ export default function PrepView(props: Props) {
 
       {/* Kept mounted so answers made here survive switching tabs. */}
       <div hidden={tab !== 'questions'}>
-        <QuestionsTab bank={bank} setBank={setBank} topic={bankTopic} onTopicChange={setBankTopic} coverage={props.coverage} category={bankCategory} onCategoryChange={setBankCategory} today={props.today} onGraded={s => { if (s) setSession(s) }} />
+        <QuestionsTab bank={bank} setBank={setBank} topic={bankTopic} onTopicChange={setBankTopic} blocks={session?.blocks ?? []} category={bankCategory} onCategoryChange={setBankCategory} today={props.today} onGraded={s => { if (s) setSession(s) }} />
       </div>
 
       {tab === 'mock' && (
