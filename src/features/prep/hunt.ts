@@ -69,9 +69,6 @@ export function isRedoDue(q: Pick<BankQuestion, 'last_rating' | 'last_rated_at' 
   return d.toISOString().slice(0, 10) <= today
 }
 
-// Weekday labels, Sunday first (the day template's weekly table).
-export const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'] as const
-
 function bankDetail(key: BankCategory, quota: number, focusTopic: string | null | undefined): string {
   const cat = BANK_CATEGORIES.find(c => c.key === key)!
   const s = quota === 1 ? '' : 's'

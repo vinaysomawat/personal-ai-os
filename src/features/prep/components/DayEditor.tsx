@@ -6,8 +6,7 @@ import { ArrowDown, ArrowUp, Plus, X } from 'lucide-react'
 import Card from '@/components/Card'
 import { modalCancelButtonClass, modalSaveButtonClass } from '@/components/Modal'
 import { savePrepTemplate, savePrepToday } from '../actions'
-import { DEBRIEF_MINUTES, ORDER, PLAN_LABEL, WARMUP_MINUTES, layoutDay, weekdayOf, type DayTemplate, type Interview, type PlanKey } from '../dayplan'
-import { WEEKDAYS } from '../hunt'
+import { DEBRIEF_MINUTES, ORDER, PLAN_LABEL, WARMUP_MINUTES, layoutDay, type DayBreak, type DayTemplate, type Interview, type PlanKey } from '../dayplan'
 import { clock, hm } from '../war'
 import { span } from '../timeline'
 import type { PrepBlock, PrepSession } from '../types'
@@ -30,11 +29,11 @@ function ErrorLine({ error }: { error: string | null }) {
 
 type Item = { key: string; minutes: number; label: string; done: boolean }
 
-export function EditToday({ date, template, startMin, interview, blocks, focus, onSaved, onCancel }: {
-  date: string
+export function EditToday({ template, startMin, interview, breaks: savedBreaks, blocks, focus, onSaved, onCancel }: {
   template: DayTemplate
   startMin: number
   interview: Interview | null
+  breaks: DayBreak[]
   blocks: PrepBlock[]
   // Open with the interview section ready to fill (the Interview button).
   focus: 'items' | 'interview'
@@ -43,11 +42,12 @@ export function EditToday({ date, template, startMin, interview, blocks, focus, 
 }) {
   const [start, setStart] = useState(startMin)
   const [iv, setIv] = useState<Interview | null>(interview ?? (focus === 'interview' ? { start: Math.max(startMin + 60, 15 * 60), minutes: 60, label: '' } : null))
+  const [breaks, setBreaks] = useState<DayBreak[]>(savedBreaks)
   const [items, setItems] = useState<Item[]>(() => blocks.map(b => ({ key: b.key, minutes: b.minutes, label: b.label, done: b.done })))
   const [adding, setAdding] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [saving, startSave] = useTransition()
-  const preview = useMemo(() => layoutDay(items.map(i => ({ key: i.key, label: i.label, minutes: i.minutes, done: i.done, detail: '', href: '' })), template, start, iv), [items, template, start, iv])
+  const preview = useMemo(() => layoutDay(items.map(i => ({ key: i.key, label: i.label, minutes: i.minutes, done: i.done, detail: '', href: '' })), template, start, iv, breaks), [items, template, start, iv, breaks])
   const used = new Set(items.map(i => i.key))
   const free = ORDER.filter(k => !used.has(k))
   const move = (i: number, d: -1 | 1) => setItems(prev => { const n = [...prev]; const j = i + d; if (j < 0 || j >= n.length) return prev; [n[i], n[j]] = [n[j], n[i]]; return n })
@@ -55,7 +55,7 @@ export function EditToday({ date, template, startMin, interview, blocks, focus, 
   const add = () => {
     if (!adding) return
     const key = adding === 'custom' ? `custom:${Date.now()}` : adding
-    const minutes = adding === 'custom' ? 30 : template.weekly[weekdayOf(date)]?.[adding] || 30
+    const minutes = adding === 'custom' ? 30 : template.minutes[adding] || 30
     setItems(prev => [...prev, { key, minutes, label: adding === 'custom' ? '' : PLAN_LABEL[adding as PlanKey], done: false }])
     setAdding('')
   }
@@ -64,7 +64,7 @@ export function EditToday({ date, template, startMin, interview, blocks, focus, 
     if (items.some(i => i.key.startsWith('custom:') && !i.label.trim())) { setError('Name your own slots'); return }
     startSave(async () => {
       try {
-        const s = await savePrepToday({ startMin: start, interview: iv, items: items.map(i => ({ key: i.key, minutes: i.minutes, ...(i.key.startsWith('custom:') ? { label: i.label } : {}) })) })
+        const s = await savePrepToday({ startMin: start, interview: iv, breaks, items: items.map(i => ({ key: i.key, minutes: i.minutes, ...(i.key.startsWith('custom:') ? { label: i.label } : {}) })) })
         if (s) onSaved(s)
       } catch (e) { setError(e instanceof Error ? e.message : 'Could not save') }
     })
@@ -92,6 +92,26 @@ export function EditToday({ date, template, startMin, interview, blocks, focus, 
                 <span className="w-full text-[11px] text-fg-tertiary">Adds a {WARMUP_MINUTES}-min warm-up before and a {DEBRIEF_MINUTES}-min debrief after; before your start time it starts the day early.</span>
               </div>
             )}
+          </div>
+          <div className="rounded-[9px] border border-border px-2.5 py-2">
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-[12.5px] font-semibold text-fg-primary">☕ Breaks</p>
+              <button onClick={() => { const last = breaks[breaks.length - 1]; const s0 = last ? last.end + 120 : Math.max(start + 120, 16 * 60); setBreaks(prev => [...prev, { start: s0, end: s0 + 20 }]) }}
+                className={`${modalCancelButtonClass} !py-[3px] inline-flex items-center gap-1`}><Plus size={12} /> Add break</button>
+            </div>
+            {breaks.length === 0 && <p className="text-[11px] text-fg-tertiary mt-1">No breaks — add one with its start and end time; blocks flow around it.</p>}
+            <ol className="flex flex-col gap-1 mt-1">
+              {breaks.map((b, i) => (
+                <li key={i} className="flex flex-wrap items-center gap-1.5 text-[12px] text-fg-secondary">
+                  <input type="time" step={300} value={toHHMM(b.start)} onChange={e => e.target.value && setBreaks(prev => prev.map((x, k) => k === i ? { ...x, start: prepMin(e.target.value) } : x))} className={INPUT} aria-label="Break starts" />
+                  –
+                  <input type="time" step={300} value={toHHMM(b.end)} onChange={e => e.target.value && setBreaks(prev => prev.map((x, k) => k === i ? { ...x, end: prepMin(e.target.value) } : x))} className={INPUT} aria-label="Break ends" />
+                  <span className="tabular-nums text-fg-tertiary">{b.end > b.start ? hm(b.end - b.start) : 'end before start'}</span>
+                  <input value={b.label ?? ''} onChange={e => setBreaks(prev => prev.map((x, k) => k === i ? { ...x, label: e.target.value } : x))} placeholder="Name (optional)" className={`${INPUT} flex-1 min-w-[110px]`} />
+                  <button onClick={() => setBreaks(prev => prev.filter((_, k) => k !== i))} aria-label="Remove break" className="text-fg-tertiary hover:text-risk"><X size={14} /></button>
+                </li>
+              ))}
+            </ol>
           </div>
           <ol className="flex flex-col gap-1">
             {items.map((it, i) => (
@@ -159,8 +179,8 @@ export function EditDefaultPlan({ template, dayStartMin, onCancel }: {
   const setSession = (i: number, p: Partial<DayTemplate['sessions'][number]>) => setT(prev => ({ ...prev, sessions: prev.sessions.map((s, k) => k === i ? { ...s, ...p } : s) }))
   // Times after midnight belong to the end of the day.
   const sessionMin = (v: string) => { const m = fromHHMM(v); return m < start - 60 ? m + 1440 : m }
-  const setMinutes = (day: number, key: string, v: number) => setT(prev => ({ ...prev, weekly: prev.weekly.map((d, i) => i === day ? { ...d, [key]: Math.max(0, v) } : d) }))
-  const totals = t.weekly.map(d => Object.entries(d).reduce((s, [k, v]) => s + (k === 'mock' ? 0 : v), 0))
+  const setMinutes = (key: string, v: number) => setT(prev => ({ ...prev, minutes: { ...prev.minutes, [key]: Math.max(0, v) } }))
+  const total = Object.entries(t.minutes).reduce((s, [k, v]) => s + (k === 'mock' ? 0 : v), 0)
   const capacity = t.sessions.reduce((s, x, i) => s + (x.end - (i === 0 ? start : x.start)), 0)
   const save = () => {
     setError(null)
@@ -187,37 +207,21 @@ export function EditDefaultPlan({ template, dayStartMin, onCancel }: {
               </li>
             ))}
           </ol>
-          <div className="flex flex-wrap items-center gap-1.5 mt-1.5 text-[12px] text-fg-secondary">
-            Break <input type="number" min={0} max={60} step={5} value={t.breakMinutes} onChange={e => setT({ ...t, breakMinutes: num(e.target.value, 20) })} className={`${INPUT} w-[56px]`} /> min
-            after every <input type="number" min={0.5} max={6} step={0.5} value={t.breakEvery / 60} onChange={e => setT({ ...t, breakEvery: Math.round(Number(e.target.value) * 60) || 150 })} className={`${INPUT} w-[56px]`} /> h of work
-            <span className="text-fg-tertiary">· {hm(capacity)} of sessions a day</span>
-          </div>
+          <p className="text-[11.5px] text-fg-tertiary mt-1.5 tabular-nums">{hm(capacity)} of sessions a day · add breaks for a day in Edit today</p>
         </div>
         <div>
-          <p className="text-[11px] font-semibold text-fg-tertiary uppercase tracking-[0.4px] mb-1">Minutes per day</p>
-          <div className="overflow-x-auto -mx-1 px-1">
-            <table className="text-[11.5px] tabular-nums border-separate border-spacing-y-[2px]">
-              <thead>
-                <tr className="text-fg-tertiary"><th className="text-left font-medium pr-2 min-w-[150px]">Slot</th>{WEEKDAYS.map(d => <th key={d} className="font-medium px-0.5">{d}</th>)}</tr>
-              </thead>
-              <tbody>
-                {ORDER.map(key => (
-                  <tr key={key}>
-                    <td className="pr-2 text-fg-primary whitespace-nowrap">{PLAN_LABEL[key]}</td>
-                    {t.weekly.map((d, day) => (
-                      <td key={day} className="px-0.5">
-                        {key === 'mock'
-                          ? <input type="checkbox" checked={(d.mock ?? 0) > 0} onChange={e => setMinutes(day, 'mock', e.target.checked ? 1 : 0)} aria-label={`Mock on ${WEEKDAYS[day]}`} className="mx-auto block" />
-                          : <input type="number" min={0} max={300} step={5} value={d[key] ?? 0} onChange={e => setMinutes(day, key, num(e.target.value, 0))} className={`${INPUT} w-[44px] text-center`} aria-label={`${PLAN_LABEL[key]} on ${WEEKDAYS[day]}`} />}
-                      </td>
-                    ))}
-                  </tr>
-                ))}
-                <tr className="text-fg-tertiary"><td className="pr-2">Total (+ mock)</td>{totals.map((m, i) => <td key={i} className={`text-center ${m > capacity ? 'text-risk font-semibold' : ''}`}>{hm(m)}</td>)}</tr>
-              </tbody>
-            </table>
-          </div>
-          <p className="text-[11px] text-fg-tertiary mt-1">0 = not that day. Whatever is left in a session becomes Flex. Sessions run {clock(start)}–{clock(t.sessions[t.sessions.length - 1]?.end ?? start)}.</p>
+          <p className="text-[11px] font-semibold text-fg-tertiary uppercase tracking-[0.4px] mb-1">Minutes per day <span className="normal-case font-normal">· the same every day</span></p>
+          <ol className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1">
+            {ORDER.map(key => (
+              <li key={key} className="flex items-center justify-between gap-2 text-[12px]">
+                <span className="text-fg-primary truncate">{PLAN_LABEL[key]}</span>
+                {key === 'mock'
+                  ? <label className="inline-flex items-center gap-1.5 text-[11px] text-fg-tertiary shrink-0"><input type="checkbox" checked={(t.minutes.mock ?? 0) > 0} onChange={e => setMinutes('mock', e.target.checked ? 1 : 0)} /> Sun · Tue · Thu · Sat</label>
+                  : <span className="inline-flex items-center gap-1 text-[11px] text-fg-tertiary shrink-0"><input type="number" min={0} max={300} step={5} value={t.minutes[key] ?? 0} onChange={e => setMinutes(key, num(e.target.value, 0))} className={`${INPUT} w-[56px] text-center tabular-nums`} aria-label={`${PLAN_LABEL[key]} minutes a day`} /> min</span>}
+              </li>
+            ))}
+          </ol>
+          <p className={`text-[11.5px] mt-1.5 tabular-nums ${total > capacity ? 'text-risk font-semibold' : 'text-fg-tertiary'}`}>Total {hm(total)} + the mock on its days · {hm(capacity)} of sessions. 0 = off. Whatever is left in a session becomes Flex; sessions run {clock(start)}–{clock(t.sessions[t.sessions.length - 1]?.end ?? start)}.</p>
         </div>
         <ErrorLine error={error} />
         <div className="flex gap-2">

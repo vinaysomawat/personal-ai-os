@@ -9,7 +9,7 @@ import { COMPETENCIES } from './types'
 import type { PrepBlock, PrepSession, Story, StoryRehearsal } from './types'
 import { endFocus, loadPrepData, startFocusOn, syncBankBlocks, toggleFocusPause } from './core'
 import type { FocusSession } from './war'
-import { ORDER, blockFor, type DayTemplate, type Interview } from './dayplan'
+import { ORDER, blockFor, type DayBreak, type DayTemplate, type Interview } from './dayplan'
 import { ROADMAP, type RoadmapProgress } from './roadmap'
 import { critiqueFollowUp, critiqueQuestion, critiqueStory, modelAnswer, SPOKEN_NOTE } from './critique'
 import type { Rubric, Scorecard } from './scorecard'
@@ -52,12 +52,13 @@ export async function endFocusSession(id: string, finished: boolean): Promise<{ 
 
 const isMinute = (m: unknown): m is number => Number.isInteger(m) && (m as number) >= 0 && (m as number) <= 1439
 
-// Edit today: today's start, interview and items (order, minutes, your own
-// slots), saved together. Existing items keep their state; new ones are
+// Edit today: today's start, interview, breaks and items (order, minutes,
+// your own slots), saved together. Existing items keep their state; new ones are
 // built like the recommended plan's; done flags are re-synced after.
 export interface TodayEdit {
   startMin: number
   interview: Interview | null
+  breaks: DayBreak[]
   items: { key: string; minutes: number; label?: string }[]
 }
 export async function savePrepToday(edit: TodayEdit): Promise<PrepSession | null> {
@@ -65,6 +66,7 @@ export async function savePrepToday(edit: TodayEdit): Promise<PrepSession | null
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) throw new Error('Not authenticated')
   if (!isMinute(edit.startMin)) throw new Error('Invalid start time')
+  if (edit.breaks.length > 10 || edit.breaks.some(b => !Number.isInteger(b.start) || !Number.isInteger(b.end) || b.start < 0 || b.end > 1800 || b.end <= b.start || b.end - b.start > 240)) throw new Error('Each break needs a start before its end (up to 4 hours)')
   if (edit.interview && (!Number.isInteger(edit.interview.start) || edit.interview.start < 0 || edit.interview.start > 1800 || !Number.isInteger(edit.interview.minutes) || edit.interview.minutes < 15 || edit.interview.minutes > 240)) throw new Error('Invalid interview time')
   const keys = edit.items.map(i => i.key)
   if (edit.items.length > 30 || new Set(keys).size !== keys.length) throw new Error('Each slot can appear once')
@@ -79,14 +81,14 @@ export async function savePrepToday(edit: TodayEdit): Promise<PrepSession | null
     return blockFor(i.key, i.minutes, today, { coverage: [] }, i.label)
   }).filter((b): b is PrepBlock => !!b)
   const { error } = await supabase.from('prep_sessions')
-    .update({ blocks, start_min: edit.startMin, interview: edit.interview })
+    .update({ blocks, start_min: edit.startMin, interview: edit.interview, breaks: edit.breaks.length ? edit.breaks.map(b => ({ start: b.start, end: b.end, ...(b.label?.trim() ? { label: b.label.trim() } : {}) })) : null })
     .eq('user_id', user.id).eq('date', today)
   if (error) throw new Error(error.message)
   return syncBankBlocks(supabase, user.id)
 }
 
-// Edit default plan: the day template (sessions, gaps, breaks, minutes per
-// category per weekday) and the default start. Applies from tomorrow's plan;
+// Edit default plan: the day template (sessions, gaps, minutes per slot a
+// day) and the default start. Applies from tomorrow's plan;
 // today's times re-lay with the new sessions and breaks.
 export async function savePrepTemplate(template: DayTemplate, dayStartMin: number) {
   const supabase = await createClient()
@@ -100,14 +102,11 @@ export async function savePrepTemplate(template: DayTemplate, dayStartMin: numbe
     if (!s.label?.trim() || !Number.isInteger(s.start) || !Number.isInteger(s.end) || s.start < 0 || s.end > 1800 || s.end <= s.start) throw new Error(`Check the times of "${s.label || `session ${i + 1}`}"`)
     if (i > 0 && s.start < sessions[i - 1].end) throw new Error('Sessions must not overlap')
   }
-  if (!Number.isInteger(template.breakMinutes) || template.breakMinutes < 0 || template.breakMinutes > 60) throw new Error('Breaks are 0–60 minutes')
-  if (!Number.isInteger(template.breakEvery) || template.breakEvery < 30 || template.breakEvery > 360) throw new Error('Break every 30–360 minutes')
-  if (template.weekly.length !== 7 || template.weekly.some(d => Object.entries(d).some(([k, v]) => !(ORDER as readonly string[]).includes(k) || !Number.isInteger(v) || v < 0 || v > 300))) throw new Error('Check the weekly minutes')
+  if (!template.minutes || Object.entries(template.minutes).some(([k, v]) => !(ORDER as readonly string[]).includes(k) || !Number.isInteger(v) || v < 0 || v > 300)) throw new Error('Check the minutes per day')
   const clean: DayTemplate = {
     sessions: sessions.map(s => ({ label: s.label.trim(), start: s.start, end: s.end })),
     gaps: template.gaps.slice(0, sessions.length - 1).map(g => g.trim() || 'Break'),
-    breakMinutes: template.breakMinutes, breakEvery: template.breakEvery,
-    weekly: template.weekly.map(d => Object.fromEntries(Object.entries(d).filter(([, v]) => v > 0))),
+    minutes: Object.fromEntries(Object.entries(template.minutes).filter(([, v]) => v > 0)),
   }
   const { error } = await supabase.from('prep_settings')
     .upsert({ user_id: user.id, day_template: clean, day_start_min: dayStartMin, updated_at: new Date().toISOString() }, { onConflict: 'user_id' })

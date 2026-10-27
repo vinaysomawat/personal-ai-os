@@ -30,7 +30,8 @@ export interface Timeline {
   over: number
 }
 
-const FIXED: TimelineKind[] = ['meal', 'warmup', 'interview', 'debrief']
+// Fixed-time rows: meals, your breaks, the interview with its warm-up and debrief.
+const FIXED: TimelineKind[] = ['meal', 'break', 'warmup', 'interview', 'debrief']
 const MIN_FLEX = 10
 
 export function liveTimeline(planned: TimelineRow[], now: number): Timeline {
@@ -40,11 +41,11 @@ export function liveTimeline(planned: TimelineRow[], now: number): Timeline {
   const flowing = planned.filter(r => !FIXED.includes(r.kind))
   const isMissed = (r: TimelineRow) => r.kind === 'block' && !r.done && r.end <= now
   const rows: TimelineRow[] = [...fixed, ...flowing.filter(r => r.end <= now && !isMissed(r))]
-  // A row in progress keeps its place — unless it's a block while earlier
-  // blocks are still undone, so "now" is always the earliest undone work.
+  // A row in progress keeps its place — unless it's a block or Flex while
+  // earlier blocks are still undone, so "now" is always the earliest undone work.
   const anyMissed = flowing.some(isMissed)
   const running = flowing.find(r => r.start <= now && now < r.end) ?? null
-  const keep = running && (running.kind !== 'block' || !anyMissed) ? running : null
+  const keep = running && ((running.kind !== 'block' && running.kind !== 'flex') || !anyMissed) ? running : null
   // The first start ≥ t where `len` minutes clear every fixed row.
   const fitAt = (t: number, len: number) => {
     for (const f of fixed) if (f.start < t + len && f.end > t) t = f.end

@@ -78,7 +78,7 @@ export async function loadPrepData(supabase: SupabaseClient, userId: string) {
 
   // Today on the clock: the plan's items laid into the template's sessions
   // from today's start, around an interview (dayplan.ts).
-  const layout = layoutDay(todaySession?.blocks ?? [], template, todaySession?.start_min ?? settings.day_start_min, todaySession?.interview ?? null)
+  const layout = layoutDay(todaySession?.blocks ?? [], template, todaySession?.start_min ?? settings.day_start_min, todaySession?.interview ?? null, todaySession?.breaks ?? [])
 
   return {
     today,

@@ -5,8 +5,8 @@ import type { TimelineRow } from './timeline'
 import type { PrepBlock } from './types'
 
 // The day (v4.5) — deterministic, client-safe. A day template (your
-// sessions, the gaps between them, breaks, and minutes per category for each
-// weekday) gives the recommended plan; layoutDay() puts it on the clock.
+// sessions, the gaps between them, breaks, and minutes per slot a day) gives
+// the recommended plan; layoutDay() puts it on the clock.
 // Times are prep minutes (after IST midnight, past 1440 after midnight; the
 // Prep day rolls over at 4am — see lib/date prepToday).
 
@@ -17,13 +17,10 @@ export interface DayTemplate {
   sessions: DaySession[]
   // Labels for the gaps between sessions, in order.
   gaps: string[]
-  // A break of breakMinutes at the first block boundary after breakEvery
-  // minutes of continuous work.
-  breakMinutes: number
-  breakEvery: number
-  // Sunday first: plan key → minutes (absent / 0 = not that day). For 'mock'
-  // any value > 0 means "today's scheduled mock" (its format sets the time).
-  weekly: Record<string, number>[]
+  // Plan key → minutes a day, the same every day (absent / 0 = off). For
+  // 'mock' any value > 0 means "the scheduled mock on its days" (Sun / Tue /
+  // Thu / Sat; its format sets the time).
+  minutes: Record<string, number>
 }
 
 // Plan keys in day order: quick, sharp work first (morning), deep work at the
@@ -33,22 +30,22 @@ export const ORDER = [
   'bank:algorithm', 'bank:javascript-functions', 'bank:quiz',
   'bank:system-design', 'bank:ui-coding', 'bank:code-review',
   'learn', 'build', 'bank:architecture', 'mock', 'bank:ai-engineering',
-  'bank:backend', 'bank:ai-native', 'bank:behavioral', 'bank:resume',
+  'bank:backend', 'apply', 'bank:ai-native', 'bank:angular', 'bank:behavioral', 'bank:resume',
 ] as const
 export type PlanKey = typeof ORDER[number]
 export const PLAN_LABEL: Record<PlanKey, string> = {
   ...Object.fromEntries(BANK_CATEGORIES.map(c => [`bank:${c.key}`, c.label])) as Record<string, string>,
-  learn: 'Learn (roadmap week)', build: 'Build (roadmap week)', mock: 'Mock round (scheduled)', 'bank:ai-engineering': 'AI engineering (week theme)',
+  learn: 'Learn (roadmap week)', build: 'Build (roadmap week)', mock: 'Mock round (scheduled)', 'bank:ai-engineering': 'AI engineering (week theme)', apply: '💼 Job applications',
 } as Record<PlanKey, string>
 
-// The senior core, every day (≈ 470 min), plus rotating categories.
-const CORE: Partial<Record<PlanKey, number>> = {
-  'bank:system-design': 60, 'bank:ui-coding': 60, 'bank:algorithm': 45, 'bank:javascript-functions': 45,
-  'bank:code-review': 30, 'bank:quiz': 30, learn: 20, build: 90, 'bank:ai-engineering': 45, 'bank:backend': 45,
+// The default day (≈ 590 min + the mock on its days): the senior core,
+// AI engineering, job applications and the smaller categories.
+const DEFAULT_MINUTES: Partial<Record<PlanKey, number>> = {
+  'bank:algorithm': 30, 'bank:javascript-functions': 30, 'bank:quiz': 30,
+  'bank:system-design': 60, 'bank:ui-coding': 45, 'bank:code-review': 30,
+  learn: 20, build: 90, 'bank:architecture': 30, mock: 1, 'bank:ai-engineering': 45,
+  'bank:backend': 45, apply: 30, 'bank:ai-native': 30, 'bank:angular': 30, 'bank:behavioral': 15, 'bank:resume': 30,
 }
-const day = (extra: Partial<Record<PlanKey, number>>) => ({ ...CORE, ...extra }) as Record<string, number>
-// Sun: FE architecture + a frontend screen mock · Mon/Wed/Fri: FE architecture
-// + Behavioral Q&A · Tue/Thu/Sat: AI-native + resume deep-dives + the mock.
 export const DEFAULT_TEMPLATE: DayTemplate = {
   sessions: [
     { label: 'Morning', start: 11 * 60, end: 13 * 60 },
@@ -56,26 +53,23 @@ export const DEFAULT_TEMPLATE: DayTemplate = {
     { label: 'Late', start: 22 * 60 + 30, end: 24 * 60 + 30 },
   ],
   gaps: ['🍽️ Lunch', '🍽️ Dinner + walk'],
-  breakMinutes: 20,
-  breakEvery: 150,
-  weekly: [
-    day({ 'bank:architecture': 45, mock: 1 }),
-    day({ 'bank:architecture': 45, 'bank:behavioral': 30 }),
-    day({ 'bank:ai-native': 30, 'bank:resume': 30, mock: 1 }),
-    day({ 'bank:architecture': 45, 'bank:behavioral': 30 }),
-    day({ 'bank:ai-native': 30, 'bank:resume': 30, mock: 1 }),
-    day({ 'bank:architecture': 45, 'bank:behavioral': 30 }),
-    day({ 'bank:ai-native': 30, 'bank:resume': 30, mock: 1 }),
-  ],
+  minutes: DEFAULT_MINUTES as Record<string, number>,
 }
 
-// A stored template over the defaults (missing pieces fall back).
-export function templateOf(stored: Partial<DayTemplate> | null | undefined): DayTemplate {
-  const t = { ...DEFAULT_TEMPLATE, ...(stored ?? {}) }
-  return { ...t, weekly: Array.from({ length: 7 }, (_, i) => t.weekly?.[i] ?? DEFAULT_TEMPLATE.weekly[i]) }
+// A stored template over the defaults (missing pieces fall back). A template
+// saved before minutes were one value per day (`weekly`, Sunday first) reads
+// as each slot's highest weekday value.
+export function templateOf(stored: (Partial<DayTemplate> & { weekly?: Record<string, number>[] }) | null | undefined): DayTemplate {
+  const { weekly, sessions, gaps, minutes } = stored ?? {}
+  const rest = { ...(sessions ? { sessions } : {}), ...(gaps ? { gaps } : {}), ...(minutes ? { minutes } : {}) }
+  const t: DayTemplate = { ...DEFAULT_TEMPLATE, ...rest }
+  if (!rest.minutes && weekly?.length) {
+    const merged: Record<string, number> = {}
+    for (const d of weekly) for (const [k, v] of Object.entries(d)) merged[k] = Math.max(merged[k] ?? 0, v)
+    t.minutes = merged
+  }
+  return t
 }
-
-export const weekdayOf = (date: string) => new Date(`${date}T00:00:00Z`).getUTCDay()
 
 export interface PlanCtx {
   coverage: CategoryCoverage[]
@@ -93,6 +87,8 @@ export function blockFor(key: string, minutes: number, date: string, ctx: PlanCt
   const gap = (k: string) => ctx.gaps?.[k] ?? 0
   const cov = (k: BankCategory) => ctx.coverage.find(c => c.key === k) ?? EMPTY_COVERAGE(k)
   if (key.startsWith('custom:')) return { key, label: customLabel?.trim() || 'My slot', minutes, detail: 'Your own slot — Finish it from the timer.', href: '/prep?tab=today', done: false }
+  // Job applications: no questions to count, so it's done by Finish on the timer.
+  if (key === 'apply') return { key, label: PLAN_LABEL.apply, minutes, detail: 'Apply to roles posted in the last 48h and send referral messages — Finish it from the timer.', href: '/prep?tab=today', done: false }
   if (key === 'learn') return learnBlock(date, minutes)
   if (key === 'build') return buildBlock(date, minutes)
   if (key === 'mock') {
@@ -122,10 +118,11 @@ export function blockFor(key: string, minutes: number, date: string, ctx: PlanCt
   })
 }
 
-// The recommended plan for a date: the weekday's keys in ORDER with their
-// minutes (a backend-themed roadmap week folds AI engineering into Backend).
+// The recommended plan for a date: the template's keys in ORDER with their
+// minutes, the mock only on its scheduled days (a backend-themed roadmap
+// week folds AI engineering into Backend).
 export function planItems(date: string, template: DayTemplate, ctx: PlanCtx): PrepBlock[] {
-  const minutes = template.weekly[weekdayOf(date)] ?? {}
+  const minutes = template.minutes
   const backendWeek = themeFor(date).category === 'backend'
   const out: PrepBlock[] = []
   for (const key of ORDER) {
@@ -141,17 +138,19 @@ export function planItems(date: string, template: DayTemplate, ctx: PlanCtx): Pr
 // Interview today (prep_sessions.interview): a warm-up before, a debrief
 // after. Before the day's start it moves the start earlier (gym skipped).
 export interface Interview { start: number; minutes: number; label?: string }
+// Your own breaks today (prep_sessions.breaks), fixed times — there are no
+// automatic breaks.
+export interface DayBreak { start: number; end: number; label?: string }
 export const WARMUP_MINUTES = 30
 export const DEBRIEF_MINUTES = 15
 const FLEX_LABEL = 'Flex — finish any open block, or redo weak answers'
 const MIN_FLEX = 10
 
 // Lays the day's items (in their order) into the sessions, around an
-// interview: each item goes into the current free stretch if it fits, else
-// the next one (order kept); a break goes in at the first block boundary
-// after breakEvery minutes of work; leftover time in a stretch is Flex.
-// Items that fit nowhere come back as `dropped`.
-export function layoutDay(items: PrepBlock[], template: DayTemplate, dayStart: number, interview: Interview | null): { rows: TimelineRow[]; dropped: PrepBlock[] } {
+// interview and your breaks: each free stretch takes the first items in order
+// that fit (a shorter later item fills a gap a longer one can't); leftover
+// time in a stretch is Flex. Items that fit nowhere come back as `dropped`.
+export function layoutDay(items: PrepBlock[], template: DayTemplate, dayStart: number, interview: Interview | null, breaks: DayBreak[] = []): { rows: TimelineRow[]; dropped: PrepBlock[] } {
   const sessions = template.sessions.map(s => ({ ...s }))
   if (sessions.length) sessions[0].start = Math.min(dayStart, sessions[0].end)
   const events: TimelineRow[] = interview ? [
@@ -160,7 +159,8 @@ export function layoutDay(items: PrepBlock[], template: DayTemplate, dayStart: n
     { kind: 'debrief', label: 'Debrief — write down every question', start: interview.start + interview.minutes, end: interview.start + interview.minutes + DEBRIEF_MINUTES },
   ] : []
   if (interview && sessions.length && events[0].start < sessions[0].start) sessions[0].start = events[0].start
-  // Free stretches = sessions minus the interview events.
+  for (const b of breaks) if (b.end > b.start) events.push({ kind: 'break', label: b.label?.trim() || '☕ Break', start: b.start, end: b.end })
+  // Free stretches = sessions minus the interview events and your breaks.
   const stretches: { start: number; end: number; session: number }[] = []
   sessions.forEach((s, i) => {
     let t = s.start
@@ -177,20 +177,14 @@ export function layoutDay(items: PrepBlock[], template: DayTemplate, dayStart: n
     if (gap.end > gap.start && !events.some(e => e.start < gap.end && e.end > gap.start)) rows.push({ kind: 'meal', label: template.gaps[i] ?? 'Break', start: gap.start, end: gap.end })
   })
   const queue = [...items]
-  let worked = 0, lastSession = -1
   for (const st of stretches) {
-    if (st.session !== lastSession) { worked = 0; lastSession = st.session }
     let t = st.start
-    while (queue.length && t + queue[0].minutes <= st.end) {
-      const b = queue.shift()!
+    // The first item in order that still fits, so a short item fills a gap
+    // a longer one can't (the order moves only as much as needed).
+    for (let i = queue.findIndex(b => t + b.minutes <= st.end); i >= 0; i = queue.findIndex(b => t + b.minutes <= st.end)) {
+      const b = queue.splice(i, 1)[0]
       rows.push({ kind: 'block', label: b.label, start: t, end: t + b.minutes, blockKey: b.key, done: b.done })
       t += b.minutes
-      worked += b.minutes
-      if (worked >= template.breakEvery && queue.length && t + template.breakMinutes + queue[0].minutes <= st.end) {
-        rows.push({ kind: 'break', label: '☕ Break', start: t, end: t + template.breakMinutes })
-        t += template.breakMinutes
-        worked = 0
-      }
     }
     if (st.end - t >= MIN_FLEX) rows.push({ kind: 'flex', label: FLEX_LABEL, start: t, end: st.end })
   }

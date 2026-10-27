@@ -1,4 +1,4 @@
-import type { DayTemplate, Interview } from './dayplan'
+import type { DayBreak, DayTemplate, Interview } from './dayplan'
 import type { Scorecard } from './scorecard'
 
 export interface Story {
@@ -85,6 +85,8 @@ export interface PrepSession {
   start_min: number | null
   // Interview today: warm-up before, debrief after (dayplan.ts).
   interview: Interview | null
+  // Your breaks today, fixed start / end (dayplan.ts), null = none.
+  breaks: DayBreak[] | null
 }
 
 // Behavioral + leadership competencies senior/lead UI loops probe. Split

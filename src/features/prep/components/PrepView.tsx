@@ -88,7 +88,7 @@ export default function PrepView(props: Props) {
   const progressCtx = { answered: doneToday, focused: focusedMinutes(focusSessions, props.today) }
   // Today on the clock (dayplan.ts layoutDay) from the session's own start /
   // interview, re-flowed on the minute tick.
-  const planned = layoutDay(session?.blocks ?? [], props.template, session?.start_min ?? props.settings.day_start_min, session?.interview ?? null)
+  const planned = layoutDay(session?.blocks ?? [], props.template, session?.start_min ?? props.settings.day_start_min, session?.interview ?? null, session?.breaks ?? [])
   const dayWin = windowOf(planned.rows)
   const pace = dayPace(session?.blocks ?? [], prepHourNow(), progressCtx, dayWin)
   // The plan on the clock, re-flowed with the same minute tick.
@@ -228,8 +228,8 @@ export default function PrepView(props: Props) {
             onInterview={() => setEditing('interview')} onEditToday={() => setEditing('items')} onEditDefault={() => setEditing('default')} />
           {editing === 'default' && <EditDefaultPlan template={props.template} dayStartMin={props.settings.day_start_min} onCancel={() => setEditing(null)} />}
           {session && (editing === 'items' || editing === 'interview') && (
-            <EditToday key={editing} date={props.today} template={props.template} startMin={session.start_min ?? props.settings.day_start_min} interview={session.interview}
-              blocks={session.blocks} focus={editing} onSaved={s => { setSession(s); setEditing(null) }} onCancel={() => setEditing(null)} />
+            <EditToday key={editing} template={props.template} startMin={session.start_min ?? props.settings.day_start_min} interview={session.interview}
+              breaks={session.breaks ?? []} blocks={session.blocks} focus={editing} onSaved={s => { setSession(s); setEditing(null) }} onCancel={() => setEditing(null)} />
           )}
           {(session?.blocks.length ?? 0) > 0 && editing !== 'items' && editing !== 'interview' && (
             <TimelineCard timeline={timeline} windowLabel={dayWin.label} nowMin={Math.round(prepHourNow() * 60)} dropped={planned.dropped.map(b => b.label)}

@@ -118,7 +118,6 @@ export async function getDashboardData() {
     // already-cached panchang_daily row — no new AI/ephemeris cost added.
     supabase.from('astrology_profile').select('natal_chart').eq('user_id', user.id).maybeSingle(),
     supabase.from('panchang_daily').select('tithi, nakshatra').eq('date', today).maybeSingle(),
-    // The weekly rest day — the prep streak skips it.
     // Life Score v2's Health sub-score reuses the Health module's own
     // nutrition/activity calc instead of a separate presence-only formula —
     // needs the profile (for targets) and enough metric history for the
