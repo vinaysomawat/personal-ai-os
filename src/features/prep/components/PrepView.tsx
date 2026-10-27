@@ -11,7 +11,7 @@ import Modal, { modalLabelClass, modalInputClass, modalCancelButtonClass, modalS
 import { useEscapeKey } from '@/lib/use-escape-key'
 import { prepDaysAgo, toPrepDateStr } from '@/lib/date'
 import { formatOf, type MockRound } from '../mock'
-import { endFocusSession, startFocusSession, toggleFocusSessionPause, saveStory, deleteStory, rehearseStory, type StoryInput } from '../actions'
+import { savePrepToday, endFocusSession, startFocusSession, toggleFocusSessionPause, saveStory, deleteStory, rehearseStory, type StoryInput } from '../actions'
 import { COMPETENCIES, REHEARSAL_PROMPTS, type BankQuestion, type CompetencyKey, type PrepSession, type PrepSettings, type ReadinessCell, type Story, type StoryRehearsal } from '../types'
 import type { CategoryCoverage, CategoryQuota } from '../hunt'
 import { QuestionsTab } from './QuestionsTab'
@@ -21,7 +21,7 @@ import type { RoadmapProgress } from '../roadmap'
 import AnswerReview from './AnswerReview'
 import TimelineCard from './TimelineCard'
 import { liveTimeline } from '../timeline'
-import { layoutDay, type DayTemplate } from '../dayplan'
+import { applyTodayPatch, layoutDay, patchTouchesBlocks, type DayTemplate, type TodayPatch } from '../dayplan'
 import { EditDefaultPlan, EditToday } from './DayEditor'
 import { FocusBar, TodayHeader } from './WarRoom'
 import { blockProgress, blockReached, canFinishBlock, dayPace, windowOf, clock, focusSeconds, focusedMinutes, prepHourNow, paceLabel, paceStatus, practicedToday, type FocusSession, type WarReadiness } from '../war'
@@ -95,6 +95,27 @@ export default function PrepView(props: Props) {
   const timeline = liveTimeline(planned.rows, Math.round(prepHourNow() * 60))
   // Which editor is open on the Today tab (nothing saves until its Save).
   const [editing, setEditing] = useState<null | 'items' | 'interview' | 'default'>(null)
+  const [editError, setEditError] = useState<string | null>(null)
+  // Edit today saves a patch of only what changed: applied here at once (the
+  // editor closes), saved behind; a failed save restores the day and
+  // reopens the editor with the error.
+  const saveToday = (patch: TodayPatch) => {
+    setEditing(null)
+    setEditError(null)
+    if (!session || !Object.keys(patch).length) return
+    const before = session
+    setSession({
+      ...session,
+      ...(patch.startMin !== undefined ? { start_min: patch.startMin } : {}),
+      ...(patch.interview !== undefined ? { interview: patch.interview } : {}),
+      ...(patch.breaks !== undefined ? { breaks: patch.breaks.length ? patch.breaks : null } : {}),
+      ...(patchTouchesBlocks(patch) ? { blocks: applyTodayPatch(session.blocks, patch, props.today) } : {}),
+    })
+    startTransition(async () => {
+      try { setSession(await savePrepToday(patch)) }
+      catch (e) { setSession(before); setEditError(e instanceof Error ? e.message : 'Could not save'); setEditing('items') }
+    })
+  }
   const activeFocus = focusSessions.find(f => f.status === 'active') ?? null
   const upsertFocus = (f: FocusSession) => setFocusSessions(prev => [...prev.filter(x => x.id !== f.id), f])
 
@@ -229,7 +250,7 @@ export default function PrepView(props: Props) {
           {editing === 'default' && <EditDefaultPlan template={props.template} dayStartMin={props.settings.day_start_min} onCancel={() => setEditing(null)} />}
           {session && (editing === 'items' || editing === 'interview') && (
             <EditToday key={editing} template={props.template} startMin={session.start_min ?? props.settings.day_start_min} interview={session.interview}
-              breaks={session.breaks ?? []} blocks={session.blocks} focus={editing} onSaved={s => { setSession(s); setEditing(null) }} onCancel={() => setEditing(null)} />
+              breaks={session.breaks ?? []} blocks={session.blocks} focus={editing} error={editError} onSave={saveToday} onCancel={() => { setEditing(null); setEditError(null) }} />
           )}
           {(session?.blocks.length ?? 0) > 0 && editing !== 'items' && editing !== 'interview' && (
             <TimelineCard timeline={timeline} windowLabel={dayWin.label} nowMin={Math.round(prepHourNow() * 60)} dropped={planned.dropped.map(b => b.label)}

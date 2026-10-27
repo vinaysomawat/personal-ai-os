@@ -2,7 +2,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import { prepToday, prepDaysAgo, toPrepDateStr, prepDayStartUtc } from '@/lib/date'
 import type { MockRound } from './mock'
 import { BANK_CATEGORIES, isRedoDue, type CategoryCoverage } from './hunt'
-import { DEFAULT_TEMPLATE, layoutDay, planItems, templateOf } from './dayplan'
+import { DEFAULT_TEMPLATE, applyTodayPatch, layoutDay, patchTouchesBlocks, planItems, templateOf, type TodayPatch } from './dayplan'
 import type { RoadmapProgress } from './roadmap'
 import { computeReadinessMatrix, type CodingHistoryRow } from './readiness'
 import { blockProgress, windowOf, blockReached, canFinishBlock, categoryGap, dayPace, focusedMinutes, minutesPerQuestion, type ProgressCtx, isGoodDay, focusSeconds, nowBlock, revisionQueue, topicWeakness, warReadiness, type FocusSession } from './war'
@@ -219,6 +219,33 @@ export async function syncBankBlocks(supabase: SupabaseClient, userId: string, c
   const planned = ((session?.blocks ?? []) as PrepBlock[]).filter(b => b.key.startsWith('bank:')).map(b => b.key.slice(5))
   const ctx = await progressToday(supabase, userId, [...new Set([...planned, ...categories])])
   return updateBlocks(supabase, userId, prepToday(), blocks => blocks.map(b => extra(b) || blockReached(b, ctx) ? { ...b, done: true } : b))
+}
+
+
+// Edit today, saved as a patch: one read, one write of only the changed
+// columns, and a progress re-check only for question blocks whose minutes
+// changed or that were added (2 queries, in parallel) — not every block.
+export async function patchToday(supabase: SupabaseClient, userId: string, patch: TodayPatch): Promise<PrepSession> {
+  const { data: row } = await supabase.from('prep_sessions').select('*').eq('user_id', userId).eq('date', prepToday()).maybeSingle()
+  if (!row) throw new Error('Open Prep once to build today\'s plan')
+  const cols: Record<string, unknown> = {}
+  if (patch.startMin !== undefined) cols.start_min = patch.startMin
+  if (patch.interview !== undefined) cols.interview = patch.interview
+  if (patch.breaks !== undefined) cols.breaks = patch.breaks.length ? patch.breaks : null
+  if (patchTouchesBlocks(patch)) {
+    let blocks = applyTodayPatch(row.blocks as PrepBlock[], patch, row.date)
+    const changed = new Set([...Object.keys(patch.minutes ?? {}), ...(patch.add ?? []).map(a => a.key)].filter(k => k.startsWith('bank:')))
+    if (changed.size) {
+      const ctx = await progressToday(supabase, userId, [...changed].map(k => k.slice(5)))
+      blocks = blocks.map(b => changed.has(b.key) ? { ...b, done: blockReached({ ...b, done: false }, ctx) } : b)
+    }
+    cols.blocks = blocks
+    cols.completed_at = blocks.length > 0 && blocks.every(b => b.done) ? (row.completed_at ?? new Date().toISOString()) : null
+  }
+  if (!Object.keys(cols).length) return row as PrepSession
+  const { data, error } = await supabase.from('prep_sessions').update(cols).eq('id', row.id).select('*').single()
+  if (error) throw new Error(error.message)
+  return data as PrepSession
 }
 
 

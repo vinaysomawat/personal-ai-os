@@ -194,3 +194,42 @@ export function layoutDay(items: PrepBlock[], template: DayTemplate, dayStart: n
 
 // What a day's timeline needs, in one place (page, Telegram, Dashboard).
 export const dayStartOf = (sessionStart: number | null | undefined, settingsStart: number) => sessionStart ?? settingsStart
+
+// ---------------- Edit today: a patch, not the whole day ----------------
+
+// Only what changed in Edit today. Absent fields are untouched; `order` is
+// sent only when slots were moved (the full key order after the edit).
+export interface TodayPatch {
+  startMin?: number
+  interview?: Interview | null
+  breaks?: DayBreak[]
+  remove?: string[]
+  add?: { key: string; minutes: number; label?: string }[]
+  minutes?: Record<string, number>
+  labels?: Record<string, string>
+  order?: string[]
+}
+export const patchTouchesBlocks = (p: TodayPatch) => !!(p.remove?.length || p.add?.length || (p.minutes && Object.keys(p.minutes).length) || (p.labels && Object.keys(p.labels).length) || p.order)
+
+// Applies a patch to today's items — the same on the page (optimistic) and
+// on the server. Removed go, minutes / names change in place (the mock keeps
+// its format's minutes), added are built like the recommended plan's and
+// appended, then `order` (if any) sets the order.
+export function applyTodayPatch(blocks: PrepBlock[], patch: TodayPatch, date: string): PrepBlock[] {
+  let out = blocks.filter(b => !patch.remove?.includes(b.key))
+  out = out.map(b => ({
+    ...b,
+    ...(patch.minutes?.[b.key] !== undefined && b.key !== 'mock' ? { minutes: patch.minutes[b.key] } : {}),
+    ...(patch.labels?.[b.key]?.trim() && b.key.startsWith('custom:') ? { label: patch.labels[b.key].trim() } : {}),
+  }))
+  for (const a of patch.add ?? []) {
+    if (out.some(b => b.key === a.key)) continue
+    const b = blockFor(a.key, a.minutes, date, { coverage: [] }, a.label)
+    if (b) out.push(b)
+  }
+  if (patch.order) {
+    const at = (k: string) => { const i = patch.order!.indexOf(k); return i < 0 ? Infinity : i }
+    out = [...out].sort((a, b) => at(a.key) - at(b.key))
+  }
+  return out
+}

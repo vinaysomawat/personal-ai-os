@@ -3,13 +3,12 @@
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { askAI } from '@/lib/ai-gateway'
-import { prepToday } from '@/lib/date'
 import { formatOf, roundScore, type MockFormat, type MockItem, type MockReview, type MockRound } from './mock'
 import { COMPETENCIES } from './types'
-import type { PrepBlock, PrepSession, Story, StoryRehearsal } from './types'
-import { endFocus, loadPrepData, startFocusOn, syncBankBlocks, toggleFocusPause } from './core'
+import type { PrepSession, Story, StoryRehearsal } from './types'
+import { endFocus, loadPrepData, patchToday, startFocusOn, syncBankBlocks, toggleFocusPause } from './core'
 import type { FocusSession } from './war'
-import { ORDER, blockFor, type DayBreak, type DayTemplate, type Interview } from './dayplan'
+import { ORDER, type DayTemplate, type TodayPatch } from './dayplan'
 import { ROADMAP, type RoadmapProgress } from './roadmap'
 import { critiqueFollowUp, critiqueQuestion, critiqueStory, modelAnswer, SPOKEN_NOTE } from './critique'
 import type { Rubric, Scorecard } from './scorecard'
@@ -52,39 +51,25 @@ export async function endFocusSession(id: string, finished: boolean): Promise<{ 
 
 const isMinute = (m: unknown): m is number => Number.isInteger(m) && (m as number) >= 0 && (m as number) <= 1439
 
-// Edit today: today's start, interview, breaks and items (order, minutes,
-// your own slots), saved together. Existing items keep their state; new ones are
-// built like the recommended plan's; done flags are re-synced after.
-export interface TodayEdit {
-  startMin: number
-  interview: Interview | null
-  breaks: DayBreak[]
-  items: { key: string; minutes: number; label?: string }[]
-}
-export async function savePrepToday(edit: TodayEdit): Promise<PrepSession | null> {
+// Edit today, sent as a patch of only what changed (dayplan.ts TodayPatch);
+// patchToday() applies it in one read + one write. The page has already
+// applied it optimistically.
+const isMinutes = (m: unknown) => Number.isInteger(m) && (m as number) >= 5 && (m as number) <= 300
+export async function savePrepToday(patch: TodayPatch): Promise<PrepSession> {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) throw new Error('Not authenticated')
-  if (!isMinute(edit.startMin)) throw new Error('Invalid start time')
-  if (edit.breaks.length > 10 || edit.breaks.some(b => !Number.isInteger(b.start) || !Number.isInteger(b.end) || b.start < 0 || b.end > 1800 || b.end <= b.start || b.end - b.start > 240)) throw new Error('Each break needs a start before its end (up to 4 hours)')
-  if (edit.interview && (!Number.isInteger(edit.interview.start) || edit.interview.start < 0 || edit.interview.start > 1800 || !Number.isInteger(edit.interview.minutes) || edit.interview.minutes < 15 || edit.interview.minutes > 240)) throw new Error('Invalid interview time')
-  const keys = edit.items.map(i => i.key)
-  if (edit.items.length > 30 || new Set(keys).size !== keys.length) throw new Error('Each slot can appear once')
-  if (edit.items.some(i => !Number.isInteger(i.minutes) || i.minutes < 5 || i.minutes > 300)) throw new Error('Slots are 5–300 minutes')
-  const today = prepToday()
-  const { data: row } = await supabase.from('prep_sessions').select('blocks').eq('user_id', user.id).eq('date', today).maybeSingle()
-  if (!row) throw new Error('Open Prep once to build today\'s plan')
-  const prev = row.blocks as PrepBlock[]
-  const blocks = edit.items.map(i => {
-    const old = prev.find(b => b.key === i.key)
-    if (old) return { ...old, minutes: i.key === 'mock' ? old.minutes : i.minutes, ...(i.key.startsWith('custom:') && i.label?.trim() ? { label: i.label.trim() } : {}) }
-    return blockFor(i.key, i.minutes, today, { coverage: [] }, i.label)
-  }).filter((b): b is PrepBlock => !!b)
-  const { error } = await supabase.from('prep_sessions')
-    .update({ blocks, start_min: edit.startMin, interview: edit.interview, breaks: edit.breaks.length ? edit.breaks.map(b => ({ start: b.start, end: b.end, ...(b.label?.trim() ? { label: b.label.trim() } : {}) })) : null })
-    .eq('user_id', user.id).eq('date', today)
-  if (error) throw new Error(error.message)
-  return syncBankBlocks(supabase, user.id)
+  if (patch.startMin !== undefined && !isMinute(patch.startMin)) throw new Error('Invalid start time')
+  const iv = patch.interview
+  if (iv && (!Number.isInteger(iv.start) || iv.start < 0 || iv.start > 1800 || !Number.isInteger(iv.minutes) || iv.minutes < 15 || iv.minutes > 240)) throw new Error('Invalid interview time')
+  if (patch.breaks && (patch.breaks.length > 10 || patch.breaks.some(b => !Number.isInteger(b.start) || !Number.isInteger(b.end) || b.start < 0 || b.end > 1800 || b.end <= b.start || b.end - b.start > 240))) throw new Error('Each break needs a start before its end (up to 4 hours)')
+  if (patch.add && (patch.add.length > 30 || patch.add.some(a => !isMinutes(a.minutes) || !(a.key.startsWith('custom:') ? a.label?.trim() : (ORDER as readonly string[]).includes(a.key))))) throw new Error('Check the added slots')
+  if (patch.minutes && Object.values(patch.minutes).some(m => !isMinutes(m))) throw new Error('Slots are 5–300 minutes')
+  if (patch.order && new Set(patch.order).size !== patch.order.length) throw new Error('Each slot can appear once')
+  return patchToday(supabase, user.id, {
+    ...patch,
+    ...(patch.breaks ? { breaks: patch.breaks.map(b => ({ start: b.start, end: b.end, ...(b.label?.trim() ? { label: b.label.trim() } : {}) })) } : {}),
+  })
 }
 
 // Edit default plan: the day template (sessions, gaps, minutes per slot a

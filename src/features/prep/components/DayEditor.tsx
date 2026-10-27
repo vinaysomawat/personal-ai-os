@@ -5,11 +5,11 @@ import { useRouter } from 'next/navigation'
 import { ArrowDown, ArrowUp, Plus, X } from 'lucide-react'
 import Card from '@/components/Card'
 import { modalCancelButtonClass, modalSaveButtonClass } from '@/components/Modal'
-import { savePrepTemplate, savePrepToday } from '../actions'
-import { DEBRIEF_MINUTES, ORDER, PLAN_LABEL, WARMUP_MINUTES, layoutDay, type DayBreak, type DayTemplate, type Interview, type PlanKey } from '../dayplan'
+import { savePrepTemplate } from '../actions'
+import { DEBRIEF_MINUTES, ORDER, PLAN_LABEL, WARMUP_MINUTES, layoutDay, type DayBreak, type DayTemplate, type Interview, type PlanKey, type TodayPatch } from '../dayplan'
 import { clock, hm } from '../war'
 import { span } from '../timeline'
-import type { PrepBlock, PrepSession } from '../types'
+import type { PrepBlock } from '../types'
 
 // Edit today / Edit default plan — both keep a draft with a live preview and
 // save only on Save (nothing is written while you change fields).
@@ -29,7 +29,36 @@ function ErrorLine({ error }: { error: string | null }) {
 
 type Item = { key: string; minutes: number; label: string; done: boolean }
 
-export function EditToday({ template, startMin, interview, breaks: savedBreaks, blocks, focus, onSaved, onCancel }: {
+// Only what changed between the saved day and the draft (dayplan.ts
+// TodayPatch): the order is sent only when slots were moved.
+function diffToday(saved: { startMin: number; interview: Interview | null; breaks: DayBreak[]; blocks: PrepBlock[] }, draft: { startMin: number; interview: Interview | null; breaks: DayBreak[]; items: Item[] }): TodayPatch {
+  const p: TodayPatch = {}
+  if (draft.startMin !== saved.startMin) p.startMin = draft.startMin
+  if (JSON.stringify(draft.interview) !== JSON.stringify(saved.interview)) p.interview = draft.interview
+  if (JSON.stringify(draft.breaks) !== JSON.stringify(saved.breaks)) p.breaks = draft.breaks
+  const before = new Map(saved.blocks.map(b => [b.key, b]))
+  const after = new Set(draft.items.map(i => i.key))
+  const remove = saved.blocks.filter(b => !after.has(b.key)).map(b => b.key)
+  const add = draft.items.filter(i => !before.has(i.key)).map(i => ({ key: i.key, minutes: i.minutes, ...(i.key.startsWith('custom:') ? { label: i.label } : {}) }))
+  const minutes: Record<string, number> = {}, labels: Record<string, string> = {}
+  for (const i of draft.items) {
+    const b = before.get(i.key)
+    if (!b) continue
+    if (b.minutes !== i.minutes) minutes[i.key] = i.minutes
+    if (i.key.startsWith('custom:') && b.label !== i.label) labels[i.key] = i.label
+  }
+  if (remove.length) p.remove = remove
+  if (add.length) p.add = add
+  if (Object.keys(minutes).length) p.minutes = minutes
+  if (Object.keys(labels).length) p.labels = labels
+  // Removing and appending keep the rest in place; anything else is a move.
+  const expected = [...saved.blocks.map(b => b.key).filter(k => after.has(k)), ...add.map(a => a.key)]
+  const order = draft.items.map(i => i.key)
+  if (expected.join() !== order.join()) p.order = order
+  return p
+}
+
+export function EditToday({ template, startMin, interview, breaks: savedBreaks, blocks, focus, error: saveError, onSave, onCancel }: {
   template: DayTemplate
   startMin: number
   interview: Interview | null
@@ -37,7 +66,10 @@ export function EditToday({ template, startMin, interview, breaks: savedBreaks, 
   blocks: PrepBlock[]
   // Open with the interview section ready to fill (the Interview button).
   focus: 'items' | 'interview'
-  onSaved: (s: PrepSession) => void
+  // A failed save, shown when the editor reopens.
+  error: string | null
+  // Applies the patch at once and saves it behind (PrepView).
+  onSave: (patch: TodayPatch) => void
   onCancel: () => void
 }) {
   const [start, setStart] = useState(startMin)
@@ -45,8 +77,7 @@ export function EditToday({ template, startMin, interview, breaks: savedBreaks, 
   const [breaks, setBreaks] = useState<DayBreak[]>(savedBreaks)
   const [items, setItems] = useState<Item[]>(() => blocks.map(b => ({ key: b.key, minutes: b.minutes, label: b.label, done: b.done })))
   const [adding, setAdding] = useState('')
-  const [error, setError] = useState<string | null>(null)
-  const [saving, startSave] = useTransition()
+  const [error, setError] = useState<string | null>(saveError)
   const preview = useMemo(() => layoutDay(items.map(i => ({ key: i.key, label: i.label, minutes: i.minutes, done: i.done, detail: '', href: '' })), template, start, iv, breaks), [items, template, start, iv, breaks])
   const used = new Set(items.map(i => i.key))
   const free = ORDER.filter(k => !used.has(k))
@@ -62,12 +93,8 @@ export function EditToday({ template, startMin, interview, breaks: savedBreaks, 
   const save = () => {
     setError(null)
     if (items.some(i => i.key.startsWith('custom:') && !i.label.trim())) { setError('Name your own slots'); return }
-    startSave(async () => {
-      try {
-        const s = await savePrepToday({ startMin: start, interview: iv, breaks, items: items.map(i => ({ key: i.key, minutes: i.minutes, ...(i.key.startsWith('custom:') ? { label: i.label } : {}) })) })
-        if (s) onSaved(s)
-      } catch (e) { setError(e instanceof Error ? e.message : 'Could not save') }
-    })
+    if (breaks.some(b => b.end <= b.start)) { setError('Each break needs its end after its start'); return }
+    onSave(diffToday({ startMin, interview, breaks: savedBreaks, blocks }, { startMin: start, interview: iv, breaks, items }))
   }
   const total = items.reduce((s, i) => s + i.minutes, 0)
   return (
@@ -143,8 +170,8 @@ export function EditToday({ template, startMin, interview, breaks: savedBreaks, 
           </div>
           <ErrorLine error={error} />
           <div className="flex gap-2">
-            <button onClick={save} disabled={saving} className={`${modalSaveButtonClass} !py-[6px]`}>{saving ? 'Saving…' : 'Save'}</button>
-            <button onClick={onCancel} disabled={saving} className={`${modalCancelButtonClass} !py-[6px]`}>Cancel</button>
+            <button onClick={save} className={`${modalSaveButtonClass} !py-[6px]`}>Save</button>
+            <button onClick={onCancel} className={`${modalCancelButtonClass} !py-[6px]`}>Cancel</button>
           </div>
         </div>
         <div className="rounded-[9px] border border-border p-2 min-w-0">
