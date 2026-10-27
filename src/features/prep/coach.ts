@@ -1,13 +1,12 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { toPrepDateStr } from '@/lib/date'
 import { loadPrepData } from './core'
-import { clock, GATES, GOOD_DAY_BLOCKS, coachLine, isGoodDay, dayPace, dayWindow, focusedMinutes, hm, prepHourNow, nowBlock, practicedToday, readinessTier } from './war'
+import { clock, dayWindow, hm, prepHourNow, nowBlock, readinessTier } from './war'
 import { levelOf } from './hunt'
 import { buildTimeline, overHint, planTimeline, span, type TimelineRow } from './timeline'
 
-// Telegram Prep Coach (War Mode) — deterministic message builders for the
-// Daily bot's 7:30am / 6:30pm / 1:05am crons and its START/DONE/"what now"
-// replies. War Mode is always on, so coachData always returns the data.
+// Prep messages for the Daily bot — deterministic, on demand only ("what now";
+// the scheduled coach messages are off). Also the "Still open" line the
+// 9:30pm reminders cron sends.
 
 type PrepData = NonNullable<Awaited<ReturnType<typeof loadPrepData>>>
 
@@ -17,7 +16,6 @@ export async function coachData(db: SupabaseClient, userId: string): Promise<Pre
   return data
 }
 
-const paceAt = (d: PrepData, hour: number) => dayPace(d.session?.blocks ?? [], hour, { answered: practicedToday(d.bank, d.today), focused: focusedMinutes(d.focusSessions, d.today) }, dayWindow(d.settings))
 
 const readinessLine = (d: PrepData) =>
   `Readiness *${d.war.overall}%* — ${readinessTier(d.war).label}` +
@@ -67,49 +65,9 @@ export function nowLine(d: PrepData): string | null {
   ].filter(Boolean).join('\n')
 }
 
-// A midway check-in (6:30pm), only when ≥30 min under the day window's pace
-// — otherwise silent. What's done, then the one next step.
-export function middayMessage(d: PrepData): string | null {
-  if (d.restDay) return null
-  const pace = paceAt(d, prepHourNow())
-  if (pace.deltaMinutes > -30) return null
-  const now = nowBlock(d.session?.blocks ?? [])
-  return [
-    `🕐 *Check-in:* ${pace.blocksDone}/${pace.blocksTotal} blocks done (${pace.donePct}% of the plan).`,
-    now ? `👉 Next: *${now.label}* — ${hm(now.minutes)}\nReply *START* when you're ready.` : null,
-  ].filter(l => l !== null).join('\n')
-}
+// ---------------- Still open ----------------
 
-export function eveningMessage(d: PrepData): string {
-  if (d.restDay) return `🌙 *REST DAY*\nTomorrow's plan comes at 7:30am. Sleep well.`
-  const today = d.focusSessions.filter(f => f.date === d.today)
-  // The day review: judged as if the window were over.
-  const pace = paceAt(d, dayWindow(d.settings).end)
-  const interruptions = today.reduce((s, f) => s + f.interruptions, 0)
-  const mocks = d.mockRounds.filter(r => toPrepDateStr(r.created_at) === d.today && r.review?.score != null)
-  const strong = d.readiness.filter(c => c.score !== null && c.score >= GATES[c.key].gate)
-  const weak = d.war.blockers.slice(0, 3)
-  const blocks = d.session?.blocks ?? []
-  const good = isGoodDay(blocks)
-  return [
-    `🌙 *DAY REVIEW — ${levelOf(d.settings.hours_per_day).label}*`,
-    `Done: *${pace.blocksDone}/${pace.blocksTotal} blocks* (${pace.donePct}% of the plan)${interruptions ? ` · ${interruptions} interruption${interruptions === 1 ? '' : 's'}` : ''}`,
-    good ? `✓ *Good day*` : `A good day = ${GOOD_DAY_BLOCKS} blocks.`,
-    // Mocks run 3 days a week — no line on the other days unless one was done.
-    ...(mocks.length ? [`Mock: ${mocks.map(r => `${r.review!.score}/10`).join(', ')}`] : blocks.some(b => b.key === 'mock') ? ['Mock: none reviewed today'] : []),
-    readinessLine(d),
-    '',
-    strong.length ? `Strong: ${strong.slice(0, 3).map(c => `🟢 ${c.label}`).join(' ')}` : 'Strong: nothing at its gate yet.',
-    weak.length ? `Focus next: ${weak.map(b => `🔴 ${b.label} ${b.score ?? '—'}/${b.gate}`).join(' ')}` : null,
-    weak.length ? `\nTomorrow shifts time toward: ${weak.map(b => b.label).join(', ')}.` : null,
-    '',
-    `_${coachLine(pace, nowBlock(blocks), good)}_`,
-  ].filter(l => l !== null).join('\n')
-}
-
-// ---------------- Still open (absorbed from the evening check-in) ----------------
-
-// One compact line for the 1:05am day review: no expense logged today, a daily
+// One compact line for the 9:30pm reminders: no expense logged today, a daily
 // workout still open, and health metrics stale for 3+ days. null when
 // nothing is open.
 export async function stillOpenLine(db: SupabaseClient, userId: string, today: string): Promise<string | null> {

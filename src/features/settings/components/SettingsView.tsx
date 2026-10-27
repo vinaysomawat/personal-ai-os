@@ -25,9 +25,8 @@ const JOB_LABEL: Record<string, string> = {
   'monthly-digest': 'Monthly Digest', 'weekly-digest': 'Weekly Digest',
   'cron-health-check': 'Cron Health Check',
   'astrology-daily': 'Astrology Daily',
-  'prep-coach-morning': 'Prep Coach (morning)',
-  'prep-coach-midday': 'Prep Coach (6:30pm)',
-  'prep-coach-evening': 'Prep Coach (1:05am)',
+  'reminders-morning': 'Reminders (9am)',
+  'reminders-evening': 'Reminders (9:30pm)',
 }
 // Title-cased fallback so a job added to EXPECTED_CRON_JOBS without a label
 // here still reads like the others instead of a raw kebab-case id.

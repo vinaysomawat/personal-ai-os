@@ -49,18 +49,6 @@ export async function endFocusSession(id: string, finished: boolean): Promise<{ 
   return res
 }
 
-// Weekly "if you interviewed tomorrow" forecast, on demand (the Sunday
-// evening coach cron also generates one).
-export async function generatePrepForecast() {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) throw new Error('Not authenticated')
-  const { generateForecast } = await import('./forecast')
-  const res = await generateForecast(supabase, user.id)
-  revalidatePath('/prep')
-  return res
-}
-
 // Changing the daily load level rebuilds today's plan.
 export async function savePrepSettings(hoursPerDay: number) {
   const supabase = await createClient()

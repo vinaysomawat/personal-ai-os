@@ -44,7 +44,7 @@ const APPS_1 = { label: '💼 Job applications', minutes: 45 }
 const APPS_2 = { label: '💼 Job applications', minutes: 30 }
 const BREAK = { label: '☕ Break', minutes: 10, after: 60 }
 const FLEX_MAX = 90
-const FLEX_LABEL = 'Flex — finish any open block, or the revision queue'
+const FLEX_LABEL = 'Flex — finish any open block, or redo weak answers'
 const REVIEW = { label: '📝 Review & plan tomorrow', minutes: 5 }
 
 // The planned day from the window start: blocks in plan order with life

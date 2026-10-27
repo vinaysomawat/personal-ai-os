@@ -29,7 +29,7 @@ export async function GET(req: Request) {
   const { data: users } = await supabase.auth.admin.listUsers()
   const user = users?.users?.[0]
   if (!user) return NextResponse.json({ error: 'No user' }, { status: 404 })
-  // Paused during Job Hunt Mode — the Sunday Prep forecast replaces it.
+  // Paused during Job Hunt Mode.
   if (await isHuntMode()) return NextResponse.json({ ok: true, sent: false, reason: 'Paused in Interview War Mode' })
 
   const body = await generateMonthlyDigest(supabase, user.id)

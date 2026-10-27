@@ -17,16 +17,12 @@
       "schedule": "0 4 * * *"
     },
     {
-      "path": "/api/cron/prep-coach-morning",
-      "schedule": "0 2 * * *"
+      "path": "/api/cron/reminders-morning",
+      "schedule": "30 3 * * *"
     },
     {
-      "path": "/api/cron/prep-coach-midday",
-      "schedule": "0 13 * * *"
-    },
-    {
-      "path": "/api/cron/prep-coach-evening",
-      "schedule": "35 19 * * *"
+      "path": "/api/cron/reminders-evening",
+      "schedule": "0 16 * * *"
     }
   ]
 }

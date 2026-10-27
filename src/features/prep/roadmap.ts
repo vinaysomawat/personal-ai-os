@@ -19,7 +19,7 @@ export interface RoadmapWeek {
 }
 
 export const ROADMAP: RoadmapWeek[] = [
-  { week: 1, title: 'Backend & jobs', milestone: 'Write 10 raw SQL queries against your own Supabase tables (joins, window functions, EXPLAIN), then move one slow AI path (the weekly forecast) to a background job with retries and idempotency, its progress shown in the UI',
+  { week: 1, title: 'Backend & jobs', milestone: 'Write 10 raw SQL queries against your own Supabase tables (joins, window functions, EXPLAIN), then move one slow AI path (the weekly digest) to a background job with retries and idempotency, its progress shown in the UI',
     doneWhen: 'you can explain every index on prep_sessions / question_progress, and the job survives a forced failure without double-writing',
     links: [{ label: 'Postgres EXPLAIN', href: 'https://www.postgresql.org/docs/current/using-explain.html' }, { label: 'Inngest docs', href: 'https://www.inngest.com/docs' }] },
   { week: 2, title: 'Streaming chat UI', milestone: 'Stream Ask Brain token by token: incremental rendering, stop and retry, an optimistic message list that survives a reload, plus tokens and cost per message from askAI()',

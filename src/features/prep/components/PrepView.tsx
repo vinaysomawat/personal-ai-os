@@ -21,8 +21,8 @@ import type { RoadmapProgress } from '../roadmap'
 import AnswerReview from './AnswerReview'
 import TimelineCard from './TimelineCard'
 import { buildTimeline } from '../timeline'
-import { FocusBar, ForecastCard, GatesCard, MissionCard, RevisionCard, WarHeader, WeaknessCard } from './WarRoom'
-import { blockProgress, blockReached, canFinishBlock, dayPace, dayWindow, focusSeconds, focusedMinutes, prepHourNow, paceLabel, paceStatus, practicedToday, type FocusSession, type Forecast, type RevisionItem, type TopicWeakness, type WarReadiness } from '../war'
+import { FocusBar, WarHeader } from './WarRoom'
+import { blockProgress, blockReached, canFinishBlock, dayPace, dayWindow, focusSeconds, focusedMinutes, prepHourNow, paceLabel, paceStatus, practicedToday, type FocusSession, type WarReadiness } from '../war'
 import PageHeader, { HeaderChip } from '@/components/PageHeader'
 import StatCard from '@/components/StatCard'
 import { guard } from '@/lib/guard'
@@ -47,11 +47,8 @@ interface Props {
   sessionsLast7: number
   mockRounds: MockRound[]
   war: WarReadiness
-  weakness: TopicWeakness[]
-  revision: RevisionItem[]
   focusSessions: FocusSession[]
   restDay: boolean
-  forecast: { date: string; forecast: Forecast } | null
   stories: Story[]
   rehearsals: StoryRehearsal[]
   readiness: ReadinessCell[]
@@ -77,7 +74,6 @@ export default function PrepView(props: Props) {
   const [bankTopic, setBankTopic] = useState(props.initialTopic ?? '')
   // Shown briefly after a session ends itself (its block got done).
   const [focusEnded, setFocusEnded] = useState<{ label: string; seconds: number } | null>(null)
-  const todayFocus = focusSessions.filter(f => f.date === props.today)
   // Pace vs your day window (prep_settings, dayWindow), re-read every minute.
   const [tick, setTick] = useState(0)
   useEffect(() => { const t = setInterval(() => setTick(x => x + 1), 60_000); return () => clearInterval(t) }, [])
@@ -182,23 +178,10 @@ export default function PrepView(props: Props) {
       {tab === 'today' && (
         <>
           <WarHeader war={props.war} settings={props.settings} questionMinutes={(session?.blocks ?? []).filter(b => b.key.startsWith('bank:')).reduce((s, b) => s + b.minutes, 0)} pace={pace} blocks={session?.blocks ?? []} restDay={props.restDay} />
-          <div className="grid grid-cols-1 lg:grid-cols-[1fr_380px] gap-[var(--grid-gap)] items-start">
-            <div className="space-y-[var(--grid-gap)]">
-              {(session?.blocks.length ?? 0) > 0 && (
-                <TimelineCard timeline={timeline} windowLabel={dayWin.label} nowMin={Math.round(prepHourNow() * 60)}
-                  activeKey={activeFocus?.block_key ?? null} onStart={startFocus} />
-              )}
-              <MissionCard session={session} focusSessions={todayFocus} doneToday={doneToday} onStart={startFocus} onOpen={openHref} />
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-[var(--grid-gap)] items-start">
-                <RevisionCard items={props.revision} onOpen={openTopic} />
-                <WeaknessCard items={props.weakness} onOpen={openTopic} />
-              </div>
-            </div>
-            <div className="space-y-[var(--grid-gap)]">
-              <GatesCard cells={props.readiness} war={props.war} />
-              <ForecastCard forecast={props.forecast} today={props.today} />
-            </div>
-          </div>
+          {(session?.blocks.length ?? 0) > 0 && (
+            <TimelineCard timeline={timeline} windowLabel={dayWin.label} nowMin={Math.round(prepHourNow() * 60)}
+              activeKey={activeFocus?.block_key ?? null} onStart={startFocus} />
+          )}
         </>
       )}
 

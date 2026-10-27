@@ -3,6 +3,10 @@
 One line per shipped change, newest first. Sourced from commit messages —
 append here whenever you deploy, same cadence as the version bump.
 
+## 2026-10-28
+
+- **A leaner Today tab and no Prep coach messages.** Removed: the readiness gates card, "If you interviewed tomorrow…" (and its weekly AI call), Today's Mission, Revision Queue and Weakest Topics. The Timeline is the whole Today tab now. The scheduled Prep coach messages (morning plan, 6:30pm check-in, night review) are off. Your reminders now arrive on their own at 9:00am and 9:30pm, the evening one with the "Still open" line, and "what now" still works whenever you ask.
+
 ## 2026-10-27
 
 - **Coach times fit the 12pm–1am day.** The behind-pace nudge moves from 1pm to 6:30pm, and the day review (with evening reminders and the weekly forecast) moves from 9:30pm to 1:05am, after your day ends.

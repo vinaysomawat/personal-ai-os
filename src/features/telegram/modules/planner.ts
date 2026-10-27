@@ -76,12 +76,12 @@ export async function execute(action: Record<string, unknown>, db: SupabaseClien
         (next ? `\n\n👉 Next: *${next.label}* — ${next.minutes}m. Reply *START*.` : finished ? '\n\nThat was the last block today.' : '')
     }
     case 'prep_now': {
-      const { coachData, middayMessage, morningMessage, nowLine } = await import('@/features/prep/coach')
+      const { coachData, morningMessage, nowLine } = await import('@/features/prep/coach')
       const data = await coachData(db, userId)
       if (!data) return 'Couldn\'t load today\'s plan — open the Prep page once.'
-      // Where the timeline says you are, then the check-in or the mission.
+      // Where the timeline says you are, then today's plan.
       const now = nowLine(data)
-      return `${now ? `${now}\n\n` : ''}${middayMessage(data) ?? morningMessage(data)}`
+      return `${now ? `${now}\n\n` : ''}${morningMessage(data)}`
     }
     case 'drill': {
       const { drillCategory, startDrill } = await import('@/features/prep/drill')

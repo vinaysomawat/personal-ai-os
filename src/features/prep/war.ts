@@ -29,16 +29,6 @@ export function focusSeconds(f: FocusSession, nowMs = Date.now()): number {
   return Math.max(0, Math.round((end - new Date(f.started_at).getTime()) / 1000) - f.paused_seconds)
 }
 
-// Weekly AI forecast (prep_forecasts.forecast). Confidence is not the AI's —
-// it's War readiness at the time.
-export interface Forecast {
-  strengths: string[]
-  failures: { area: string; why: string }[]
-  riskQuestion: string
-  fixFirst: string[]
-  confidence: number
-}
-
 // ---------------- Readiness gates ----------------
 
 // "Top 1% ready" bar per area. Weight = share of the overall score.

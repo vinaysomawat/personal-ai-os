@@ -4,7 +4,7 @@ import type { MockRound } from './mock'
 import { BANK_CATEGORIES, DEFAULT_HOURS, buildHuntPlan, isRestDay, isRedoDue, type CategoryCoverage } from './hunt'
 import type { RoadmapProgress } from './roadmap'
 import { computeReadinessMatrix, type CodingHistoryRow } from './readiness'
-import { DEFAULT_DAY_WINDOW, blockProgress, blockReached, canFinishBlock, categoryGap, dayPace, focusedMinutes, minutesPerQuestion, type ProgressCtx, isGoodDay, focusSeconds, nowBlock, revisionQueue, topicWeakness, warReadiness, type FocusSession, type Forecast } from './war'
+import { DEFAULT_DAY_WINDOW, blockProgress, blockReached, canFinishBlock, categoryGap, dayPace, focusedMinutes, minutesPerQuestion, type ProgressCtx, isGoodDay, focusSeconds, nowBlock, revisionQueue, topicWeakness, warReadiness, type FocusSession } from './war'
 import type { BankQuestion, PrepBlock, PrepSession, PrepSettings, Story, StoryRehearsal } from './types'
 
 // Prep's data layer — plain server module (not 'use server', so none of
@@ -35,7 +35,7 @@ export async function loadPrepData(supabase: SupabaseClient, userId: string) {
   const user = { id: userId }
   const today = prepToday()
 
-  const [mockRes, storiesRes, rehearsalsRes, codingRes, sessionsRes, focusRes, roadmapRes, forecastRes] = await Promise.all([
+  const [mockRes, storiesRes, rehearsalsRes, codingRes, sessionsRes, focusRes, roadmapRes] = await Promise.all([
     supabase.from('mock_rounds').select('id, format, items, duration_seconds, created_at, review').eq('user_id', user.id).order('created_at', { ascending: false }).limit(500),
     supabase.from('stories').select('*').eq('user_id', user.id).order('updated_at', { ascending: false }),
     supabase.from('story_rehearsals').select('id, story_id, competency, prompt, answer, critique, rating, scorecard, created_at').eq('user_id', user.id).order('created_at', { ascending: false }).limit(10),
@@ -44,7 +44,6 @@ export async function loadPrepData(supabase: SupabaseClient, userId: string) {
     supabase.from('prep_focus_sessions').select('*').eq('user_id', user.id).gte('date', prepDaysAgo(6)).order('started_at', { ascending: true }),
     // AI Engineer tab: finished roadmap weeks with their proof.
     supabase.from('roadmap_progress').select('week, proof_url, metric, notes, completed_at').eq('user_id', user.id).order('week'),
-    supabase.from('prep_forecasts').select('date, forecast, created_at').eq('user_id', user.id).order('date', { ascending: false }).limit(1).maybeSingle(),
   ])
   const [settings, bank] = await Promise.all([getPrepSettings(supabase, user.id), getQuestionBank(supabase, user.id)])
   const coverage = bankCoverage(bank, today)
@@ -103,7 +102,6 @@ export async function loadPrepData(supabase: SupabaseClient, userId: string) {
     revision: revisionQueue(bank, today),
     focusSessions: (focusRes.data ?? []) as FocusSession[],
     roadmap: (roadmapRes.data ?? []) as RoadmapProgress[],
-    forecast: (forecastRes.data as { date: string; forecast: Forecast; created_at: string } | null) ?? null,
     stories,
     rehearsals: (rehearsalsRes.data ?? []) as StoryRehearsal[],
     readiness,
