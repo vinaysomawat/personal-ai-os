@@ -5,6 +5,7 @@ append here whenever you deploy, same cadence as the version bump.
 
 ## 2026-10-28
 
+- **Move lunch or dinner for today.** Edit today now lists your meals with their start and end times and names, so you can shift or rename lunch or dinner for one day. The sessions around a meal move with it, and your default plan stays the same.
 - **More resume questions from your latest resume.** 45 new deep-dive questions follow the Oct 27 resume: the LLM CI pipeline, RAG assistant and SSE at SS&C; RBAC, the OpenAI + Pydantic rule engine and global search at Shiprocket; Twilio device switching at Biofourmis; RD/PID, eKYC and the QR ledger at Novopay; and Personal OS and your skills. All earlier resume questions stay, for 130 in total (45 must-haves).
 - **The Questions tab agrees with the timeline.** A category's ✓ now uses the same done state as Today, so focus time counts as well as answers, and its planned minutes update after Edit today.
 - **The Prep page loads about twice as fast.** The question pool, which is the same for everyone, is now cached for an hour instead of read on every visit, and the page's other reads run in parallel. Server time went from about 3.3s to about 1–1.7s.

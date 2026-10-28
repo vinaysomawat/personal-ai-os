@@ -140,7 +140,13 @@ export function planItems(date: string, template: DayTemplate, ctx: PlanCtx): Pr
 export interface Interview { start: number; minutes: number; label?: string }
 // Your own breaks today (prep_sessions.breaks), fixed times — there are no
 // automatic breaks.
-export interface DayBreak { start: number; end: number; label?: string }
+// `meal` = the index of the template gap (lunch, dinner) this moves today.
+export interface DayBreak { start: number; end: number; label?: string; meal?: number }
+// Today's meal times: the template gaps, with today's overrides.
+export const mealsOf = (template: DayTemplate, breaks: DayBreak[]): DayBreak[] => template.sessions.slice(1).map((s, i) => {
+  const o = breaks.find(b => b.meal === i)
+  return { start: o?.start ?? template.sessions[i].end, end: o?.end ?? s.start, label: o?.label ?? template.gaps[i] ?? 'Break', meal: i }
+})
 export const WARMUP_MINUTES = 30
 export const DEBRIEF_MINUTES = 15
 const FLEX_LABEL = 'Flex — finish any open block, or redo weak answers'
@@ -159,7 +165,13 @@ export function layoutDay(items: PrepBlock[], template: DayTemplate, dayStart: n
     { kind: 'debrief', label: 'Debrief — write down every question', start: interview.start + interview.minutes, end: interview.start + interview.minutes + DEBRIEF_MINUTES },
   ] : []
   if (interview && sessions.length && events[0].start < sessions[0].start) sessions[0].start = events[0].start
-  for (const b of breaks) if (b.end > b.start) events.push({ kind: 'break', label: b.label?.trim() || '☕ Break', start: b.start, end: b.end })
+  // A meal moved today ends the session before it and starts the next.
+  for (const b of breaks) if (b.meal !== undefined && sessions[b.meal + 1]) {
+    sessions[b.meal].end = Math.max(sessions[b.meal].start, b.start)
+    sessions[b.meal + 1].start = Math.min(sessions[b.meal + 1].end, Math.max(b.end, sessions[b.meal].end))
+  }
+  const gapLabel = (i: number) => breaks.find(b => b.meal === i)?.label?.trim() || template.gaps[i] || 'Break'
+  for (const b of breaks) if (b.meal === undefined && b.end > b.start) events.push({ kind: 'break', label: b.label?.trim() || '☕ Break', start: b.start, end: b.end })
   // Free stretches = sessions minus the interview events and your breaks.
   const stretches: { start: number; end: number; session: number }[] = []
   sessions.forEach((s, i) => {
@@ -174,7 +186,7 @@ export function layoutDay(items: PrepBlock[], template: DayTemplate, dayStart: n
   // The gaps between sessions (lunch, dinner) — unless an event covers them.
   sessions.slice(1).forEach((s, i) => {
     const gap = { start: sessions[i].end, end: s.start }
-    if (gap.end > gap.start && !events.some(e => e.start < gap.end && e.end > gap.start)) rows.push({ kind: 'meal', label: template.gaps[i] ?? 'Break', start: gap.start, end: gap.end })
+    if (gap.end > gap.start && !events.some(e => e.start < gap.end && e.end > gap.start)) rows.push({ kind: 'meal', label: gapLabel(i), start: gap.start, end: gap.end })
   })
   const queue = [...items]
   for (const st of stretches) {

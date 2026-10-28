@@ -62,13 +62,13 @@ export async function savePrepToday(patch: TodayPatch): Promise<PrepSession> {
   if (patch.startMin !== undefined && !isMinute(patch.startMin)) throw new Error('Invalid start time')
   const iv = patch.interview
   if (iv && (!Number.isInteger(iv.start) || iv.start < 0 || iv.start > 1800 || !Number.isInteger(iv.minutes) || iv.minutes < 15 || iv.minutes > 240)) throw new Error('Invalid interview time')
-  if (patch.breaks && (patch.breaks.length > 10 || patch.breaks.some(b => !Number.isInteger(b.start) || !Number.isInteger(b.end) || b.start < 0 || b.end > 1800 || b.end <= b.start || b.end - b.start > 240))) throw new Error('Each break needs a start before its end (up to 4 hours)')
+  if (patch.breaks && (patch.breaks.length > 10 || patch.breaks.some(b => !Number.isInteger(b.start) || !Number.isInteger(b.end) || b.start < 0 || b.end > 1800 || b.end <= b.start || b.end - b.start > 240 || (b.meal !== undefined && (!Number.isInteger(b.meal) || b.meal < 0 || b.meal > 5))))) throw new Error('Each break or meal needs a start before its end (up to 4 hours)')
   if (patch.add && (patch.add.length > 30 || patch.add.some(a => !isMinutes(a.minutes) || !(a.key.startsWith('custom:') ? a.label?.trim() : (ORDER as readonly string[]).includes(a.key))))) throw new Error('Check the added slots')
   if (patch.minutes && Object.values(patch.minutes).some(m => !isMinutes(m))) throw new Error('Slots are 5–300 minutes')
   if (patch.order && new Set(patch.order).size !== patch.order.length) throw new Error('Each slot can appear once')
   return patchToday(supabase, user.id, {
     ...patch,
-    ...(patch.breaks ? { breaks: patch.breaks.map(b => ({ start: b.start, end: b.end, ...(b.label?.trim() ? { label: b.label.trim() } : {}) })) } : {}),
+    ...(patch.breaks ? { breaks: patch.breaks.map(b => ({ start: b.start, end: b.end, ...(b.label?.trim() ? { label: b.label.trim() } : {}), ...(b.meal !== undefined ? { meal: b.meal } : {}) })) } : {}),
   })
 }
 

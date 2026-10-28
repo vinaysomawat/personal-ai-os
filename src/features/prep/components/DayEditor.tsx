@@ -6,7 +6,7 @@ import { ArrowDown, ArrowUp, Plus, X } from 'lucide-react'
 import Card from '@/components/Card'
 import { modalCancelButtonClass, modalSaveButtonClass } from '@/components/Modal'
 import { savePrepTemplate } from '../actions'
-import { DEBRIEF_MINUTES, ORDER, PLAN_LABEL, WARMUP_MINUTES, layoutDay, type DayBreak, type DayTemplate, type Interview, type PlanKey, type TodayPatch } from '../dayplan'
+import { DEBRIEF_MINUTES, ORDER, PLAN_LABEL, WARMUP_MINUTES, layoutDay, mealsOf, type DayBreak, type DayTemplate, type Interview, type PlanKey, type TodayPatch } from '../dayplan'
 import { clock, hm } from '../war'
 import { span } from '../timeline'
 import type { PrepBlock } from '../types'
@@ -74,11 +74,18 @@ export function EditToday({ template, startMin, interview, breaks: savedBreaks, 
 }) {
   const [start, setStart] = useState(startMin)
   const [iv, setIv] = useState<Interview | null>(interview ?? (focus === 'interview' ? { start: Math.max(startMin + 60, 15 * 60), minutes: 60, label: '' } : null))
-  const [breaks, setBreaks] = useState<DayBreak[]>(savedBreaks)
+  const [breaks, setBreaks] = useState<DayBreak[]>(() => savedBreaks.filter(b => b.meal === undefined))
+  // Lunch / dinner for today — saved only where they differ from the default plan.
+  const [meals, setMeals] = useState<DayBreak[]>(() => mealsOf(template, savedBreaks))
+  const allBreaks = useMemo(() => {
+    const base = mealsOf(template, [])
+    return [...breaks, ...meals.filter((m, i) => m.start !== base[i].start || m.end !== base[i].end || (m.label ?? '') !== (base[i].label ?? ''))]
+  }, [breaks, meals, template])
+  const setMeal = (i: number, p: Partial<DayBreak>) => setMeals(prev => prev.map((x, k) => k === i ? { ...x, ...p } : x))
   const [items, setItems] = useState<Item[]>(() => blocks.map(b => ({ key: b.key, minutes: b.minutes, label: b.label, done: b.done })))
   const [adding, setAdding] = useState('')
   const [error, setError] = useState<string | null>(saveError)
-  const preview = useMemo(() => layoutDay(items.map(i => ({ key: i.key, label: i.label, minutes: i.minutes, done: i.done, detail: '', href: '' })), template, start, iv, breaks), [items, template, start, iv, breaks])
+  const preview = useMemo(() => layoutDay(items.map(i => ({ key: i.key, label: i.label, minutes: i.minutes, done: i.done, detail: '', href: '' })), template, start, iv, allBreaks), [items, template, start, iv, allBreaks])
   const used = new Set(items.map(i => i.key))
   const free = ORDER.filter(k => !used.has(k))
   const move = (i: number, d: -1 | 1) => setItems(prev => { const n = [...prev]; const j = i + d; if (j < 0 || j >= n.length) return prev; [n[i], n[j]] = [n[j], n[i]]; return n })
@@ -94,7 +101,8 @@ export function EditToday({ template, startMin, interview, breaks: savedBreaks, 
     setError(null)
     if (items.some(i => i.key.startsWith('custom:') && !i.label.trim())) { setError('Name your own slots'); return }
     if (breaks.some(b => b.end <= b.start)) { setError('Each break needs its end after its start'); return }
-    onSave(diffToday({ startMin, interview, breaks: savedBreaks, blocks }, { startMin: start, interview: iv, breaks, items }))
+    if (meals.some(m => m.end <= m.start)) { setError('Each meal needs its end after its start'); return }
+    onSave(diffToday({ startMin, interview, breaks: savedBreaks, blocks }, { startMin: start, interview: iv, breaks: allBreaks, items }))
   }
   const total = items.reduce((s, i) => s + i.minutes, 0)
   return (
@@ -122,10 +130,22 @@ export function EditToday({ template, startMin, interview, breaks: savedBreaks, 
           </div>
           <div className="rounded-[9px] border border-border px-2.5 py-2">
             <div className="flex items-center justify-between gap-2">
-              <p className="text-[12.5px] font-semibold text-fg-primary">☕ Breaks</p>
+              <p className="text-[12.5px] font-semibold text-fg-primary">☕ Meals & breaks</p>
               <button onClick={() => { const last = breaks[breaks.length - 1]; const s0 = last ? last.end + 120 : Math.max(start + 120, 16 * 60); setBreaks(prev => [...prev, { start: s0, end: s0 + 20 }]) }}
                 className={`${modalCancelButtonClass} !py-[3px] inline-flex items-center gap-1`}><Plus size={12} /> Add break</button>
             </div>
+            <ol className="flex flex-col gap-1 mt-1">
+              {meals.map((m, i) => (
+                <li key={`meal${i}`} className="flex flex-wrap items-center gap-1.5 text-[12px] text-fg-secondary">
+                  <input type="time" step={300} value={toHHMM(m.start)} onChange={e => e.target.value && setMeal(i, { start: prepMin(e.target.value) })} className={INPUT} aria-label="Meal starts" />
+                  –
+                  <input type="time" step={300} value={toHHMM(m.end)} onChange={e => e.target.value && setMeal(i, { end: prepMin(e.target.value) })} className={INPUT} aria-label="Meal ends" />
+                  <span className="tabular-nums text-fg-tertiary">{m.end > m.start ? hm(m.end - m.start) : 'end before start'}</span>
+                  <input value={m.label ?? ''} onChange={e => setMeal(i, { label: e.target.value })} placeholder="Name" className={`${INPUT} flex-1 min-w-[110px]`} />
+                  <span className="w-[14px]" />
+                </li>
+              ))}
+            </ol>
             {breaks.length === 0 && <p className="text-[11px] text-fg-tertiary mt-1">No breaks — add one with its start and end time; blocks flow around it.</p>}
             <ol className="flex flex-col gap-1 mt-1">
               {breaks.map((b, i) => (
