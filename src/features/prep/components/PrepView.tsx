@@ -16,7 +16,7 @@ import { COMPETENCIES, REHEARSAL_PROMPTS, type BankQuestion, type CompetencyKey,
 import { QuestionsTab } from './QuestionsTab'
 import { MockTab } from './MockTab'
 import { AiTab } from './AiTab'
-import type { RoadmapProgress } from '../roadmap'
+import type { RoadmapProgress, RoadmapStepDone } from '../roadmap'
 import AnswerReview from './AnswerReview'
 import TimelineCard from './TimelineCard'
 import { liveTimeline } from '../timeline'
@@ -56,6 +56,7 @@ interface Props {
   settings: PrepSettings
   bank: BankQuestion[]
   roadmap: RoadmapProgress[]
+  roadmapSteps: RoadmapStepDone[]
 }
 
 // A focus session shown before the server has saved it (optimistic start).
@@ -257,7 +258,7 @@ export default function PrepView(props: Props) {
         </>
       )}
 
-      {tab === 'ai' && <AiTab today={props.today} progress={roadmap} setProgress={setRoadmap} bank={bank} onOpenTopic={openTopic} />}
+      {tab === 'ai' && <AiTab today={props.today} progress={roadmap} setProgress={setRoadmap} steps={props.roadmapSteps} bank={bank} onOpenTopic={openTopic} />}
 
       {/* Kept mounted so answers made here survive switching tabs. */}
       <div hidden={tab !== 'questions'}>

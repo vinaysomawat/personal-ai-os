@@ -1,6 +1,6 @@
 import { BANK_CATEGORIES, bankBlock, type BankCategory, type CategoryCoverage } from './hunt'
 import { formatMinutes, formatOf, mockFormatForDay } from './mock'
-import { buildBlock, learnBlock, themeFor } from './roadmap'
+import { buildBlock, learnBlock, themeFor, type RoadmapStepDone } from './roadmap'
 import type { TimelineRow } from './timeline'
 import type { PrepBlock } from './types'
 
@@ -76,6 +76,8 @@ export interface PlanCtx {
   gaps?: Record<string, number>
   focusTopic?: string | null
   mockDoneToday?: boolean
+  // Ticked roadmap steps — Learn / Build follow the week's next step.
+  roadmapSteps?: RoadmapStepDone[]
 }
 const EMPTY_COVERAGE = (key: BankCategory): CategoryCoverage => ({ key, label: BANK_CATEGORIES.find(c => c.key === key)?.label ?? key, total: 0, seen: 0, doneToday: 0, redoDue: 0 })
 
@@ -89,8 +91,8 @@ export function blockFor(key: string, minutes: number, date: string, ctx: PlanCt
   if (key.startsWith('custom:')) return { key, label: customLabel?.trim() || 'My slot', minutes, detail: 'Your own slot — Finish it from the timer.', href: '/prep?tab=today', done: false }
   // Job applications: no questions to count, so it's done by Finish on the timer.
   if (key === 'apply') return { key, label: PLAN_LABEL.apply, minutes, detail: 'Apply to roles posted in the last 48h and send referral messages — Finish it from the timer.', href: '/prep?tab=today', done: false }
-  if (key === 'learn') return learnBlock(date, minutes)
-  if (key === 'build') return buildBlock(date, minutes)
+  if (key === 'learn') return learnBlock(date, minutes, ctx.roadmapSteps ?? [])
+  if (key === 'build') return buildBlock(date, minutes, ctx.roadmapSteps ?? [])
   if (key === 'mock') {
     const format = mockFormatForDay(date)
     return format ? {

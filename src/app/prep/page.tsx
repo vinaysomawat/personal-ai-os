@@ -27,6 +27,7 @@ export default async function PrepPage({ searchParams }: { searchParams: Promise
       settings={data.settings}
       bank={data.bank}
       roadmap={data.roadmap}
+      roadmapSteps={data.roadmapSteps}
     />
   )
 }

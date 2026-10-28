@@ -5,7 +5,7 @@ import { prepToday, prepDaysAgo, toPrepDateStr, prepDayStartUtc } from '@/lib/da
 import type { MockRound } from './mock'
 import { BANK_CATEGORIES, isRedoDue, type CategoryCoverage } from './hunt'
 import { DEFAULT_TEMPLATE, applyTodayPatch, layoutDay, patchTouchesBlocks, planItems, templateOf, type TodayPatch } from './dayplan'
-import type { RoadmapProgress } from './roadmap'
+import type { RoadmapProgress, RoadmapStepDone } from './roadmap'
 import { computeReadinessMatrix, type CodingHistoryRow } from './readiness'
 import { blockProgress, windowOf, blockReached, canFinishBlock, categoryGap, dayPace, focusedMinutes, minutesPerQuestion, type ProgressCtx, isGoodDay, focusSeconds, nowBlock, revisionQueue, topicWeakness, warReadiness, type FocusSession } from './war'
 import type { BankQuestion, PrepBlock, PrepSession, PrepSettings, Story, StoryRehearsal } from './types'
@@ -37,7 +37,7 @@ export async function loadPrepData(supabase: SupabaseClient, userId: string) {
   const today = prepToday()
 
   // One round of parallel reads (settings and the bank included).
-  const [mockRes, storiesRes, rehearsalsRes, codingRes, sessionsRes, focusRes, roadmapRes, settings, bank] = await Promise.all([
+  const [mockRes, storiesRes, rehearsalsRes, codingRes, sessionsRes, focusRes, roadmapRes, stepsRes, settings, bank] = await Promise.all([
     supabase.from('mock_rounds').select('id, format, items, duration_seconds, created_at, review').eq('user_id', user.id).order('created_at', { ascending: false }).limit(500),
     supabase.from('stories').select('*').eq('user_id', user.id).order('updated_at', { ascending: false }),
     supabase.from('story_rehearsals').select('id, story_id, competency, prompt, answer, critique, rating, scorecard, created_at').eq('user_id', user.id).order('created_at', { ascending: false }).limit(10),
@@ -46,6 +46,8 @@ export async function loadPrepData(supabase: SupabaseClient, userId: string) {
     supabase.from('prep_focus_sessions').select('*').eq('user_id', user.id).gte('date', prepDaysAgo(6)).order('started_at', { ascending: true }),
     // AI Engineer tab: finished roadmap weeks with their proof.
     supabase.from('roadmap_progress').select('week, proof_url, metric, notes, completed_at').eq('user_id', user.id).order('week'),
+    // Ticked steps of the AI engineering path (empty until the migration runs).
+    supabase.from('roadmap_steps').select('week, step, done_at').eq('user_id', user.id),
     getPrepSettings(supabase, user.id),
     getQuestionBank(supabase, user.id),
   ])
@@ -58,6 +60,7 @@ export async function loadPrepData(supabase: SupabaseClient, userId: string) {
   const template = templateOf(settings.day_template)
   const mockRounds = (mockRes.data ?? []) as MockRound[]
   const weakness = topicWeakness(bank, today)
+  const roadmapSteps = (stepsRes.data ?? []) as RoadmapStepDone[]
 
   let sessions = (sessionsRes.data ?? []) as PrepSession[]
   let todaySession = sessions.find(s => s.date === today) ?? null
@@ -68,6 +71,7 @@ export async function loadPrepData(supabase: SupabaseClient, userId: string) {
       gaps: Object.fromEntries(BANK_CATEGORIES.map(c => [c.key, categoryGap(c.key, readiness)])),
       focusTopic: weakness.find(w => w.category === 'quiz')?.topic ?? null,
       mockDoneToday: mockRounds.some(r => toPrepDateStr(r.created_at) === today),
+      roadmapSteps,
     })
     const { data: inserted } = await supabase.from('prep_sessions')
       .upsert({ user_id: user.id, date: today, focus: 'Today', blocks }, { onConflict: 'user_id,date', ignoreDuplicates: true })
@@ -106,6 +110,7 @@ export async function loadPrepData(supabase: SupabaseClient, userId: string) {
     revision: revisionQueue(bank, today),
     focusSessions: (focusRes.data ?? []) as FocusSession[],
     roadmap: (roadmapRes.data ?? []) as RoadmapProgress[],
+    roadmapSteps,
     stories,
     rehearsals: (rehearsalsRes.data ?? []) as StoryRehearsal[],
     readiness,

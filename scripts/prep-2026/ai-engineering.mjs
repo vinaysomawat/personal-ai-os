@@ -1,13 +1,57 @@
-// AI engineering (category 'ai-engineering') — 91 linkless Question Bank rows
+// AI engineering (category 'ai-engineering') — 111 linkless Question Bank rows
 // for AI product / full-stack AI engineer loops: LLMs, embeddings, vector
 // databases, RAG, agentic RAG, agents, human-in-the-loop, frameworks, MCP &
 // A2A, AI product UX, evals.
 // answer_hints = the 4–6 key points the scorecard grades against ("·"
-// separates them). sort_order puts the must-haves first.
+// separates them). sort_order goes stage by stage (STAGE, the same as
+// AI_TOPIC_STAGE in src/features/prep/roadmap.ts), easiest first, so the drill
+// follows the AI engineering path; must-haves first within a difficulty.
 
 const q = (title, difficulty, topics, answer_hints) => ({ title, difficulty, topics, answer_hints })
 
 const ROWS = [
+  // ---- Foundations (20) — stage 1, the plain-words basics
+  q('What actually happens when your app calls an LLM API — what do you send, and what comes back?', 'easy', ['Foundations', 'Must-have'],
+    'an HTTPS request to the provider with the model name, a system prompt, the messages so far and settings like max_tokens · the model generates the next assistant message token by token · the response has the text (or tool calls), a stop reason and token usage · you pay per input and output token · nothing is remembered on the provider side between calls'),
+  q('Why is an LLM API stateless, and how does a chatbot "remember" the conversation?', 'easy', ['Foundations', 'Must-have'],
+    'each call is independent: the model only sees what you send in that request · the app stores the history (in a database) and resends the relevant messages every turn · long chats get expensive and hit the context window, so you trim or summarize older turns · "memory" features are just retrieval of saved facts into the prompt'),
+  q('System prompt vs user message — what belongs in each?', 'easy', ['Foundations', 'Must-have'],
+    'system prompt: the role, rules, tone, output format and constraints that apply to every turn · user message: the actual request and its data · keep untrusted data (user input, documents) out of the system prompt and clearly delimited · put stable instructions first so prompt caching can reuse them · one example of a rule you would put in a system prompt'),
+  q('Walk through the request path from a React button to Claude and back in a Next.js app.', 'medium', ['Foundations', 'Must-have'],
+    'the button calls your own route handler or server action, never the provider directly · the server reads the API key from an env var, authenticates the user and checks limits · it builds the prompt, calls the model and streams or returns the answer · the client shows loading, streaming text and errors · logging tokens, latency and cost on the server'),
+  q('Chat model vs embedding model — what does each do?', 'easy', ['Foundations'],
+    'a chat model generates text (answers, JSON, tool calls) · an embedding model turns text into a vector of numbers that captures its meaning · embeddings are used for search, similarity and clustering, not answers · embedding models are much cheaper and faster · in RAG you use both: embeddings to find the text, the chat model to answer from it'),
+  q('What is few-shot prompting, and when do examples help more than instructions?', 'easy', ['Foundations'],
+    'few-shot = putting a few input → output examples in the prompt · helps most for format, tone, edge cases and classification labels that are hard to describe · examples should be varied and representative, or the model copies their quirks · costs tokens on every call · combine short clear instructions with 2–5 good examples'),
+  q('What does max_tokens do, and what happens when a response is cut off?', 'easy', ['Foundations'],
+    'max_tokens caps the length of the output (and so its cost and time) · if it is hit, the stop reason says so (e.g. "max_tokens") and the answer is incomplete — JSON may be broken · check the stop reason in code instead of assuming the answer is complete · set it per task: small for classification, larger for long writing'),
+  q('Why can the same prompt give different answers, and how do you make output more consistent?', 'easy', ['Foundations'],
+    'generation samples from probabilities, so randomness (temperature) changes the output · lower temperature for consistent, factual tasks · clear instructions, a fixed output format and examples reduce variation · structured output with schema validation · evals to measure consistency instead of trusting one try'),
+  q('What is streaming in an LLM API, and why does it matter for the user experience?', 'easy', ['Foundations', 'Must-have'],
+    'the API sends the answer in small events while it is being generated · the user sees the first words in under a second instead of waiting for the whole answer · implemented with Server-Sent Events or a streaming fetch body · the UI appends chunks, shows a stop button and handles errors mid-stream · token usage arrives at the end of the stream'),
+  q('What is tool use (function calling), in plain words?', 'easy', ['Foundations', 'Must-have'],
+    'you describe functions (name, description, JSON schema of inputs) in the request · the model can reply with "call this tool with these arguments" instead of text · your code runs the function and sends the result back · the model then continues or answers · the model never runs code itself — your code decides what actually executes'),
+  q('What is RAG, in plain words, and what problem does it solve?', 'easy', ['Foundations', 'Must-have'],
+    'retrieval-augmented generation: search your own data for the relevant text, put it in the prompt, and have the model answer from it · solves: the model does not know your private or recent data, and makes things up without sources · lets you cite where the answer came from · cheaper and easier to update than fine-tuning · quality depends mostly on retrieval'),
+  q('What is a vector database, in plain words, and why not just use LIKE \'%word%\'?', 'easy', ['Foundations'],
+    'it stores embeddings and quickly finds the nearest ones to a query vector · finds text with the same meaning even when the words differ ("car" vs "vehicle") · LIKE only matches exact substrings and is slow on large tables · keyword search is still better for exact names and codes, so many apps combine both · pgvector adds this to Postgres'),
+  q('How do you estimate the monthly cost of an LLM feature before you build it?', 'medium', ['Foundations', 'Must-have'],
+    'estimate input and output tokens per request (prompt + context + answer) · multiply by price per million tokens for the chosen model · multiply by requests per user per day and the number of users · add retries, agent steps and embeddings · levers: a cheaper model for simple tasks, caching, shorter context, output limits'),
+  q('What are rate limits on an LLM API, and how should your app handle a 429?', 'easy', ['Foundations'],
+    'providers limit requests and tokens per minute per account · a 429 means slow down; read the retry-after header · retry with exponential backoff and jitter, a limited number of times · queue background work instead of firing it all at once · show users a friendly message instead of an error dump'),
+  q('AI engineering vs machine learning engineering — what is the difference?', 'easy', ['Foundations', 'Must-have'],
+    'ML engineering: training and serving models, data pipelines, features, GPUs · AI engineering: building products on top of existing models via APIs — prompts, retrieval, tools, agents, evals, UX · AI engineers rarely train models; they choose, combine and evaluate them · strong software engineering (APIs, data, frontend) matters more than math · why a frontend engineer is well placed for it'),
+  q('How is building an AI feature different from building a normal frontend feature?', 'medium', ['Foundations', 'Must-have'],
+    'the output is non-deterministic, so you design for wrong or partial answers · latency is seconds, so streaming, loading and cancel states matter · cost per request is real money · quality is measured with evals, not just unit tests · trust UX: citations, edit before applying, feedback buttons'),
+  q('What is an eval, and why can\'t you test an LLM feature with normal unit tests alone?', 'easy', ['Foundations'],
+    'an eval is a fixed set of inputs with expected outputs or grading rules, run whenever a prompt or model changes · unit tests expect exact outputs; LLM outputs vary, so you check properties (valid JSON, contains the fact, cites a source) or use a grader · start with 20 real examples · track the score over time and block regressions · unit tests still cover the deterministic code around the model'),
+  q('What is a prompt template, and how do you version and test prompts in a codebase?', 'medium', ['Foundations'],
+    'a prompt with placeholders filled from data at run time · keep prompts in code (or files) under version control, not scattered strings · one function builds each prompt so it can be tested · run the eval set when a prompt changes, compare scores before merging · log which prompt version produced each answer'),
+  q('What should you never send to an LLM API, and how do you handle user personal data?', 'medium', ['Foundations'],
+    'never: secrets, API keys, passwords, data the user did not agree to share · minimize: send only the fields needed for the task · mask or remove personal data (names, emails, IDs) where possible · check the provider\'s data retention and training policy · do not log full prompts with personal data without redaction'),
+  q('What is an extended thinking (reasoning) mode, and when is it worth the extra latency and cost?', 'medium', ['Foundations'],
+    'the model spends extra tokens reasoning before it answers · helps multi-step problems: planning, math, code, tricky analysis · costs more tokens and time, so it is wrong for chat replies, extraction or classification · set a thinking budget · measure with evals whether it actually improves your task'),
+
   // ---- LLM fundamentals (8)
   q('What is a token, and how do tokens drive the cost, latency and limits of an LLM feature?', 'easy', ['LLM fundamentals', 'Must-have'],
     'a token is a sub-word unit from the model\'s tokenizer (BPE), roughly 4 characters of English, more for code and non-English text · you pay per input and output token, output tokens cost more and dominate latency (generated one at a time) · the context window caps input + output together · count tokens before sending and trim history or context · prompt caching cuts the cost of a repeated prefix'),
@@ -213,6 +257,14 @@ const ROWS = [
     'prompts and model versions in version control · run the eval suite before merging, block on regressions · shadow or A/B test against live traffic · feature flags to roll out gradually and roll back fast · monitor quality signals, cost and latency after release · keep the old version runnable'),
 ]
 
-// Must-haves first, otherwise the order above.
+const STAGE = {
+  'Foundations': 1, 'LLM fundamentals': 1, 'AI product UX': 1,
+  'Embeddings & chunking': 2, 'Vector databases': 2, 'RAG & retrieval': 2,
+  'Agents & workflows': 3, 'Agentic RAG': 3, 'Human-in-the-loop': 3, 'MCP & A2A': 3,
+  'Evals & production': 4, 'Frameworks': 4,
+}
+const stage = r => STAGE[r.topics.find(t => t !== 'Must-have')] ?? 4
+const LEVEL = { easy: 0, medium: 1, hard: 2 }
 const must = r => r.topics.includes('Must-have') ? 0 : 1
-export default [...ROWS].sort((a, b) => must(a) - must(b)).map((r, i) => ({ ...r, sort_order: i + 1 }))
+// Stage, then easy → hard, then must-haves first; otherwise the order above.
+export default [...ROWS].sort((a, b) => stage(a) - stage(b) || LEVEL[a.difficulty] - LEVEL[b.difficulty] || must(a) - must(b)).map((r, i) => ({ ...r, sort_order: i + 1 }))

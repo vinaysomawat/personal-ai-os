@@ -5,11 +5,12 @@ import { createClient } from '@/lib/supabase/server'
 import { askAI } from '@/lib/ai-gateway'
 import { formatOf, roundScore, type MockFormat, type MockItem, type MockReview, type MockRound } from './mock'
 import { COMPETENCIES } from './types'
-import type { PrepSession, Story, StoryRehearsal } from './types'
+import type { PrepBlock, PrepSession, Story, StoryRehearsal } from './types'
 import { endFocus, loadPrepData, patchToday, startFocusOn, syncBankBlocks, toggleFocusPause } from './core'
 import type { FocusSession } from './war'
 import { ORDER, type DayTemplate, type TodayPatch } from './dayplan'
-import { ROADMAP, type RoadmapProgress } from './roadmap'
+import { ROADMAP, buildBlock, learnBlock, type RoadmapProgress, type RoadmapStepDone } from './roadmap'
+import { prepToday } from '@/lib/date'
 import { critiqueFollowUp, critiqueQuestion, critiqueStory, modelAnswer, SPOKEN_NOTE } from './critique'
 import type { Rubric, Scorecard } from './scorecard'
 import { speechStats } from '@/lib/speech-stats'
@@ -348,4 +349,31 @@ export async function undoRoadmapWeek(week: number): Promise<void> {
   const { error } = await supabase.from('roadmap_progress').delete().eq('user_id', user.id).eq('week', week)
   if (error) throw new Error(error.message)
   revalidatePath('/prep')
+}
+
+// Ticks (or unticks) one step of a roadmap week, then points today's Learn /
+// Build blocks at the week's next step (their minutes and done stay).
+export async function setRoadmapStep(week: number, step: number, done: boolean): Promise<RoadmapStepDone[]> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) throw new Error('Not authenticated')
+  const w = ROADMAP.find(x => x.week === week)
+  if (!w || !Number.isInteger(step) || step < 0 || step >= w.steps.length) throw new Error('Unknown step')
+  const res = done
+    ? await supabase.from('roadmap_steps').upsert({ user_id: user.id, week, step, done_at: new Date().toISOString() }, { onConflict: 'user_id,week,step' })
+    : await supabase.from('roadmap_steps').delete().eq('user_id', user.id).eq('week', week).eq('step', step)
+  if (res.error) throw new Error(res.error.message)
+  const { data: rows } = await supabase.from('roadmap_steps').select('week, step, done_at').eq('user_id', user.id)
+  const steps = (rows ?? []) as RoadmapStepDone[]
+  const today = prepToday()
+  const { data: session } = await supabase.from('prep_sessions').select('id, blocks').eq('user_id', user.id).eq('date', today).maybeSingle()
+  if (session) {
+    const blocks = (session.blocks as PrepBlock[]).map(b => {
+      const fresh = b.key === 'learn' ? learnBlock(today, b.minutes, steps) : b.key === 'build' ? buildBlock(today, b.minutes, steps) : null
+      return fresh ? { ...fresh, minutes: b.minutes, done: b.done } : b
+    })
+    await supabase.from('prep_sessions').update({ blocks }).eq('id', session.id)
+  }
+  revalidatePath('/prep')
+  return steps
 }
