@@ -134,6 +134,13 @@ export function planItems(date: string, template: DayTemplate, ctx: PlanCtx): Pr
     const b = blockFor(key, m, date, ctx)
     if (b) out.push(b)
   }
+  // Least-covered categories first: the question blocks swap among their own
+  // slots by coverage (practised / total, ascending; ties keep ORDER), so
+  // Learn, Build, the mock and applications keep their place in the day.
+  const pct = (b: PrepBlock) => { const c = ctx.coverage.find(x => `bank:${x.key}` === b.key); return c?.total ? c.seen / c.total : 1 }
+  const slots = out.flatMap((b, i) => b.key.startsWith('bank:') ? [i] : [])
+  const sorted = slots.map(i => out[i]).sort((a, b) => pct(a) - pct(b))
+  slots.forEach((i, k) => { out[i] = sorted[k] })
   return out
 }
 

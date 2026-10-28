@@ -5,6 +5,7 @@ append here whenever you deploy, same cadence as the version bump.
 
 ## 2026-10-28
 
+- **Least-practised categories come first.** Each new day's plan puts the question blocks in order of coverage (the share of a category you've practised), lowest first. Learn, Build, the mock and Job applications stay where they are.
 - **A guided AI engineering path.** The old roadmap assumed you knew Personal OS's code and started with advanced topics. It is now an 11-week path from tomorrow (29 Oct), Frontend → full stack → AI engineer, in 4 stages: LLM apps in TypeScript, retrieval (RAG), agents and MCP, then FastAPI, evals and shipping. You build it in Job Copilot, a small fresh repo you write yourself. Each week has concepts in plain words, 5 steps with a "done when" check, links and an interview line. Today's Learn and Build blocks show the next step you haven't ticked, and the AI tab shows Today's step, the week and the whole path. AI questions now go stage by stage, easiest first, with 20 new Foundations questions (111 in total).
 - **26 new Backend & APIs questions.** New sections on Row Level Security (8), FastAPI (8) and Next.js rendering (10: the 'use client' boundary, static vs dynamic, SSR/SSG/ISR/PPR, hydration, securing Server Actions and more), for 71 backend questions in total.
 - **Move lunch or dinner for today.** Edit today now lists your meals with their start and end times and names, so you can shift or rename lunch or dinner for one day. The sessions around a meal move with it, and your default plan stays the same.
