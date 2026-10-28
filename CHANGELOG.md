@@ -5,6 +5,7 @@ append here whenever you deploy, same cadence as the version bump.
 
 ## 2026-10-28
 
+- **26 new Backend & APIs questions.** New sections on Row Level Security (8), FastAPI (8) and Next.js rendering (10: the 'use client' boundary, static vs dynamic, SSR/SSG/ISR/PPR, hydration, securing Server Actions and more), for 71 backend questions in total.
 - **Move lunch or dinner for today.** Edit today now lists your meals with their start and end times and names, so you can shift or rename lunch or dinner for one day. The sessions around a meal move with it, and your default plan stays the same.
 - **More resume questions from your latest resume.** 45 new deep-dive questions follow the Oct 27 resume: the LLM CI pipeline, RAG assistant and SSE at SS&C; RBAC, the OpenAI + Pydantic rule engine and global search at Shiprocket; Twilio device switching at Biofourmis; RD/PID, eKYC and the QR ledger at Novopay; and Personal OS and your skills. All earlier resume questions stay, for 130 in total (45 must-haves).
 - **The Questions tab agrees with the timeline.** A category's ✓ now uses the same done state as Today, so focus time counts as well as answers, and its planned minutes update after Edit today.
