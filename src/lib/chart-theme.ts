@@ -1,8 +1,7 @@
 // Shared recharts config every chart component reads from, instead of
 // re-declaring the same string literals per component. Colors/fonts always
 // come from the existing CSS-var token layer (globals.css), never hardcoded
-// hex, so every chart repaints correctly in both themes — see
-// audit/CHARTS-AUDIT.md for the design-fidelity pass this was built for.
+// hex, so every chart repaints correctly in both themes.
 
 export const CHART_GRID_STROKE = 'var(--border)'
 export const CHART_AXIS_TICK = { fill: 'var(--text-tertiary)', fontSize: 10 }

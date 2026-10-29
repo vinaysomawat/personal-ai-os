@@ -139,8 +139,3 @@ function baseMatrix(codingHistory: CodingHistoryRow[], stories: Story[], aiNativ
 export function weakestAreas(cells: ReadinessCell[], n = 3): ReadinessCell[] {
   return [...cells].sort((a, b) => (a.score ?? -1) - (b.score ?? -1)).slice(0, n)
 }
-
-export function overallReadiness(cells: ReadinessCell[]): number {
-  // Blind spots count as 0 — readiness is about the whole loop.
-  return Math.round(cells.reduce((s, c) => s + (c.score ?? 0), 0) / cells.length)
-}

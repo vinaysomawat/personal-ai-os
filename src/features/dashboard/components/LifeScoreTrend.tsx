@@ -40,9 +40,7 @@ function CustomTooltip({ active, payload }: { active?: boolean; payload?: { payl
   )
 }
 
-// Segmented tab track (design source's trendTabStyle recipe) — local to this
-// component rather than the shared FilterPill, whose solid-accent-fill look
-// is a deliberately different pattern used for status filters elsewhere.
+// Segmented tab track (design source's trendTabStyle recipe).
 function TrendTab({ label, active, onClick }: { label: string; active: boolean; onClick: () => void }) {
   return (
     <button

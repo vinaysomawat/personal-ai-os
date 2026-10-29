@@ -164,7 +164,7 @@ export default function SettingsView({ email, initialReminders, aiBudget, system
             </form>
           </div>
         </div>
-        <p className="text-xs text-fg-tertiary mt-2.5">Signed in via Supabase. Export downloads a single JSON file — tasks, applications, expenses, loans, investments, health metrics, resources, and more.</p>
+        <p className="text-xs text-fg-tertiary mt-2.5">Signed in via Supabase. Export downloads a single JSON file — career profile, expenses, loans, investments, health metrics, workouts, reminders and more.</p>
       </Card>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-[var(--grid-gap)] items-start">

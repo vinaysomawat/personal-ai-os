@@ -10,8 +10,7 @@ interface ChangelogSection {
 // Deterministic, no AI — CHANGELOG.md is the single source of truth (also
 // readable as a plain file on GitHub); this just parses its "## {heading}"
 // + "- {item}" structure into sections rather than pulling in a markdown
-// library for two syntax patterns (same "hand-roll the tiny bit we need"
-// choice as FormattedText.tsx's bold/italic renderer).
+// library for two syntax patterns.
 function parseChangelog(md: string): ChangelogSection[] {
   const lines = md.split('\n')
   const sections: ChangelogSection[] = []

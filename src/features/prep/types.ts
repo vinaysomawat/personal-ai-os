@@ -221,16 +221,3 @@ export interface ReadinessCell {
   basis: string
   href: string
 }
-
-export type ReadinessTier = 'not_started' | 'needs_work' | 'developing' | 'ready' | 'strong'
-
-// Raw CSS-var color values (not Tailwind classes) — design's Interview Prep
-// tiles use the same color for both a plain colored-text readiness label and
-// a small corner dot, neither of which is a Tailwind bg+text pill.
-export const READINESS_CONFIG: Record<ReadinessTier, { label: string; color: string; bg: string }> = {
-  not_started: { label: 'Not Started', color: 'var(--border-strong)', bg: 'var(--surface-2)' },
-  needs_work:  { label: 'Needs Work',  color: 'var(--risk)',          bg: 'var(--risk-soft)' },
-  developing:  { label: 'Developing',  color: 'var(--warn)',          bg: 'var(--warn-soft)' },
-  ready:       { label: 'Ready',       color: 'var(--accent)',        bg: 'var(--accent-soft)' },
-  strong:      { label: 'Strong',      color: 'var(--good)',          bg: 'var(--good-soft)' },
-}

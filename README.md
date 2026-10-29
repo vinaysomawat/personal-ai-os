@@ -157,7 +157,7 @@ Vedic (sidereal) astrology. Charts are real astronomical calculation — Claude 
 
 ## 6. Settings (`/settings`)
 
-- **Account** — email, **Export as JSON** (deterministic backup: Career (stored applications, profile, skills), Finance, Health, coding question history, reminders, Life Score history), Sign out.
+- **Account** — email, **Export as JSON** (deterministic backup: Career (profile, skills), Finance, Health, coding question history, reminders, Life Score history), Sign out.
 - **AI Budget** — today / this month vs the ceilings (env-only), spend by module (`TASK_MODULE`) and top 5 by task (`TASK_LABEL`, `src/lib/ai-task-modules.ts`; usage rows from removed tasks fall under Shared).
 - **System Health** — each cron's last run from `cron_runs` (healthy / stale / never-seen, `getCronJobHealth()`).
 - **Reminders** — label, module, morning/evening slot, active. Delivered by the reminder crons at 9:00am (morning slot) and 9:30pm (evening slot).
@@ -240,7 +240,7 @@ AI feature files: `src/features/ai/` (`finance-advisor.ts`, `health-coach.ts`, `
 - **Failed actions don't crash the page**: every transition callback that calls a server action is wrapped in `guard()` (`src/lib/guard.ts`). A rejection (most often `TypeError: Failed to fetch` when the network drops) is logged, the rest of the callback is skipped (optimistic state rolls back), and an `action-error` window event shows `ActionErrorToast`, instead of the route's `error.tsx` replacing the page. Next's redirect / notFound signals are rethrown (`unstable_rethrow`). Nothing is retried automatically (a lost response could otherwise save twice), except Prep's auto-finish of a question block, which tries again on the next minute tick.
 - **Supabase clients**: `lib/supabase/server.ts` (cookies, RLS), `client.ts` (browser), `service.ts` (service role — crons, bots, writes to global pools), `middleware.ts` (session refresh; `/login` redirect; `/api` excluded).
 - **Loading / error**: per-route `loading.tsx` (`PageSkeleton` matching the page) and `error.tsx` (Try again).
-- **Shared components** (`src/components/`): `MicButton` (voice mode), `TopNav`, `ProfileMenu`, `PageHeader` + `HeaderChip`, `Card`, `StatCard`, `PageTabs`, `Modal`, `ConfirmDialog`, `EmptyState`, `FilterPill`, `Skeleton`, `FormattedText`, `FieldError`, `ModuleRecommendations`, `ThemeProvider`, `AIAdvisorProvider`, `ActionErrorToast`.
+- **Shared components** (`src/components/`): `MicButton` (voice mode), `TopNav`, `ProfileMenu`, `PageHeader` + `HeaderChip`, `Card`, `StatCard`, `PageTabs`, `Modal`, `ConfirmDialog`, `EmptyState`, `Skeleton`, `FieldError`, `ModuleRecommendations`, `ThemeProvider`, `AIAdvisorProvider`, `ActionErrorToast`.
 - **Header advisors**: a View calls `useAIAdvisor(label, icon, content)`; `AIAdvisorProvider` portals the content into the TopNav panel (Ask Brain on Dashboard, Money Advisor, Health Coach). Opens and tab switches are logged to `advisor_usage_log`.
 - **Cross-module signals**: each module's `signals.ts` → `rankSignals()` (`src/lib/signals.ts`) → Needs Attention.
 - **Navigation** (`TopNav.tsx`): desktop pills Dashboard · Prep · Finance · Health; Astrology and Settings in the profile menu. Mobile (<`md`): bottom bar Home · Prep · Health · Finance + More (Astrology, Settings). The version string links to `/changelog` (renders `CHANGELOG.md`). Redirects: `/coding` → `/prep?tab=questions`.
@@ -251,24 +251,18 @@ Standard: `user_id uuid references auth.users` + select/insert/update/delete RLS
 
 | Table | Key columns |
 | --- | --- |
-| `prep_settings` | user_id (PK), day_start_min (the default day start, minutes after IST midnight, default 660 = 11:00am), day_template jsonb (`DayTemplate`: sessions, gaps, minutes per day per plan key; null = defaults), weekly_outreach_target (unused), daily_outreach_target (unused), target_date (unused), updated_at |
+| `prep_settings` | user_id (PK), day_start_min (the default day start, minutes after IST midnight, default 660 = 11:00am), day_template jsonb (`DayTemplate`: sessions, gaps, minutes per day per plan key; null = defaults), updated_at |
 | `roadmap_progress` | week (1–11 in use; the column check allows 1–13; unique per user), proof_url (http/https), metric (one key number), notes, completed_at, updated_at — a shipped week of the AI engineering path (AI Engineer tab) |
 | `roadmap_steps` | week, step (0-based within the week), done_at; primary key (user_id, week, step) — a ticked step of the AI engineering path; Learn / Build follow the week's first unticked step |
 | `prep_sessions` | date (unique per user), focus, blocks jsonb `[{key, label, detail, minutes, href, done, links?}]` (the day's items in order; keys: `learn`, `build`, `bank:<category>`, `mock`, `custom:<id>` (your own slots), `apply` (job applications); older days may hold `bank:interview` (the removed redo block), `lead` / `company:<id>` / `outreach`, or main/concept outside Interview War Mode; a few days hold `fight:<area>` / `mock:<format>`), completed_at, start_min (today's own start, null = the default), interview jsonb `{start, minutes, label}` (null = none), breaks jsonb `[{start, end, label?, meal?}]` (your breaks for the day, and meals moved today — `meal` = the gap index; null = none) |
 | `prep_focus_sessions` | date, block_key, label, planned_minutes, started_at, paused_at, paused_seconds, interruptions, ended_at, actual_seconds, status (active/completed/abandoned) |
-| `prep_fights` | unused — no code reads or writes it; old fight rows are kept |
 | `coding_questions` | title, difficulty, url (null for linkless rows), source, topics text[], category (algorithm / quiz / system-design / javascript-functions / ui-coding / ai-native / behavioral / angular / backend / code-review / resume / architecture / ai-engineering; older rows may hold `interview`, which is not a Question Bank category — unconstrained text, typed in `hunt.ts`), sort_order, answer_hints, body (code shown above the answer: code-review diffs) — **global pool, no user_id** |
 | `question_progress` | question_id (unique per user), attempts, last_answer, last_seen_at, last_rating (1–10), last_rated_at |
 | `coding_daily_questions` | question_id, assigned_date, completed, completed_at, outcome, … — history from the retired Coding module, still read as practice/readiness signal |
 | `mock_rounds` | format (screen / behavioral / system-design / machine-coding / code-review / ai-system-design; the check constraint also still allows ai-assisted, unused), items jsonb (each may carry `body`), duration_seconds, review jsonb {verdict, outcome, summary, strengths[], fixes[], notes[], ratings[], score, cards[] for scorecard-graded formats}, created_at |
 | `stories` | title, competencies text[], situation, task, action, result, metrics, strength (1–5), last_rehearsed_at |
-| `mood_logs` | date, mood, energy, note — unused; no code reads or writes it |
 | `story_rehearsals` | story_id (nullable), competency, prompt, answer, critique (text), rating (1–10, computed), scorecard (jsonb `Scorecard`) |
 | `telegram_drills` | question_id → coding_questions, asked_at, answered_at, transcript, rating (1–10), critique |
-| `applications` | unused — the job-hunt pipeline's rows are kept (still in the Settings export); no other code reads or writes it |
-| `interview_rounds` | unused — the job-hunt pipeline's rows are kept (still in the Settings export); no other code reads or writes it |
-| `interview_questions` | unused — the job-hunt pipeline's rows are kept (still in the Settings export); no other code reads or writes it |
-| `outreach` | unused — the job-hunt pipeline's rows are kept (still in the Settings export); no other code reads or writes it |
 | `career_profile` | current_role, current_company, current_salary, target_role, years_experience, bio (one row) — read by Ask Brain's context; no in-app editor |
 | `skills` | name, category, level |
 | `expenses` | amount, category, description, date |

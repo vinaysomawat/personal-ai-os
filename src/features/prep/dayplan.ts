@@ -213,9 +213,6 @@ export function layoutDay(items: PrepBlock[], template: DayTemplate, dayStart: n
   return { rows, dropped: queue }
 }
 
-// What a day's timeline needs, in one place (page, Telegram, Dashboard).
-export const dayStartOf = (sessionStart: number | null | undefined, settingsStart: number) => sessionStart ?? settingsStart
-
 // ---------------- Edit today: a patch, not the whole day ----------------
 
 // Only what changed in Edit today. Absent fields are untouched; `order` is

@@ -10,8 +10,6 @@ export interface Risk {
   action: string
 }
 
-export const IMPACT_EMOJI: Record<Risk['impact'], string> = { high: '🔴', medium: '🟠', low: '🟡' }
-
 // Risk Engine — forward-looking, deterministic-only (Product Principle 2).
 // No fabricated probability numbers: severity is a plain impact tier
 // grounded in real thresholds. Consumed by the Dashboard's Needs Attention

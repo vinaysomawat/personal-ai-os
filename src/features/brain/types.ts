@@ -1,13 +1,5 @@
 export type ScoreModule = 'health' | 'finance' | 'projects'
 
-export interface ScoreHistoryEntry {
-  date: string
-  life: number
-  health: number
-  finance: number
-  projects: number
-}
-
 // Life Score v2 (2026-08-23) — each module's line shows both halves of the
 // blend (today's fresh raw score and the trailing-7-day average), not just
 // the final blended number, so "why did this move" stays legible.

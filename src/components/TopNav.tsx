@@ -19,7 +19,7 @@ import pkg from '../../package.json'
 // (mystical/lifestyle) from the productivity modules the top row is for.
 const MODULES = [
   { label: 'Dashboard', to: '/dashboard', icon: LayoutDashboard },
-  // v2.0: Prep — the daily interview-prep session hub (ROADMAP-v2.md).
+  // v2.0: Prep — the daily interview-prep session hub.
   { label: 'Prep', to: '/prep', icon: Target },
   { label: 'Finance', to: '/finance', icon: DollarSign },
   { label: 'Health', to: '/health', icon: HeartPulse },

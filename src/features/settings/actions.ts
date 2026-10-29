@@ -110,14 +110,13 @@ export async function exportAllData() {
 
   const uid = user.id
   const [
-    applications, careerProfile, skills,
+    careerProfile, skills,
     expenses, budgets, financeProfile, salaryHistory, loans, investments, financialGoals,
     healthMetrics, healthProfile, workouts,
     codingQuestions,
     reminders,
     lifeScoreLogs,
   ] = await Promise.all([
-    supabase.from('applications').select('*').eq('user_id', uid),
     supabase.from('career_profile').select('*').eq('user_id', uid).maybeSingle(),
     supabase.from('skills').select('*').eq('user_id', uid),
     supabase.from('expenses').select('*').eq('user_id', uid),
@@ -139,7 +138,7 @@ export async function exportAllData() {
     exported_at: new Date().toISOString(),
     account: { email: user.email },
     career: {
-      applications: applications.data ?? [], profile: careerProfile.data ?? null,
+      profile: careerProfile.data ?? null,
       skills: skills.data ?? [],
     },
     finance: {

@@ -47,12 +47,6 @@ export interface CategoryCoverage {
   redoDue: number
 }
 
-// A category's coverage plus today's quota (0 when no block plans it).
-export interface CategoryQuota extends CategoryCoverage {
-  quota: number
-  minutes: number
-}
-
 // Redo weak answers: a question whose latest rating is under 7 comes back
 // 1 day (<5), 2 days (<6) or 4 days (<7) after that rating — the same gaps
 // as the topic revision queue. Up to REDO_SHARE of a category's daily quota

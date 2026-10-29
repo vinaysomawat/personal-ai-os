@@ -3,7 +3,7 @@ import type { BankQuestion, PrepBlock, ReadinessAreaKey, ReadinessCell } from '.
 import type { MockRound } from './mock'
 import { BANK_CATEGORIES, redoInterval } from './hunt'
 
-// Interview War Mode (ROADMAP-v2 §10) — every number here is deterministic.
+// Interview War Mode — every number here is deterministic.
 // AI only writes answer reviews and the weekly forecast; it never scores,
 // allocates time or decides what's next.
 
