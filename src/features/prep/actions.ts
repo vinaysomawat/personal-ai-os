@@ -6,9 +6,10 @@ import { askAI } from '@/lib/ai-gateway'
 import { formatOf, roundScore, type MockFormat, type MockItem, type MockReview, type MockRound } from './mock'
 import { COMPETENCIES } from './types'
 import type { PrepBlock, PrepSession, Story, StoryRehearsal } from './types'
-import { endFocus, loadPrepData, patchToday, startFocusOn, syncBankBlocks, toggleFocusPause } from './core'
+import { endFocus, getQuestionBank, interviewOf, loadPrepData, patchToday, startFocusOn, syncBankBlocks, toggleFocusPause } from './core'
+import { matchJD, type InterviewPlan, type InterviewPrep, type JdMatch } from './jd'
 import type { FocusSession } from './war'
-import { ORDER, type DayTemplate, type TodayPatch } from './dayplan'
+import { ORDER, frontLoad, type DayTemplate, type TodayPatch } from './dayplan'
 import { ROADMAP, buildBlock, learnBlock, type RoadmapProgress, type RoadmapStepDone } from './roadmap'
 import { prepToday } from '@/lib/date'
 import { critiqueFollowUp, critiqueQuestion, critiqueStory, modelAnswer, SPOKEN_NOTE } from './critique'
@@ -379,4 +380,119 @@ export async function setRoadmapStep(week: number, step: number, done: boolean):
   }
   revalidatePath('/prep')
   return steps
+}
+
+// ---------------- Interview prep from a job description ----------------
+
+const INTERVIEW_PLAN_SYSTEM = `You are a senior interviewer and interview coach preparing a candidate for a specific interview.
+The candidate: Senior Frontend Engineer (React, Next.js, TypeScript; also Angular), moving toward AI Product Engineer roles (backend & APIs, system design, RAG, agents, evals).
+From the job description and context, write a focused prep plan for THIS interview. Be specific to the JD and the company, never generic filler.
+"knownFor": what this company is known to ask or emphasise in interviews for roles like this, from your own knowledge. Only include what you are reasonably confident about; it may be dated, and it is shown labelled as such. Empty list if you don't know the company.
+"timeline": a schedule from now until the interview start, using the times given, in short blocks (e.g. "Tonight 9:00–10:00pm"), ending with a 30-minute warm-up before the start. Prioritise the candidate's gaps.
+Respond with ONLY a JSON object, no prose before or after:
+{"roleRead":"2 sentences: what this role really is and the level","focusAreas":[{"area":"...","why":"..."}],"rounds":[{"name":"...","what":"..."}],"questions":[{"q":"...","type":"technical"|"system-design"|"coding"|"behavioral"|"culture","why":"which JD line it comes from"}],"knownFor":["..."],"askThem":["..."],"prepareFor":["gaps or weak spots to prepare an answer for"],"timeline":[{"when":"...","what":"..."}]}
+4-6 focusAreas, 2-5 rounds, 14-18 questions, 3-5 askThem, 2-5 prepareFor.`
+
+const istLabel = (date: string, min: number | null) => {
+  if (min === null) return date
+  const h = Math.floor(min / 60) % 24, m = min % 60
+  return `${date} ${h % 12 || 12}:${String(m).padStart(2, '0')}${h < 12 ? 'am' : 'pm'} IST`
+}
+const nowIST = () => new Date(Date.now() + 5.5 * 3600_000).toISOString().slice(0, 16).replace('T', ' ') + ' IST'
+
+async function interviewPlan(userId: string, p: { company: string; role: string | null; round: string | null; jd: string; interview_date: string; start_min: number | null; minutes: number }, matched: JdMatch, storyTitles: string[]): Promise<{ plan: InterviewPlan | null; error: string | null }> {
+  const pct = (g: JdMatch['gaps'][number]) => g.total ? Math.round(g.seen / g.total * 100) : 0
+  const prompt = [
+    `Company: ${p.company}`, `Role: ${p.role ?? 'not given'}`, `Round: ${p.round ?? 'not given'}`,
+    `Interview: ${istLabel(p.interview_date, p.start_min)} (${p.minutes} min). Now: ${nowIST()}.`,
+    `JD skills found: ${matched.skills.map(s => s.label).join(', ') || 'none recognised'}`,
+    `Candidate's practice per matched area (share of bank practised, average answer rating /10): ${matched.gaps.map(g => `${g.category} ${pct(g)}%${g.avgRating !== null ? `, ${g.avgRating}/10` : ''}`).join('; ') || 'n/a'}`,
+    `Candidate's prepared stories: ${storyTitles.join('; ') || 'none'}`,
+    '', 'Job description:', p.jd.slice(0, 12000),
+  ].join('\n')
+  const raw = await askAI('interview_plan', prompt, INTERVIEW_PLAN_SYSTEM, { userId })
+  const json = raw.slice(raw.indexOf('{'), raw.lastIndexOf('}') + 1)
+  let o: Record<string, unknown>
+  try { o = JSON.parse(json) } catch { return { plan: null, error: raw.startsWith('{') || !raw.trim() ? 'The AI plan came back malformed — try again.' : raw } }
+  const arr = <T,>(v: unknown, f: (x: Record<string, unknown>) => T): T[] => Array.isArray(v) ? v.filter(x => x && typeof x === 'object').map(x => f(x as Record<string, unknown>)) : []
+  const strs = (v: unknown) => Array.isArray(v) ? v.map(String).filter(Boolean) : []
+  return {
+    error: null,
+    plan: {
+      roleRead: String(o.roleRead ?? ''),
+      focusAreas: arr(o.focusAreas, x => ({ area: String(x.area ?? ''), why: String(x.why ?? '') })),
+      rounds: arr(o.rounds, x => ({ name: String(x.name ?? ''), what: String(x.what ?? '') })),
+      questions: arr(o.questions, x => ({ q: String(x.q ?? ''), type: String(x.type ?? 'technical'), why: String(x.why ?? '') })).filter(x => x.q),
+      knownFor: strs(o.knownFor), askThem: strs(o.askThem), prepareFor: strs(o.prepareFor),
+      timeline: arr(o.timeline, x => ({ when: String(x.when ?? ''), what: String(x.what ?? '') })),
+    },
+  }
+}
+
+export interface InterviewPrepInput { company: string; role: string; round: string; jd: string; date: string; startMin: number | null; minutes: number }
+
+// Paste a JD → the deterministic match (jd.ts), one AI plan, saved; an
+// interview today also re-shapes today's plan (its slot, its categories
+// first). Later days pick it up when their plan is built (core.ts).
+export async function createInterviewPrep(input: InterviewPrepInput): Promise<{ prep: InterviewPrep; session: PrepSession | null; error: string | null }> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) throw new Error('Not authenticated')
+  const company = input.company.trim().slice(0, 100)
+  const jd = input.jd.trim().slice(0, 30000)
+  if (!company) throw new Error('Add the company')
+  if (jd.length < 80) throw new Error('Paste the full job description')
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(input.date)) throw new Error('Pick the interview date')
+  if (input.startMin !== null && (!Number.isInteger(input.startMin) || input.startMin < 0 || input.startMin > 1439)) throw new Error('Invalid interview time')
+  if (!Number.isInteger(input.minutes) || input.minutes < 15 || input.minutes > 240) throw new Error('Interview length is 15–240 minutes')
+
+  const [bank, { data: stories }] = await Promise.all([
+    getQuestionBank(supabase, user.id),
+    supabase.from('stories').select('*').eq('user_id', user.id),
+  ])
+  const matched = matchJD(jd, bank, (stories ?? []) as Story[])
+  const row = { company, role: input.role.trim() || null, round: input.round.trim() || null, jd, interview_date: input.date, start_min: input.startMin, minutes: input.minutes }
+  const { plan, error } = await interviewPlan(user.id, row, matched, ((stories ?? []) as Story[]).map(s => s.title))
+  const { data, error: dbError } = await supabase.from('interview_preps').insert({ user_id: user.id, ...row, matched, plan }).select('*').single()
+  if (dbError) throw new Error(dbError.message)
+
+  let session: PrepSession | null = null
+  if (input.date === prepToday()) {
+    const { data: today } = await supabase.from('prep_sessions').select('*').eq('user_id', user.id).eq('date', input.date).maybeSingle()
+    if (today) {
+      const { data: updated } = await supabase.from('prep_sessions')
+        .update({ blocks: frontLoad(today.blocks as PrepBlock[], matched.categories), ...(input.startMin !== null ? { interview: interviewOf(row) } : {}) })
+        .eq('id', today.id).select('*').single()
+      session = (updated as PrepSession | null) ?? null
+    }
+  }
+  revalidatePath('/prep')
+  return { prep: data as InterviewPrep, session, error }
+}
+
+// Re-runs the AI plan for a saved prep (after a budget or parse failure).
+export async function retryInterviewPlan(id: string): Promise<{ prep: InterviewPrep | null; error: string | null }> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) throw new Error('Not authenticated')
+  const [{ data: p }, { data: stories }] = await Promise.all([
+    supabase.from('interview_preps').select('*').eq('id', id).eq('user_id', user.id).single(),
+    supabase.from('stories').select('title').eq('user_id', user.id),
+  ])
+  if (!p) throw new Error('Prep not found')
+  const prep = p as InterviewPrep
+  const { plan, error } = await interviewPlan(user.id, prep, prep.matched ?? matchJD(prep.jd, [], []), (stories ?? []).map(s => s.title as string))
+  if (!plan) return { prep: null, error }
+  const { data } = await supabase.from('interview_preps').update({ plan, updated_at: new Date().toISOString() }).eq('id', id).select('*').single()
+  revalidatePath('/prep')
+  return { prep: data as InterviewPrep, error: null }
+}
+
+export async function deleteInterviewPrep(id: string) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) throw new Error('Not authenticated')
+  const { error } = await supabase.from('interview_preps').delete().eq('id', id).eq('user_id', user.id)
+  if (error) throw new Error(error.message)
+  revalidatePath('/prep')
 }

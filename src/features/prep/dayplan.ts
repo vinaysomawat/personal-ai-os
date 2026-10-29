@@ -144,6 +144,18 @@ export function planItems(date: string, template: DayTemplate, ctx: PlanCtx): Pr
   return out
 }
 
+// An interview prep's matched categories (jd.ts matchJD, strongest first)
+// take the first question-block slots; open blocks only, everything else
+// keeps its place.
+export function frontLoad(blocks: PrepBlock[], categories: string[]): PrepBlock[] {
+  const rank = (b: PrepBlock) => { const i = categories.indexOf(b.key.slice(5)); return i < 0 ? Infinity : i }
+  const out = [...blocks]
+  const slots = out.flatMap((b, i) => b.key.startsWith('bank:') && !b.done ? [i] : [])
+  const sorted = slots.map(i => out[i]).sort((a, b) => { const d = rank(a) - rank(b); return Number.isNaN(d) ? 0 : d })
+  slots.forEach((i, k) => { out[i] = sorted[k] })
+  return out
+}
+
 // Interview today (prep_sessions.interview): a warm-up before, a debrief
 // after. Before the day's start it moves the start earlier (gym skipped).
 export interface Interview { start: number; minutes: number; label?: string }

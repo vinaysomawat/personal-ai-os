@@ -2,7 +2,7 @@
 
 import { createHash } from 'node:crypto'
 import { createServiceClient } from '@/lib/supabase/service'
-import { callClaude, SONNET_MODEL, HAIKU_MODEL, type ImageInput } from '@/lib/anthropic'
+import { callClaude, SONNET_MODEL, HAIKU_MODEL, HAIKU_5_5_MODEL, type ImageInput } from '@/lib/anthropic'
 import { todayIST, istMidnightUtc, istDateStrToUtcMidnight } from '@/lib/date'
 
 export type AITask =
@@ -22,9 +22,12 @@ export type AITask =
   | 'answer_critique'
   | 'mock_round_review'
   | 'model_answer'
+  | 'interview_plan'
 
 interface TaskConfig {
   model: string
+  /** Output cap and effort for models that think by default (Haiku 5.5) */
+  tuning?: { maxTokens?: number; effort?: 'low' | 'medium' | 'high' }
   /** null = never cache (chat-style / always-unique prompts) */
   cacheTTLSeconds: number | null
   /** Returned when the daily/monthly budget is exhausted or the call errors */
@@ -77,12 +80,17 @@ const TASK_CONFIG: Record<AITask, TaskConfig> = {
   // prompt is fixed per question, so it's generated once and cached a year;
   // Sonnet because this is what gets studied (Haiku drifted to dated idioms).
   model_answer:           { model: SONNET_MODEL,  cacheTTLSeconds: ONE_YEAR,   fallback: BUDGET_FALLBACK },
+  // Prep Interview tab — a JD → prep plan (JSON). Haiku 5.5 at low effort
+  // (~$0.002 a plan); the same JD + inputs reuse the cached plan for a week.
+  interview_plan:         { model: HAIKU_5_5_MODEL, cacheTTLSeconds: SEVEN_DAYS, fallback: BUDGET_FALLBACK, tuning: { maxTokens: 16000, effort: 'low' } },
 }
 
-// Static per-model pricing, USD per 1M tokens (Sonnet 4.6 / Haiku 4.5).
+// Static per-model pricing, USD per 1M tokens (Sonnet 4.6 / Haiku 4.5 /
+// Haiku 5.5 up to 100K-token prompts).
 const PRICING: Record<string, { input: number; output: number }> = {
   [SONNET_MODEL]: { input: 3.00, output: 15.00 },
   [HAIKU_MODEL]:  { input: 1.00, output: 5.00 },
+  [HAIKU_5_5_MODEL]: { input: 0.10, output: 0.50 },
 }
 
 function estimateCost(model: string, inputTokens: number, outputTokens: number): number {
@@ -115,7 +123,7 @@ const MONTHLY_BUDGET_USD = Number(process.env.AI_MONTHLY_BUDGET_USD ?? 50)
 // reserve too — a digest or forecast can't starve them.
 const INTERACTIVE_TASKS: ReadonlySet<AITask> = new Set([
   'telegram_intent', 'telegram_vision',
-  'answer_critique', 'ai_native_critique', 'story_critique', 'mock_round_review', 'model_answer',
+  'answer_critique', 'ai_native_critique', 'story_critique', 'mock_round_review', 'model_answer', 'interview_plan',
 ])
 const INTERACTIVE_RESERVE_FRACTION = 0.3
 
@@ -251,7 +259,7 @@ export async function askAIWithMeta(task: AITask, prompt: string, system?: strin
   }
 
   try {
-    const { text, inputTokens, outputTokens } = await callClaude(prompt, system, config.model, opts.image)
+    const { text, inputTokens, outputTokens } = await callClaude(prompt, system, config.model, opts.image, config.tuning)
     const cost = estimateCost(config.model, inputTokens, outputTokens)
     await logUsage(db, userId, task, config.model, inputTokens, outputTokens, cost, false)
     const generatedAt = now()

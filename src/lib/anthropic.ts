@@ -6,6 +6,9 @@ const anthropic = new Anthropic({
 
 export const SONNET_MODEL = 'claude-sonnet-4-6'
 export const HAIKU_MODEL = 'claude-haiku-4-5'
+// Haiku 5.5: a tenth of Haiku 4.5's price; thinks by default (adaptive), so
+// callers pass a low effort and room for the thinking tokens.
+export const HAIKU_5_5_MODEL = 'claude-haiku-5-5'
 
 export interface AIResult {
   text: string
@@ -30,7 +33,7 @@ export interface ImageInput {
 // search returns — only how many searches run). Every task now has the
 // model self-report a value (e.g. a URL) and fall back to null/unsure
 // rather than verifying it live.
-export async function callClaude(prompt: string, system: string | undefined, model: string, image?: ImageInput): Promise<AIResult> {
+export async function callClaude(prompt: string, system: string | undefined, model: string, image?: ImageInput, tuning: { maxTokens?: number; effort?: 'low' | 'medium' | 'high' } = {}): Promise<AIResult> {
   const content: Anthropic.MessageParam['content'] = image
     ? [
         { type: 'image', source: { type: 'base64', media_type: image.mediaType as 'image/jpeg' | 'image/png' | 'image/webp' | 'image/gif', data: image.base64 } },
@@ -40,9 +43,10 @@ export async function callClaude(prompt: string, system: string | undefined, mod
 
   const msg = await anthropic.messages.create({
     model,
-    max_tokens: 4096,
+    max_tokens: tuning.maxTokens ?? 4096,
     system: system ?? 'You are a helpful personal AI assistant. Be concise, practical, and actionable.',
     messages: [{ role: 'user', content }],
+    ...(tuning.effort ? { output_config: { effort: tuning.effort } } : {}),
   })
   const block = msg.content.find(b => b.type === 'text')
   return {

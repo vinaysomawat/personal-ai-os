@@ -16,6 +16,8 @@ import { COMPETENCIES, REHEARSAL_PROMPTS, type BankQuestion, type CompetencyKey,
 import { QuestionsTab } from './QuestionsTab'
 import { MockTab } from './MockTab'
 import { AiTab } from './AiTab'
+import { InterviewTab } from './InterviewTab'
+import type { InterviewPrep } from '../jd'
 import type { RoadmapProgress, RoadmapStepDone } from '../roadmap'
 import AnswerReview from './AnswerReview'
 import TimelineCard from './TimelineCard'
@@ -28,9 +30,10 @@ import PageHeader, { HeaderChip } from '@/components/PageHeader'
 import StatCard from '@/components/StatCard'
 import { guard } from '@/lib/guard'
 
-export type PrepTab = 'today' | 'ai' | 'questions' | 'mock' | 'stories'
+export type PrepTab = 'today' | 'interview' | 'ai' | 'questions' | 'mock' | 'stories'
 const TABS: { key: PrepTab; label: string }[] = [
   { key: 'today', label: 'Today' },
+  { key: 'interview', label: 'Interview' },
   { key: 'ai', label: 'AI Engineer' },
   { key: 'questions', label: 'Questions' },
   { key: 'mock', label: 'Mock Round' },
@@ -57,6 +60,7 @@ interface Props {
   bank: BankQuestion[]
   roadmap: RoadmapProgress[]
   roadmapSteps: RoadmapStepDone[]
+  interviewPreps: InterviewPrep[]
 }
 
 // A focus session shown before the server has saved it (optimistic start).
@@ -72,6 +76,7 @@ export default function PrepView(props: Props) {
   const [stories, setStories] = useState(props.stories)
   const [rehearsals, setRehearsals] = useState(props.rehearsals)
   const [roadmap, setRoadmap] = useState(props.roadmap)
+  const [interviewPreps, setInterviewPreps] = useState(props.interviewPreps)
   const [, startTransition] = useTransition()
 
   const [focusSessions, setFocusSessions] = useState(props.focusSessions)
@@ -257,6 +262,8 @@ export default function PrepView(props: Props) {
           )}
         </>
       )}
+
+      {tab === 'interview' && <InterviewTab preps={interviewPreps} setPreps={setInterviewPreps} today={props.today} onOpenTopic={openTopic} onSession={setSession} />}
 
       {tab === 'ai' && <AiTab today={props.today} progress={roadmap} setProgress={setRoadmap} steps={props.roadmapSteps} bank={bank} onOpenTopic={openTopic} />}
 
