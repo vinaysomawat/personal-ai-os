@@ -21,11 +21,15 @@ const rateCls = (n: number) => n >= 8 ? 'text-good bg-good-soft' : n >= 6 ? 'tex
 const scoreText = (n: number) => n >= 8 ? 'text-good' : n >= 6 ? 'text-warn' : 'text-risk'
 const timeLabel = (iso: string) => new Date(iso).toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit', timeZone: 'Asia/Kolkata' })
 
-// One finished round: every question with your answer, its key points and
-// reference link, and the round's single AI review (overall verdict on top,
-// a note under each answer). Used right after a round and from the calendar.
-export function RoundDetail({ round, saving = false, onReviewed, action }: {
+// One finished round: every question with its key points and reference
+// link, and the round's single AI review (overall verdict on top, a note
+// under each question). Used right after a round and from the calendar.
+// Answers aren't stored, so they show (and can be reviewed) only right after
+// the round, while the page still holds them.
+export function RoundDetail({ round, answers, saving = false, onReviewed, action }: {
   round: MockRound
+  // The just-finished round's answers, per item; absent from the calendar.
+  answers?: string[]
   // True while the just-finished round is still being saved (no id yet).
   saving?: boolean
   onReviewed: (round: MockRound) => void
@@ -34,13 +38,13 @@ export function RoundDetail({ round, saving = false, onReviewed, action }: {
   const [reviewing, startReview] = useTransition()
   const [error, setError] = useState<string | null>(null)
   const review = round.review
-  const typed = round.items.some(i => !i.skipped && i.answer.trim())
+  const typed = !!answers && round.items.some((it, i) => !it.skipped && answers[i]?.trim())
   const total = round.items.reduce((s, i) => s + i.seconds, 0)
 
   const runReview = () => {
     setError(null)
     startReview(guard(async () => {
-      const res = await reviewMockRound(round.id)
+      const res = await reviewMockRound(round.id, answers ?? [])
       if (res.review) onReviewed({ ...round, review: res.review })
       else setError(res.error)
     }))
@@ -75,10 +79,12 @@ export function RoundDetail({ round, saving = false, onReviewed, action }: {
         </div>
       ) : (
         <div className="flex flex-wrap items-center justify-between gap-2 mb-2.5">
-          <p className="text-[11.5px] text-fg-tertiary">{typed ? 'One AI interviewer review covers every answer in this round.' : 'No typed answers — type the gist next time to get an AI review.'}</p>
-          <button onClick={runReview} disabled={!typed || saving || reviewing || !round.id} className={`${modalSaveButtonClass} inline-flex items-center gap-1.5 !py-[7px]`}>
-            <Sparkles size={13} /> {reviewing ? 'Reviewing all answers…' : 'AI review of this round'}
-          </button>
+          <p className="text-[11.5px] text-fg-tertiary">{!answers ? 'Not reviewed — answers aren\'t kept, so a round can only be reviewed right after it.' : typed ? 'One AI interviewer review covers every answer in this round. Answers aren\'t kept — only the scores and feedback.' : 'No typed answers — type the gist next time to get an AI review.'}</p>
+          {answers && (
+            <button onClick={runReview} disabled={!typed || saving || reviewing || !round.id} className={`${modalSaveButtonClass} inline-flex items-center gap-1.5 !py-[7px]`}>
+              <Sparkles size={13} /> {reviewing ? 'Reviewing all answers…' : 'AI review of this round'}
+            </button>
+          )}
           {error && <p className="basis-full text-[12px] text-risk">{error}</p>}
           {reviewing && <div className="basis-full space-y-2">{[90, 70, 80].map((w, i) => <div key={i} className="h-3 rounded bg-surface-2 animate-pulse" style={{ width: `${w}%` }} />)}</div>}
         </div>
@@ -95,7 +101,7 @@ export function RoundDetail({ round, saving = false, onReviewed, action }: {
             </div>
             <p className="text-[13px] font-semibold text-fg-primary leading-snug mt-0.5">{it.prompt}</p>
             {it.body && <CodeBlock code={it.body} />}
-            {!it.skipped && <p className={`text-[12.5px] whitespace-pre-wrap mt-1.5 ${it.answer.trim() ? 'text-fg-secondary' : 'text-fg-tertiary italic'}`}>{it.answer.trim() || 'Answered out loud'}</p>}
+            {answers && !it.skipped && <p className={`text-[12.5px] whitespace-pre-wrap mt-1.5 ${answers[idx]?.trim() ? 'text-fg-secondary' : 'text-fg-tertiary italic'}`}>{answers[idx]?.trim() || 'Answered out loud'}</p>}
             {it.hints && <p className="text-[12px] text-fg-secondary mt-1.5 border-l-2 border-border-strong pl-2"><span className="font-semibold">Cover:</span> {it.hints}</p>}
             {it.url && <a href={it.url} target="_blank" rel="noopener noreferrer" className="mt-1.5 text-[12px] text-accent hover:underline inline-flex items-center gap-1">Check the answer <ExternalLink size={11} /></a>}
             {review?.cards?.[idx] ? <AnswerReview card={review.cards[idx]} text={review.notes[idx] ?? ''} rating={review.ratings[idx] ?? null} question={it.prompt} />
@@ -169,7 +175,7 @@ export function MockCalendar({ rounds, selectedId, onSelect }: {
         })}
       </div>
       {rounds.length === 0 ? (
-        <p className="text-[12px] text-fg-tertiary text-center pt-3">No rounds yet. Every round you take is kept here with your answers and its AI review.</p>
+        <p className="text-[12px] text-fg-tertiary text-center pt-3">No rounds yet. Every round you take is kept here with its scores and AI review (not your answers).</p>
       ) : (
         <ul className="flex flex-col gap-1 mt-2.5 pt-2.5 border-t border-surface-3">
           {dayRounds.length === 0 && <li className="text-[11.5px] text-fg-tertiary">Pick a day with a dot.</li>}

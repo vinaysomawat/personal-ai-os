@@ -272,8 +272,8 @@ export default function PrepView(props: Props) {
           onSaved={(round, s) => {
             setRounds(prev => [round, ...prev])
             const now = round.created_at
-            const answered = new Map(round.items.filter(i => i.question_id && !i.skipped).map(i => [i.question_id!, i]))
-            setBank(prev => prev.map(q => { const it = answered.get(q.id); return it ? { ...q, last_seen_at: now, last_answer: it.answer.trim() || q.last_answer } : q }))
+            const answered = new Set(round.items.filter(i => i.question_id && !i.skipped).map(i => i.question_id!))
+            setBank(prev => prev.map(q => answered.has(q.id) ? { ...q, last_seen_at: now } : q))
             if (s) setSession(s)
           }}
           onRoundUpdated={round => setRounds(prev => prev.map(r => r.id === round.id ? round : r))}

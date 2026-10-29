@@ -160,7 +160,8 @@ export async function answerQuestion(questionId: string, answer: string | null, 
 
 // Saves a finished Mock Round: each answered (not skipped) bank question
 // counts as practiced in question_progress, the round goes into mock_rounds,
-// and today's mock block auto-completes.
+// and today's mock block auto-completes. Answers are never stored — only the
+// questions, times and (after reviewMockRound) the review and its scores.
 export async function saveMockRound(format: MockFormat, items: MockItem[], durationSeconds: number): Promise<{ round: MockRound; session: PrepSession | null }> {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -171,20 +172,18 @@ export async function saveMockRound(format: MockFormat, items: MockItem[], durat
   const answered = items.filter(i => i.question_id && !i.skipped)
   if (answered.length > 0) {
     const ids = answered.map(i => i.question_id!)
-    const { data: prev } = await supabase.from('question_progress').select('question_id, attempts, last_answer').eq('user_id', user.id).in('question_id', ids)
+    const { data: prev } = await supabase.from('question_progress').select('question_id, attempts').eq('user_id', user.id).in('question_id', ids)
     const prevById = new Map((prev ?? []).map(p => [p.question_id, p]))
     const { error } = await supabase.from('question_progress').upsert(answered.map(i => ({
       user_id: user.id, question_id: i.question_id!,
       attempts: (prevById.get(i.question_id!)?.attempts ?? 0) + 1,
-      // An answer given out loud (blank here) keeps the last typed one.
-      last_answer: i.answer.trim() || prevById.get(i.question_id!)?.last_answer || null,
       last_seen_at: now,
     })), { onConflict: 'user_id,question_id' })
     if (error) throw new Error(error.message)
   }
 
   const { data: round, error } = await supabase.from('mock_rounds')
-    .insert({ user_id: user.id, format, items, duration_seconds: Math.max(0, Math.round(durationSeconds)) })
+    .insert({ user_id: user.id, format, items: items.map(i => ({ ...i, answer: '' })), duration_seconds: Math.max(0, Math.round(durationSeconds)) })
     .select('id, format, items, duration_seconds, created_at, review').single()
   if (error) throw new Error(error.message)
 
@@ -206,7 +205,9 @@ const parseList = (v: unknown) => Array.isArray(v) ? v.map(String).filter(Boolea
 // The AI review of a saved round, stored on the row so the calendar can show
 // it again for free: one Haiku call for the whole round, or (code-review and
 // code-review) one scorecard per answer.
-export async function reviewMockRound(roundId: string): Promise<{ review: MockReview | null; error: string | null }> {
+// The answers come from the page (they're never stored), so a round can be
+// reviewed only right after it, while the page still holds them.
+export async function reviewMockRound(roundId: string, answers: string[]): Promise<{ review: MockReview | null; error: string | null }> {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) throw new Error('Not authenticated')
@@ -214,7 +215,9 @@ export async function reviewMockRound(roundId: string): Promise<{ review: MockRe
   if (!round) throw new Error('Round not found')
   if (round.review) return { review: round.review as MockReview, error: null }
 
-  const items = round.items as MockItem[]
+  const stored = round.items as MockItem[]
+  if (answers.length !== stored.length) throw new Error('Answers don\'t match the round')
+  const items = stored.map((it, i) => ({ ...it, answer: String(answers[i] ?? '').slice(0, 20000) }))
   const review = SCORECARD_FORMATS.has(round.format)
     ? await scorecardRoundReview(supabase, user.id, items)
     : await wholeRoundReview(user.id, round.format, items)

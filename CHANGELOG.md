@@ -5,6 +5,7 @@ append here whenever you deploy, same cadence as the version bump.
 
 ## 2026-10-29
 
+- **Mock answers aren't stored any more, only scores.** A mock round now saves its questions, times, AI review and ratings, but not what you typed. Review a round right after it, while the page still has your answers. Answers from your 16 earlier rounds were erased (backed up locally first); their scores and feedback stay.
 - **Cleanup: unused code, files and database tables removed.** Dropped 6 tables nothing used any more (the old job-hunt pipeline's applications, interview rounds, interview questions and outreach, plus the boss-ladder fights and mood logs) and 3 unused Prep settings columns, after backing up their rows locally. Removed 2 unused components, 8 dead exports, the old audit notes, the v2 roadmap, an old design snapshot and four one-off question-crawl scripts. The Settings export no longer includes job applications.
 - **34 new Backend & APIs questions from today's interview.** New sections on Python asyncio (gather vs wait and more), concurrency and deadlocks, caching in deployment, and SOLID in Python, including the bugs you get from breaking each principle. That makes 105 backend questions (37 must-haves).
 

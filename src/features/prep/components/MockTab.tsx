@@ -176,7 +176,7 @@ export function MockTab({ bank, readiness, covered, rounds, today, format: forma
         {saveError && (
           <p className="text-[12px] text-risk">{saveError} — <button onClick={() => save(run)} className="underline">retry</button></p>
         )}
-        <RoundDetail round={round} saving={saving} onReviewed={onRoundUpdated}
+        <RoundDetail round={round} answers={run.items.map(i => i.answer)} saving={saving} onReviewed={onRoundUpdated}
           action={<button onClick={() => setRun(null)} disabled={saving || (!run.savedId && !saveError)} className={modalSaveButtonClass}>Done</button>} />
       </div>
     )
