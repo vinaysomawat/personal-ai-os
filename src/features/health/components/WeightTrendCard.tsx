@@ -24,7 +24,7 @@ export default function WeightTrendCard({ trend, targetPaceKg, normalBmiWeightKg
 
   if (!trend) {
     return (
-      <div className="bg-surface-1 border border-surface-3 rounded-2xl p-[var(--card-pad-md)]">
+      <div className="bg-surface-1 border border-surface-3 rounded-[10px] p-[var(--card-pad-md)]">
         <p className="text-[13px] font-bold text-fg-primary mb-1">Weight Trend</p>
         <p className="text-xs text-fg-tertiary">Log weight on at least 3 days across a week to see your trend.</p>
       </div>
@@ -56,7 +56,7 @@ export default function WeightTrendCard({ trend, targetPaceKg, normalBmiWeightKg
   const shown = hover !== null ? points[hover] : null
 
   return (
-    <div className="bg-surface-1 border border-surface-3 rounded-2xl p-[var(--card-pad-md)]">
+    <div className="bg-surface-1 border border-surface-3 rounded-[10px] p-[var(--card-pad-md)]">
       <div className="flex items-baseline justify-between gap-2">
         <p className="text-[13px] font-bold text-fg-primary">Weight Trend</p>
         <p className="text-[11px] text-fg-tertiary tabular-nums">

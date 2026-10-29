@@ -16,10 +16,11 @@ interface CardProps {
 // action can sit at the bottom via mt-auto when a row does stretch it.
 export default function Card({ title, children, className = '', action, padding = 'p-[var(--card-pad-lg)]' }: CardProps) {
   return (
-    <div className={`bg-surface-1 border border-surface-3 rounded-[18px] shadow-card flex flex-col ${padding} ${className}`}>
+    <div className={`bg-surface-1 border border-surface-3 rounded-[10px] shadow-card flex flex-col ${padding} ${className}`}>
       {title && (
-        <div className="flex items-center justify-between mb-2.5">
-          <h2 className="text-[13px] font-bold text-fg-primary">{title}</h2>
+        <div className="flex items-center justify-between gap-2 mb-2">
+          {/* Section label: small uppercase grey, as in the life app. */}
+          <h2 className="text-[11px] font-semibold uppercase tracking-[0.4px] text-fg-tertiary">{title}</h2>
           {action}
         </div>
       )}

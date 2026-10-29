@@ -34,7 +34,7 @@ export default function ChangelogPage() {
   return (
     <div className="space-y-3">
       <PageHeader title="Changelog" />
-      <div className="bg-surface-1 border border-surface-3 rounded-2xl p-[var(--card-pad-lg)] space-y-6">
+      <div className="bg-surface-1 border border-surface-3 rounded-[10px] p-[var(--card-pad-lg)] space-y-6">
         {sections.map(section => (
           <div key={section.heading}>
             <h2 className="text-[13px] font-bold text-fg-primary mb-2.5">{section.heading}</h2>

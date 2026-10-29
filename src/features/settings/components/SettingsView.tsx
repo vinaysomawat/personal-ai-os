@@ -169,20 +169,33 @@ export default function SettingsView({ email, initialReminders, aiBudget, system
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-[var(--grid-gap)] items-start">
         <Card title="AI Budget">
-          <div className="space-y-3.5">
-            <div>
-              <div className="text-[12.5px] text-fg-secondary mb-1">Today: ${fmtUsd(aiBudget.spentToday)} of ${fmtUsd(aiBudget.dailyBudget)}</div>
-              <div className="h-1.5 bg-surface-2 rounded-[4px] overflow-hidden">
-                <div className={`h-full rounded-[4px] transition-all ${barColor(dailyPct)}`} style={{ width: `${dailyPct}%` }} />
+          <div className="space-y-3">
+            {/* Plan-style usage card (the life app's Configuration): spend this
+                month on the right, a "% left" meter per ceiling. */}
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <p className="text-[13px] font-semibold text-fg-primary">Anthropic API · AI Gateway</p>
+                <p className="text-[11.5px] text-fg-tertiary">${fmtUsd(aiBudget.dailyBudget)}/day · ${fmtUsd(aiBudget.monthlyBudget)}/month ceilings</p>
+              </div>
+              <div className="text-right shrink-0">
+                <p className="text-[19px] font-bold tabular-nums leading-none text-fg-primary">${fmtUsd(aiBudget.spentThisMonth)}</p>
+                <p className="text-[10.5px] text-fg-tertiary mt-0.5">this month</p>
               </div>
             </div>
-            <div>
-              <div className="text-[12.5px] text-fg-secondary mb-1">This month: ${fmtUsd(aiBudget.spentThisMonth)} of ${fmtUsd(aiBudget.monthlyBudget)}</div>
-              <div className="h-1.5 bg-surface-2 rounded-[4px] overflow-hidden">
-                <div className={`h-full rounded-[4px] transition-all ${barColor(monthlyPct)}`} style={{ width: `${monthlyPct}%` }} />
-              </div>
+            <div className="grid grid-cols-2 gap-3">
+              {[{ label: 'Today', pct: dailyPct, spent: aiBudget.spentToday }, { label: 'This month', pct: monthlyPct, spent: aiBudget.spentThisMonth }].map(m => (
+                <div key={m.label}>
+                  <div className="flex items-baseline justify-between text-[11.5px] mb-1">
+                    <span className="text-fg-secondary">{m.label} · ${fmtUsd(m.spent)}</span>
+                    <span className={`font-semibold tabular-nums ${m.pct >= 80 ? 'text-warn' : 'text-fg-secondary'}`}>{Math.max(0, 100 - Math.round(m.pct))}% left</span>
+                  </div>
+                  <div className="h-1 bg-surface-2 rounded-full overflow-hidden">
+                    <div className={`h-full rounded-full transition-all ${barColor(m.pct)}`} style={{ width: `${m.pct}%` }} />
+                  </div>
+                </div>
+              ))}
             </div>
-            <p className="text-xs text-fg-tertiary">Ceilings are set via environment variables (AI_DAILY_BUDGET_USD / AI_MONTHLY_BUDGET_USD) — once hit, AI features fall back to a friendly message instead of erroring.</p>
+            <p className="text-[11px] text-fg-tertiary">Set by AI_DAILY_BUDGET_USD / AI_MONTHLY_BUDGET_USD; at the ceiling AI features answer with a friendly fallback instead of erroring.</p>
             {aiBudget.spendByModule.length > 0 && (
               <div className="pt-1 border-t border-surface-3">
                 <p className="text-[11px] font-bold text-fg-tertiary uppercase tracking-[0.4px] mb-2 mt-3">Spend by module</p>
@@ -217,15 +230,15 @@ export default function SettingsView({ email, initialReminders, aiBudget, system
             {staleCount > 0 ? `${staleCount} stale` : 'All healthy'}
           </span>
         }>
-          <p className="text-xs text-fg-tertiary mb-3">Scheduled jobs (Vercel Cron) — last confirmed run, and whether it&apos;s within its expected cadence.</p>
-          <ul className="space-y-[9px]">
+          <p className="text-[11px] text-fg-tertiary mb-2">Scheduled jobs (Vercel Cron) — last confirmed run, and whether it&apos;s within its expected cadence.</p>
+          {/* Tiles with a status-coloured left border (the life app's data-source tiles). */}
+          <ul className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
             {sortedHealth.map(h => (
-              <li key={h.job} className="flex items-center gap-3">
-                <span className={`w-2 h-2 rounded-full shrink-0 ${h.status === 'healthy' ? 'bg-good' : h.status === 'stale' ? 'bg-risk' : 'bg-fg-quaternary'}`} />
-                <span className="flex-1 text-[12.5px] text-fg-primary">{jobLabel(h.job)}</span>
-                <span className={`text-[12.5px] shrink-0 ${h.status === 'stale' ? 'text-risk font-semibold' : 'text-fg-tertiary font-normal'}`}>
-                  {h.lastRun ? fmtRelativeTime(h.lastRun) : 'never run yet'}
-                </span>
+              <li key={h.job} className={`rounded-[8px] border border-surface-3 border-l-[3px] px-2.5 py-1.5 ${h.status === 'healthy' ? 'border-l-good' : h.status === 'stale' ? 'border-l-risk' : 'border-l-border-strong'}`}>
+                <p className="text-[12.5px] font-semibold text-fg-primary truncate">{jobLabel(h.job)}</p>
+                <p className={`text-[11px] ${h.status === 'stale' ? 'text-risk font-semibold' : 'text-fg-tertiary'}`}>
+                  {h.status === 'stale' ? 'stale · ' : ''}{h.lastRun ? fmtRelativeTime(h.lastRun) : 'never run yet'}
+                </p>
               </li>
             ))}
           </ul>

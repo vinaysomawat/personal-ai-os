@@ -406,7 +406,7 @@ export default function FinanceView({ expenses, budgets, profile, loans, investm
 
       {/* Stat tiles */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-[var(--grid-gap-sm)]">
-        <div className="bg-surface-1 border border-surface-3 rounded-2xl p-[var(--card-pad-sm)]">
+        <div className="bg-surface-1 border border-surface-3 rounded-[10px] p-[var(--card-pad-sm)]">
           <div className="flex items-center justify-between mb-1">
             <p className="text-[11px] text-fg-tertiary uppercase">Monthly Salary</p>
             <button onClick={() => setSalaryVisible(v => !v)} aria-label={salaryVisible ? 'Hide salary' : 'Show salary'} className="p-1.5 -m-1.5 text-fg-quaternary hover:text-fg-secondary transition-colors">
@@ -434,7 +434,7 @@ export default function FinanceView({ expenses, budgets, profile, loans, investm
         <StatCard label="Total Debt" value={fmt(totalDebt)} valueClassName="text-risk" sub={`${fmt(totalEMIs)}/mo EMI · ${fmt(totalPayable)} payable incl. interest`} />
         {/* Runway replaced Net Worth (2026-10-10, job hunt): how long the
             liquid savings last at the rolling 3-month average spend. */}
-        <div className="bg-surface-1 border border-surface-3 rounded-2xl shadow-card p-[var(--card-pad-sm)]">
+        <div className="bg-surface-1 border border-surface-3 rounded-[10px] shadow-card p-[var(--card-pad-sm)]">
           <p className="text-[11px] text-fg-tertiary uppercase tracking-[0.4px]">Runway</p>
           <p className={`text-[20px] font-bold mt-1 tabular-nums ${runwayTone(runway)}`}>{runway === null ? '—' : `${runway} months`}</p>
           <div className="text-[11px] text-fg-tertiary mt-0.5 flex flex-wrap items-center gap-1">

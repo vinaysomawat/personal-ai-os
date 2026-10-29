@@ -89,7 +89,7 @@ export function PageSkeleton({ chips = 1, banner = false, stats, statsCols, tabs
       {stats && (
         <div className={`grid gap-[var(--grid-gap-sm)] ${statsCols ?? 'grid-cols-2 sm:grid-cols-4'}`}>
           {Array.from({ length: stats }).map((_, i) => (
-            <div key={i} className="bg-surface-1 border border-surface-3 rounded-2xl p-[var(--card-pad-sm)] space-y-2">
+            <div key={i} className="bg-surface-1 border border-surface-3 rounded-[10px] p-[var(--card-pad-sm)] space-y-2">
               <Skeleton className="h-3 w-20" />
               <Skeleton className="h-6 w-16" />
             </div>
@@ -104,7 +104,7 @@ export function PageSkeleton({ chips = 1, banner = false, stats, statsCols, tabs
       {rows.map((row, r) => (
         <div key={r} className={`grid grid-cols-1 gap-[var(--grid-gap)] items-start ${row.cols ?? ''}`}>
           {row.heights.map((h, i) => (
-            <div key={i} className="bg-surface-1 border border-surface-3 rounded-[18px] p-[var(--card-pad-lg)] space-y-3 overflow-hidden" style={{ height: h }}>
+            <div key={i} className="bg-surface-1 border border-surface-3 rounded-[10px] p-[var(--card-pad-lg)] space-y-3 overflow-hidden" style={{ height: h }}>
               <Skeleton className="h-4 w-32" />
               {Array.from({ length: Math.max(1, Math.floor((h - 60) / 34)) }).map((_, j) => (
                 <Skeleton key={j} className="h-3" style={{ width: `${55 + ((i + j) % 3) * 15}%` }} />

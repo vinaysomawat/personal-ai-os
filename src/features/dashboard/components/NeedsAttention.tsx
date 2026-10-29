@@ -9,22 +9,16 @@ import type { Risk } from '@/features/brain/risk-opportunity-engine'
 import type { TopAction } from '../actions'
 import { guard } from '@/lib/guard'
 
-// Every row shares one layout (bg-surface-2, colored left border, kind
-// badge under the text) regardless of type — risk/signal used
-// to each have their own bespoke row markup; this unifies them while
-// keeping risk's per-severity color nuance (design's own mockup flattens
-// risk to one flat red, but our impact tiers are real, worth keeping).
-//
-// Restyled 2026-08-18 to match the Claude Design source: a uniform colored
-// dot replaces the old per-type icon/emoji, and risk rows show a second
-// "→ {action}" suggestion line. Signal rows deliberately don't
-// get a suggestion line — the 12 signal generators across the module
-// signals.ts files each write one blended sentence, and inventing a
-// separate action string for each risked reading as filler rather than
-// real guidance (per user decision 2026-08-18).
-const IMPACT_DOT: Record<Risk['impact'], string> = { high: 'bg-red-400', medium: 'bg-amber-400', low: 'bg-yellow-300' }
-const IMPACT_TEXT: Record<Risk['impact'], string> = { high: 'text-red-400', medium: 'text-amber-400', low: 'text-yellow-300' }
+// "Your turn" (the life app's action list): one card per item, a coloured
+// left border for urgency, the item in bold, a "→ action" line for risks,
+// a grey module chip, and a right-aligned uppercase tag. Risks keep their
+// per-impact colour; signals use the accent. Signal rows get no action line
+// (each signal generator writes one blended sentence already).
+const IMPACT_BORDER: Record<Risk['impact'], string> = { high: 'border-l-risk', medium: 'border-l-warn', low: 'border-l-warn' }
+const IMPACT_TEXT: Record<Risk['impact'], string> = { high: 'text-risk', medium: 'text-warn', low: 'text-warn' }
 const MAX_ITEMS = 3
+const moduleOf = (href: string) => href.split(/[/?#]/)[1] || 'app'
+const chip = 'text-[10.5px] font-medium rounded-[4px] px-1.5 py-[1px] bg-surface-2 text-fg-tertiary'
 
 interface NeedsAttentionProps {
   topActions: TopAction[]
@@ -51,38 +45,39 @@ export default function NeedsAttention({ topActions, risks }: NeedsAttentionProp
     }))
   }
 
-  const items = buildPriorityItems(queue.risks, topActions).slice(0, MAX_ITEMS)
+  const all = buildPriorityItems(queue.risks, topActions)
+  const items = all.slice(0, MAX_ITEMS)
+  const row = 'flex items-start gap-2 rounded-[8px] border border-surface-3 border-l-[3px] bg-surface-1 px-2.5 py-2'
 
   return (
-    <Card title="Needs Attention" action={<span className="text-[11px] text-fg-tertiary">capped at 3</span>}>
+    <Card title={`Your turn · ${all.length}`} action={all.length > MAX_ITEMS ? <span className="text-[11px] text-fg-tertiary">top {MAX_ITEMS}</span> : undefined}>
       {items.length === 0 ? (
-        <div className="text-center py-5">
-          <p className="text-[22px] mb-1.5">✅</p>
-          <p className="text-[13px] text-fg-tertiary">All clear — nothing urgent today.</p>
-        </div>
+        <p className="text-[12.5px] text-fg-tertiary py-2">✅ All clear — nothing needs you today.</p>
       ) : (
-        <ul className="space-y-2">
+        <ul className="space-y-1.5">
           {items.map((item, i) => {
             if (item.type === 'signal') {
               return (
-                <li key={`signal-${i}`} className="flex items-start gap-3 bg-surface-2 rounded-[10px] px-4 py-[14px]">
-                  <span className="w-2.5 h-2.5 rounded-full bg-warn shrink-0 mt-1" />
+                <li key={`signal-${i}`} className={`${row} border-l-accent`}>
                   <Link href={item.href} className="flex-1 min-w-0 group">
-                    <p className="text-sm leading-[1.4] text-fg-primary group-hover:text-accent transition-colors">{item.text}</p>
-                    <p className="text-[10px] font-bold uppercase tracking-[0.3px] text-warn mt-2">Signal</p>
+                    <p className="text-[13px] font-semibold leading-snug text-fg-primary group-hover:text-accent transition-colors">{item.text}</p>
+                    <p className="mt-1"><span className={chip}>{moduleOf(item.href)}</span></p>
                   </Link>
+                  <span className="text-[10px] font-bold uppercase tracking-[0.4px] text-accent shrink-0 mt-0.5">For you</span>
                 </li>
               )
             }
             return (
-              <li key={item.kind} className="flex items-start gap-3 bg-surface-2 rounded-[10px] px-4 py-[14px]">
-                <span className={`w-2.5 h-2.5 rounded-full shrink-0 mt-1 ${IMPACT_DOT[item.impact]}`} />
+              <li key={item.kind} className={`${row} ${IMPACT_BORDER[item.impact]}`}>
                 <Link href={KIND_HREF[item.kind]} className="flex-1 min-w-0 group">
-                  <p className="text-sm leading-[1.4] text-fg-primary group-hover:text-accent transition-colors">{item.text}</p>
-                  <p className="text-xs text-fg-tertiary mt-1.5">→ {item.action}</p>
-                  <p className={`text-[10px] font-bold uppercase tracking-[0.3px] mt-2 ${IMPACT_TEXT[item.impact]}`}>Risk</p>
+                  <p className="text-[13px] font-semibold leading-snug text-fg-primary group-hover:text-accent transition-colors">{item.text}</p>
+                  <p className="text-[12px] text-fg-secondary mt-0.5">→ {item.action}</p>
+                  <p className="mt-1"><span className={chip}>{moduleOf(KIND_HREF[item.kind])}</span> <span className={chip}>{item.impact} impact</span></p>
                 </Link>
-                <button onClick={() => dismiss(item.kind)} aria-label="Dismiss" className="shrink-0 text-fg-quaternary hover:text-fg-secondary text-xs px-1">✕</button>
+                <span className="flex flex-col items-end gap-1 shrink-0">
+                  <span className={`text-[10px] font-bold uppercase tracking-[0.4px] mt-0.5 ${IMPACT_TEXT[item.impact]}`}>Act</span>
+                  <button onClick={() => dismiss(item.kind)} aria-label="Dismiss" className="text-fg-quaternary hover:text-fg-secondary text-[11px] px-0.5">✕</button>
+                </span>
               </li>
             )
           })}

@@ -30,7 +30,7 @@ export default {
         // match whichever end of that flip is currently the background.
         'on-good': 'var(--on-good)',
         'on-risk': 'var(--on-risk)',
-        // Brand purple — used throughout existing UI
+        // Accent — iOS system blue (globals.css)
         accent: {
           DEFAULT: 'var(--accent)',
           soft: 'var(--accent-soft)',
@@ -96,11 +96,11 @@ export default {
         sm: 'calc(var(--radius) - 4px)',
       },
       boxShadow: {
-        card: '0 1px 2px var(--shadow-sm), 0 4px 16px var(--shadow-md)',
+        card: '0 1px 2px var(--shadow-sm)',
         popover: '0 12px 32px var(--shadow-lg)',
       },
       fontFamily: {
-        sans: ['Inter', 'system-ui', 'sans-serif'],
+        sans: ['-apple-system', 'BlinkMacSystemFont', '"SF Pro Text"', 'Inter', 'system-ui', 'sans-serif'],
         mono: ['JetBrains Mono', 'monospace'],
       },
     },

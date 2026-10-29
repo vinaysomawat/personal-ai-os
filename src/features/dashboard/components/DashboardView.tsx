@@ -10,7 +10,6 @@ import HuntHero from './HuntHero'
 import type { HuntHero as HuntHeroData } from '../hunt-hero'
 import { explainScore } from '@/features/brain/calculations'
 import { buildBrainContext } from '@/features/brain/context-builder'
-import { buildPriorityItems, KIND_HREF } from '../priority'
 import type { getDashboardData } from '../actions'
 import type { ExecutiveData } from '@/features/brain/executive-actions'
 import LifeScoreTrend from './LifeScoreTrendLazy'
@@ -26,17 +25,6 @@ export default function DashboardView({ data, executive, hunt }: { data: Dashboa
   const today = todayISTLabel()
   const hour = istHour()
   const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening'
-
-  // Top-priority banner — same ranked list NeedsAttention renders (risks,
-  // then Today's Focus signals), just item 0 surfaced
-  // right under the greeting instead of buried after Quick Stats/What's
-  // Changed/Morning Brief/the Life Score hero.
-  const topPriorityRaw = buildPriorityItems(executive.risks, topActions)[0] ?? null
-  const topPriority = topPriorityRaw && (
-    topPriorityRaw.type === 'signal'
-      ? { emoji: topPriorityRaw.emoji, text: topPriorityRaw.text, href: topPriorityRaw.href }
-      : { emoji: topPriorityRaw.type === 'risk' ? '⚠️' : '🚀', text: topPriorityRaw.text, href: KIND_HREF[topPriorityRaw.kind] }
-  )
 
   return (
     <div className="space-y-3">
@@ -57,48 +45,9 @@ export default function DashboardView({ data, executive, hunt }: { data: Dashboa
         </p>
       </>} />
 
-      {/* Top priority — the single highest-ranked Needs Attention item,
-          surfaced here so the most important action doesn't require
-          scrolling past four other cards to find. Full top-3 detail (with
-          dismiss) still lives in the Needs Attention card further down. The
-          whole row is the click target (no separate "Open X →" button). */}
-      {topPriority && (
-        <Link href={topPriority.href} className="flex items-center gap-3 px-4 py-2 rounded-[10px] bg-risk-soft border border-risk-border hover:-translate-y-0.5 transition-all">
-          <span className="text-xl shrink-0">{topPriority.emoji}</span>
-          <p className="text-sm text-fg-primary truncate">
-            <span className="text-[11px] font-bold uppercase tracking-[0.6px] text-risk-strong mr-2">Top Priority</span>
-            {topPriority.text}
-          </p>
-        </Link>
-      )}
-
-      {/* Job Hunt Mode: the Hunt Hero replaces Life Score + Quick Stats. */}
-      {hunt ? <HuntHero hero={hunt} /> : (<>
-        {/* Hero: Life Score card + Quick Stats/Goal Progress side by side,
-            matching the design's [Life Score | Quick Stats] grid — Quick Stats
-            (Phase 5 PRD's "Sidebar Widget") already stacks the 3 stat tiles
-            above the Goal Progress bars internally, so it drops in as one
-            column unchanged. */}
-        <div className="grid grid-cols-1 lg:grid-cols-[340px_1fr] gap-[var(--grid-gap)] items-start">
-          <div className="bg-surface-1 border border-surface-3 rounded-[18px] shadow-card p-[var(--card-pad-lg)] flex flex-col items-center gap-2">
-            <p className="text-xs text-fg-tertiary uppercase tracking-[0.5px] self-start font-semibold">Life Score</p>
-            <ScoreExplainer score={scores.life ?? 0} result={scoreExplanation} />
-            <p className="text-xs text-fg-tertiary">Click ring to explain score</p>
-          </div>
-          <QuickStats
-            prepStreak={stats.prepStreak}
-            prepToday={data.prepToday}
-            workoutStreak={stats.workoutStreak}
-            workoutCategory={data.workoutCategory}
-            budgetRemaining={stats.monthBudget - stats.monthSpend}
-            budgetTotal={stats.monthBudget}
-            workoutDoneToday={stats.workoutsToday > 0}
-          />
-        </div>
-      </>)}
-
-      {/* Needs Attention (Today's Focus signals + risks,
-          capped at 3) beside Daily Mission (a fresh checklist each day). */}
+      {/* Your turn (Needs Attention: risks + Today's Focus signals, top 3)
+          beside Daily Mission, first on the page — what needs you comes
+          before the scores. */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-[var(--grid-gap)] items-start">
         <NeedsAttention topActions={topActions} risks={executive.risks} />
         <Card title="Daily Mission" action={<span className="text-xs text-fg-tertiary">{todayProgress.completed}/{todayProgress.total} done</span>}>
@@ -130,6 +79,31 @@ export default function DashboardView({ data, executive, hunt }: { data: Dashboa
           </div>
         </Card>
       </div>
+
+      {/* Job Hunt Mode: the Hunt Hero replaces Life Score + Quick Stats. */}
+      {hunt ? <HuntHero hero={hunt} /> : (<>
+        {/* Hero: Life Score card + Quick Stats/Goal Progress side by side,
+            matching the design's [Life Score | Quick Stats] grid — Quick Stats
+            (Phase 5 PRD's "Sidebar Widget") already stacks the 3 stat tiles
+            above the Goal Progress bars internally, so it drops in as one
+            column unchanged. */}
+        <div className="grid grid-cols-1 lg:grid-cols-[340px_1fr] gap-[var(--grid-gap)] items-start">
+          <div className="bg-surface-1 border border-surface-3 rounded-[10px] shadow-card p-[var(--card-pad-lg)] flex flex-col items-center gap-2">
+            <p className="text-xs text-fg-tertiary uppercase tracking-[0.5px] self-start font-semibold">Life Score</p>
+            <ScoreExplainer score={scores.life ?? 0} result={scoreExplanation} />
+            <p className="text-xs text-fg-tertiary">Click ring to explain score</p>
+          </div>
+          <QuickStats
+            prepStreak={stats.prepStreak}
+            prepToday={data.prepToday}
+            workoutStreak={stats.workoutStreak}
+            workoutCategory={data.workoutCategory}
+            budgetRemaining={stats.monthBudget - stats.monthSpend}
+            budgetTotal={stats.monthBudget}
+            workoutDoneToday={stats.workoutsToday > 0}
+          />
+        </div>
+      </>)}
 
       {!hunt && <LifeScoreTrend scoreHistory={scoreHistory} />}
     </div>

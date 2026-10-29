@@ -11,7 +11,7 @@ export default function TodaysFoodCard({ entries, onDelete }: { entries: FoodLog
   const totalProtein = entries.reduce((s, e) => s + Number(e.protein_g), 0)
 
   return (
-    <div className="bg-surface-1 border border-surface-3 rounded-2xl p-[var(--card-pad-md)]">
+    <div className="bg-surface-1 border border-surface-3 rounded-[10px] p-[var(--card-pad-md)]">
       <div className="flex items-baseline justify-between gap-2 mb-1.5">
         <p className="text-[13px] font-bold text-fg-primary">Today&apos;s Food</p>
         {entries.length > 0 && <p className="text-[11px] text-fg-tertiary tabular-nums">{entries.length} items · <span className="text-fg-primary font-semibold">{totalKcal} kcal · {totalProtein}g protein</span></p>}

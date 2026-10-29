@@ -34,9 +34,12 @@ export default function TimelineCard({ timeline, windowLabel, nowMin, dropped, a
           const isNow = r === current
           const past = r.end <= nowMin && !isNow
           const block = r.kind === 'block'
+          // Left border by state (the life app's action cards): now = accent,
+          // done = good, moved = warn, other plan blocks = neutral.
+          const edge = isNow ? 'border-l-accent' : block ? (r.done ? 'border-l-good' : r.moved ? 'border-l-warn' : 'border-l-border-strong') : 'border-l-transparent'
           return (
             <li key={`${r.kind}${r.blockKey ?? ''}${i}`}
-              className={`grid grid-cols-[50px_1fr_auto] sm:grid-cols-[124px_1fr_auto] items-center gap-2 px-2 py-[5px] rounded-[7px] text-[12px] ${isNow ? 'bg-accent-soft ring-1 ring-accent/50' : ''} ${past && !r.done ? 'opacity-55' : ''}`}>
+              className={`grid grid-cols-[50px_1fr_auto] sm:grid-cols-[124px_1fr_auto] items-center gap-2 px-2 py-[5px] rounded-[6px] border-l-[3px] ${edge} text-[12px] ${isNow ? 'bg-accent-soft' : ''} ${past && !r.done ? 'opacity-55' : ''}`}>
               {/* Start only on mobile; the full range from sm up. */}
               <span className={`tabular-nums text-[11px] whitespace-nowrap ${isNow ? 'text-accent font-semibold' : 'text-fg-tertiary'}`}>
                 <span className="sm:hidden">{clock(r.start)}</span><span className="hidden sm:inline">{span(r)}</span>

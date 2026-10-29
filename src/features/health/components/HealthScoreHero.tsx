@@ -38,7 +38,7 @@ export default function HealthScoreHero({ score, onEditProfile, notice, notLogge
     score.overall >= 40 ? 'text-amber-400' : 'text-red-400'
 
   return (
-    <div className="h-full bg-surface-1 border border-surface-3 rounded-2xl p-[var(--card-pad-lg)]">
+    <div className="h-full bg-surface-1 border border-surface-3 rounded-[10px] p-[var(--card-pad-lg)]">
       <div className="flex items-center justify-between gap-2 mb-2.5">
         <p className="text-[13px] font-bold text-fg-primary">Health Score</p>
         {onEditProfile && (

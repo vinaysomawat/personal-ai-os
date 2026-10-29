@@ -40,7 +40,7 @@ export default function HuntHero({ hero }: { hero: HuntHeroData }) {
     <ScoreCard hero={hero} />
     <div className="grid grid-cols-2 sm:grid-cols-4 gap-[var(--grid-gap-sm)]">
       {tiles.map(t => (
-        <Link key={t.label} href={t.to} className="bg-surface-1 border border-surface-3 rounded-2xl shadow-card p-[var(--card-pad-sm)] min-w-0 hover:-translate-y-0.5 transition-all">
+        <Link key={t.label} href={t.to} className="bg-surface-1 border border-surface-3 rounded-[10px] shadow-card p-[var(--card-pad-sm)] min-w-0 hover:-translate-y-0.5 transition-all">
           <p className="text-[11px] text-fg-tertiary uppercase tracking-[0.4px] truncate">{t.label}</p>
           <p className={`text-[20px] font-bold mt-1 tabular-nums truncate ${t.color}`}>{t.value}</p>
           <p className="text-[10.5px] text-fg-tertiary mt-0.5 truncate">{t.sub}</p>
@@ -67,7 +67,7 @@ function ScoreCard({ hero }: { hero: HuntHeroData }) {
   const avg = week.length ? Math.round(week.reduce((s, v) => s + v, 0) / week.length) : null
   const best = Math.max(...scored(days), -1)
   return (
-    <Link href="/prep" className="bg-surface-1 border border-surface-3 rounded-2xl shadow-card p-[var(--card-pad-sm)] min-w-0 flex flex-col sm:flex-row gap-3 sm:gap-5 hover:-translate-y-0.5 transition-all">
+    <Link href="/prep" className="bg-surface-1 border border-surface-3 rounded-[10px] shadow-card p-[var(--card-pad-sm)] min-w-0 flex flex-col sm:flex-row gap-3 sm:gap-5 hover:-translate-y-0.5 transition-all">
       <div className="sm:w-[190px] shrink-0">
         <p className="text-[11px] text-fg-tertiary uppercase tracking-[0.4px]">Today&apos;s score</p>
         <p className="mt-0.5 tabular-nums leading-none"><span className={`text-[40px] font-bold ${hasPlan ? scoreTone(hero.score.today, hero.score.good) : 'text-fg-tertiary'}`}>{hasPlan ? hero.score.today : '—'}</span><span className="text-[13px] text-fg-tertiary font-semibold"> / 100</span></p>

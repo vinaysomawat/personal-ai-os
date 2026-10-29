@@ -23,7 +23,7 @@ export default function ProfileMenu() {
       <button
         onClick={() => setOpen(v => !v)}
         aria-label="Account menu"
-        className="w-[34px] h-[34px] rounded-full bg-accent flex items-center justify-center text-[12.5px] font-bold text-white shrink-0"
+        className="w-[28px] h-[28px] rounded-full bg-accent flex items-center justify-center text-[11.5px] font-bold text-white shrink-0"
       >
         {initial}
       </button>
@@ -31,7 +31,7 @@ export default function ProfileMenu() {
       {open && (
         <>
           <div className="fixed inset-0 z-20" onClick={() => setOpen(false)} />
-          <div className="absolute top-11 right-0 z-30 w-[200px] bg-surface-1 border border-surface-3 rounded-xl shadow-popover p-2">
+          <div className="absolute top-9 right-0 z-30 w-[200px] bg-surface-1 border border-surface-3 rounded-xl shadow-popover p-2">
             <p className="px-2.5 py-2 text-[12.5px] text-fg-secondary border-b border-surface-3 mb-1.5 truncate">{email}</p>
             <Link
               href="/astrology"

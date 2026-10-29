@@ -57,7 +57,7 @@ function MetricCard({ label, unit, decimals = 0, todayValue, weekAvg, onSave, sa
   }
 
   return (
-    <div className="bg-surface-1 border border-surface-3 rounded-2xl p-[var(--card-pad-sm)]">
+    <div className="bg-surface-1 border border-surface-3 rounded-[10px] p-[var(--card-pad-sm)]">
       <div className="flex items-center justify-between">
         <p className="text-[11px] text-fg-tertiary uppercase">{label}</p>
         {saved && <span className="text-xs text-green-400 shrink-0">✓</span>}
@@ -278,7 +278,7 @@ export default function HealthView({ initialMetrics, initialProfile, initialWork
             )}
           />
         ) : profile ? (
-          <div className="bg-surface-1 border border-surface-3 rounded-2xl p-[var(--card-pad-lg)] flex items-center justify-between gap-3">
+          <div className="bg-surface-1 border border-surface-3 rounded-[10px] p-[var(--card-pad-lg)] flex items-center justify-between gap-3">
             <p className="text-xs text-fg-tertiary">Log today&apos;s weight to unlock your calorie targets and Health Score.</p>
             <button onClick={() => setShowProfileForm(true)} className="shrink-0 flex items-center gap-1.5 px-2.5 py-1 rounded-[6px] border border-border-strong text-[11.5px] text-fg-secondary hover:bg-surface-2 transition-colors">
               <Settings2 size={11} /> Edit profile

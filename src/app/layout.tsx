@@ -57,7 +57,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             <AIAdvisorProvider>
               <TopNav />
               {/* Bottom padding clears the fixed QuickAdd FAB's full extent (86-138px
-                  from bottom on mobile, above the 58px bottom nav; 28-80px on desktop)
+                  from bottom on mobile, above the floating 58px tab bar; 28-80px on desktop)
                   plus a small gap, so content at the true end of a page's scroll never
                   sits permanently behind it. */}
               <main className="max-w-[1180px] mx-auto px-6 pt-3 pb-[154px] md:pb-24 animate-in fade-in duration-200">{children}</main>

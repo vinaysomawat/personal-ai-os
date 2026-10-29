@@ -35,7 +35,7 @@ export default function QuickStats({ prepStreak, prepToday, workoutStreak, worko
   return (
     <div className="grid grid-cols-2 sm:grid-cols-4 gap-[var(--grid-gap-sm)]">
       {stats.map(s => (
-        <Link key={s.label} href={s.to} className="bg-surface-1 border border-surface-3 rounded-2xl shadow-card p-[var(--card-pad-sm)] hover:-translate-y-0.5 transition-all">
+        <Link key={s.label} href={s.to} className="bg-surface-1 border border-surface-3 rounded-[10px] shadow-card p-[var(--card-pad-sm)] hover:-translate-y-0.5 transition-all">
           <p className="text-[11px] text-fg-tertiary uppercase tracking-[0.4px]">{s.label}</p>
           <p className={`text-[22px] font-bold mt-1 tabular-nums ${s.color}`}>{s.value}</p>
           <p className="text-[11px] text-fg-tertiary mt-0.5">{s.sub}</p>

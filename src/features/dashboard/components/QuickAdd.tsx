@@ -52,7 +52,7 @@ export default function QuickAdd() {
   return (
     <>
       {/* Floating button — bottom-right, matching the design source's 52px/28px
-          recipe exactly. Lifted above the fixed mobile bottom nav (58px) on
+          recipe exactly. Lifted above the floating mobile tab bar (68px) on
           small viewports so it doesn't sit on top of it. */}
       <button
         onClick={() => setOpen(true)}
@@ -64,7 +64,7 @@ export default function QuickAdd() {
       {/* Modal */}
       {open && (
         <div className="fixed inset-0 bg-overlay flex items-end sm:items-center justify-center z-50 p-4">
-          <div className="bg-surface-1 border border-surface-3 rounded-2xl w-full max-w-sm animate-in fade-in zoom-in-95 duration-200">
+          <div className="bg-surface-1 border border-surface-3 rounded-[14px] w-full max-w-sm animate-in fade-in zoom-in-95 duration-200">
             <div className="flex items-center justify-between px-5 pt-5 pb-4 border-b border-surface-3">
               <p className="text-sm font-semibold text-fg-primary">
                 {mode === 'expense' ? 'Add Expense' : mode === 'metric' ? 'Log Metric' : 'Quick Add'}
