@@ -3,6 +3,10 @@
 One line per shipped change, newest first. Sourced from commit messages —
 append here whenever you deploy, same cadence as the version bump.
 
+## 2026-10-29
+
+- **34 new Backend & APIs questions from today's interview.** New sections on Python asyncio (gather vs wait and more), concurrency and deadlocks, caching in deployment, and SOLID in Python, including the bugs you get from breaking each principle. That makes 105 backend questions (37 must-haves).
+
 ## 2026-10-28
 
 - **Least-practised categories come first.** Each new day's plan puts the question blocks in order of coverage (the share of a category you've practised), lowest first. Learn, Build, the mock and Job applications stay where they are.
