@@ -8,7 +8,9 @@
 const q = (title, difficulty, topics, answer_hints) => ({ title, difficulty, topics, answer_hints })
 
 const ROWS = [
-  // ---- Walkthrough & fit (6)
+  // ---- Walkthrough & fit (7)
+  q('What does a typical day in your current role look like?', 'medium', ['Walkthrough & fit', 'Must-have'],
+    'a concrete day, not a job description: standup, focused feature work, code reviews, pairing · what you own (modules, releases, reviews) vs what you support · who you work with: product, design, QA, backend · where AI tools sit in your workflow · one recent piece of work that shows impact · 1–2 minutes'),
   q('Walk me through your resume in two minutes.', 'medium', ['Walkthrough & fit', 'Must-have'],
     'a one-line identity (Senior Frontend Engineer, 6 years, React/Next.js and Angular with Node.js, fintech/logistics/healthtech) · one headline achievement per role, with a number (RAG for 15K staff, 300K sellers, 3 teams on micro-frontends, 50k+ daily transactions) · a clear thread connecting the roles (scale → architecture → shipping AI) · ends with what you want next and why this role · under 2 minutes, no reading the resume line by line'),
   q('Why are you leaving SS&C after about a year?', 'medium', ['Walkthrough & fit', 'Must-have'],
@@ -22,7 +24,11 @@ const ROWS = [
   q('Which achievement on your resume are you most proud of, and what did YOU do vs the team?', 'medium', ['Walkthrough & fit'],
     'one achievement, not a list · clear split of your contribution vs the team (I, not we) · the impact in numbers · why it matters to you (ownership, users, team growth) · a lesson that carries into the next role'),
 
-  // ---- SS&C Technologies (21)
+  // ---- SS&C Technologies (23)
+  q('Explain the architecture of the Nx monorepo you work in at SS&C — the apps, the libraries and how teams share code.', 'hard', ['SS&C', 'Must-have'],
+    'the shape: apps (products or shells) vs libraries by type (feature, ui, data-access, util) and by domain · tags plus the enforce-module-boundaries lint rule so one domain cannot reach into another\'s internals · the project graph driving affected lint / test / build in CI, with the Nx cache · shared libraries (design system, auth / Keycloak, API clients) and a single version of Angular and dependencies · generators for consistent new libraries, nx migrate for Angular upgrades · one pain point (build time, coupling, ownership) and what you did about it'),
+  q('What have you built with AI that is useful across the whole app, not just one feature?', 'medium', ['SS&C', 'Must-have'],
+    'pick something cross-cutting: the LLM CI pipeline that runs on every pull request, or the RAG assistant used by all staff · why it is cross-cutting: every team or every PR benefits, not one screen · how it is built: the stages, the model, the prompt and the guardrails · the measured impact (release time, questions a week, time saved) · what you would improve next'),
   q('Explain the URL-driven authentication switching between SS&C and SJP Keycloak providers — how did it work end to end?', 'hard', ['SS&C', 'Must-have'],
     'why two OIDC providers existed (separate realms/clients per business) and how the URL determined which to use · the OIDC Authorization Code flow with PKCE: redirect, code, token exchange · where the provider choice was resolved (route guard, app initializer, config by host/path) · session handling: token storage, refresh, logout per provider · edge cases: deep links, switching mid-session, expired tokens'),
   q('How did you handle token storage and refresh in the Keycloak (OIDC) integration?', 'hard', ['SS&C', 'Must-have'],

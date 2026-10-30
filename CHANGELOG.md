@@ -3,6 +3,10 @@
 One line per shipped change, newest first. Sourced from commit messages —
 append here whenever you deploy, same cadence as the version bump.
 
+## 2026-10-30
+
+- **5 new questions from the adesso interview.** In From my resume: your typical day, the architecture of the Nx monorepo at SS&C, and what you built with AI that helps the whole app. In Angular: how signals work under the hood, and Angular change detection compared with React re-renders. The event loop and Nx vs Turborepo vs pnpm were already in the bank.
+
 ## 2026-10-29
 
 - **Interview prep from a job description.** A new Interview tab on Prep: paste the JD with the company, round and time, and get your own bank questions to practise for its skills (weak and unseen first), your coverage of each area, the stories to have ready, and an AI plan with about 15 likely questions, the likely rounds, what to prepare for, questions to ask them and an hour-by-hour plan to the interview (Haiku 5.5, about $0.002). The interview goes into that day's plan with its topics first. For live research on recent interview experiences and the most-asked questions, run /interview-prep <company> in Claude Code and it saves the findings, with sources, onto the same prep.
