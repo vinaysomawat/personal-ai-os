@@ -1,6 +1,7 @@
-// Algorithms (category 'algorithm') — no new rows. GreatFrontEnd's problems ordered by
+// Algorithms (category 'algorithm'). GreatFrontEnd's problems ordered by
 // how many people completed each on greatfrontend.com/questions/algo
 // (questionCompletionCount, Oct 2026), most first; the bottom 10% are deleted.
+// One problem seen in Oct 2026 interview reports follows (the only new row).
 
 import { dropAndOrderPatch } from './order.mjs'
 
@@ -89,6 +90,9 @@ const ORDER = [
   "Word Finder", // 225
   "Ocean Flow", // 190
   "Binary Search Tree", // 184
+
+  // ---- From Oct 2026 interview reports (1)
+  "Sort rectangles into reading order",
 ]
 
 // Bottom 10% by completions (9).
@@ -106,4 +110,9 @@ const DROP = [
 
 export const patch = dropAndOrderPatch('algorithm', DROP, ORDER)
 
-export default []
+export default [
+  {
+    title: 'Sort rectangles into reading order', difficulty: 'medium', topics: ['Sorting', 'Geometry'],
+    answer_hints: 'input is boxes {x, y, w, h} like text blocks on a canvas; sort by top y, then group into lines: a box joins the current line if it overlaps vertically with it (or its centre falls inside the line band), else starts a new line; sort each line by x; O(n log n); discuss ties, boxes spanning two lines, a tolerance threshold, and right-to-left languages',
+  },
+]

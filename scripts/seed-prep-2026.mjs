@@ -29,10 +29,6 @@ const wanted = process.argv.slice(2).length ? process.argv.slice(2) : Object.key
 for (const category of wanted) {
   if (!SETS[category]) { console.error(`unknown set ${category}`); process.exit(1) }
   const mod = await SETS[category]()
-  // A set may also patch existing rows (system-design appends a full-stack
-  // extension to the old questions' hints; quiz, algorithm, javascript-functions and ui-coding delete
-  // their least-completed GreatFrontEnd rows and order the rest by completions).
-  if (mod.patch) console.log(`${category}: patched ${await mod.patch(db)} existing rows`)
   const rows = mod.default
   const { data: existing, error } = await db.from('coding_questions').select('id, title').eq('category', category)
   if (error) throw new Error(error.message)
@@ -52,4 +48,8 @@ for (const category of wanted) {
     id ? updated++ : inserted++
   }
   console.log(`${category}: ${inserted} inserted, ${updated} updated (${rows.length} in set)`)
+  // A set may also patch existing rows after the inserts (system-design appends a
+  // full-stack extension to the old questions' hints; quiz, algorithm, javascript-functions
+  // and ui-coding delete their least-completed GreatFrontEnd rows and order the rest).
+  if (mod.patch) console.log(`${category}: patched ${await mod.patch(db)} existing rows`)
 }

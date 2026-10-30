@@ -5,6 +5,7 @@ append here whenever you deploy, same cadence as the version bump.
 
 ## 2026-10-30
 
+- **4 problems from recent frontend interview reports.** UI coding: a live orders table with search, virtualization and websocket updates; a spreadsheet grid with formulas; 2048. Algorithms: sorting rectangles into reading order. Each has key points to check your answer against.
 - **5 new questions from the adesso interview.** In From my resume: your typical day, the architecture of the Nx monorepo at SS&C, and what you built with AI that helps the whole app. In Angular: how signals work under the hood, and Angular change detection compared with React re-renders. The event loop and Nx vs Turborepo vs pnpm were already in the bank.
 
 ## 2026-10-29

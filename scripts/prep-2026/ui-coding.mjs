@@ -1,7 +1,8 @@
-// UI coding (category 'ui-coding') — no new rows. GreatFrontEnd's problems ordered by
+// UI coding (category 'ui-coding'). GreatFrontEnd's problems ordered by
 // how many people completed each on greatfrontend.com/questions/user-interface
 // (questionCompletionCount, Oct 2026), most first; the bottom 10% are deleted.
-// The linkless Prep additions follow, in their earlier order.
+// The linkless Prep additions follow, in their earlier order, then problems seen in
+// Oct 2026 frontend interview reports (the only new rows, exported below).
 
 import { dropAndOrderPatch } from './order.mjs'
 
@@ -82,6 +83,11 @@ const ORDER = [
   "File uploader with progress",
   "Resizable split pane",
   "Dark mode toggle without flash",
+
+  // ---- From Oct 2026 interview reports (3)
+  "Live orders table (search, virtualization, websocket updates)",
+  "Spreadsheet grid with formulas",
+  "2048 game",
 ]
 
 // Bottom 10% by completions (6).
@@ -96,4 +102,19 @@ const DROP = [
 
 export const patch = dropAndOrderPatch('ui-coding', DROP, ORDER)
 
-export default []
+const T = ['UI Components', 'Performance']
+
+export default [
+  {
+    title: 'Live orders table (search, virtualization, websocket updates)', difficulty: 'hard', topics: T,
+    answer_hints: 'normalize rows into a Map by id so a websocket patch is O(1); batch incoming messages per animation frame instead of a setState per message; debounced search over a derived filtered list (useMemo); virtualize with a fixed row height + overscan; keep scroll position and selection stable when rows above change; reconnect with backoff and resync from a snapshot + sequence number; flash a changed cell without re-rendering the whole table',
+  },
+  {
+    title: 'Spreadsheet grid with formulas', difficulty: 'hard', topics: ['UI Components', 'State Management'],
+    answer_hints: 'store raw input per cell id (A1) and compute values separately; parse =A1+B2 / =SUM(A1:A3) into tokens; build a dependency graph and recompute only dependents in topological order; detect cycles and show #REF / #CYCLE; edit mode vs display mode, Enter/Tab/arrow navigation; virtualize big grids; keep a cell memoized so typing in one cell does not re-render the grid',
+  },
+  {
+    title: '2048 game', difficulty: 'medium', topics: ['UI Components', 'State Management'],
+    answer_hints: 'board as a 4x4 array, one pure slide-and-merge function for a single row, reuse it for all four directions by rotating/reversing; a tile merges at most once per move; spawn a 2 (90%) or 4 in a random empty cell only if the board changed; win at 2048, lose when no empty cell and no neighbouring equal tiles; arrow keys + swipe, score, undo as a stack of past boards',
+  },
+]
