@@ -5,6 +5,7 @@ append here whenever you deploy, same cadence as the version bump.
 
 ## 2026-10-31
 
+- **Drag slots to reorder them in Edit today.** A ⠿ handle on each slot replaces the up and down arrows. It works with touch on the phone too, and ↑ / ↓ on the handle still move a slot.
 - **Split a slot into several in Edit today.** The ✂ button halves a slot, for example Algorithms 60 → 30 + 30, and you can move each half to a different part of the day (11–11:30 and 3–3:30). The Add a slot list also offers items that are already in the day, as another slot. Each slot has its own timer and tick. Answers fill the first slot of a category, then the next. The default plan keeps one slot per item.
 
 ## 2026-10-30

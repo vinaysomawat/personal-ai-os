@@ -2,7 +2,7 @@
 
 import { useMemo, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { ArrowDown, ArrowUp, Plus, Scissors, X } from 'lucide-react'
+import { GripVertical, Plus, Scissors, X } from 'lucide-react'
 import Card from '@/components/Card'
 import { modalCancelButtonClass, modalSaveButtonClass } from '@/components/Modal'
 import { savePrepTemplate } from '../actions'
@@ -99,6 +99,22 @@ export function EditToday({ template, startMin, interview, breaks: savedBreaks, 
     return [...prev.slice(0, i), { ...it, minutes: first }, { key: nextKey(baseKey(it.key), keys), minutes: it.minutes - first, label: it.label, done: false }, ...prev.slice(i + 1)]
   })
   const move = (i: number, d: -1 | 1) => setItems(prev => { const n = [...prev]; const j = i + d; if (j < 0 || j >= n.length) return prev; [n[i], n[j]] = [n[j], n[i]]; return n })
+  // Drag a slot by its handle (pointer events, so touch works too): the row
+  // under the pointer makes room as you drag. ↑ / ↓ on the handle move it too.
+  const [dragKey, setDragKey] = useState<string | null>(null)
+  const dragTo = (x: number, y: number) => {
+    if (!dragKey) return
+    const row = document.elementFromPoint(x, y)?.closest<HTMLElement>('[data-slot]')
+    const over = row?.dataset.slot
+    if (!row || !over || over === dragKey) return
+    // Swap once past the row's middle, so rows of different heights don't flicker.
+    const r = row.getBoundingClientRect(), mid = r.top + r.height / 2
+    setItems(prev => {
+      const from = prev.findIndex(p => p.key === dragKey), to = prev.findIndex(p => p.key === over)
+      if (from < 0 || to < 0 || (to > from ? y < mid : y > mid)) return prev
+      const n = [...prev]; n.splice(to, 0, n.splice(from, 1)[0]); return n
+    })
+  }
   const patch = (i: number, p: Partial<Item>) => setItems(prev => prev.map((x, k) => k === i ? { ...x, ...p } : x))
   const add = () => {
     if (!adding) return
@@ -172,11 +188,13 @@ export function EditToday({ template, startMin, interview, breaks: savedBreaks, 
           </div>
           <ol className="flex flex-col gap-1">
             {items.map((it, i) => (
-              <li key={it.key} className={`grid grid-cols-[auto_1fr_auto_auto_auto] items-center gap-1.5 rounded-[8px] px-1.5 py-1 ${it.done ? 'bg-good-soft' : 'bg-surface-2'}`}>
-                <span className="flex flex-col">
-                  <button onClick={() => move(i, -1)} disabled={i === 0} aria-label="Move up" className="text-fg-tertiary hover:text-accent disabled:opacity-30"><ArrowUp size={12} /></button>
-                  <button onClick={() => move(i, 1)} disabled={i === items.length - 1} aria-label="Move down" className="text-fg-tertiary hover:text-accent disabled:opacity-30"><ArrowDown size={12} /></button>
-                </span>
+              <li key={it.key} data-slot={it.key} className={`grid grid-cols-[auto_1fr_auto_auto_auto] items-center gap-1.5 rounded-[8px] px-1.5 py-1 ${dragKey === it.key ? 'ring-1 ring-accent shadow-sm' : ''} ${it.done ? 'bg-good-soft' : 'bg-surface-2'}`}>
+                <button aria-label="Drag to reorder (or ↑ / ↓)" title="Drag to reorder"
+                  onPointerDown={e => { e.preventDefault(); e.currentTarget.setPointerCapture(e.pointerId); setDragKey(it.key) }}
+                  onPointerMove={e => dragKey === it.key && dragTo(e.clientX, e.clientY)}
+                  onPointerUp={() => setDragKey(null)} onPointerCancel={() => setDragKey(null)}
+                  onKeyDown={e => { if (e.key === 'ArrowUp' || e.key === 'ArrowDown') { e.preventDefault(); move(i, e.key === 'ArrowUp' ? -1 : 1) } }}
+                  className={`touch-none -my-1 py-1 ${dragKey === it.key ? 'cursor-grabbing text-accent' : 'cursor-grab text-fg-tertiary hover:text-accent'}`}><GripVertical size={14} /></button>
                 {it.key.startsWith('custom:')
                   ? <input value={it.label} onChange={e => patch(i, { label: e.target.value })} placeholder="Your slot, e.g. Call with recruiter" className={`${INPUT} min-w-0`} />
                   : <span className="text-[12.5px] text-fg-primary truncate">{it.done && '✓ '}{it.label}{it.key.includes('~') && <span className="text-fg-tertiary"> · slot {it.key.split('~')[1]}</span>}</span>}
