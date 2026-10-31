@@ -1,7 +1,7 @@
 import { PREP_DAY_ROLLOVER_HOUR, toPrepDateStr } from '@/lib/date'
 import type { BankQuestion, PrepBlock, ReadinessAreaKey, ReadinessCell } from './types'
 import type { MockRound } from './mock'
-import { BANK_CATEGORIES, redoInterval } from './hunt'
+import { BANK_CATEGORIES, catOf, redoInterval } from './hunt'
 
 // Interview War Mode — every number here is deterministic.
 // AI only writes answer reviews and the weekly forecast; it never scores,
@@ -257,6 +257,9 @@ export interface ProgressCtx {
   answered: Record<string, number>
   // Focused minutes today per block key (focusedMinutes).
   focused: Record<string, number>
+  // The day's blocks in order: slots of one category share its answers,
+  // the earlier slot filling first (dayPace passes its own blocks).
+  order?: Pick<PrepBlock, 'key' | 'minutes'>[]
 }
 const NO_PROGRESS: ProgressCtx = { answered: {}, focused: {} }
 
@@ -274,14 +277,20 @@ export function focusedMinutes(sessions: FocusSession[], date: string, nowMs = D
 export function blockProgress(b: Pick<PrepBlock, 'key' | 'minutes' | 'done'>, ctx: ProgressCtx): number {
   if (b.done) return b.minutes
   if (!b.key.startsWith('bank:')) return 0
-  const cat = b.key.slice(5)
-  return Math.min(b.minutes, Math.max(ctx.focused[b.key] ?? 0, (ctx.answered[cat] ?? 0) * minutesPerQuestion(cat)))
+  const cat = catOf(b.key)
+  let answers = (ctx.answered[cat] ?? 0) * minutesPerQuestion(cat)
+  for (const e of ctx.order ?? []) {
+    if (e.key === b.key) break
+    if (e.key.startsWith('bank:') && catOf(e.key) === cat) answers -= Math.min(e.minutes, Math.max(0, answers))
+  }
+  return Math.min(b.minutes, Math.max(ctx.focused[b.key] ?? 0, answers))
 }
 export const blockReached = (b: Pick<PrepBlock, 'key' | 'minutes' | 'done'>, ctx: ProgressCtx) => b.minutes > 0 && blockProgress(b, ctx) >= b.minutes
 export const canFinishBlock = (b: Pick<PrepBlock, 'key' | 'minutes' | 'done'>, ctx: ProgressCtx) =>
   !b.key.startsWith('bank:') || blockProgress(b, ctx) >= b.minutes * FINISH_SHARE
 
 export function dayPace(blocks: PrepBlock[], prepHour: number, ctx: ProgressCtx = NO_PROGRESS, window: DayWindow = FALLBACK_WINDOW): DayPace {
+  ctx = ctx.order ? ctx : { ...ctx, order: blocks }
   const progress = (b: PrepBlock) => b.minutes ? blockProgress(b, ctx) / b.minutes : (b.done ? 1 : 0)
   const plannedMinutes = blocks.reduce((s, b) => s + b.minutes, 0)
   const doneMinutes = Math.round(blocks.reduce((s, b) => s + b.minutes * progress(b), 0))

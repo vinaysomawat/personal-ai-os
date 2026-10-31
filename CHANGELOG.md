@@ -3,6 +3,10 @@
 One line per shipped change, newest first. Sourced from commit messages —
 append here whenever you deploy, same cadence as the version bump.
 
+## 2026-10-31
+
+- **Split a slot into several in Edit today.** The ✂ button halves a slot, for example Algorithms 60 → 30 + 30, and you can move each half to a different part of the day (11–11:30 and 3–3:30). The Add a slot list also offers items that are already in the day, as another slot. Each slot has its own timer and tick. Answers fill the first slot of a category, then the next. The default plan keeps one slot per item.
+
 ## 2026-10-30
 
 - **4 problems from recent frontend interview reports.** UI coding: a live orders table with search, virtualization and websocket updates; a spreadsheet grid with formulas; 2048. Algorithms: sorting rectangles into reading order. Each has key points to check your answer against.

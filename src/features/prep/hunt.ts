@@ -86,6 +86,12 @@ function bankDetail(key: BankCategory, quota: number, focusTopic: string | null 
 // A question block is a time box (war.ts blockProgress): its minutes are
 // the target, rounded to 5 and at least one question's worth. The question
 // count is only a guide (and sizes the redo slots).
+// A plan item can be split into several slots in a day (Edit today): the
+// first keeps its key, the rest are `<key>~<n>`. baseKey() drops the suffix,
+// catOf() gives a question block's category.
+export const baseKey = (key: string) => key.split('~')[0]
+export const catOf = (key: string) => baseKey(key).slice(5)
+
 export function bankBlock(c: CategoryCoverage, budget: number, opts: { label?: string; prefix?: string; topic?: string; focusTopic?: string | null; gap: number }): PrepBlock {
   const cat = BANK_CATEGORIES.find(x => x.key === c.key)!
   const minutes = Math.max(cat.minutesPerQ, Math.round(budget / 5) * 5)

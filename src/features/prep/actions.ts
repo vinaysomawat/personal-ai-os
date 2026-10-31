@@ -9,6 +9,7 @@ import type { PrepBlock, PrepSession, Story, StoryRehearsal } from './types'
 import { endFocus, getQuestionBank, interviewOf, loadPrepData, patchToday, startFocusOn, syncBankBlocks, toggleFocusPause } from './core'
 import { matchJD, type InterviewPlan, type InterviewPrep, type JdMatch } from './jd'
 import type { FocusSession } from './war'
+import { baseKey } from './hunt'
 import { ORDER, frontLoad, type DayTemplate, type TodayPatch } from './dayplan'
 import { ROADMAP, buildBlock, learnBlock, type RoadmapProgress, type RoadmapStepDone } from './roadmap'
 import { prepToday } from '@/lib/date'
@@ -373,8 +374,9 @@ export async function setRoadmapStep(week: number, step: number, done: boolean):
   const { data: session } = await supabase.from('prep_sessions').select('id, blocks').eq('user_id', user.id).eq('date', today).maybeSingle()
   if (session) {
     const blocks = (session.blocks as PrepBlock[]).map(b => {
-      const fresh = b.key === 'learn' ? learnBlock(today, b.minutes, steps) : b.key === 'build' ? buildBlock(today, b.minutes, steps) : null
-      return fresh ? { ...fresh, minutes: b.minutes, done: b.done } : b
+      const k = baseKey(b.key)
+      const fresh = k === 'learn' ? learnBlock(today, b.minutes, steps) : k === 'build' ? buildBlock(today, b.minutes, steps) : null
+      return fresh ? { ...fresh, key: b.key, minutes: b.minutes, done: b.done } : b
     })
     await supabase.from('prep_sessions').update({ blocks }).eq('id', session.id)
   }

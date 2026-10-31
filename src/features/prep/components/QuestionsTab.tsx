@@ -7,7 +7,7 @@ import AnswerReview, { CodeBlock, Rich } from './AnswerReview'
 import MicButton, { appendText } from '@/components/MicButton'
 import { modalSaveButtonClass, modalCancelButtonClass } from '@/components/Modal'
 import { answerQuestion, critiqueAnswer, revealModelAnswer } from '../actions'
-import { BANK_CATEGORIES, isRedoDue, redoSlots, type BankCategory } from '../hunt'
+import { BANK_CATEGORIES, catOf, isRedoDue, redoSlots, type BankCategory } from '../hunt'
 import { toPrepDateStr } from '@/lib/date'
 import { hm, minutesPerQuestion } from '../war'
 import type { BankQuestion, PrepBlock, PrepSession } from '../types'
@@ -111,9 +111,11 @@ export function QuestionsTab({ bank, setBank, topic, onTopicChange: setTopic, bl
   // Today's block for a category: its planned minutes, done state (focus
   // time or answers — the timeline's), and the question guide that sizes the
   // redo slots.
+  // A category split into several slots counts them together.
   const planFor = (key: string) => {
-    const b = blocks.find(x => x.key === `bank:${key}`)
-    return b ? { minutes: b.minutes, done: b.done, quota: Math.max(1, Math.floor(b.minutes / minutesPerQuestion(key))) } : null
+    const bs = blocks.filter(x => x.key.startsWith('bank:') && catOf(x.key) === key)
+    const minutes = bs.reduce((s, b) => s + b.minutes, 0)
+    return bs.length ? { minutes, done: bs.every(b => b.done), quota: Math.max(1, Math.floor(minutes / minutesPerQuestion(key))) } : null
   }
   // Redo slots left today: the first answers of the day in a category go to
   // due weak answers, up to REDO_SHARE of its quota.

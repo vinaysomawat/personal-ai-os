@@ -1,4 +1,4 @@
-import { BANK_CATEGORIES, bankBlock, type BankCategory, type CategoryCoverage } from './hunt'
+import { BANK_CATEGORIES, bankBlock, baseKey, catOf, type BankCategory, type CategoryCoverage } from './hunt'
 import { formatMinutes, formatOf, mockFormatForDay } from './mock'
 import { buildBlock, learnBlock, themeFor, type RoadmapStepDone } from './roadmap'
 import type { TimelineRow } from './timeline'
@@ -86,6 +86,8 @@ const EMPTY_COVERAGE = (key: BankCategory): CategoryCoverage => ({ key, label: B
 // week), the day's scheduled mock, or your own slot (`custom:<id>`, its label
 // given). null when it has nothing that day (no roadmap week, no mock).
 export function blockFor(key: string, minutes: number, date: string, ctx: PlanCtx, customLabel?: string): PrepBlock | null {
+  // An extra slot (`<key>~<n>`) is built like its plan item and keeps its own key.
+  if (key !== baseKey(key)) { const b = blockFor(baseKey(key), minutes, date, ctx, customLabel); return b && { ...b, key, done: false } }
   const gap = (k: string) => ctx.gaps?.[k] ?? 0
   const cov = (k: BankCategory) => ctx.coverage.find(c => c.key === k) ?? EMPTY_COVERAGE(k)
   if (key.startsWith('custom:')) return { key, label: customLabel?.trim() || 'My slot', minutes, detail: 'Your own slot — Finish it from the timer.', href: '/prep?tab=today', done: false }
@@ -148,7 +150,7 @@ export function planItems(date: string, template: DayTemplate, ctx: PlanCtx): Pr
 // take the first question-block slots; open blocks only, everything else
 // keeps its place.
 export function frontLoad(blocks: PrepBlock[], categories: string[]): PrepBlock[] {
-  const rank = (b: PrepBlock) => { const i = categories.indexOf(b.key.slice(5)); return i < 0 ? Infinity : i }
+  const rank = (b: PrepBlock) => { const i = categories.indexOf(catOf(b.key)); return i < 0 ? Infinity : i }
   const out = [...blocks]
   const slots = out.flatMap((b, i) => b.key.startsWith('bank:') && !b.done ? [i] : [])
   const sorted = slots.map(i => out[i]).sort((a, b) => { const d = rank(a) - rank(b); return Number.isNaN(d) ? 0 : d })
@@ -255,7 +257,8 @@ export function applyTodayPatch(blocks: PrepBlock[], patch: TodayPatch, date: st
   for (const a of patch.add ?? []) {
     if (out.some(b => b.key === a.key)) continue
     const b = blockFor(a.key, a.minutes, date, { coverage: [] }, a.label)
-    if (b) out.push(b)
+    // The minutes you set (a split half can be under a question's minutes).
+    if (b) out.push(b.key === 'mock' ? b : { ...b, minutes: a.minutes })
   }
   if (patch.order) {
     const at = (k: string) => { const i = patch.order!.indexOf(k); return i < 0 ? Infinity : i }

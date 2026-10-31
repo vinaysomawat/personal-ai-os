@@ -2,7 +2,7 @@
 
 import { useMemo, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { ArrowDown, ArrowUp, Plus, X } from 'lucide-react'
+import { ArrowDown, ArrowUp, Plus, Scissors, X } from 'lucide-react'
 import Card from '@/components/Card'
 import { modalCancelButtonClass, modalSaveButtonClass } from '@/components/Modal'
 import { savePrepTemplate } from '../actions'
@@ -10,6 +10,7 @@ import { DEBRIEF_MINUTES, ORDER, PLAN_LABEL, WARMUP_MINUTES, layoutDay, mealsOf,
 import { clock, hm } from '../war'
 import { span } from '../timeline'
 import type { PrepBlock } from '../types'
+import { baseKey } from '../hunt'
 
 // Edit today / Edit default plan — both keep a draft with a live preview and
 // save only on Save (nothing is written while you change fields).
@@ -19,6 +20,8 @@ const toHHMM = (min: number) => { const m = ((min % 1440) + 1440) % 1440; return
 const fromHHMM = (v: string) => { const [h, m] = v.split(':').map(Number); return h * 60 + m }
 // Times before the 4am rollover belong to the end of the day (prep minutes).
 const prepMin = (v: string) => { const m = fromHHMM(v); return m < 4 * 60 ? m + 1440 : m }
+// The key for one more slot of a plan item: the plain key if free, else `<key>~<n>`.
+const nextKey = (base: string, used: Set<string>) => { if (!used.has(base)) return base; let n = 2; while (used.has(`${base}~${n}`)) n++; return `${base}~${n}` }
 const num = (v: string, fallback: number) => { const n = Math.round(Number(v)); return Number.isFinite(n) ? n : fallback }
 
 function ErrorLine({ error }: { error: string | null }) {
@@ -87,12 +90,19 @@ export function EditToday({ template, startMin, interview, breaks: savedBreaks, 
   const [error, setError] = useState<string | null>(saveError)
   const preview = useMemo(() => layoutDay(items.map(i => ({ key: i.key, label: i.label, minutes: i.minutes, done: i.done, detail: '', href: '' })), template, start, iv, allBreaks), [items, template, start, iv, allBreaks])
   const used = new Set(items.map(i => i.key))
-  const free = ORDER.filter(k => !used.has(k))
+  // Every plan item can be added again as another slot (the mock is one a day).
+  const addable = ORDER.filter(k => k !== 'mock' || !used.has(k))
+  const split = (i: number) => setItems(prev => {
+    const it = prev[i]
+    const first = Math.max(5, Math.round(it.minutes / 10) * 5)
+    const keys = new Set(prev.map(x => x.key))
+    return [...prev.slice(0, i), { ...it, minutes: first }, { key: nextKey(baseKey(it.key), keys), minutes: it.minutes - first, label: it.label, done: false }, ...prev.slice(i + 1)]
+  })
   const move = (i: number, d: -1 | 1) => setItems(prev => { const n = [...prev]; const j = i + d; if (j < 0 || j >= n.length) return prev; [n[i], n[j]] = [n[j], n[i]]; return n })
   const patch = (i: number, p: Partial<Item>) => setItems(prev => prev.map((x, k) => k === i ? { ...x, ...p } : x))
   const add = () => {
     if (!adding) return
-    const key = adding === 'custom' ? `custom:${Date.now()}` : adding
+    const key = adding === 'custom' ? `custom:${Date.now()}` : nextKey(adding, used)
     const minutes = adding === 'custom' ? 30 : template.minutes[adding] || 30
     setItems(prev => [...prev, { key, minutes, label: adding === 'custom' ? '' : PLAN_LABEL[adding as PlanKey], done: false }])
     setAdding('')
@@ -162,20 +172,23 @@ export function EditToday({ template, startMin, interview, breaks: savedBreaks, 
           </div>
           <ol className="flex flex-col gap-1">
             {items.map((it, i) => (
-              <li key={it.key} className={`grid grid-cols-[auto_1fr_auto_auto] items-center gap-1.5 rounded-[8px] px-1.5 py-1 ${it.done ? 'bg-good-soft' : 'bg-surface-2'}`}>
+              <li key={it.key} className={`grid grid-cols-[auto_1fr_auto_auto_auto] items-center gap-1.5 rounded-[8px] px-1.5 py-1 ${it.done ? 'bg-good-soft' : 'bg-surface-2'}`}>
                 <span className="flex flex-col">
                   <button onClick={() => move(i, -1)} disabled={i === 0} aria-label="Move up" className="text-fg-tertiary hover:text-accent disabled:opacity-30"><ArrowUp size={12} /></button>
                   <button onClick={() => move(i, 1)} disabled={i === items.length - 1} aria-label="Move down" className="text-fg-tertiary hover:text-accent disabled:opacity-30"><ArrowDown size={12} /></button>
                 </span>
                 {it.key.startsWith('custom:')
                   ? <input value={it.label} onChange={e => patch(i, { label: e.target.value })} placeholder="Your slot, e.g. Call with recruiter" className={`${INPUT} min-w-0`} />
-                  : <span className="text-[12.5px] text-fg-primary truncate">{it.done && '✓ '}{it.label}</span>}
+                  : <span className="text-[12.5px] text-fg-primary truncate">{it.done && '✓ '}{it.label}{it.key.includes('~') && <span className="text-fg-tertiary"> · slot {it.key.split('~')[1]}</span>}</span>}
                 <span className="inline-flex items-center gap-1 text-[11px] text-fg-tertiary">
                   {it.key === 'mock'
                     ? <span className="tabular-nums">{it.minutes}</span>
                     : <input type="number" min={5} max={300} step={5} value={it.minutes} onChange={e => patch(i, { minutes: num(e.target.value, it.minutes) })} className={`${INPUT} w-[58px] tabular-nums`} aria-label="Minutes" />}
                   min
                 </span>
+                {it.key !== 'mock' && it.minutes >= 10 && !it.done
+                  ? <button onClick={() => split(i)} aria-label="Split into two slots" title="Split into two slots" className="text-fg-tertiary hover:text-accent"><Scissors size={13} /></button>
+                  : <span className="w-[13px]" />}
                 <button onClick={() => setItems(prev => prev.filter((_, k) => k !== i))} aria-label="Remove" className="text-fg-tertiary hover:text-risk"><X size={14} /></button>
               </li>
             ))}
@@ -183,7 +196,7 @@ export function EditToday({ template, startMin, interview, breaks: savedBreaks, 
           <div className="flex flex-wrap items-center gap-1.5">
             <select value={adding} onChange={e => setAdding(e.target.value)} className={INPUT} aria-label="Add a slot">
               <option value="">Add a slot…</option>
-              {free.map(k => <option key={k} value={k}>{PLAN_LABEL[k]}</option>)}
+              {addable.map(k => <option key={k} value={k}>{PLAN_LABEL[k]}{used.has(k) ? ' — another slot' : ''}</option>)}
               <option value="custom">Your own slot…</option>
             </select>
             <button onClick={add} disabled={!adding} className={`${modalCancelButtonClass} !py-[4px] inline-flex items-center gap-1 disabled:opacity-40`}><Plus size={12} /> Add</button>

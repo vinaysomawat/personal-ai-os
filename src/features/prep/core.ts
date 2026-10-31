@@ -3,7 +3,7 @@ import { unstable_cache } from 'next/cache'
 import { createServiceClient } from '@/lib/supabase/service'
 import { prepToday, prepDaysAgo, toPrepDateStr, prepDayStartUtc } from '@/lib/date'
 import type { MockRound } from './mock'
-import { BANK_CATEGORIES, isRedoDue, type CategoryCoverage } from './hunt'
+import { BANK_CATEGORIES, catOf, isRedoDue, type CategoryCoverage } from './hunt'
 import { DEFAULT_TEMPLATE, applyTodayPatch, frontLoad, layoutDay, patchTouchesBlocks, planItems, templateOf, type Interview, type TodayPatch } from './dayplan'
 import type { InterviewPrep } from './jd'
 import type { RoadmapProgress, RoadmapStepDone } from './roadmap'
@@ -249,9 +249,9 @@ async function progressToday(supabase: SupabaseClient, userId: string, categorie
 // block in today's plan is re-checked.
 export async function syncBankBlocks(supabase: SupabaseClient, userId: string, categories: string[] = [], extra: (b: PrepBlock) => boolean = () => false): Promise<PrepSession | null> {
   const { data: session } = await supabase.from('prep_sessions').select('blocks').eq('user_id', userId).eq('date', prepToday()).maybeSingle()
-  const planned = ((session?.blocks ?? []) as PrepBlock[]).filter(b => b.key.startsWith('bank:')).map(b => b.key.slice(5))
+  const planned = ((session?.blocks ?? []) as PrepBlock[]).filter(b => b.key.startsWith('bank:')).map(b => catOf(b.key))
   const ctx = await progressToday(supabase, userId, [...new Set([...planned, ...categories])])
-  return updateBlocks(supabase, userId, prepToday(), blocks => blocks.map(b => extra(b) || blockReached(b, ctx) ? { ...b, done: true } : b))
+  return updateBlocks(supabase, userId, prepToday(), blocks => blocks.map(b => extra(b) || blockReached(b, { ...ctx, order: blocks }) ? { ...b, done: true } : b))
 }
 
 
@@ -269,7 +269,7 @@ export async function patchToday(supabase: SupabaseClient, userId: string, patch
     let blocks = applyTodayPatch(row.blocks as PrepBlock[], patch, row.date)
     const changed = new Set([...Object.keys(patch.minutes ?? {}), ...(patch.add ?? []).map(a => a.key)].filter(k => k.startsWith('bank:')))
     if (changed.size) {
-      const ctx = await progressToday(supabase, userId, [...changed].map(k => k.slice(5)))
+      const ctx = { ...await progressToday(supabase, userId, [...new Set([...changed].map(catOf))]), order: blocks }
       blocks = blocks.map(b => changed.has(b.key) ? { ...b, done: blockReached({ ...b, done: false }, ctx) } : b)
     }
     cols.blocks = blocks
@@ -328,9 +328,9 @@ export async function toggleFocusPause(supabase: SupabaseClient, userId: string,
 
 // FocusBar Finish on a question block needs FINISH_SHARE of its minutes
 // (time focused or answers × minutes per question). null = allowed.
-export async function bankShortfall(supabase: SupabaseClient, userId: string, block: Pick<PrepBlock, 'key' | 'minutes' | 'done'>): Promise<{ minutes: number; planned: number } | null> {
+export async function bankShortfall(supabase: SupabaseClient, userId: string, block: Pick<PrepBlock, 'key' | 'minutes' | 'done'>, order?: PrepBlock[]): Promise<{ minutes: number; planned: number } | null> {
   if (!block.key.startsWith('bank:')) return null
-  const ctx = await progressToday(supabase, userId, [block.key.slice(5)])
+  const ctx = { ...await progressToday(supabase, userId, [catOf(block.key)]), order }
   return canFinishBlock(block, ctx) ? null : { minutes: Math.floor(blockProgress(block, ctx)), planned: block.minutes }
 }
 
@@ -345,7 +345,8 @@ export async function endFocus(supabase: SupabaseClient, userId: string, id: str
   if (!f || f.status !== 'active') return { focus: (f as FocusSession | null) ?? null, session: null }
   if (finished && !verified) {
     const { data: s } = await supabase.from('prep_sessions').select('blocks').eq('user_id', userId).eq('date', f.date).maybeSingle()
-    const short = await bankShortfall(supabase, userId, (s?.blocks as PrepBlock[] | undefined)?.find(b => b.key === f.block_key) ?? { key: f.block_key, minutes: f.planned_minutes, done: false })
+    const blocks = s?.blocks as PrepBlock[] | undefined
+    const short = await bankShortfall(supabase, userId, blocks?.find(b => b.key === f.block_key) ?? { key: f.block_key, minutes: f.planned_minutes, done: false }, blocks)
     if (short) return { focus: f as FocusSession, session: null, short }
   }
   const focus = await closeFocus(supabase, f as FocusSession, finished ? 'completed' : 'abandoned')

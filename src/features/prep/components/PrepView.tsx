@@ -19,6 +19,7 @@ import { AiTab } from './AiTab'
 import { InterviewTab } from './InterviewTab'
 import type { InterviewPrep } from '../jd'
 import type { RoadmapProgress, RoadmapStepDone } from '../roadmap'
+import { catOf } from '../hunt'
 import AnswerReview from './AnswerReview'
 import TimelineCard from './TimelineCard'
 import { liveTimeline } from '../timeline'
@@ -89,7 +90,7 @@ export default function PrepView(props: Props) {
   // Today's answers per category (block progress).
   const doneToday: Record<string, number> = practicedToday(bank, props.today)
   // Question blocks are time boxes: focused minutes or answers × minutes per question.
-  const progressCtx = { answered: doneToday, focused: focusedMinutes(focusSessions, props.today) }
+  const progressCtx = { answered: doneToday, focused: focusedMinutes(focusSessions, props.today), order: session?.blocks }
   // Today on the clock (dayplan.ts layoutDay) from the session's own start /
   // interview, re-flowed on the minute tick.
   const planned = layoutDay(session?.blocks ?? [], props.template, session?.start_min ?? props.settings.day_start_min, session?.interview ?? null, session?.breaks ?? [])
@@ -220,7 +221,7 @@ export default function PrepView(props: Props) {
   }, [reachedByTime, tick])
   // "45m/1h 40m · 3 answered" for a question block.
   const focusProgress = activeFocus && activeBlock?.key.startsWith('bank:')
-    ? `${Math.floor(blockProgress(activeBlock, progressCtx))}/${activeBlock.minutes}m · ${doneToday[activeBlock.key.slice(5)] ?? 0} answered`
+    ? `${Math.floor(blockProgress(activeBlock, progressCtx))}/${activeBlock.minutes}m · ${doneToday[catOf(activeBlock.key)] ?? 0} answered`
     : null
   const canFinish = !activeBlock || canFinishBlock(activeBlock, progressCtx)
 
