@@ -1,0 +1,42 @@
+PR #890 — "Keep the product search in the URL" (AI-generated)
+Description: the search box on /products writes the query to ?q= so a search can be shared and survives a reload; Back should return to the previous page, not each keystroke. Next.js 15 App Router. Timed review: 15 minutes.
+
+diff --git a/app/products/SearchBox.tsx b/app/products/SearchBox.tsx
+new file mode 100644
+--- /dev/null
++++ b/app/products/SearchBox.tsx
+@@ -0,0 +1,26 @@
++'use client'
++import { useRouter, useSearchParams } from 'next/navigation'
++
++export function SearchBox() {
++  const router = useRouter()
++  const params = useSearchParams()
++  const isMobile = window.innerWidth < 768
++
++  return (
++    <input
++      defaultValue={params.get('q') ?? ''}
++      placeholder={isMobile ? 'Search' : 'Search products, brands and categories'}
++      onChange={e => router.push(`/products?q=${encodeURIComponent(e.target.value)}`)}
++    />
++  )
++}
+diff --git a/app/products/page.tsx b/app/products/page.tsx
+--- a/app/products/page.tsx
++++ b/app/products/page.tsx
+@@ -1,9 +1,11 @@
+ import { getProducts } from '@/lib/products'
++import { SearchBox } from './SearchBox'
+ 
+-export default async function ProductsPage() {
+-  const products = await getProducts()
++export default async function ProductsPage({ searchParams }: { searchParams: Promise<{ q?: string }> }) {
++  const { q } = await searchParams
++  const products = await getProducts(q)
+   return (
+     <main>
++      <SearchBox />
+       <ProductGrid products={products} />
+     </main>
+   )

@@ -1,0 +1,52 @@
+PR #855 — "Notifications menu in the header" (AI-generated)
+Description: a bell button opens a menu of the user's notifications; clicking one marks it read and opens its link. Unread count shows on the bell. Timed review: 15 minutes — what blocks the merge?
+
+diff --git a/src/components/NotificationsMenu.tsx b/src/components/NotificationsMenu.tsx
+new file mode 100644
+--- /dev/null
++++ b/src/components/NotificationsMenu.tsx
+@@ -0,0 +1,44 @@
++import { useEffect, useState } from 'react'
++
++type Notification = { id: string; text: string; href: string; read: boolean }
++
++export function NotificationsMenu() {
++  const [items, setItems] = useState<Notification[]>([])
++  const [open, setOpen] = useState(false)
++  const [unread, setUnread] = useState(0)
++
++  useEffect(() => {
++    fetch('/api/notifications')
++      .then(res => res.json())
++      .then(data => {
++        setItems(data)
++        setUnread(data.filter((n: Notification) => !n.read).length)
++      })
++  }, [])
++
++  useEffect(() => {
++    const close = () => setOpen(false)
++    document.addEventListener('click', close)
++  }, [])
++
++  const markRead = (n: Notification) => {
++    fetch(`/api/notifications/${n.id}/read`, { method: 'POST' })
++    setItems(items.map(i => (i.id === n.id ? { ...i, read: true } : i)))
++    window.location.href = n.href
++  }
++
++  return (
++    <div className="relative">
++      <div className="bell" onClick={e => { e.stopPropagation(); setOpen(!open) }}>
++        🔔 {unread > 0 && <span className="badge">{unread}</span>}
++      </div>
++      {open && (
++        <ul className="menu">
++          {items.map(n => (
++            <li key={n.id} className={n.read ? '' : 'unread'} onClick={() => markRead(n)}>{n.text}</li>
++          ))}
++        </ul>
++      )}
++    </div>
++  )
++}

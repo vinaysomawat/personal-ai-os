@@ -1,0 +1,42 @@
+PR #862 — "Price range filter for the product list, with tests" (AI-generated)
+Description: users type a min and max price; the list shows products whose price is within the range, inclusive. Empty fields mean no limit. Timed review: 15 minutes — would these tests catch a broken filter?
+
+diff --git a/src/lib/filterByPrice.ts b/src/lib/filterByPrice.ts
+new file mode 100644
+--- /dev/null
++++ b/src/lib/filterByPrice.ts
+@@ -0,0 +1,11 @@
++export type Product = { id: string; name: string; price: number }
++
++// min and max come straight from the two text inputs.
++export function filterByPrice(products: Product[], min: string, max: string) {
++  return products.filter(p => {
++    if (min && String(p.price) < min) return false
++    if (max && p.price >= Number(max)) return false
++    return true
++  })
++}
++
+diff --git a/src/lib/filterByPrice.test.ts b/src/lib/filterByPrice.test.ts
+new file mode 100644
+--- /dev/null
++++ b/src/lib/filterByPrice.test.ts
+@@ -0,0 +1,20 @@
++import { filterByPrice } from './filterByPrice'
++
++const products = [
++  { id: '1', name: 'Mug', price: 8 },
++  { id: '2', name: 'Lamp', price: 40 },
++  { id: '3', name: 'Chair', price: 120 },
++]
++
++describe('filterByPrice', () => {
++  it('returns everything with no limits', () => {
++    expect(filterByPrice(products, '', '')).toHaveLength(3)
++  })
++
++  it('filters by range', () => {
++    const result = filterByPrice(products, '5', '50')
++    expect(result.length).toBeGreaterThan(0)
++  })
++})

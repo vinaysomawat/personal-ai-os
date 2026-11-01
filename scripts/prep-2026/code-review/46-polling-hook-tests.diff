@@ -1,0 +1,37 @@
+PR #911 — "usePolling hook for the build status badge, with a test" (AI-generated)
+Description: the badge refreshes a build's status every 5 seconds while the page is open and stops when the build finishes. Timed review: 15 minutes — check the hook and whether its test is trustworthy.
+
+diff --git a/src/hooks/usePolling.ts b/src/hooks/usePolling.ts
+new file mode 100644
+--- /dev/null
++++ b/src/hooks/usePolling.ts
+@@ -0,0 +1,19 @@
++import { useEffect, useState } from 'react'
++
++export function useBuildStatus(buildId: string) {
++  const [status, setStatus] = useState('pending')
++
++  useEffect(() => {
++    setInterval(async () => {
++      if (status === 'done') return
++      const res = await fetch(`/api/builds/${buildId}`)
++      const data = await res.json()
++      setStatus(data.status)
++    }, 5000)
++  }, [buildId])
++
++  return status
++}
+diff --git a/src/hooks/usePolling.test.ts b/src/hooks/usePolling.test.ts
+new file mode 100644
+--- /dev/null
++++ b/src/hooks/usePolling.test.ts
+@@ -0,0 +1,14 @@
++import { renderHook, waitFor } from '@testing-library/react'
++import { useBuildStatus } from './usePolling'
++
++test('updates the status', async () => {
++  global.fetch = jest.fn().mockResolvedValue({ json: () => Promise.resolve({ status: 'done' }) })
++  const { result } = renderHook(() => useBuildStatus('42'))
++  await waitFor(() => expect(result.current).toBe('done'), { timeout: 6000 })
++})

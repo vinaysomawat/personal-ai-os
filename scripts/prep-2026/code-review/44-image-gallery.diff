@@ -1,0 +1,32 @@
+PR #897 — "Product image gallery" (AI-generated)
+Description: the product page shows up to 12 photos as thumbnails; clicking one shows it large. A missing image should show a placeholder. Timed review: 15 minutes.
+
+diff --git a/src/components/Gallery.tsx b/src/components/Gallery.tsx
+new file mode 100644
+--- /dev/null
++++ b/src/components/Gallery.tsx
+@@ -0,0 +1,32 @@
++import { useState } from 'react'
++
++type Photo = { id: string; url: string; caption: string }
++
++export function Gallery({ photos }: { photos: Photo[] }) {
++  const [selected, setSelected] = useState(0)
++
++  return (
++    <div>
++      <img className="large" src={photos[selected].url} />
++      <div className="thumbs">
++        {photos.map((p, i) => (
++          <img
++            key={p.id}
++            src={p.url}
++            className={i === selected ? 'thumb active' : 'thumb'}
++            onClick={() => setSelected(i)}
++            onError={e => { e.currentTarget.src = '/images/placeholder.png' }}
++          />
++        ))}
++      </div>
++    </div>
++  )
++}

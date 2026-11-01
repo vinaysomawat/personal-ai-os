@@ -1,6 +1,8 @@
-// Code review practice (category 'code-review') — 37 "AI-generated PR"
-// diffs: React / Next.js / Node / CSS (01–15, 24–30), Angular (16–23) and
-// FE lead & architecture (31–37) (body = the diff, from ./code-review/*.diff). answer_hints = the
+// Code review practice (category 'code-review') — 47 "AI-generated PR"
+// diffs: React / Next.js / Node / CSS (01–15, 24–30), Angular (16–23),
+// FE lead & architecture (31–37) and timed reviews (38–47, a small change
+// with a stated task and 15 minutes, after GreatFrontEnd's code review
+// interview guide) (body = the diff, from ./code-review/*.diff). answer_hints = the
 // planted issues; the code-review scorecard grades how many you found, how
 // you prioritized them and how good your fixes are.
 import { readFileSync } from 'node:fs'
@@ -292,6 +294,89 @@ const ROWS = [
     'ephemeral UI state (hoveredRow, modalOpen, searchText) in the global store: every hover re-renders every subscriber, keep it local',
     'useSelector(s => s.app) selects the whole slice, so any change re-renders TaskPage',
     'loadEverything fetches every collection on every page mount, has no error handling, and loading stays true forever on failure',
+  ]),
+  // ---- Timed reviews (38–47): a small change with a stated task and a 15-minute
+  // timebox; graded on priority (must fix / should fix / optional), a merge
+  // verdict, test judgment and what the code does well, not only bug count.
+  q('38-notifications-menu', 'Review PR #855: notifications menu in the header (15 min)', 'medium', ['React', 'Accessibility', 'Timed review'], [
+    'must fix: no res.ok check, error or loading state, an API error object reaches items.filter and the menu crashes',
+    'must fix: bell and items are clickable div / li, not keyboard-operable, use buttons with aria-expanded / aria-haspopup and Escape to close',
+    'must fix: the document click listener is never removed (no effect cleanup), it leaks on every mount',
+    'should fix: unread is duplicated state and never drops after markRead, derive it from items',
+    'should fix: the POST is not awaited before navigating away, the browser can cancel it, await it or use keepalive / sendBeacon',
+    'verdict: request changes; good: stable n.id keys and stopPropagation keeps the bell click from closing the menu',
+  ]),
+  q('39-price-filter-tests', 'Review PR #862: price range filter with tests (15 min)', 'easy', ['TypeScript', 'Testing', 'Timed review'], [
+    'must fix: String(p.price) < min compares strings, "120" < "5" is true, so 120 is wrongly excluded, compare numbers',
+    'must fix: max uses >=, so a product at exactly the max is dropped, the requirement says inclusive',
+    'should fix: non-numeric input gives NaN and silently disables the limit, validate or ignore it explicitly',
+    'tests would pass with the broken filter: toBeGreaterThan(0) checks nothing, assert the exact ids returned',
+    'missing tests: inclusive boundaries, only min, only max, a price above 99 (string compare), invalid input',
+    'verdict: request changes; good: a small pure function with a clear signature that is easy to test',
+  ]),
+  q('40-profile-form', 'Review PR #869: edit profile form (15 min)', 'easy', ['React', 'Accessibility', 'Forms', 'Timed review'], [
+    'must fix: inputs have only placeholders, no labels, screen readers and autofill lose them, add <label> and type="email"',
+    'must fix: error is never cleared and saved never resets, after a failure then a success both messages show',
+    'should fix: no pending state, Save can be double-submitted while the request runs, disable it while saving',
+    'should fix: the error is not announced or tied to the field, use role="alert" or aria-live and aria-describedby',
+    'optional: rename d to canSave; the loose email regex is fine if the server validates',
+    'verdict: request changes for labels and stale messages; good: preventDefault, res.ok checked, try/catch around the save',
+  ]),
+  q('41-tabs', 'Review PR #876: reusable Tabs component (15 min)', 'medium', ['React', 'Accessibility', 'Timed review'], [
+    'must fix: tab labels are spans, not focusable or keyboard-operable, use buttons',
+    'must fix: no ARIA tabs pattern: role tablist / tab / tabpanel, aria-selected, aria-controls, arrow-key roving tabindex',
+    'should fix: active mirrors the controlled value prop through useEffect, an extra render and it can drift, use value directly',
+    'should fix: every panel is mounted and rendered with display:none, all tabs\' content (and their fetches) runs on load, render only the active one unless keeping state is the goal',
+    'ask: is keeping hidden panels mounted intentional (to preserve form state)? the answer changes the fix',
+    'verdict: request changes; good: controlled API (value / onChange) and stable t.id keys',
+  ]),
+  q('42-format-utils-tests', 'Review PR #883: price and date helpers with tests (15 min)', 'medium', ['JavaScript', 'Testing', 'i18n', 'Timed review'], [
+    'must fix: new Date("2026-11-01") parses as UTC midnight, users west of UTC see 31/10/2026, parse the parts or use a date-only formatter',
+    'must fix: formatPrice always prints "$" whatever the currency, use Intl.NumberFormat with the currency and the user\'s locale',
+    'tests only pass because CI runs with TZ=UTC: run the date test in a non-UTC zone (e.g. America/New_York) so the bug shows',
+    'should fix: addTax does float maths on money (0.1 + 0.2), work in minor units (paise / cents) and round once; it has no test',
+    'should fix: the date format is hardcoded day/month/year, use Intl.DateTimeFormat for the user\'s locale',
+    'verdict: request changes; good: small pure helpers in one shared module, which is the right place for them',
+  ]),
+  q('43-next-search-params', 'Review PR #890: keep the product search in the URL (15 min)', 'hard', ['Next.js', 'React', 'Timed review'], [
+    'must fix: window.innerWidth in render crashes on the server (client components still SSR) and would mismatch on hydration, use CSS or an effect',
+    'must fix: router.push on every keystroke adds a history entry per letter (Back walks through letters) and a server render per key, debounce and use router.replace',
+    'should fix: useSearchParams with no <Suspense> boundary makes the page bail out of static rendering (a build error in Next 15), wrap SearchBox in Suspense',
+    'should fix: defaultValue only reads q once, Back / Forward changes the URL but not the input, key the input on q or make it controlled',
+    'optional: the placeholder text can come from CSS / a shorter label instead of JS',
+    'verdict: request changes; good: encodeURIComponent, and the page awaits searchParams correctly for Next 15',
+  ]),
+  q('44-image-gallery', 'Review PR #897: product image gallery (15 min)', 'easy', ['React', 'Accessibility', 'Performance', 'Timed review'], [
+    'must fix: photos[selected] crashes when photos is empty, render an empty state',
+    'must fix: no alt text on the large image or thumbnails though a caption exists, and thumbnails are clickable imgs, use buttons with an accessible name',
+    'should fix: onError sets the placeholder with no guard, if the placeholder fails it loops, clear the handler or check before swapping',
+    'should fix: no width / height (layout shift) and thumbnails load the full-size images, use sized thumbnails, srcset and loading="lazy"',
+    'should fix: the large image has no fallback, onError is only on thumbnails',
+    'verdict: request changes; good: stable p.id keys and simple index-based selection state',
+  ]),
+  q('45-auth-client', 'Review PR #904: call the reports API with the user token (15 min)', 'hard', ['Security', 'Auth', 'Timed review'], [
+    'must fix: NEXT_PUBLIC_REPORTS_SERVICE_KEY ships a service secret in the browser bundle, call the service from a server route and rotate the key',
+    'must fix: the token goes in the query string, it leaks into server logs, history and the Referer header, send it in an Authorization header',
+    'must fix: an expired session (401) is never handled, the user is not sent to sign in; res.ok is not checked',
+    'should fix: logging the whole reports response puts user data in the console and log tools',
+    'should fix: logout does not remove the token; a token in localStorage is readable by any XSS, prefer an httpOnly cookie',
+    'verdict: request changes, security blockers first; good: one small module owning the API calls, easy to fix in one place',
+  ]),
+  q('46-polling-hook-tests', 'Review PR #911: usePolling hook with a test (15 min)', 'medium', ['React', 'Hooks', 'Testing', 'Timed review'], [
+    'must fix: the interval is never cleared, it keeps polling after unmount and a new one stacks on every buildId change, return clearInterval',
+    'must fix: stale closure, status inside the interval is always the initial "pending", so polling never stops at done, use a ref or clear the interval when done',
+    'should fix: no res.ok or error handling, a failed request throws inside the interval',
+    'test is slow and flaky: real timers with a 6 s waitFor, use jest fake timers and advanceTimersByTime',
+    'missing test: polling stops after "done" and the interval is cleared on unmount, the two bugs here',
+    'verdict: request changes; good: the hook isolates polling from the badge UI; optional: pause while the tab is hidden',
+  ]),
+  q('47-paginated-api', 'Review PR #918: paginated, sortable orders endpoint (15 min)', 'hard', ['API', 'Security', 'Database', 'Timed review'], [
+    'must fix: SQL injection, sort is interpolated into ORDER BY, whitelist sortable columns and directions',
+    'must fix: page and limit are not validated, NaN, negative values or limit=1000000 break the query or load the database, clamp them',
+    'must fix: the total counts every user\'s orders, not this user\'s, wrong pager and it leaks business volume',
+    'should fix: SELECT * returns every column, internal fields can reach the client, select what the table needs',
+    'optional: offset pagination slows on deep pages, keyset pagination later if the table grows',
+    'verdict: request changes; good: the auth check comes first and user_id is a bound parameter',
   ]),
 ]
 

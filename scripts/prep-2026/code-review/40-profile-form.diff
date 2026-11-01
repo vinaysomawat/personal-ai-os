@@ -1,0 +1,44 @@
+PR #869 — "Edit profile form" (AI-generated)
+Description: users edit their display name and email and press Save; show an error if the save fails and a confirmation when it succeeds. Timed review: 15 minutes — rank what you find and say what can wait.
+
+diff --git a/src/components/ProfileForm.tsx b/src/components/ProfileForm.tsx
+new file mode 100644
+--- /dev/null
++++ b/src/components/ProfileForm.tsx
+@@ -0,0 +1,46 @@
++import { useState } from 'react'
++
++export function ProfileForm({ initial }: { initial: { name: string; email: string } }) {
++  const [name, setName] = useState(initial.name)
++  const [email, setEmail] = useState(initial.email)
++  const [error, setError] = useState('')
++  const [saved, setSaved] = useState(false)
++
++  const handleSubmit = async (e: React.FormEvent) => {
++    e.preventDefault()
++    if (!/^\S+@\S+$/.test(email)) { setError('Invalid email'); return }
++    try {
++      const res = await fetch('/api/profile', {
++        method: 'PUT',
++        headers: { 'Content-Type': 'application/json' },
++        body: JSON.stringify({ name, email }),
++      })
++      if (!res.ok) throw new Error()
++      setSaved(true)
++    } catch {
++      setError('Could not save')
++    }
++  }
++
++  const d = name.trim().length > 0
++
++  return (
++    <form onSubmit={handleSubmit}>
++      <input value={name} onChange={e => setName(e.target.value)} placeholder="Display name" />
++      <input value={email} onChange={e => setEmail(e.target.value)} placeholder="Email" />
++      {error && <p className="error">{error}</p>}
++      {saved && <p className="success">Saved!</p>}
++      <button type="submit" disabled={!d}>Save</button>
++    </form>
++  )
++}

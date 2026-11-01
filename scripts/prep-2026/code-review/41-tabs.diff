@@ -1,0 +1,40 @@
+PR #876 — "Reusable Tabs component" (AI-generated)
+Description: a Tabs component for settings pages: a row of tab labels, one panel visible at a time, the selected tab controlled by the parent through `value` / `onChange`. Timed review: 15 minutes.
+
+diff --git a/src/components/Tabs.tsx b/src/components/Tabs.tsx
+new file mode 100644
+--- /dev/null
++++ b/src/components/Tabs.tsx
+@@ -0,0 +1,38 @@
++import { useEffect, useState } from 'react'
++
++type Tab = { id: string; label: string; content: React.ReactNode }
++
++export function Tabs({ tabs, value, onChange }: { tabs: Tab[]; value: string; onChange: (id: string) => void }) {
++  const [active, setActive] = useState(value)
++
++  useEffect(() => {
++    setActive(value)
++  }, [value])
++
++  return (
++    <div>
++      <div className="tab-row">
++        {tabs.map(t => (
++          <span
++            key={t.id}
++            className={t.id === active ? 'tab active' : 'tab'}
++            onClick={() => { setActive(t.id); onChange(t.id) }}
++          >
++            {t.label}
++          </span>
++        ))}
++      </div>
++      {tabs.map(t => (
++        <div key={t.id} style={{ display: t.id === active ? 'block' : 'none' }}>
++          {t.content}
++        </div>
++      ))}
++    </div>
++  )
++}

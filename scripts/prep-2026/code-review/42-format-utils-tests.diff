@@ -1,0 +1,37 @@
+PR #883 — "Shared formatting helpers for prices and dates" (AI-generated)
+Description: helpers used across the checkout and order history: a price in the user's currency, and an order date shown as the calendar day it was placed. Timed review: 15 minutes — the tests pass in CI; is it ready?
+
+diff --git a/src/lib/format.ts b/src/lib/format.ts
+new file mode 100644
+--- /dev/null
++++ b/src/lib/format.ts
+@@ -0,0 +1,14 @@
++// amount is in rupees or dollars, e.g. 19.99
++export function formatPrice(amount: number, currency = 'USD') {
++  return '$' + (Math.round(amount * 100) / 100).toFixed(2) + ' ' + currency
++}
++
++// date comes from the API as "2026-11-01"
++export function formatOrderDate(date: string) {
++  const d = new Date(date)
++  return `${d.getDate()}/${d.getMonth() + 1}/${d.getFullYear()}`
++}
++
++export function addTax(amount: number, rate: number) {
++  return amount + amount * rate
++}
+diff --git a/src/lib/format.test.ts b/src/lib/format.test.ts
+new file mode 100644
+--- /dev/null
++++ b/src/lib/format.test.ts
+@@ -0,0 +1,14 @@
++import { formatOrderDate, formatPrice } from './format'
++
++// CI runs with TZ=UTC
++test('formatPrice', () => {
++  expect(formatPrice(19.99)).toBe('$19.99 USD')
++})
++
++test('formatOrderDate', () => {
++  expect(formatOrderDate('2026-11-01')).toBe('1/11/2026')
++})
