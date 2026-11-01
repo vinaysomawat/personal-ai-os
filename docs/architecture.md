@@ -6,7 +6,7 @@
 - **Auth + DB**: Supabase (PostgreSQL + Row Level Security)
 - **Styling**: Tailwind CSS v3 with a custom `surface` / `accent` token system
 - **Components**: hand-rolled (`src/components/`); the one primitive (`ui/tooltip.tsx`) wraps Base UI (`@base-ui/react`)
-- **AI**: Anthropic `claude-sonnet-4-6` and `claude-haiku-4-5` via `@anthropic-ai/sdk`, through the AI Gateway
+- **AI**: Anthropic `claude-sonnet-4-6`, `claude-haiku-4-5` and `claude-haiku-5-5` via `@anthropic-ai/sdk`, through the AI Gateway
 - **Voice**: Groq `whisper-large-v3-turbo`
 - **Bots**: Telegram Bot API webhooks
 - **Deploy**: Vercel (auto-deploy from `master`) + Vercel Cron
@@ -21,6 +21,7 @@
 - **Shared components** (`src/components/`): `MicButton` (voice mode), `TopNav`, `ProfileMenu`, `PageHeader` + `HeaderChip`, `Card`, `StatCard`, `PageTabs`, `Modal`, `ConfirmDialog`, `EmptyState`, `Skeleton`, `FieldError`, `ModuleRecommendations`, `ThemeProvider`, `AIAdvisorProvider`, `ActionErrorToast`.
 - **Header advisors**: a View calls `useAIAdvisor(label, icon, content)`; `AIAdvisorProvider` portals the content into the TopNav panel (Ask Brain on Dashboard, Money Advisor, Health Coach). Opens and tab switches are logged to `advisor_usage_log`.
 - **Cross-module signals**: each module's `signals.ts` → `rankSignals()` (`src/lib/signals.ts`) → Needs Attention.
+- **Public docs site** (`/docs`, `src/app/docs/` + `src/features/docs/`): the only public pages besides `/login` and `/self-host` (`lib/supabase/middleware.ts` lets them through). Overview (README.md), Architecture (this file, plus `ArchitectureDiagram`, the request flow as stacked cards), AI Gateway (`docs/ai-gateway.md`) and Self-hosting (`docs/self-hosting.md`). `DOC_PAGES` in `pages.ts` lists them, and they are statically built at deploy from those files (`generateStaticParams`, `dynamicParams = false`) with `renderMarkdown()`, a small renderer for the syntax the docs use. `docHref()` turns links to another public page into its `/docs` route and links to any other repo file into a GitHub link, so the module spec stays on GitHub only. TopNav and QuickAdd render nothing under `/docs`.
 - **Navigation** (`TopNav.tsx`): a 44px translucent bar — "Personal OS" wordmark, desktop pills Dashboard · Prep · Finance · Health (the active page filled with the accent), then Ask Brain (when the page has an advisor), the theme toggle, the version (links to `/changelog`, renders `CHANGELOG.md`) and the profile avatar; Astrology and Settings in the profile menu. **Badges**: red iOS-style counts on a pill / tab — Prep = today's plan blocks not done (`getNavBadges()` in `src/lib/nav-badges.ts`, one read, fetched by TopNav after render and on each page change). Mobile (<`md`): a floating pill tab bar (10px from the bottom, translucent, icons + labels + badges) Home · Prep · Health · Finance + More (a sheet with Astrology, Settings). Redirects: `/coding` → `/prep?tab=questions`.
 
 ## Design System

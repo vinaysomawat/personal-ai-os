@@ -21,7 +21,7 @@ A personal, single-user AI Operating System: one Next.js app for interview prep,
 | Astrology | Natal chart, Panchang, daily / monthly / yearly readings | [docs/modules/astrology.md](docs/modules/astrology.md) |
 | Settings | Account and JSON export, AI budget, system health of the crons, reminders | [docs/modules/settings.md](docs/modules/settings.md) |
 
-Also: [Telegram bots](docs/telegram.md) · [scheduled jobs](docs/cron.md) · [AI Gateway](docs/ai-gateway.md) (every AI task, its model, cache and budget) · [architecture, stack and design system](docs/architecture.md) · [database](docs/database.md) · [UI reference](docs/ui-reference.md). The [docs index](docs/README.md) says what each file covers. History lives in `CHANGELOG.md` and git.
+Also: [Telegram bots](docs/telegram.md) · [scheduled jobs](docs/cron.md) · [AI Gateway](docs/ai-gateway.md) (every AI task, its model, cache and budget) · [architecture, stack and design system](docs/architecture.md) · [self-hosting](docs/self-hosting.md) · [database](docs/database.md) · [UI reference](docs/ui-reference.md). The [docs index](docs/README.md) says what each file covers. History lives in `CHANGELOG.md` and git.
 
 ## Stack
 
@@ -36,22 +36,8 @@ npm run build    # production build (type-check + lint)
 npm run lint     # ESLint
 ```
 
-### Environment variables
+## Self-hosting
 
-See `.env.example` (copy to `.env.local`): Supabase URL / anon key / service role key, `SUPABASE_USER_ID`, `ANTHROPIC_API_KEY`, `AI_DAILY_BUDGET_USD`, `AI_MONTHLY_BUDGET_USD`, `GROQ_API_KEY`, `CRON_SECRET`, `TELEGRAM_ALLOWED_CHAT_ID`, `TELEGRAM_BOT_TOKEN_{PLANNER,FINANCE,HEALTH,ASTROLOGY}`, optional `TELEGRAM_DAILY_AI_CAP`. Webhooks are registered with `scripts/setup-webhooks.mjs`.
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/vinaysomawat/personal-ai-os&env=NEXT_PUBLIC_SUPABASE_URL,NEXT_PUBLIC_SUPABASE_ANON_KEY,SUPABASE_SERVICE_ROLE_KEY,ANTHROPIC_API_KEY,GROQ_API_KEY,CRON_SECRET&envDescription=See%20the%20self-hosting%20guide%20for%20where%20each%20value%20comes%20from&envLink=https://github.com/vinaysomawat/personal-ai-os/blob/master/docs/self-hosting.md)
 
-### Deploying your own instance
-
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/vinaysomawat/personal-ai-os&env=NEXT_PUBLIC_SUPABASE_URL,NEXT_PUBLIC_SUPABASE_ANON_KEY,SUPABASE_SERVICE_ROLE_KEY,ANTHROPIC_API_KEY,GROQ_API_KEY,CRON_SECRET&envDescription=See%20the%20README%27s%20%22Deploying%20your%20own%20instance%22%20section%20for%20where%20each%20value%20comes%20from&envLink=https://github.com/vinaysomawat/personal-ai-os%23deploying-your-own-instance)
-
-1. Create a Supabase project; copy the URL, anon key and service role key (Project Settings → API).
-2. Run every file in `supabase/migrations/` in filename order.
-3. Get an Anthropic key (and optionally a Groq key for voice notes); generate `CRON_SECRET` (`openssl rand -hex 32`).
-4. Deploy with those env vars.
-5. **Create your account and close signups right away**: add a confirmed user in Supabase → Authentication → Users (or sign up at `/login` and immediately disable sign-ups in Authentication → Sign In / Providers). The app has no invite gate of its own.
-6. Set `SUPABASE_USER_ID` to your user's UUID and redeploy.
-7. *(Telegram)* Create one bot per module with @BotFather, set the tokens and `TELEGRAM_ALLOWED_CHAT_ID`, redeploy, then `node scripts/setup-webhooks.mjs https://your-app.vercel.app`.
-
-### Security model
-
-One user per deployment. Owner-scoped RLS on user tables; `telegram_logs`, `panchang_daily`, `cron_runs`, `workout_library` and `coding_questions` are readable by any authenticated user (global pools / system logs). Audit those before ever adding a second account.
+The [self-hosting guide](docs/self-hosting.md) covers it end to end: create the Supabase project, run the migrations, create your account and close sign-ups, set the env vars (`.env.example` lists them), deploy to Vercel with the cron jobs, and optionally connect the Telegram bots. It also covers updates, troubleshooting and the security model. The guide, the architecture and the AI Gateway pages are also a public docs site at `/docs` in every deployment.

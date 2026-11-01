@@ -1,6 +1,6 @@
 # Docs
 
-The detailed spec of Personal OS: what the app does today, module by module, field by field, formula by formula. Each file is written so that pasting it into a fresh AI chat explains that area with no other context. It describes the present only; history lives in `CHANGELOG.md` and git. `CLAUDE.md`'s post-task checklist says which file to update for which change.
+The detailed spec of Personal OS: what the app does today, module by module, field by field, formula by formula. Each file is written so that pasting it into a fresh AI chat explains that area with no other context. It describes the present only; history lives in `CHANGELOG.md` and git. `CLAUDE.md`'s post-task checklist says which file to update for which change. The general pages (the root README, architecture, AI Gateway, self-hosting) are also published as the public docs site at `/docs` in the app (`DOC_PAGES` in `src/features/docs/pages.ts`); the rest stay on GitHub.
 
 | File | Covers |
 | --- | --- |
@@ -13,6 +13,7 @@ The detailed spec of Personal OS: what the app does today, module by module, fie
 | [telegram.md](telegram.md) | The bots, the message pipeline, intents |
 | [cron.md](cron.md) | Every scheduled job and its time |
 | [ai-gateway.md](ai-gateway.md) | `askAI()`, every task with its model and cache TTL, budget and interactive reserve |
+| [self-hosting.md](self-hosting.md) | Running your own copy: Supabase project, migrations, account and sign-ups, env vars, Vercel and cron, Telegram bots, updating, troubleshooting, security model |
 | [architecture.md](architecture.md) | Stack, code architecture, shared components, navigation, design system |
 | [database.md](database.md) | Every table and its key columns, RLS |
 | [ui-reference.md](ui-reference.md) | Top-to-bottom layout of every page |

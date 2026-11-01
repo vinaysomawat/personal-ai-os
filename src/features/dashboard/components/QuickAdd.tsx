@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useTransition, useRef, useEffect } from 'react'
+import { usePathname } from 'next/navigation'
 import { Plus, X, HeartPulse, DollarSign } from 'lucide-react'
 import { addExpense } from '@/features/finance/actions'
 import { todayIST } from '@/lib/date'
@@ -18,6 +19,7 @@ const METRIC_OPTIONS = [
 ]
 
 export default function QuickAdd() {
+  const pathname = usePathname()
   const [open, setOpen] = useState(false)
   const [mode, setMode] = useState<Mode>(null)
   const [isPending, startTransition] = useTransition()
@@ -49,6 +51,8 @@ export default function QuickAdd() {
     }
   }
 
+  // Not on the public docs site (no session there).
+  if (pathname.startsWith('/docs')) return null
   return (
     <>
       {/* Floating button — bottom-right, matching the design source's 52px/28px

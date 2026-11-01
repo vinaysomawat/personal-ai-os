@@ -75,7 +75,8 @@ This is a non-exhaustive list scoped to the AI Gateway — see `.env.local` for 
 | A Telegram bot capability | `docs/telegram.md` |
 | A cron job | `docs/cron.md` |
 | Stack, code architecture, shared components, navigation, design system | `docs/architecture.md` |
-| Setup, env vars, deploy steps, the module list | `README.md` |
+| Setup, env vars, deploy steps, updating, troubleshooting | `docs/self-hosting.md` (also public at `/docs/self-hosting`) |
+| The module list, dev commands | `README.md` |
 | A new docs file | `docs/README.md` (the index) |
 
 Before ending **any** task that changes the app in a way a fresh reader would need to know — architecture, database schema, a module's fields/behavior, an AI feature (including which tasks exist, which model they route to, and their cache TTL), a Telegram bot capability, a cron job, navigation structure, **or a page's actual layout/component structure** — update the corresponding file(s) in `docs/` (table above) to match, every time, not just on the change that "feels big." Treat this as mandatory, same tier as running `npm run build`, never something to batch up and do "later" — a change that isn't reflected in `docs/` is not finished. This applies in both directions: adding something new AND removing/replacing something old (a removed feature's stale mentions — an old task name, an old file path, an old UI element — are just as wrong left behind as a new feature never being added).

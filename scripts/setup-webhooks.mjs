@@ -9,15 +9,12 @@ if (!BASE_URL) {
   process.exit(1)
 }
 
-const MODULES = ['planner', 'finance', 'health', 'learning', 'coding', 'documents', 'astrology']
+const MODULES = ['planner', 'finance', 'health', 'astrology']
 
 const TOKEN_MAP = {
   planner:   process.env.TELEGRAM_BOT_TOKEN_PLANNER,
   finance:   process.env.TELEGRAM_BOT_TOKEN_FINANCE,
   health:    process.env.TELEGRAM_BOT_TOKEN_HEALTH,
-  learning:  process.env.TELEGRAM_BOT_TOKEN_LEARNING,
-  coding:    process.env.TELEGRAM_BOT_TOKEN_CODING,
-  documents: process.env.TELEGRAM_BOT_TOKEN_DOCUMENTS,
   astrology: process.env.TELEGRAM_BOT_TOKEN_ASTROLOGY,
 }
 

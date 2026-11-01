@@ -55,3 +55,10 @@ App-wide: Quick Add FAB; Ask Brain in the header.
 1. **Account** — email · Export as JSON · Sign out
 2. **AI Budget** (plan-style card with "% left" meters) + **System Health** (status tiles) `lg:grid-cols-2`
 3. **Reminders** — list + New Reminder modal
+
+## Docs (`/docs`, public)
+
+1. Header — "V" logo + "Personal OS docs" (→ `/docs`) · GitHub ↗
+2. `md:grid-cols-[180px_1fr]`: **page nav** (`DocsNav`: Overview · Architecture · AI Gateway · Self-hosting; a sticky sidebar on desktop, a scrollable pill row on phones; the current page accent-filled) + **content**
+3. Content `lg:grid-cols-[1fr_190px]`: the page as a card (Architecture adds the request-flow diagram under its title; "Rendered from {file} — edit it on GitHub" at the bottom) + an **On this page** list of its `##` headings (desktop `lg` only)
+

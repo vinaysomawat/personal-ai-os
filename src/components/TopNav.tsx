@@ -71,13 +71,15 @@ export default function TopNav() {
   // Badge counts, re-read on each page change (the work may have changed them).
   const [badges, setBadges] = useState<Record<string, number>>({})
   useEffect(() => {
-    if (pathname === '/login') return
+    if (pathname === '/login' || pathname.startsWith('/docs')) return
     getNavBadges().then(setBadges).catch(() => {})
   }, [pathname])
 
   const goTo = (to: string) => { setMoreOpen(false); router.push(to) }
   const moreActive = MOBILE_MORE.some(m => m.to === pathname)
 
+  // The public docs site has its own header; the app nav isn't for visitors.
+  if (pathname.startsWith('/docs')) return null
   return (
     <>
       <header

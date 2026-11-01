@@ -54,8 +54,8 @@ export default function SelfHostPage() {
             <li>Lock down signups on your own Supabase project once your account exists.</li>
           </ol>
           <p className="text-xs text-fg-tertiary pt-4 mt-4 border-t border-surface-3">
-            Full walkthrough — including optional per-module Telegram bots — is in the repo&apos;s README under
-            &ldquo;Deploying your own instance.&rdquo;
+            Full walkthrough — including optional per-module Telegram bots — is in the{' '}
+            <Link className="text-accent hover:underline" href="/docs/self-hosting">self-hosting guide</Link>.
           </p>
         </div>
 
