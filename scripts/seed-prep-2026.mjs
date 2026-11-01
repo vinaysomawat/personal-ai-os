@@ -4,7 +4,7 @@
  * matched on (category, title); missing rows are inserted, existing rows get
  * their answer_hints / body / url / sort_order / topics refreshed.
  *
- *   node --env-file=.env.local scripts/seed-prep-2026.mjs [backend|code-review|system-design|resume|architecture|algorithm|javascript-functions|ui-coding|ai-engineering|quiz ...]
+ *   node --env-file=.env.local scripts/seed-prep-2026.mjs [backend|code-review|system-design|resume|architecture|algorithm|javascript-functions|ui-coding|ai-engineering|quiz|ai-native ...]
  *
  * No args = every set. Rows are linkless (url null).
  */
@@ -21,6 +21,7 @@ const SETS = {
   'ui-coding': () => import('./prep-2026/ui-coding.mjs'),
   'ai-engineering': () => import('./prep-2026/ai-engineering.mjs'),
   quiz: () => import('./prep-2026/quiz.mjs'),
+  'ai-native': () => import('./prep-2026/ai-native.mjs'),
 }
 
 const db = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY, { auth: { persistSession: false } })
@@ -49,7 +50,7 @@ for (const category of wanted) {
   }
   console.log(`${category}: ${inserted} inserted, ${updated} updated (${rows.length} in set)`)
   // A set may also patch existing rows after the inserts (system-design appends a
-  // full-stack extension to the old questions' hints; quiz, algorithm, javascript-functions
+  // full-stack extension to the old questions' hints, ai-native fills missing key points; quiz, algorithm, javascript-functions
   // and ui-coding delete their least-completed GreatFrontEnd rows and order the rest).
   if (mod.patch) console.log(`${category}: patched ${await mod.patch(db)} existing rows`)
 }

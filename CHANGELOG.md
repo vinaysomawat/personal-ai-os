@@ -5,6 +5,7 @@ append here whenever you deploy, same cadence as the version bump.
 
 ## 2026-11-01
 
+- **Every AI-native question has its expected areas.** 75 of the 115 had no key points, so they had no "Show expected areas" button and the review had to guess what to look for. All of them have key points now, and reviews of those questions grade against them.
 - **AI costs about a third as much.** Answer reviews (Question Bank, Story Bank, Mock Round), the weekly and monthly digests, Health Coach tips, food estimates and horoscopes now run on Haiku 5.5 at low effort instead of Haiku 4.5 or Sonnet. A review costs about $0.0009 instead of $0.0034, and reviews were 80% of all AI spend. In a test on real answers, ratings stayed within 1 point. Telegram parsing, photo reading, model answers and the advisors are unchanged.
 
 ## 2026-10-31
