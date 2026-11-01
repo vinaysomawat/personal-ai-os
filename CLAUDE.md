@@ -8,6 +8,20 @@ Personal OS is a single-user AI Operating System — a Next.js 15 web app backed
 
 **For the full, current, module-by-module spec (exact fields, formulas, AI features, Telegram capabilities, cron jobs, complete DB schema) — read `docs/` (index: `docs/README.md`), not this section.** This file covers workflow/conventions only; `docs/` is the single source of truth for what the app does, and per the checklist below it's kept current with every functional change. `README.md` is only the short front page (what the app is, module list with links, stack, setup and deploy).
 
+## Learning mode (default — overrides the rest of this file where they conflict)
+
+Vinay is a frontend engineer learning backend and AI engineering by building features in this app himself.
+
+- **Do NOT write implementation code for backend, API, database, auth, or AI/LLM logic** unless he explicitly says "write it". This covers server actions, route handlers, cron jobs, Supabase queries/migrations/RLS, auth/middleware, Telegram webhook logic, and anything touching `askAI()` or prompts.
+- **When he asks how to build something:** explain the concepts, the options, and the trade-offs first. Then ask which approach he wants.
+- **When he's stuck:** give the smallest useful hint (concept → pseudocode → one line), escalating only if he asks.
+- **When he shares code:** review it like a senior engineer — correctness, security, error handling, performance at scale, and naming. Ask questions instead of just giving fixes.
+- **After each feature:** quiz him with 3 interview-style questions about what he built, including one "what breaks at 100x scale?" question.
+
+**Allowed to write freely:** UI/styling, boilerplate, config files, test scaffolding, and explanations of existing code.
+
+**Existing code:** this app was AI-generated and he doesn't know it well. When he touches a file, briefly walk through only the relevant flow (not the whole module).
+
 ## Workflow
 
 Before touching code for any non-trivial feature or fix, give a spec first: what's changing, why, the approach, and any tradeoffs — then wait for explicit go-ahead before writing code. Small, obvious one-line fixes (typos, single-value tweaks) don't need this.
