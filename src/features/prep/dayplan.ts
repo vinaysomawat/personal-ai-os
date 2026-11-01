@@ -38,13 +38,15 @@ export const PLAN_LABEL: Record<PlanKey, string> = {
   learn: 'Learn (roadmap week)', build: 'Build (roadmap week)', mock: 'Mock round (scheduled)', 'bank:ai-engineering': 'AI engineering (week theme)', apply: '💼 Job applications',
 } as Record<PlanKey, string>
 
-// The default day (≈ 590 min + the mock on its days): the senior core,
-// AI engineering, job applications and the smaller categories.
+// The default day (≈ 6h + the mock on its days): real output fades after
+// about four hours, so a plan you finish beats a 10-hour one you abandon.
+// Five talk-through categories (the weakest) against five changes of mode
+// (two hands-on blocks, Learn + Build, applications), so the rotation never
+// has to put two talk blocks together; the rest stay in the bank.
 const DEFAULT_MINUTES: Partial<Record<PlanKey, number>> = {
-  'bank:algorithm': 30, 'bank:javascript-functions': 30, 'bank:quiz': 30,
   'bank:system-design': 60, 'bank:ui-coding': 45, 'bank:code-review': 30,
-  learn: 20, build: 90, 'bank:architecture': 30, mock: 1, 'bank:ai-engineering': 45,
-  'bank:backend': 45, apply: 30, 'bank:ai-native': 30, 'bank:angular': 30, 'bank:behavioral': 15, 'bank:resume': 30,
+  learn: 20, build: 60, 'bank:architecture': 30, mock: 1, 'bank:ai-engineering': 30,
+  'bank:backend': 30, apply: 30, 'bank:resume': 30,
 }
 export const DEFAULT_TEMPLATE: DayTemplate = {
   sessions: [
@@ -124,7 +126,7 @@ export function blockFor(key: string, minutes: number, date: string, ctx: PlanCt
 
 // The recommended plan for a date: the template's keys in ORDER with their
 // minutes, the mock only on its scheduled days (a backend-themed roadmap
-// week folds AI engineering into Backend).
+// week folds AI engineering into Backend), then put in day order by rotate().
 export function planItems(date: string, template: DayTemplate, ctx: PlanCtx): PrepBlock[] {
   const minutes = template.minutes
   const backendWeek = themeFor(date).category === 'backend'
@@ -136,25 +138,49 @@ export function planItems(date: string, template: DayTemplate, ctx: PlanCtx): Pr
     const b = blockFor(key, m, date, ctx)
     if (b) out.push(b)
   }
-  // Least-covered categories first: the question blocks swap among their own
-  // slots by coverage (practised / total, ascending; ties keep ORDER), so
-  // Learn, Build, the mock and applications keep their place in the day.
-  const pct = (b: PrepBlock) => { const c = ctx.coverage.find(x => `bank:${x.key}` === b.key); return c?.total ? c.seen / c.total : 1 }
-  const slots = out.flatMap((b, i) => b.key.startsWith('bank:') ? [i] : [])
-  const sorted = slots.map(i => out[i]).sort((a, b) => pct(a) - pct(b))
-  slots.forEach((i, k) => { out[i] = sorted[k] })
+  return rotate(out, ctx.coverage)
+}
+
+// Talk-through categories: read a question, answer it out loud or typed, get a
+// review. Everything else (hands-on coding, code review, Learn + Build,
+// applications, the mock) is a change of mode.
+const TALK = new Set(['system-design', 'architecture', 'ai-engineering', 'backend', 'resume', 'ai-native', 'quiz', 'angular', 'behavioral'])
+const isTalk = (b: PrepBlock) => b.key.startsWith('bank:') && TALK.has(catOf(b.key))
+
+// Least-covered first, without two talk-through blocks in a row: the talk
+// blocks sorted by coverage (practised / total, ascending; ties keep ORDER)
+// alternate with the other items, the hands-on question blocks among those
+// also by coverage. Learn and Build stay together as one change of mode.
+// Talk blocks left over once the others run out go at the end.
+function rotate(blocks: PrepBlock[], coverage: CategoryCoverage[]): PrepBlock[] {
+  const pct = (b: PrepBlock) => { const c = coverage.find(x => `bank:${x.key}` === b.key); return c?.total ? c.seen / c.total : 1 }
+  const talk = blocks.filter(isTalk).sort((a, b) => pct(a) - pct(b))
+  const rest = blocks.filter(b => !isTalk(b))
+  const slots = rest.flatMap((b, i) => b.key.startsWith('bank:') ? [i] : [])
+  const sorted = slots.map(i => rest[i]).sort((a, b) => pct(a) - pct(b))
+  slots.forEach((i, k) => { rest[i] = sorted[k] })
+  const others: PrepBlock[][] = []
+  rest.forEach((b, i) => { if (b.key === 'build' && rest[i - 1]?.key === 'learn') others[others.length - 1].push(b); else others.push([b]) })
+  const out: PrepBlock[] = []
+  for (let i = 0; i < Math.max(talk.length, others.length); i++) {
+    if (talk[i]) out.push(talk[i])
+    if (others[i]) out.push(...others[i])
+  }
   return out
 }
 
 // An interview prep's matched categories (jd.ts matchJD, strongest first)
-// take the first question-block slots; open blocks only, everything else
-// keeps its place.
+// take the first question-block slots of their kind (talk-through or
+// hands-on, so the rotation holds); open blocks only, everything else keeps
+// its place.
 export function frontLoad(blocks: PrepBlock[], categories: string[]): PrepBlock[] {
   const rank = (b: PrepBlock) => { const i = categories.indexOf(catOf(b.key)); return i < 0 ? Infinity : i }
   const out = [...blocks]
-  const slots = out.flatMap((b, i) => b.key.startsWith('bank:') && !b.done ? [i] : [])
-  const sorted = slots.map(i => out[i]).sort((a, b) => { const d = rank(a) - rank(b); return Number.isNaN(d) ? 0 : d })
-  slots.forEach((i, k) => { out[i] = sorted[k] })
+  for (const talk of [true, false]) {
+    const slots = out.flatMap((b, i) => b.key.startsWith('bank:') && !b.done && isTalk(b) === talk ? [i] : [])
+    const sorted = slots.map(i => out[i]).sort((a, b) => { const d = rank(a) - rank(b); return Number.isNaN(d) ? 0 : d })
+    slots.forEach((i, k) => { out[i] = sorted[k] })
+  }
   return out
 }
 

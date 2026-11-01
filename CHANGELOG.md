@@ -5,6 +5,7 @@ append here whenever you deploy, same cadence as the version bump.
 
 ## 2026-11-01
 
+- **A 6-hour day that changes pace.** The day plan never puts two talk-through question blocks next to each other: each one alternates with something hands-on (UI coding, code review), Learn + Build, applications or the mock, still weakest categories first. The default plan is about 6 hours instead of 9–10, because your answer reviews dropped off sharply after hour 3 and 43% of focus sessions were abandoned. Algorithms, JS functions, Theory, AI-native, Angular and Behavioral are off the default plan but still in the bank. Your saved plan was set to the new defaults (applications 60 → 30 min, Build 60, AI engineering 30).
 - **Every AI-native question has its expected areas.** 75 of the 115 had no key points, so they had no "Show expected areas" button and the review had to guess what to look for. All of them have key points now, and reviews of those questions grade against them.
 - **AI costs about a third as much.** Answer reviews (Question Bank, Story Bank, Mock Round), the weekly and monthly digests, Health Coach tips, food estimates and horoscopes now run on Haiku 5.5 at low effort instead of Haiku 4.5 or Sonnet. A review costs about $0.0009 instead of $0.0034, and reviews were 80% of all AI spend. In a test on real answers, ratings stayed within 1 point. Telegram parsing, photo reading, model answers and the advisors are unchanged.
 
