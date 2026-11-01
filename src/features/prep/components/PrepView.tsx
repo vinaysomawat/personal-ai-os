@@ -19,7 +19,7 @@ import { AiTab } from './AiTab'
 import { InterviewTab } from './InterviewTab'
 import type { InterviewPrep } from '../jd'
 import type { RoadmapProgress, RoadmapStepDone } from '../roadmap'
-import { catOf } from '../hunt'
+import { BANK_CATEGORIES, catOf } from '../hunt'
 import AnswerReview from './AnswerReview'
 import TimelineCard from './TimelineCard'
 import { liveTimeline } from '../timeline'
@@ -83,7 +83,11 @@ export default function PrepView(props: Props) {
   const [focusSessions, setFocusSessions] = useState(props.focusSessions)
   const [bankTopic, setBankTopic] = useState(props.initialTopic ?? '')
   // Shown briefly after a session ends itself (its block got done).
-  const [focusEnded, setFocusEnded] = useState<{ label: string; seconds: number } | null>(null)
+  const [focusEnded, setFocusEnded] = useState<{ label: string; seconds: number; win?: string } | null>(null)
+  // Each question block's category coverage when its session started, for
+  // the "Backend 7% → 10%" line when it ends (unknown after a reload — then
+  // only the current coverage shows).
+  const startSeen = useRef(new Map<string, number>())
   // Pace vs today's timeline (first to last slot), re-read every minute.
   const [tick, setTick] = useState(0)
   useEffect(() => { const t = setInterval(() => setTick(x => x + 1), 60_000); return () => clearInterval(t) }, [])
@@ -153,6 +157,7 @@ export default function PrepView(props: Props) {
       started_at: new Date().toISOString(), paused_at: null, paused_seconds: 0, interruptions: 0, ended_at: null, actual_seconds: null, status: 'active',
     }
     upsertFocus(temp)
+    if (key.startsWith('bank:')) startSeen.current.set(catOf(key), bank.filter(q => q.category === catOf(key) && q.last_seen_at).length)
     startTransition(guard(async () => {
       try {
         const f = await startFocusSession({ key, label: block.label, minutes: block.minutes })
@@ -170,6 +175,23 @@ export default function PrepView(props: Props) {
       : { ...f, paused_at: now.toISOString(), interruptions: f.interruptions + 1 })
     startTransition(guard(async () => { const r = await toggleFocusSessionPause(f.id); if (r) upsertFocus(r) }))
   }
+  // What a finished question block added: "+4 answered · avg 7.3 · Backend
+  // 7% → 10%" from the bank as the page has it (answers during the session,
+  // their ratings, coverage before and after). Deterministic, no AI.
+  const focusWin = (f: FocusSession): string | undefined => {
+    if (!f.block_key.startsWith('bank:')) return undefined
+    const cat = catOf(f.block_key)
+    const qs = bank.filter(q => q.category === cat)
+    const answered = qs.filter(q => q.last_seen_at && q.last_seen_at >= f.started_at)
+    if (!qs.length || !answered.length) return undefined
+    const rated = answered.filter(q => q.last_rating !== null && q.last_rated_at && q.last_rated_at >= f.started_at)
+    const avg = rated.length ? ` · avg ${(rated.reduce((s, q) => s + q.last_rating!, 0) / rated.length).toFixed(1)}` : ''
+    const pct = (n: number) => `${Math.round(n / qs.length * 100)}%`
+    const seen = qs.filter(q => q.last_seen_at).length
+    const before = startSeen.current.get(cat)
+    const label = BANK_CATEGORIES.find(c => c.key === cat)?.label ?? cat
+    return `+${answered.length} answered${avg} · ${label} ${before !== undefined && before < seen ? `${pct(before)} → ` : ''}${pct(seen)}`
+  }
   // Finish ticks the block locally at once; Stop keeps the time (the server
   // may still tick a question block whose minutes that time reached).
   const endFocus = (f: FocusSession, finished: boolean) => {
@@ -177,7 +199,7 @@ export default function PrepView(props: Props) {
     upsertFocus({ ...f, status: finished ? 'completed' : 'abandoned', ended_at: new Date().toISOString(), actual_seconds: seconds, paused_at: null })
     if (finished) {
       setSession(prev => prev && { ...prev, blocks: prev.blocks.map(b => b.key === f.block_key ? { ...b, done: true } : b) })
-      setFocusEnded({ label: f.label, seconds })
+      setFocusEnded({ label: f.label, seconds, win: focusWin(f) })
     }
     startTransition(guard(async () => {
       const r = await endFocusSession(f.id, finished)
@@ -192,12 +214,12 @@ export default function PrepView(props: Props) {
     if (!activeFocus || !activeBlock?.done) return
     const seconds = focusSeconds(activeFocus)
     upsertFocus({ ...activeFocus, status: 'completed', ended_at: new Date().toISOString(), actual_seconds: seconds, paused_at: null })
-    setFocusEnded({ label: activeFocus.label, seconds })
+    setFocusEnded({ label: activeFocus.label, seconds, win: focusWin(activeFocus) })
     // eslint-disable-next-line react-hooks/exhaustive-deps -- fires on the block turning done
   }, [activeFocus?.id, activeBlock?.done])
   useEffect(() => {
     if (!focusEnded) return
-    const t = setTimeout(() => setFocusEnded(null), 5000)
+    const t = setTimeout(() => setFocusEnded(null), focusEnded.win ? 8000 : 5000)
     return () => clearTimeout(t)
   }, [focusEnded])
   // A question block whose timer reaches its minutes finishes itself

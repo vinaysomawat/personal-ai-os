@@ -138,7 +138,26 @@ export function planItems(date: string, template: DayTemplate, ctx: PlanCtx): Pr
     const b = blockFor(key, m, date, ctx)
     if (b) out.push(b)
   }
-  return rotate(out, ctx.coverage)
+  return speakLate(rotate(out, ctx.coverage))
+}
+
+// Typing gets tiring and speaking is closer to the real interview, so the
+// talk-through blocks from SPEAK_AFTER planned minutes into the day say to
+// answer out loud (🎙 Speak counts the same) or as a Telegram voice drill.
+const SPEAK_AFTER = 180
+const DRILL_WORD: Record<string, string> = {
+  'system-design': 'system design', architecture: 'architecture', 'ai-engineering': 'ai engineering', backend: 'backend',
+  resume: 'resume', 'ai-native': 'ai', quiz: 'theory', angular: 'angular', behavioral: 'behavioral',
+}
+function speakLate(blocks: PrepBlock[]): PrepBlock[] {
+  let t = 0
+  return blocks.map(b => {
+    const at = t
+    t += b.minutes
+    return at >= SPEAK_AFTER && isTalk(b)
+      ? { ...b, detail: `🎙 Speak these — or text the Daily bot "drill ${DRILL_WORD[catOf(b.key)]}" and answer on a walk. ${b.detail}` }
+      : b
+  })
 }
 
 // Talk-through categories: read a question, answer it out loud or typed, get a

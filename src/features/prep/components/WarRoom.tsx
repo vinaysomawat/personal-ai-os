@@ -66,7 +66,8 @@ export function FocusBar({ focus, progress, canFinish, ended, onPause, onFinish,
   progress: string | null
   // A question block can be finished from FINISH_SHARE of its minutes.
   canFinish: boolean
-  ended: { label: string; seconds: number } | null
+  // `win`: what a question block's session added (FocusWin in PrepView).
+  ended: { label: string; seconds: number; win?: string } | null
   onPause: (f: FocusSession) => void
   onFinish: (f: FocusSession) => void
   onStop: (f: FocusSession) => void
@@ -77,7 +78,12 @@ export function FocusBar({ focus, progress, canFinish, ended, onPause, onFinish,
   const shell = 'fixed bottom-[86px] md:bottom-7 left-1/2 -translate-x-1/2 z-[30] max-w-[calc(100vw-24px)] rounded-full shadow-[0_8px_24px_var(--shadow-lg)] text-[12.5px] font-semibold tabular-nums'
   if (!focus) {
     if (!ended) return null
-    return <div role="status" className={`${shell} bg-good text-on-good px-4 py-2 inline-flex items-center gap-1.5 whitespace-nowrap`}><Check size={14} strokeWidth={3} /> {ended.label} done · {mmss(ended.seconds)} focused</div>
+    return (
+      <div role="status" className={`${shell} !rounded-[18px] bg-good text-on-good px-4 py-1.5 text-center`}>
+        <div className="inline-flex items-center gap-1.5 whitespace-nowrap"><Check size={14} strokeWidth={3} /> {ended.label} done · {mmss(ended.seconds)} focused</div>
+        {ended.win && <div className="text-[11.5px] font-medium opacity-90">{ended.win}</div>}
+      </div>
+    )
   }
   const left = focus.planned_minutes * 60 - focusSeconds(focus, now)
   const paused = !!focus.paused_at
