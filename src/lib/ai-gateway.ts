@@ -34,6 +34,9 @@ interface TaskConfig {
   fallback: string
 }
 
+// Haiku 5.5 thinks by default: low effort keeps the thinking short, and the
+// cap leaves room for it on top of the reply.
+const LOW = { maxTokens: 8000, effort: 'low' } as const
 const SIX_HOURS = 6 * 60 * 60
 const SEVEN_DAYS = 7 * 24 * 60 * 60
 // "Effectively permanent" for content that should only regenerate when its
@@ -49,33 +52,36 @@ const TASK_CONFIG: Record<AITask, TaskConfig> = {
   telegram_vision:        { model: SONNET_MODEL, cacheTTLSeconds: null,       fallback: '{"action":"help"}' },
   finance_advisor:        { model: SONNET_MODEL, cacheTTLSeconds: null,       fallback: BUDGET_FALLBACK },
   health_advisor:         { model: SONNET_MODEL, cacheTTLSeconds: null,       fallback: BUDGET_FALLBACK },
-  module_recommendations: { model: SONNET_MODEL, cacheTTLSeconds: SIX_HOURS,  fallback: '[]' },
-  weekly_digest:          { model: SONNET_MODEL, cacheTTLSeconds: SIX_HOURS,  fallback: 'AI summary unavailable this week — the numbers above are still accurate.' },
-  monthly_digest:         { model: SONNET_MODEL, cacheTTLSeconds: SIX_HOURS,  fallback: 'AI summary unavailable this month — the numbers above are still accurate.' },
+  // Narrative / structured tasks below run on Haiku 5.5 at low effort
+  // (2026-10-31): a thirtieth of Sonnet's price for short summaries and JSON.
+  module_recommendations: { model: HAIKU_5_5_MODEL, cacheTTLSeconds: SIX_HOURS,  fallback: '[]', tuning: LOW },
+  weekly_digest:          { model: HAIKU_5_5_MODEL, cacheTTLSeconds: SIX_HOURS,  fallback: 'AI summary unavailable this week — the numbers above are still accurate.', tuning: LOW },
+  monthly_digest:         { model: HAIKU_5_5_MODEL, cacheTTLSeconds: SIX_HOURS,  fallback: 'AI summary unavailable this month — the numbers above are still accurate.', tuning: LOW },
   brain_qa:               { model: SONNET_MODEL, cacheTTLSeconds: null,       fallback: BUDGET_FALLBACK },
-  estimate_food_nutrition:{ model: SONNET_MODEL, cacheTTLSeconds: SEVEN_DAYS, fallback: 'null' },
+  estimate_food_nutrition:{ model: HAIKU_5_5_MODEL, cacheTTLSeconds: SEVEN_DAYS, fallback: 'null', tuning: LOW },
   // astrology_reading's real TTL is computed dynamically per call (seconds
   // to the next calendar boundary of the period being requested — see
   // astrology/actions.ts) and passed via AskAIOptions.cacheTTLSeconds,
   // which overrides this default; SIX_HOURS here only matters as a fallback
   // for the rare code path that calls askAI('astrology_reading', ...)
   // without that override.
-  astrology_reading:      { model: SONNET_MODEL, cacheTTLSeconds: SIX_HOURS, fallback: 'Reading unavailable right now — AI budget reached for today.' },
+  astrology_reading:      { model: HAIKU_5_5_MODEL, cacheTTLSeconds: SIX_HOURS, fallback: 'Reading unavailable right now — AI budget reached for today.', tuning: LOW },
   astrology_characteristics: { model: SONNET_MODEL, cacheTTLSeconds: ONE_YEAR, fallback: 'Characteristics unavailable right now — AI budget reached for today.' },
-  // Prep feedback tasks below run on Haiku (2026-10-03): the user keeps the
-  // daily AI budget at ~$0.17, and Haiku is ~3x cheaper per critique.
+  // Prep feedback tasks below run on Haiku 5.5 at low effort (2026-10-31):
+  // the user keeps the daily AI budget at ~$0.17, and answer reviews were
+  // ~80% of all spend on Haiku 4.5.
   // Prep's Story Bank rehearsal critique — reviewing a typed answer, every
   // prompt unique, so never cached.
-  story_critique:         { model: HAIKU_MODEL,  cacheTTLSeconds: null,       fallback: BUDGET_FALLBACK },
+  story_critique:         { model: HAIKU_5_5_MODEL, cacheTTLSeconds: null, fallback: BUDGET_FALLBACK, tuning: LOW },
   // Prep Question Bank's AI-native section — interviewer feedback on a typed
   // answer; every prompt unique, so never cached.
-  ai_native_critique:     { model: HAIKU_MODEL,  cacheTTLSeconds: null,       fallback: BUDGET_FALLBACK },
+  ai_native_critique:     { model: HAIKU_5_5_MODEL, cacheTTLSeconds: null, fallback: BUDGET_FALLBACK, tuning: LOW },
   // Same, for the other linkless Question Bank questions (behavioral/fit,
   // and Prep-added theory, UI coding and system design) — uncached.
-  answer_critique:        { model: HAIKU_MODEL,  cacheTTLSeconds: null,       fallback: BUDGET_FALLBACK },
+  answer_critique:        { model: HAIKU_5_5_MODEL, cacheTTLSeconds: null, fallback: BUDGET_FALLBACK, tuning: LOW },
   // Prep Mock Round — one review of every answer in a finished round (JSON),
   // stored on the round so it's never re-run; uncached.
-  mock_round_review:      { model: HAIKU_MODEL,  cacheTTLSeconds: null,       fallback: BUDGET_FALLBACK },
+  mock_round_review:      { model: HAIKU_5_5_MODEL, cacheTTLSeconds: null, fallback: BUDGET_FALLBACK, tuning: LOW },
   // Prep Question Bank "Answer" button — a model answer per question. The
   // prompt is fixed per question, so it's generated once and cached a year;
   // Sonnet because this is what gets studied (Haiku drifted to dated idioms).

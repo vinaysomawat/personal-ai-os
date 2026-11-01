@@ -3,6 +3,10 @@
 One line per shipped change, newest first. Sourced from commit messages —
 append here whenever you deploy, same cadence as the version bump.
 
+## 2026-11-01
+
+- **AI costs about a third as much.** Answer reviews (Question Bank, Story Bank, Mock Round), the weekly and monthly digests, Health Coach tips, food estimates and horoscopes now run on Haiku 5.5 at low effort instead of Haiku 4.5 or Sonnet. A review costs about $0.0009 instead of $0.0034, and reviews were 80% of all AI spend. In a test on real answers, ratings stayed within 1 point. Telegram parsing, photo reading, model answers and the advisors are unchanged.
+
 ## 2026-10-31
 
 - **Drag slots to reorder them in Edit today.** A ⠿ handle on each slot replaces the up and down arrows. It works with touch on the phone too, and ↑ / ↓ on the handle still move a slot.
