@@ -31,7 +31,7 @@ This environment has no Postgres connection string and no Supabase CLI session �
 
 4. **Verify independently after they confirm** — re-run the same curl from step 1. Confirm you get real data (or an empty array) instead of a `PGRST205` error. Don't just trust the user's "done" — the whole point of this workflow is that neither of you has a direct DB connection to double-check any other way.
 
-5. **Update `README.md`'s Database section** with the new table/column per CLAUDE.md's mandatory post-task checklist — this is not optional cleanup, it's the same tier as verifying the build.
+5. **Update `docs/database.md`** with the new table/column per CLAUDE.md's mandatory post-task checklist — this is not optional cleanup, it's the same tier as verifying the build.
 
 ## Gotchas
 

@@ -24,7 +24,7 @@ export const RISK_THRESHOLDS = {
 // one good/bad day moves the number without either fully erasing a real week
 // or letting one lucky day carry it. Not a fixed constant — this is the one
 // knob to turn if "today matters more" or "consistency matters more" feels
-// off in practice. See README §1 for the full formula.
+// off in practice. See docs/modules/dashboard.md for the full formula.
 export const LIFE_SCORE_THRESHOLDS = {
   dailyWeight: 0.6,
   weeklyWeight: 0.4,

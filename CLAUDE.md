@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Personal OS is a single-user AI Operating System — a Next.js 15 web app backed by Supabase and deployed to Vercel. Since v4.0 it is built around an active job hunt: Dashboard (Hunt Hero in Job Hunt Mode, Life Score otherwise), Prep, Finance, Health, Astrology and Settings, with per-module Telegram bots (Daily — the Prep Coach, drills, digests, reminders — plus Finance, Health, Astrology).
 
-**For the full, current, module-by-module spec (exact fields, formulas, AI features, Telegram capabilities, cron jobs, complete DB schema) — read `README.md`, not this section.** This file covers workflow/conventions only; README.md is the single source of truth for what the app does, and per the checklist below it's kept current with every functional change.
+**For the full, current, module-by-module spec (exact fields, formulas, AI features, Telegram capabilities, cron jobs, complete DB schema) — read `docs/` (index: `docs/README.md`), not this section.** This file covers workflow/conventions only; `docs/` is the single source of truth for what the app does, and per the checklist below it's kept current with every functional change. `README.md` is only the short front page (what the app is, module list with links, stack, setup and deploy).
 
 ## Workflow
 
@@ -62,17 +62,29 @@ AI_MONTHLY_BUDGET_USD=       # optional, default 50 — AI Gateway monthly spend
 
 This is a non-exhaustive list scoped to the AI Gateway — see `.env.local` for the full set (Telegram bot tokens, `GROQ_API_KEY`, `CRON_SECRET`, etc.), which this file doesn't fully document yet.
 
-## Post-task checklist: keep README.md current
+## Post-task checklist: keep docs/ current
 
-`README.md` is the canonical spec of this app — written so that pasting the whole file into a fresh AI chat gives that AI 100% understanding of what the app does and how it's built, with no other context needed (module-by-module behavior, exact fields, formulas, AI features, Telegram capabilities, cron jobs, full DB schema, and the screen-by-screen UI Reference at the bottom).
+`docs/` is the canonical spec of this app, split by area so that pasting one file into a fresh AI chat gives that AI full understanding of that area with no other context (exact fields, formulas, AI features, Telegram capabilities, cron jobs, DB schema, screen-by-screen layout). Which file to update:
 
-Before ending **any** task that changes the app in a way a fresh reader would need to know — architecture, database schema, a module's fields/behavior, an AI feature (including which tasks exist, which model they route to, and their cache TTL), a Telegram bot capability, a cron job, navigation structure, **or a page's actual layout/component structure** — update the corresponding section(s) of `README.md` to match, every time, not just on the change that "feels big." Treat this as mandatory, same tier as running `npm run build`, never something to batch up and do "later" — a change that isn't reflected in README.md is not finished. This applies in both directions: adding something new AND removing/replacing something old (a removed feature's stale mentions — an old task name, an old file path, an old UI element — are just as wrong left behind as a new feature never being added).
+| Change | File |
+| --- | --- |
+| A module's fields, behavior, formulas (incl. the Prep day plan, Question Bank, mock, stories) | `docs/modules/<module>.md` |
+| A page's layout or component structure | `docs/ui-reference.md` (and the module file if behavior changed) |
+| A table or column | `docs/database.md` |
+| An AI task, its model or cache TTL, the budget | `docs/ai-gateway.md` |
+| A Telegram bot capability | `docs/telegram.md` |
+| A cron job | `docs/cron.md` |
+| Stack, code architecture, shared components, navigation, design system | `docs/architecture.md` |
+| Setup, env vars, deploy steps, the module list | `README.md` |
+| A new docs file | `docs/README.md` (the index) |
 
-The **"## UI Reference (screen-by-screen)"** section at the bottom is exactly as easy to leave stale as the feature-behavior sections above it, and just as wrong when it drifts — check it specifically, not just the module's prose section, whenever a page's structure changes: a card that moved to a different grid/row, a dropdown that became a drawer (or vice versa), a section that got reordered, merged, or split, a card that's no longer paired with what the doc says it's paired with. Don't assume the prose section being current means the UI Reference entry for the same page is also current — verify both.
+Before ending **any** task that changes the app in a way a fresh reader would need to know — architecture, database schema, a module's fields/behavior, an AI feature (including which tasks exist, which model they route to, and their cache TTL), a Telegram bot capability, a cron job, navigation structure, **or a page's actual layout/component structure** — update the corresponding file(s) in `docs/` (table above) to match, every time, not just on the change that "feels big." Treat this as mandatory, same tier as running `npm run build`, never something to batch up and do "later" — a change that isn't reflected in `docs/` is not finished. This applies in both directions: adding something new AND removing/replacing something old (a removed feature's stale mentions — an old task name, an old file path, an old UI element — are just as wrong left behind as a new feature never being added).
 
-**README describes the present, not history.** Don't add "(removed 2026-…)", "(was X until …)" or audit narratives to README.md — when something is removed, delete its mentions outright; the why/when goes in a dated `CHANGELOG.md` entry (one plain-language line per shipped change, written with the version bump) and the commit message.
+**`docs/ui-reference.md`** (screen-by-screen) is exactly as easy to leave stale as the module files, and just as wrong when it drifts — check it specifically, not just the module's prose section, whenever a page's structure changes: a card that moved to a different grid/row, a dropdown that became a drawer (or vice versa), a section that got reordered, merged, or split, a card that's no longer paired with what the doc says it's paired with. Don't assume the prose section being current means the UI Reference entry for the same page is also current — verify both.
 
-Pure copy/spacing/color tweaks that don't change a section's actual structure or behavior don't need a README update. But reordering cards, changing which cards share a grid row, swapping one UI pattern for another, or adding/removing a UI element **does** count as a real change requiring an update — even when no new data, table, or business logic was involved.
+**Docs describe the present, not history.** Don't add "(removed 2026-…)", "(was X until …)" or audit narratives to `docs/` or README.md — when something is removed, delete its mentions outright; the why/when goes in a dated `CHANGELOG.md` entry (one plain-language line per shipped change, written with the version bump) and the commit message.
+
+Pure copy/spacing/color tweaks that don't change a section's actual structure or behavior don't need a docs update. But reordering cards, changing which cards share a grid row, swapping one UI pattern for another, or adding/removing a UI element **does** count as a real change requiring an update — even when no new data, table, or business logic was involved.
 
 ## Product Principles
 
@@ -83,7 +95,7 @@ This project is Vinay's personal execution system — not a CRUD app, not a dash
 1. **Automation over manual work.** If something can be automated, automate it.
 2. **Rule engine before AI.** Before calling AI, ask "can deterministic code solve this?" If yes, don't call AI. Never use AI for calculations, sorting, filtering, score math, dashboards, reminders, charts, or notifications — only for mentoring, coaching, reviewing, explaining, brainstorming, summarizing, and generating plans.
 3. **AI is a premium feature, not a default.** Every AI request must go through the single gateway (`askAI()` — see AI Gateway below). No module calls Anthropic directly. An unnecessary AI call is a bug.
-4. **Modules should connect, not stay isolated** — e.g. health data should eventually inform productivity signals, learning should feed career readiness. This is already built via the shared signals layer (`src/lib/signals.ts`'s `rankSignals()`, fed by each module's own `signals.ts`) and the Personal Brain's cross-module context (`src/features/brain/`) — see README.md §1 (Needs Attention, Ask Brain) for what's already wired. Extend the existing pattern for new cross-module connections; don't build a parallel mechanism.
+4. **Modules should connect, not stay isolated** — e.g. health data should eventually inform productivity signals, learning should feed career readiness. This is already built via the shared signals layer (`src/lib/signals.ts`'s `rankSignals()`, fed by each module's own `signals.ts`) and the Personal Brain's cross-module context (`src/features/brain/`) — see `docs/modules/dashboard.md` (Needs Attention, Ask Brain) for what's already wired. Extend the existing pattern for new cross-module connections; don't build a parallel mechanism.
 5. **Reduce decisions, don't just surface data.** Prefer "these are the 3 highest-impact actions" over a wall of 25 tasks.
 6. **Every page should answer:** what happened, why, and what to do next.
 7. **Telegram exists to eliminate manual entry** — logging a workout/expense/habit/note should never require opening the app; voice input should work naturally.
@@ -121,16 +133,16 @@ This project is Vinay's personal execution system — not a CRUD app, not a dash
 - **Budget enforcement** — `ai_usage_logs` table tracks cost per call; daily/monthly ceilings via `AI_DAILY_BUDGET_USD` / `AI_MONTHLY_BUDGET_USD` env vars; on exhaustion, calls return a friendly fallback string instead of erroring — no page or cron job can break from this
 - **Minimize Anthropic API usage.** Treat every call to `askAI()` as a real cost, not a free action. Before adding a new task, check whether an existing cached/computed result already answers it. For any task whose output only needs to reflect data that changes on a daily/weekly/monthly cadence (a cron-generated narrative, digest, or briefing — the kind of thing a user might also trigger on-demand the same day via Telegram), give it a non-null `cacheTTLSeconds` (`SIX_HOURS` is the default choice already used throughout this file) rather than leaving it uncached by default. Reserve `cacheTTLSeconds: null` for genuinely interactive tasks where each call's prompt is expected to differ (free-form Q&A, decision help, scenario simulation) — caching those wouldn't help anyway since the prompt text itself changes per call, and it's not worth the code complexity of trying.
 
-**AI features** (`src/features/ai/` and `src/features/brain/`) — see README.md §9 (AI Gateway) for the current task table and file list; don't maintain a second copy here, it drifts (same lesson as the Database Tables note below).
+**AI features** (`src/features/ai/` and `src/features/brain/`) — see `docs/ai-gateway.md` for the current task table and file list; don't maintain a second copy here, it drifts (same lesson as the Database Tables note below).
 
 **Loading / error states:**
 - `src/app/[route]/loading.tsx` — skeleton shown by Next.js while server fetches data
 - `src/app/[route]/error.tsx` — error boundary with "Try again" reset button
 
-**Shared components** (`src/components/`) — see README.md's Architecture section for the current list; don't maintain a second copy here, it drifts (same lesson as the Database Tables note below).
+**Shared components** (`src/components/`) — see `docs/architecture.md` for the current list; don't maintain a second copy here, it drifts (same lesson as the Database Tables note below).
 
 ## Database Tables
 
 All tables have `user_id uuid references auth.users` and 4 RLS policies (select/insert/update/delete scoped to `auth.uid()`), unless noted otherwise in a table's migration.
 
-**Full current table list with key columns lives in README.md's Database section** — kept current per the checklist above. Don't maintain a second copy here; it drifts (this is exactly what happened before this note was added).
+**Full current table list with key columns lives in `docs/database.md`** — kept current per the checklist above. Don't maintain a second copy here; it drifts (this is exactly what happened before this note was added).

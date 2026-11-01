@@ -146,7 +146,7 @@ export async function getDashboardData() {
   // this same raw score) is computed further down, once scoreHistory is
   // fetched. These raw values are what get persisted to life_score_logs —
   // never the blended figure, so the weekly average never recursively
-  // smooths itself into unmovability (see README §1).
+  // smooths itself into unmovability (see docs/modules/dashboard.md).
 
   // Health: reuses the Health module's own quality-aware calculateHealthScore
   // (nutrition×0.6 + activity×0.4, checked against real BMR/TDEE targets)
