@@ -123,8 +123,14 @@ export async function critiqueStory(userId: string, competency: string, question
 }
 
 async function grade(task: 'answer_critique' | 'ai_native_critique' | 'story_critique', rubric: Rubric, prompt: string, userId: string): Promise<{ rating: number | null; feedback: string; card: Scorecard | null }> {
-  const raw = await askAI(task, prompt, SYSTEMS[rubric], { userId })
-  const card = parseScorecard(raw, rubric)
+  // Reviews are cached a day per exact answer (ai-gateway), so a malformed
+  // reply would stick: retry once fresh, which also overwrites the cache row.
+  let raw = await askAI(task, prompt, SYSTEMS[rubric], { userId })
+  let card = parseScorecard(raw, rubric)
+  if (!card && raw.trim().startsWith('{')) {
+    raw = await askAI(task, prompt, SYSTEMS[rubric], { userId, bypassCache: true })
+    card = parseScorecard(raw, rubric)
+  }
   if (!card) return { rating: null, feedback: raw.trim().startsWith('{') ? 'The review came back malformed — try again.' : raw, card: null }
   const rating = scoreCard(card)
   card.verdict = rating >= 8 ? 'Strong' : rating >= 6 ? 'Good' : 'Needs work'

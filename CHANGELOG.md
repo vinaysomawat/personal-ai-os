@@ -6,6 +6,7 @@ append here whenever you deploy, same cadence as the version bump.
 ## 2026-11-04
 
 - Softened the Interview War Mode readiness verdict: "❌ NOT READY" (red, on the Dashboard, Prep page and every Daily bot morning message) is now "🧭 Building" (amber) — same % and blocker count, just not coded as a daily failing grade for what's the normal state through most of a prep arc.
+- Prep's answer-critique tasks (Question Bank, AI-native, Story Bank) now cache a day per exact answer instead of never caching — these were ~80% of all AI spend, and resubmitting the same answer no longer re-pays for it. A malformed review reply now retries once with a fresh (non-cached) call instead of surfacing the error.
 
 ## 2026-11-03
 

@@ -38,6 +38,7 @@ interface TaskConfig {
 // cap leaves room for it on top of the reply.
 const LOW = { maxTokens: 8000, effort: 'low' } as const
 const SIX_HOURS = 6 * 60 * 60
+const ONE_DAY = 24 * 60 * 60
 const SEVEN_DAYS = 7 * 24 * 60 * 60
 // "Effectively permanent" for content that should only regenerate when its
 // own input data changes (astrology.md 3.8's characteristics profile, keyed
@@ -70,15 +71,15 @@ const TASK_CONFIG: Record<AITask, TaskConfig> = {
   // Prep feedback tasks below run on Haiku 5.5 at low effort (2026-10-31):
   // the user keeps the daily AI budget at ~$0.17, and answer reviews were
   // ~80% of all spend on Haiku 4.5.
-  // Prep's Story Bank rehearsal critique — reviewing a typed answer, every
-  // prompt unique, so never cached.
-  story_critique:         { model: HAIKU_5_5_MODEL, cacheTTLSeconds: null, fallback: BUDGET_FALLBACK, tuning: LOW },
+  // Prep's Story Bank rehearsal critique — reviewing a typed answer. Cached a
+  // day so resubmitting the same answer doesn't pay again.
+  story_critique:         { model: HAIKU_5_5_MODEL, cacheTTLSeconds: ONE_DAY, fallback: BUDGET_FALLBACK, tuning: LOW },
   // Prep Question Bank's AI-native section — interviewer feedback on a typed
-  // answer; every prompt unique, so never cached.
-  ai_native_critique:     { model: HAIKU_5_5_MODEL, cacheTTLSeconds: null, fallback: BUDGET_FALLBACK, tuning: LOW },
+  // answer; cached a day, like story_critique.
+  ai_native_critique:     { model: HAIKU_5_5_MODEL, cacheTTLSeconds: ONE_DAY, fallback: BUDGET_FALLBACK, tuning: LOW },
   // Same, for the other linkless Question Bank questions (behavioral/fit,
-  // and Prep-added theory, UI coding and system design) — uncached.
-  answer_critique:        { model: HAIKU_5_5_MODEL, cacheTTLSeconds: null, fallback: BUDGET_FALLBACK, tuning: LOW },
+  // and Prep-added theory, UI coding and system design) — cached a day.
+  answer_critique:        { model: HAIKU_5_5_MODEL, cacheTTLSeconds: ONE_DAY, fallback: BUDGET_FALLBACK, tuning: LOW },
   // Prep Mock Round — one review of every answer in a finished round (JSON),
   // stored on the round so it's never re-run; uncached.
   mock_round_review:      { model: HAIKU_5_5_MODEL, cacheTTLSeconds: null, fallback: BUDGET_FALLBACK, tuning: LOW },
