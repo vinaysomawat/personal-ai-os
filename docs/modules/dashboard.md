@@ -8,7 +8,7 @@ Server-computed on every load (`src/features/dashboard/actions.ts` `getDashboard
 
 | Tile | Value | Sub-line |
 | --- | --- | --- |
-| Readiness | Prep's gated readiness % ([Prep](prep.md)), colored by tier | tier label (🔥 TOP 1% READY / ✅ INTERVIEW-READY · N blockers to close / ❌ NOT READY · N blockers) |
+| Readiness | Prep's gated readiness % ([Prep](prep.md)), colored by tier | tier label (🔥 TOP 1% READY / ✅ INTERVIEW-READY · N blockers to close / 🧭 Building · N blockers left) |
 | Mock average | average of the last 5 reviewed mock rounds /10 (`war.mockAvg`); green ≥7, amber ≥5, else red | "last 5 reviewed · ready at 7"; links to `/prep?tab=mock` |
 | Revision due | revision-queue topics due today or overdue | amber when any; links to `/prep` |
 | Runway | `liquid_savings ÷ avg monthly spend (last 90 days ÷ 3)` months | "at 90-day avg spend" or "set liquid savings" |

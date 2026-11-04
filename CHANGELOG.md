@@ -3,6 +3,14 @@
 One line per shipped change, newest first. Sourced from commit messages —
 append here whenever you deploy, same cadence as the version bump.
 
+## 2026-11-04
+
+- Softened the Interview War Mode readiness verdict: "❌ NOT READY" (red, on the Dashboard, Prep page and every Daily bot morning message) is now "🧭 Building" (amber) — same % and blocker count, just not coded as a daily failing grade for what's the normal state through most of a prep arc.
+
+## 2026-11-03
+
+- **Answer reviews are cached for a day.** Getting feedback on the exact same answer to the same question again (Question Bank, AI-native, Story Bank, voice drill, follow-ups) reuses the day's review instead of calling the AI again. A different answer still gets a fresh review. If a review comes back malformed, it's retried once right away so the broken one isn't kept.
+
 ## 2026-11-01
 
 - **A public docs site at /docs.** It has four pages: Overview, Architecture (with a request-flow diagram), the AI Gateway and a new Self-hosting guide. The guide covers the Supabase project, running the migrations with psql, creating your account and closing sign-ups, every env var and where its value comes from, deploying to Vercel with the cron jobs, the Telegram bots, updating and troubleshooting. The pages are built from the repo's markdown files, so the site and GitHub always match. The module spec stays on GitHub only. `.env.example` and the webhook script no longer list the removed Coding, Learning and Documents bots.

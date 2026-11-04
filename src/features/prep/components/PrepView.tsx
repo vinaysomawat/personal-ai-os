@@ -261,7 +261,11 @@ export default function PrepView(props: Props) {
       </>} />
 
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-[var(--grid-gap-sm)]">
-        <StatCard label="Interview readiness" value={`${props.war.overall}%`} sub={props.war.ready ? 'all gates passed' : `${props.war.interviewReady ? 'interview-ready' : 'not ready'} · ${props.war.blockers.length} blockers`} valueClassName={props.war.ready || props.war.interviewReady ? 'text-good' : props.war.overall >= 60 ? 'text-warn' : 'text-risk'} />
+        {/* Copy/color only, same underlying % and blocker count: "not ready"
+            read as a verdict rather than a progress marker, and the red
+            valueClassName made that reads as low here — expected for most
+            of a prep arc — look like an alarm every time this page opens. */}
+        <StatCard label="Interview readiness" value={`${props.war.overall}%`} sub={props.war.ready ? 'all gates passed' : `${props.war.interviewReady ? 'interview-ready' : 'building'} · ${props.war.blockers.length} blockers`} valueClassName={props.war.ready || props.war.interviewReady ? 'text-good' : 'text-warn'} />
         <StatCard label="Mock rounds" value={roundsThisWeek} sub={lastRound ? `this week · last ${formatOf(lastRound.format).label} ${toPrepDateStr(lastRound.created_at).slice(5)}${lastRound.review?.score != null ? ` · ${lastRound.review.score}/10` : ''}` : 'this week · none yet'} />
         <StatCard label="Story Bank" value={stories.length} sub={`${coveredCompetencies.size}/${COMPETENCIES.length} competencies covered`} />
         <StatCard label="Pace" value={paceLabel(pace)} valueClassName={PACE_CLS[paceStatus(pace)]} sub={`${pace.donePct}% done · ${pace.dayPct}% of day gone · ${props.sessionsLast7}/7 full days`} />

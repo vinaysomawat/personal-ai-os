@@ -103,7 +103,12 @@ export function readinessTier(w: WarReadiness): { label: string; tone: 'good' | 
   if (w.ready) return { label: '🔥 TOP 1% READY', tone: 'good' }
   const n = w.blockers.length
   if (w.interviewReady) return { label: `✅ INTERVIEW-READY · ${n} blocker${n === 1 ? '' : 's'} to close`, tone: 'good' }
-  return { label: `❌ NOT READY · ${n} blocker${n === 1 ? '' : 's'}`, tone: 'risk' }
+  // Copy only (same thresholds, same math) — "❌ NOT READY" read as a daily
+  // verdict rather than a progress marker, on the Dashboard, the Prep page
+  // and every Daily bot morning message, for however many weeks it takes to
+  // clear every gate. Nowhere near ready is still the normal state for most
+  // of a prep arc, not a failing grade.
+  return { label: `🧭 Building · ${n} blocker${n === 1 ? '' : 's'} left`, tone: 'warn' }
 }
 
 // ---------------- Topic weakness ----------------
