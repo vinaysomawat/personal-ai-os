@@ -5,6 +5,7 @@ append here whenever you deploy, same cadence as the version bump.
 
 ## 2026-11-06
 
+- Retired the AI engineering path from the daily plan: the AI Engineer tab is hidden and Learn and Build are no longer plan options, because interviews and job descriptions rarely ask for it. AI engineering stays as Question Bank practice, without weekly themes. Progress is kept, and `/prep?tab=ai` still opens the page.
 - Question Bank: a Learn bar under each question links its topics to docs, articles and YouTube, opening in a new tab. Personal topics, such as most resume and behavioral questions, show no bar.
 - Question Bank: 34 new Backend & APIs questions on what senior React job descriptions ask for and the bank lacked: AWS & cloud, Docker & Kubernetes, Microservices & messaging, and SQL in practice.
 - Job applications now run as two slots a day: half in the normal flow, the rest at the start of the last session (10:00pm by default). If that session has no room, the second slot flows like any other block.

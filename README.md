@@ -15,7 +15,7 @@ A personal, single-user AI Operating System: one Next.js app for interview prep,
 | Module | What it does | Spec |
 | --- | --- | --- |
 | Dashboard | Hunt Hero (interview readiness and today's prep), Needs Attention, Ask Brain; Life Score outside War Mode | [docs/modules/dashboard.md](docs/modules/dashboard.md) |
-| Prep | The day plan and timeline, Question Bank with AI-reviewed answers, readiness gates, interview prep from a JD, mock rounds, Story Bank, the AI engineering path | [docs/modules/prep.md](docs/modules/prep.md) |
+| Prep | The day plan and timeline, Question Bank with AI-reviewed answers, readiness gates, interview prep from a JD, mock rounds, Story Bank | [docs/modules/prep.md](docs/modules/prep.md) |
 | Finance | Expenses and budgets, month pace, runway, loans, investments, goals, Money Advisor | [docs/modules/finance.md](docs/modules/finance.md) |
 | Health | Daily metrics, food log, workouts and planner, weight trend, Health Score, Health Coach | [docs/modules/health.md](docs/modules/health.md) |
 | Astrology | Natal chart, Panchang, daily / monthly / yearly readings | [docs/modules/astrology.md](docs/modules/astrology.md) |

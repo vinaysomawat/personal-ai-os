@@ -282,9 +282,6 @@ export interface RoadmapProgress {
 // A ticked step (roadmap_steps): `step` is 0-based within its week.
 export interface RoadmapStepDone { week: number; step: number; done_at: string }
 
-// Outside the path the drill is AI engineering, any topic.
-export const themeFor = (date: string): WeekTheme => roadmapWeek(date)?.theme ?? { category: 'ai-engineering', topics: [] }
-
 // 1-based week for an IST date, or null before the start / after the last week.
 export function roadmapWeek(date: string): RoadmapWeek | null {
   const days = Math.floor((new Date(`${date}T00:00:00Z`).getTime() - new Date(`${BUILD_START}T00:00:00Z`).getTime()) / 86400000)

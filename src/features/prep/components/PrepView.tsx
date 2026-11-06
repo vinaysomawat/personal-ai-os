@@ -35,7 +35,6 @@ export type PrepTab = 'today' | 'interview' | 'ai' | 'questions' | 'mock' | 'sto
 const TABS: { key: PrepTab; label: string }[] = [
   { key: 'today', label: 'Today' },
   { key: 'interview', label: 'Interview' },
-  { key: 'ai', label: 'AI Engineer' },
   { key: 'questions', label: 'Questions' },
   { key: 'mock', label: 'Mock Round' },
   { key: 'stories', label: 'Story Bank' },

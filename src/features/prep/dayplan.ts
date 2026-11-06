@@ -1,6 +1,6 @@
 import { BANK_CATEGORIES, bankBlock, baseKey, catOf, type BankCategory, type CategoryCoverage } from './hunt'
 import { formatMinutes, formatOf, mockFormatForDay } from './mock'
-import { buildBlock, learnBlock, themeFor, type RoadmapStepDone } from './roadmap'
+import { buildBlock, learnBlock, type RoadmapStepDone } from './roadmap'
 import type { TimelineRow } from './timeline'
 import type { PrepBlock } from './types'
 
@@ -29,23 +29,23 @@ export interface DayTemplate {
 export const ORDER = [
   'bank:algorithm', 'bank:javascript-functions', 'bank:quiz',
   'bank:system-design', 'bank:ui-coding', 'bank:code-review',
-  'learn', 'build', 'bank:architecture', 'mock', 'bank:ai-engineering',
+  'bank:architecture', 'mock', 'bank:ai-engineering',
   'bank:backend', 'apply', 'bank:ai-native', 'bank:angular', 'bank:behavioral', 'bank:resume',
 ] as const
 export type PlanKey = typeof ORDER[number]
 export const PLAN_LABEL: Record<PlanKey, string> = {
   ...Object.fromEntries(BANK_CATEGORIES.map(c => [`bank:${c.key}`, c.label])) as Record<string, string>,
-  learn: 'Learn (roadmap week)', build: 'Build (roadmap week)', mock: 'Mock round (scheduled)', 'bank:ai-engineering': 'AI engineering (week theme)', apply: '💼 Job applications',
+  mock: 'Mock round (scheduled)', apply: '💼 Job applications',
 } as Record<PlanKey, string>
 
-// The default day (≈ 6h + the mock on its days): real output fades after
+// The default day (≈ 5h + the mock on its days): real output fades after
 // about four hours, so a plan you finish beats a 10-hour one you abandon.
-// Five talk-through categories (the weakest) against five changes of mode
-// (two hands-on blocks, Learn + Build, applications), so the rotation never
-// has to put two talk blocks together; the rest stay in the bank.
+// Five talk-through categories (the weakest) against four changes of mode
+// (two hands-on blocks, applications, the mock), so the rotation rarely has to
+// put two talk blocks together; the rest stay in the bank.
 const DEFAULT_MINUTES: Partial<Record<PlanKey, number>> = {
   'bank:system-design': 60, 'bank:ui-coding': 45, 'bank:code-review': 30,
-  learn: 20, build: 60, 'bank:architecture': 30, mock: 1, 'bank:ai-engineering': 30,
+  'bank:architecture': 30, mock: 1, 'bank:ai-engineering': 30,
   'bank:backend': 30, apply: 30, 'bank:resume': 30,
 }
 export const DEFAULT_TEMPLATE: DayTemplate = {
@@ -83,9 +83,8 @@ export interface PlanCtx {
 }
 const EMPTY_COVERAGE = (key: BankCategory): CategoryCoverage => ({ key, label: BANK_CATEGORIES.find(c => c.key === key)?.label ?? key, total: 0, seen: 0, doneToday: 0, redoDue: 0 })
 
-// One plan item: a question block (redo guide and gap from coverage; AI
-// engineering follows the roadmap week's theme), Learn / Build (the roadmap
-// week), the day's scheduled mock, or your own slot (`custom:<id>`, its label
+// One plan item: a question block (redo guide and gap from coverage), Learn /
+// Build (the roadmap week; no longer planned, kept for slots on older days), the day's scheduled mock, or your own slot (`custom:<id>`, its label
 // given). null when it has nothing that day (no roadmap week, no mock).
 export function blockFor(key: string, minutes: number, date: string, ctx: PlanCtx, customLabel?: string): PrepBlock | null {
   // An extra slot (`<key>~<n>`) is built like its plan item and keeps its own key.
@@ -107,19 +106,8 @@ export function blockFor(key: string, minutes: number, date: string, ctx: PlanCt
   }
   if (!key.startsWith('bank:')) return null
   const cat = key.slice(5) as BankCategory
-  const theme = themeFor(date)
-  if (cat === 'ai-engineering' && theme.category !== 'backend') {
-    return bankBlock(cov(theme.category), minutes, {
-      label: theme.topics.length ? `Theme: ${theme.topics.join(' + ')}` : undefined,
-      prefix: theme.topics.length ? `This week's theme (${theme.topics.join(', ')}) — ` : "This week's theme — ",
-      topic: theme.topics[0], gap: gap(theme.category),
-    })
-  }
-  const backendTheme = cat === 'backend' && theme.category === 'backend'
   return bankBlock(cov(cat), minutes, {
-    label: backendTheme && theme.topics.length ? `Backend: ${theme.topics.join(' + ')}` : undefined,
-    prefix: backendTheme && theme.topics.length ? `This week's theme (${theme.topics.join(', ')}) — ` : '',
-    topic: backendTheme ? theme.topics[0] : undefined,
+    prefix: '',
     focusTopic: cat === 'quiz' ? ctx.focusTopic : null, gap: gap(cat),
   })
 }
@@ -131,19 +119,17 @@ const NIGHT_SLOT = 'apply~2'
 const APPLY_SPLIT_MIN = 20
 
 // The recommended plan for a date: the template's keys in ORDER with their
-// minutes, the mock only on its scheduled days (a backend-themed roadmap
-// week folds AI engineering into Backend), then put in day order by rotate().
+// minutes, the mock only on its scheduled days, then put in day order by
+// rotate().
 export function planItems(date: string, template: DayTemplate, ctx: PlanCtx): PrepBlock[] {
   const minutes = template.minutes
-  const backendWeek = themeFor(date).category === 'backend'
   const out: PrepBlock[] = []
   const applyMinutes = minutes.apply ?? 0
   const splitApply = applyMinutes >= APPLY_SPLIT_MIN
   const firstApply = Math.ceil(applyMinutes / 10) * 5
   for (const key of ORDER) {
     let m = minutes[key] ?? 0
-    if (m <= 0 || (key === 'bank:ai-engineering' && backendWeek)) continue
-    if (key === 'bank:backend' && backendWeek) m += minutes['bank:ai-engineering'] ?? 0
+    if (m <= 0) continue
     if (key === 'apply' && splitApply) m = firstApply
     const b = blockFor(key, m, date, ctx)
     if (b) out.push(b)
