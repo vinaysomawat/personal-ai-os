@@ -94,6 +94,8 @@ export default function TopNav() {
             ))}
           </nav>
           <div className="md:hidden flex-1" />
+          {/* The Prep focus timer renders here while a session runs (WarRoom FocusBar). */}
+          <div id="focus-timer-slot" className="min-w-0 flex justify-end empty:hidden" />
 
           <div className="flex items-center gap-1.5 shrink-0">
             {trigger && (

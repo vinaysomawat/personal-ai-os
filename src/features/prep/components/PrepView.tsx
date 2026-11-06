@@ -138,7 +138,7 @@ export default function PrepView(props: Props) {
   }
   const openTopic = (category: string, topic: string) => { setBankCategory(category); setBankTopic(topic); setTab('questions') }
   // Start (or return to) a block's focus session and go straight to its work;
-  // the timer is the floating FocusBar, not a separate screen.
+  // the timer is the FocusBar in the navbar, not a separate screen.
   const goToWork = (key: string) => {
     const href = session?.blocks.find(b => b.key === key)?.href
     if (href?.startsWith('/prep')) openHref(href)

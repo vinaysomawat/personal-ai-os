@@ -29,6 +29,15 @@ export function focusSeconds(f: FocusSession, nowMs = Date.now()): number {
   return Math.max(0, Math.round((end - new Date(f.started_at).getTime()) / 1000) - f.paused_seconds)
 }
 
+// The timer in minutes: seconds left (negative once over) as a short label.
+export const minutesLeftLabel = (leftSeconds: number) =>
+  leftSeconds >= 0 ? `${Math.ceil(leftSeconds / 60)}m left` : `${Math.ceil(-leftSeconds / 60)}m over`
+// Milliseconds until that label next changes, so the timer renders once a
+// minute instead of once a second.
+export const msToNextMinute = (leftSeconds: number) => ((((leftSeconds % 60) + 60) % 60) || 60) * 1000
+// Time focused, for the message when a session ends.
+export const focusedLabel = (seconds: number) => `${Math.max(1, Math.round(seconds / 60))} min`
+
 // ---------------- Readiness gates ----------------
 
 // "Top 1% ready" bar per area. Weight = share of the overall score.

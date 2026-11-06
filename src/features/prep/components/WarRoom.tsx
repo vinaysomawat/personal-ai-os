@@ -1,21 +1,46 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { Check, Pause, Pencil, Play, Timer, X } from 'lucide-react'
 import Card from '@/components/Card'
-import { FINISH_SHARE, coachLine, isGoodDay, focusSeconds, nowBlock, paceLabel, paceStatus, type DayPace, type FocusSession } from '../war'
+import { FINISH_SHARE, coachLine, focusSeconds, focusedLabel, isGoodDay, minutesLeftLabel, msToNextMinute, nowBlock, paceLabel, paceStatus, type DayPace, type FocusSession } from '../war'
 import type { PrepBlock } from '../types'
 
-const mmss = (s: number) => `${s < 0 ? '-' : ''}${Math.floor(Math.abs(s) / 60)}:${String(Math.abs(s) % 60).padStart(2, '0')}`
-
-function useNow(active: boolean) {
+// The clock for a running session: re-renders only when the minutes shown
+// change, and not at all while the tab is hidden (it catches up on return).
+function useFocusClock(focus: FocusSession | null) {
   const [now, setNow] = useState(() => Date.now())
+  const running = !!focus && !focus.paused_at
+  const plannedSeconds = (focus?.planned_minutes ?? 0) * 60
+  const startedAt = focus?.started_at
+  const pausedSeconds = focus?.paused_seconds
   useEffect(() => {
-    if (!active) return
-    const t = setInterval(() => setNow(Date.now()), 1000)
-    return () => clearInterval(t)
-  }, [active])
+    if (!running || !startedAt) return
+    let timer: ReturnType<typeof setTimeout> | undefined
+    const tick = () => {
+      clearTimeout(timer)
+      if (document.hidden) return
+      const at = Date.now()
+      setNow(at)
+      const elapsed = Math.round((at - new Date(startedAt).getTime()) / 1000) - (pausedSeconds ?? 0)
+      timer = setTimeout(tick, msToNextMinute(plannedSeconds - elapsed))
+    }
+    timer = setTimeout(tick, 0)
+    document.addEventListener('visibilitychange', tick)
+    return () => { clearTimeout(timer); document.removeEventListener('visibilitychange', tick) }
+  }, [running, startedAt, pausedSeconds, plannedSeconds])
   return now
+}
+
+// The navbar slot the timer renders into (TopNav), once the page is mounted.
+function useNavSlot() {
+  const [slot, setSlot] = useState<HTMLElement | null>(null)
+  useEffect(() => {
+    const t = setTimeout(() => setSlot(document.getElementById(FOCUS_NAV_SLOT)), 0)
+    return () => clearTimeout(t)
+  }, [])
+  return slot
 }
 
 // ---------------- Header ----------------
@@ -55,7 +80,9 @@ export function TodayHeader({ windowLabel, interviewAt, pace, blocks, onIntervie
 
 // ---------------- Focus bar ----------------
 
-// The whole focus timer: a floating bar over the page (no separate screen).
+export const FOCUS_NAV_SLOT = 'focus-timer-slot'
+
+// The whole focus timer, in the navbar (no separate screen), in minutes.
 // Label = jump to the work; question blocks show today's progress. After a
 // session ends on its own (quota met), `ended` shows the result briefly.
 // Pure UI: the page applies each action optimistically (PrepView), so the
@@ -73,31 +100,37 @@ export function FocusBar({ focus, progress, canFinish, ended, onPause, onFinish,
   onStop: (f: FocusSession) => void
   onGo: () => void
 }) {
-  const now = useNow(!!focus && !focus.paused_at)
+  const now = useFocusClock(focus)
+  const slot = useNavSlot()
   const busy = !!focus?.id.startsWith('tmp-')
-  const shell = 'fixed bottom-[86px] md:bottom-7 left-1/2 -translate-x-1/2 z-[30] max-w-[calc(100vw-24px)] rounded-full shadow-[0_8px_24px_var(--shadow-lg)] text-[12.5px] font-semibold tabular-nums'
+  const shell = 'h-[30px] max-w-full rounded-full text-[12px] font-semibold tabular-nums whitespace-nowrap'
+  if (!slot) return null
   if (!focus) {
     if (!ended) return null
-    return (
-      <div role="status" className={`${shell} !rounded-[18px] bg-good text-on-good px-4 py-1.5 text-center`}>
-        <div className="inline-flex items-center gap-1.5 whitespace-nowrap"><Check size={14} strokeWidth={3} /> {ended.label} done · {mmss(ended.seconds)} focused</div>
-        {ended.win && <div className="text-[11.5px] font-medium opacity-90">{ended.win}</div>}
-      </div>
+    return createPortal(
+      <div role="status" title={ended.win} className={`${shell} bg-good text-on-good px-3 flex items-center gap-1.5 min-w-0`}>
+        <Check size={13} strokeWidth={3} className="shrink-0" />
+        <span className="hidden sm:inline truncate">{ended.label} done · </span>
+        <span className="shrink-0">{focusedLabel(ended.seconds)}</span>
+        {ended.win && <span className="hidden xl:inline font-medium opacity-90 truncate">· {ended.win}</span>}
+      </div>,
+      slot,
     )
   }
   const left = focus.planned_minutes * 60 - focusSeconds(focus, now)
   const paused = !!focus.paused_at
-  const icon = 'w-[28px] h-[28px] rounded-full inline-flex items-center justify-center hover:bg-white/20 disabled:opacity-50 shrink-0'
-  return (
-    <div role="timer" aria-label="Focus session" className={`${shell} ${left < 0 ? 'bg-risk' : 'bg-accent'} ${paused ? 'opacity-75' : ''} text-white pl-3 pr-1 py-1 flex items-center gap-1`}>
-      <button onClick={onGo} title="Go to the work" className="inline-flex items-center gap-1.5 min-w-0 py-1">
-        <Timer size={14} className="shrink-0" />
-        <span className="truncate">{focus.label}</span>
-        {progress && <span className="font-normal opacity-85 shrink-0">· {progress}</span>}
-        <span className="shrink-0">· {mmss(left)}</span>
-        {paused && <span className="font-normal opacity-85 shrink-0">· paused</span>}
+  // On a phone only the minutes show ("18m"), so the buttons keep their room.
+  const [minutes, state] = minutesLeftLabel(left).split(' ')
+  const icon = 'w-[22px] h-[22px] sm:w-[24px] sm:h-[24px] rounded-full inline-flex items-center justify-center hover:bg-white/20 disabled:opacity-50 shrink-0'
+  return createPortal(
+    <div role="timer" aria-label="Focus session" className={`${shell} ${left < 0 ? 'bg-risk' : 'bg-accent'} ${paused ? 'opacity-75' : ''} text-white pl-2.5 pr-1 flex items-center gap-0.5 min-w-0`}>
+      <button onClick={onGo} title={`Go to the work: ${focus.label}${paused ? ' (paused)' : ''}`} aria-label={`${focus.label}, ${paused ? 'paused, ' : ''}${minutes} ${state}`} className="inline-flex items-center gap-1.5 min-w-0">
+        <Timer size={13} className="shrink-0 hidden sm:inline" />
+        <span className="hidden lg:inline truncate max-w-[200px]">{focus.label}</span>
+        {progress && <span className="hidden xl:inline font-normal opacity-85 shrink-0">· {progress}</span>}
+        <span className="shrink-0"><span className="hidden lg:inline">· </span>{paused && <span className="hidden sm:inline">paused · </span>}{minutes}<span className="hidden sm:inline"> {state}</span></span>
       </button>
-      <span className="w-px h-4 bg-white/30 mx-1 shrink-0" aria-hidden />
+      <span className="hidden sm:block w-px h-4 bg-white/30 mx-1 shrink-0" aria-hidden />
       <button disabled={busy} onClick={() => onPause(focus)} title={paused ? 'Resume' : 'Pause'} aria-label={paused ? 'Resume' : 'Pause'} className={icon}>
         {paused ? <Play size={13} /> : <Pause size={13} />}
       </button>
@@ -109,6 +142,7 @@ export function FocusBar({ focus, progress, canFinish, ended, onPause, onFinish,
       <button disabled={busy} onClick={() => onStop(focus)} title="Stop without finishing" aria-label="Stop without finishing" className={icon}>
         <X size={14} />
       </button>
-    </div>
+    </div>,
+    slot,
   )
 }
