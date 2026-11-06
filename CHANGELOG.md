@@ -5,6 +5,7 @@ append here whenever you deploy, same cadence as the version bump.
 
 ## 2026-11-06
 
+- Question Bank: 34 new Backend & APIs questions on what senior React job descriptions ask for and the bank lacked: AWS & cloud, Docker & Kubernetes, Microservices & messaging, and SQL in practice.
 - Job applications now run as two slots a day: half in the normal flow, the rest at the start of the last session (10:00pm by default). If that session has no room, the second slot flows like any other block.
 - The AI engineering path jumps to RAG: Learn and Build are on week 4 (Embeddings) from today and week 5 (RAG with citations) from Nov 13. Those weeks' steps no longer need the jobs table or streaming from weeks 2–3, which stay open to do later.
 
