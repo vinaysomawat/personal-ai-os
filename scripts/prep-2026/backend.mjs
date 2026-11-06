@@ -1,4 +1,4 @@
-// Backend & APIs (category 'backend') — 139 linkless Question Bank rows for
+// Backend & APIs (category 'backend') — 144 linkless Question Bank rows for
 // full-stack "product engineer" loops. answer_hints = the 4–6 key points the
 // scorecard grades against ("·" separates them). sort_order puts the
 // must-haves first.
@@ -6,6 +6,18 @@
 const q = (title, difficulty, topics, answer_hints) => ({ title, difficulty, topics, answer_hints })
 
 const ROWS = [
+  // ---- Node in production (5)
+  q('A Node API got slow in production but CPU looks fine. Walk through how you find the cause.', 'hard', ['Node in production', 'Must-have'],
+    'start with latency percentiles per route, and a trace to see the slow hop · low CPU with high latency usually means waiting on the database, a downstream call or an exhausted connection pool · check slow queries, pool usage, timeouts and retries · measure event loop lag to catch blocking work such as sync crypto or large JSON parsing · profile with clinic.js or --inspect, and compare against the last deploy · fix the cause, then add an alert'),
+  q('Memory in your Node service climbs until it crashes. How do you find and fix the leak?', 'hard', ['Node in production', 'Must-have'],
+    'confirm from heap-used graphs that it grows across garbage collections, rather than a normal sawtooth · take heap snapshots minutes apart in Chrome DevTools and compare retained objects · common causes: unbounded in-process caches, listeners that are never removed, closures holding requests, and timers never cleared · use bounded LRU caches or Redis · a load test reproduces it safely · a restart hides the leak, and setting --max-old-space-size only delays the crash'),
+  q('Two users update the same record at once and one change is lost. How do you prevent it across API and UI?', 'hard', ['Node in production', 'Must-have'],
+    'this is the lost update problem: both read, both write, and the last one wins · optimistic locking: a version or updated_at column checked in the UPDATE, returning 409 on a mismatch · pessimistic locking with SELECT ... FOR UPDATE suits short, high-contention work · atomic updates such as balance = balance - 1 avoid the read entirely · use idempotency keys for retries · the UI shows the conflict and lets the user merge or retry'),
+  q('Trace one click from React through the API and database and back. Where does the time go, and what do you check at each hop?', 'medium', ['Node in production', 'Must-have'],
+    'event handler and state update, then fetch with DNS, TLS, CDN and load balancer on the way · auth and validation in middleware, then the service layer and SQL with its pool wait and query time · serialization, compression and response size on the way back, then parsing and rendering in React · attach rough latency to each hop, and show which ones dominate · use a trace id with OpenTelemetry to measure rather than guess · add caching, indexes or optimistic UI at the right layer'),
+  q('Design a REST API for orders: endpoints, payloads, pagination, errors and permissions.', 'medium', ['Node in production', 'Must-have'],
+    'resources and verbs: POST /orders, GET /orders with filters, GET /orders/:id, PATCH for allowed changes, with state changes such as cancel as explicit actions · cursor pagination with a stable sort, and field validation at the edge · idempotency key on create, so retries cannot double-charge · consistent error shape and correct status codes (401, 403, 404, 409, 422) · object-level authorization on every request, not only login · versioning, rate limits, and an audit trail'),
+
   // ---- AWS & cloud (10)
   q('How would you deploy a React frontend and a Node API on AWS? Walk through the architecture.', 'medium', ['AWS & cloud', 'Must-have'],
     'frontend: static build in a private S3 bucket behind CloudFront, with hashed assets cached long and index.html cached short · API: containers on ECS Fargate (or Lambda) behind an Application Load Balancer · data: RDS in a private subnet, reachable only from the API security group · secrets in Secrets Manager or SSM, not in the image, with an IAM task role for AWS access · deploy from CI, with health checks and a rollback path · logs and alarms in CloudWatch'),

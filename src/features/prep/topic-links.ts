@@ -75,6 +75,11 @@ const MICROSERVICES = [link('microservices.io', 'https://microservices.io/'), li
 const REALTIME = [link('MDN WebSockets', `${MDN}/Web/API/WebSockets_API`), search('websockets vs server sent events')]
 const I18N = [link('MDN Intl', `${MDN}/Web/JavaScript/Reference/Global_Objects/Intl`), search('internationalization in react')]
 
+const REACT_DEPTH = [link('React Compiler', 'https://react.dev/learn/react-compiler'), link('React 19 release', 'https://react.dev/blog/2024/12/05/react-19'), link('You might not need an effect', 'https://react.dev/learn/you-might-not-need-an-effect'), search('react rendering internals memo compiler')]
+const BROWSER = [link('How browsers work', 'https://web.dev/articles/howbrowserswork'), link('INP guide', 'https://web.dev/articles/inp'), video('cCOL7MC4Pl0', 'Browser event loop talk')]
+const COMPONENT_DESIGN = [link('ARIA component patterns', 'https://www.w3.org/WAI/ARIA/apg/patterns/'), link('Patterns.dev', 'https://www.patterns.dev/'), link('Combobox pattern', 'https://www.w3.org/WAI/ARIA/apg/patterns/combobox/'), search('frontend component api design')]
+const NODE_PROD = [link('Node diagnostics', 'https://nodejs.org/en/learn/diagnostics/memory/understanding-and-tuning-memory'), link('Node event loop', 'https://nodejs.org/learn/asynchronous-work/event-loop-timers-and-nexttick'), search('debugging node.js performance memory leak production')]
+
 const TOPIC_LINKS: Record<string, TopicLink[]> = {
   // JavaScript and the browser
   'JavaScript Fundamentals': JS, JavaScript: JS, 'Async & Promises': ASYNC, 'Array & Object Methods': ARRAYS, 'DOM & Browser APIs': DOM,
@@ -104,6 +109,7 @@ const TOPIC_LINKS: Record<string, TopicLink[]> = {
   'AI workflow': AI_TOOLS, 'AI judgment': AI_TOOLS, 'Prompting & context': AI_TOOLS, 'AI agents & tooling': AGENTS, 'Building AI features': AI_UX,
   'AI security & privacy': AI_SECURITY, 'Leading AI adoption': AI_ADOPTION,
   // Backend
+  'React in depth': REACT_DEPTH, 'Browser internals': BROWSER, 'Frontend component design': COMPONENT_DESIGN, 'Node in production': NODE_PROD,
   'API design': API, API, 'Node / Next.js server': NODE, 'Node.js': NODE, 'Auth & security': AUTH, Auth: AUTH, Data: SQL, Database: SQL, 'SQL in practice': SQL,
   'Caching & performance': CACHING, 'Caching in deployment': NEXT_CACHING, 'AI backend': AI_UX, 'Row Level Security': RLS, FastAPI: FASTAPI, 'Python asyncio': PY_ASYNC,
   'Concurrency & deadlocks': LOCKS, 'SOLID & design': SOLID, 'AWS & cloud': AWS, 'Docker & Kubernetes': CONTAINERS, 'Microservices & messaging': MICROSERVICES,
