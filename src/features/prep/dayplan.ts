@@ -134,9 +134,41 @@ export function planItems(date: string, template: DayTemplate, ctx: PlanCtx): Pr
     const b = blockFor(key, m, date, ctx)
     if (b) out.push(b)
   }
-  const plan = speakLate(rotate(out, ctx.coverage))
+  const plan = speakLate(splitLong(rotate(out, ctx.coverage), date, ctx))
   const night = splitApply ? blockFor(NIGHT_SLOT, applyMinutes - firstApply, date, ctx) : null
   return night ? [...plan, night] : plan
+}
+
+// An item of LONG_ITEM minutes or more is planned as SLOT_MINUTES slots: its first
+// slot stays in the day's order, and the repeats come round by round after
+// every item has had its first turn. The mock is one timed round, and
+// applications already have their own two slots. A remainder under
+// MIN_SLOT_MINUTES joins the last slot.
+const LONG_ITEM = 60
+const SLOT_MINUTES = 30
+const MIN_SLOT_MINUTES = 15
+function slotMinutes(minutes: number): number[] {
+  const slots = Array<number>(Math.floor(minutes / SLOT_MINUTES)).fill(SLOT_MINUTES)
+  const rest = minutes % SLOT_MINUTES
+  if (rest >= MIN_SLOT_MINUTES) slots.push(rest)
+  else slots[slots.length - 1] += rest
+  return slots
+}
+function splitLong(blocks: PrepBlock[], date: string, ctx: PlanCtx): PrepBlock[] {
+  const first: PrepBlock[] = []
+  const repeats: PrepBlock[][] = []
+  for (const b of blocks) {
+    if (b.minutes < LONG_ITEM || b.key === 'mock' || b.key === 'apply') { first.push(b); continue }
+    slotMinutes(b.minutes).forEach((minutes, i) => {
+      const slot = blockFor(i ? `${b.key}~${i + 1}` : b.key, minutes, date, ctx)
+      if (!slot) return
+      // The minutes planned here: a slot can be shorter than one question.
+      const planned = { ...slot, minutes }
+      if (i) (repeats[i - 1] ??= []).push(planned)
+      else first.push(planned)
+    })
+  }
+  return [...first, ...repeats.flat()]
 }
 
 // Typing gets tiring and speaking is closer to the real interview, so the
