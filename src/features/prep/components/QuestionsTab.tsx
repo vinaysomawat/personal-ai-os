@@ -4,6 +4,7 @@ import { useMemo, useState, useTransition } from 'react'
 import { ArrowLeft, BookOpen, Check, ExternalLink, Sparkles } from 'lucide-react'
 import Card from '@/components/Card'
 import AnswerReview, { CodeBlock, Rich } from './AnswerReview'
+import { TopicLinks } from './TopicLinks'
 import MicButton, { appendText } from '@/components/MicButton'
 import { modalSaveButtonClass, modalCancelButtonClass } from '@/components/Modal'
 import { answerQuestion, critiqueAnswer, revealModelAnswer } from '../actions'
@@ -258,6 +259,7 @@ export function QuestionsTab({ bank, setBank, topic, onTopicChange: setTopic, bl
                 <button onClick={() => setOpen(false)} className="xl:hidden text-[11.5px] text-accent inline-flex items-center gap-1 shrink-0"><ArrowLeft size={12} /> All questions</button>
               </div>
               <p className="text-[15px] font-semibold text-fg-primary leading-snug">{current.title}</p>
+              <TopicLinks question={current} />
               {current.body && <CodeBlock code={current.body} />}
               <textarea value={answer} onChange={e => setAnswer(e.target.value)} rows={category === 'code-review' ? 9 : verbal ? 7 : category === 'quiz' ? 4 : 3}
                 placeholder={PLACEHOLDER[category] ?? (verbal ? VERBAL_PLACEHOLDER[category] : null) ?? 'Approach / complexity / trade-offs (optional)'}
