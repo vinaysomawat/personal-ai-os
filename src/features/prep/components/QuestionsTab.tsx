@@ -324,14 +324,16 @@ export function QuestionsTab({ bank, setBank, topic, onTopicChange: setTopic, bl
           <div className="h-full bg-accent" style={{ width: `${totalPct}%` }} />
         </div>
         <ul className="flex flex-col gap-2.5">
-          {BANK_CATEGORIES.map(c => {
+          {[...BANK_CATEGORIES].sort((a, b) => Number(b.key === category) - Number(a.key === category)).map(c => {
             const s = stats(c.key)
             const cq = planFor(c.key)
+            const selected = c.key === category
             return (
               <li key={c.key}>
-                <button onClick={() => { setCategory(c.key); setSelectedId(null); setOpen(false) }} className="w-full text-left">
+                <button onClick={() => { setCategory(c.key); setSelectedId(null); setOpen(false) }} aria-current={selected ? 'true' : undefined}
+                  className={`w-full text-left rounded-[8px] ${selected ? 'bg-accent-soft ring-1 ring-accent/60 px-2 py-1.5' : ''}`}>
                   <div className="flex items-baseline justify-between text-[12.5px] gap-2">
-                    <span className="font-medium text-fg-primary">{c.label}</span>
+                    <span className={selected ? 'font-semibold text-accent' : 'font-medium text-fg-primary'}>{c.label}</span>
                     <span className="text-[11px] text-fg-tertiary tabular-nums">{s.seen}/{s.total} · {s.total ? Math.round((s.seen / s.total) * 100) : 0}%{s.leftMinutes ? ` · ≈ ${hrs(s.leftMinutes)}` : ''}</span>
                   </div>
                   <div className="h-[5px] rounded-[3px] bg-border mt-1 flex overflow-hidden">

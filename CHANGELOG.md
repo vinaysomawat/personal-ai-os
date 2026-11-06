@@ -5,6 +5,7 @@ append here whenever you deploy, same cadence as the version bump.
 
 ## 2026-11-06
 
+- Questions: the selected category moves to the top of the Coverage card and is highlighted.
 - The day plan splits any item of 60 minutes or more into 30-minute slots, with the repeats coming after every item has had its first turn. Mocks and job applications are not split this way.
 - Question Bank: hid 345 questions with a low chance of being asked in senior frontend and full-stack interviews, leaving 1,071. They are not deleted and can be brought back.
 - Question Bank: 17 new must-have questions from recent senior frontend and full-stack interview reports: React in depth, Browser internals, Frontend component design, and Node in production. Each has Learn bar links.
