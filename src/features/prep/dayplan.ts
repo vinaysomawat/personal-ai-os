@@ -124,6 +124,12 @@ export function blockFor(key: string, minutes: number, date: string, ctx: PlanCt
   })
 }
 
+// Job applications run as two slots a day: half in the normal flow, the rest
+// in the day's last session (layoutDay holds NIGHT_SLOT back for it). Under
+// APPLY_SPLIT_MIN it stays one slot.
+const NIGHT_SLOT = 'apply~2'
+const APPLY_SPLIT_MIN = 20
+
 // The recommended plan for a date: the template's keys in ORDER with their
 // minutes, the mock only on its scheduled days (a backend-themed roadmap
 // week folds AI engineering into Backend), then put in day order by rotate().
@@ -131,14 +137,20 @@ export function planItems(date: string, template: DayTemplate, ctx: PlanCtx): Pr
   const minutes = template.minutes
   const backendWeek = themeFor(date).category === 'backend'
   const out: PrepBlock[] = []
+  const applyMinutes = minutes.apply ?? 0
+  const splitApply = applyMinutes >= APPLY_SPLIT_MIN
+  const firstApply = Math.ceil(applyMinutes / 10) * 5
   for (const key of ORDER) {
     let m = minutes[key] ?? 0
     if (m <= 0 || (key === 'bank:ai-engineering' && backendWeek)) continue
     if (key === 'bank:backend' && backendWeek) m += minutes['bank:ai-engineering'] ?? 0
+    if (key === 'apply' && splitApply) m = firstApply
     const b = blockFor(key, m, date, ctx)
     if (b) out.push(b)
   }
-  return speakLate(rotate(out, ctx.coverage))
+  const plan = speakLate(rotate(out, ctx.coverage))
+  const night = splitApply ? blockFor(NIGHT_SLOT, applyMinutes - firstApply, date, ctx) : null
+  return night ? [...plan, night] : plan
 }
 
 // Typing gets tiring and speaking is closer to the real interview, so the
@@ -256,15 +268,23 @@ export function layoutDay(items: PrepBlock[], template: DayTemplate, dayStart: n
     const gap = { start: sessions[i].end, end: s.start }
     if (gap.end > gap.start && !events.some(e => e.start < gap.end && e.end > gap.start)) rows.push({ kind: 'meal', label: gapLabel(i), start: gap.start, end: gap.end })
   })
-  const queue = [...items]
+  // The night slot opens the last session, if that session has room for it;
+  // otherwise (say an interview takes the session) it flows like any item.
+  const lastSession = sessions.length - 1
+  const nightItem = items.find(b => b.key === NIGHT_SLOT)
+  let held = nightItem && stretches.some(st => st.session === lastSession && st.end - st.start >= nightItem.minutes) ? nightItem : null
+  const queue = items.filter(b => b !== held)
   for (const st of stretches) {
     let t = st.start
+    const place = (b: PrepBlock) => {
+      rows.push({ kind: 'block', label: b.label, start: t, end: t + b.minutes, blockKey: b.key, done: b.done })
+      t += b.minutes
+    }
+    if (held && st.session === lastSession && t + held.minutes <= st.end) { place(held); held = null }
     // The first item in order that still fits, so a short item fills a gap
     // a longer one can't (the order moves only as much as needed).
     for (let i = queue.findIndex(b => t + b.minutes <= st.end); i >= 0; i = queue.findIndex(b => t + b.minutes <= st.end)) {
-      const b = queue.splice(i, 1)[0]
-      rows.push({ kind: 'block', label: b.label, start: t, end: t + b.minutes, blockKey: b.key, done: b.done })
-      t += b.minutes
+      place(queue.splice(i, 1)[0])
     }
     if (st.end - t >= MIN_FLEX) rows.push({ kind: 'flex', label: FLEX_LABEL, start: t, end: st.end })
   }
