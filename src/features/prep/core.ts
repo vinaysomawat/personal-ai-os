@@ -4,6 +4,7 @@ import { createServiceClient } from '@/lib/supabase/service'
 import { prepToday, prepDaysAgo, toPrepDateStr, prepDayStartUtc } from '@/lib/date'
 import type { MockRound } from './mock'
 import { BANK_CATEGORIES, catOf, isRedoDue, type CategoryCoverage } from './hunt'
+import { isRetired } from './retired-questions'
 import { DEFAULT_TEMPLATE, addInterview, applyTodayPatch, frontLoad, layoutDay, patchTouchesBlocks, planItems, templateOf, type Interview, type TodayPatch } from './dayplan'
 import type { InterviewPrep } from './jd'
 import type { RoadmapProgress, RoadmapStepDone } from './roadmap'
@@ -191,7 +192,7 @@ export async function getQuestionBank(supabase: SupabaseClient, userId: string):
   const touch = (id: string, at: string) => { if ((lastSeen.get(id) ?? '') < at) lastSeen.set(id, at) }
   for (const c of coding ?? []) if (c.completed_at) touch(c.question_id, c.completed_at)
   for (const p of progress ?? []) { touch(p.question_id, p.last_seen_at); answers.set(p.question_id, p.last_answer); ratings.set(p.question_id, { last_rating: p.last_rating ?? null, last_rated_at: p.last_rated_at ?? null }) }
-  return questions.map(q => ({
+  return questions.filter(q => !isRetired(q)).map(q => ({
     ...q, topics: q.topics ?? [],
     last_seen_at: lastSeen.get(q.id) ?? null,
     last_answer: answers.get(q.id) ?? null,
