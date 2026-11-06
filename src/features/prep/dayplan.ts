@@ -201,9 +201,21 @@ export function frontLoad(blocks: PrepBlock[], categories: string[]): PrepBlock[
   return out
 }
 
-// Interview today (prep_sessions.interview): a warm-up before, a debrief
-// after. Before the day's start it moves the start earlier (gym skipped).
+// Interviews today (prep_sessions.interview): a warm-up before, a debrief
+// after. Before the day's start the first warm-up moves the start earlier (gym
+// skipped). Stored as a list; days saved before that hold one object.
 export interface Interview { start: number; minutes: number; label?: string }
+export const MAX_INTERVIEWS = 5
+// A stored value as a list, earliest first.
+export const interviewsOf = (v: Interview | Interview[] | null | undefined): Interview[] =>
+  [...(Array.isArray(v) ? v : v ? [v] : [])].sort((a, b) => a.start - b.start)
+export const interviewsOverlap = (list: Interview[]) =>
+  interviewsOf(list).some((iv, i, all) => i > 0 && all[i - 1].start + all[i - 1].minutes > iv.start)
+// One more interview: replaces one at the same start; a full day stays as it is.
+export function addInterview(list: Interview[], iv: Interview): Interview[] {
+  const rest = list.filter(x => x.start !== iv.start)
+  return interviewsOf(rest.length === list.length && list.length >= MAX_INTERVIEWS ? list : [...rest, iv])
+}
 // Your own breaks today (prep_sessions.breaks), fixed times — there are no
 // automatic breaks.
 // `meal` = the index of the template gap (lunch, dinner) this moves today.
@@ -215,22 +227,43 @@ export const mealsOf = (template: DayTemplate, breaks: DayBreak[]): DayBreak[] =
 })
 export const WARMUP_MINUTES = 30
 export const DEBRIEF_MINUTES = 15
+// Under this many minutes between two interviews, no debrief or warm-up fits.
+const MIN_INTERVIEW_GAP = 10
+// Each interview's rows, for a list sorted by start: a warm-up before the first,
+// and in a gap to the next, the debrief first and the warm-up with what's left.
+function interviewRows(list: Interview[]): TimelineRow[] {
+  const warmup = (iv: Interview, start: number): TimelineRow => ({
+    kind: 'warmup', start, end: iv.start,
+    label: list.length > 1 && iv.label?.trim() ? `Warm-up — ${iv.label.trim()}` : 'Warm-up — stories, notes, the company',
+  })
+  return list.flatMap((iv, i) => {
+    const end = iv.start + iv.minutes
+    const next = list[i + 1]
+    const gap = next ? next.start - end : Infinity
+    const rows: TimelineRow[] = [
+      ...(i === 0 ? [warmup(iv, iv.start - WARMUP_MINUTES)] : []),
+      { kind: 'interview', label: iv.label?.trim() || 'Interview', start: iv.start, end },
+    ]
+    if (gap < MIN_INTERVIEW_GAP) return rows
+    const debrief = Math.min(DEBRIEF_MINUTES, gap)
+    rows.push({ kind: 'debrief', label: 'Debrief — write down every question', start: end, end: end + debrief })
+    if (next && gap > debrief) rows.push(warmup(next, next.start - Math.min(WARMUP_MINUTES, gap - debrief)))
+    return rows
+  })
+}
+
 const FLEX_LABEL = 'Flex — finish any open block, or redo weak answers'
 const MIN_FLEX = 10
 
-// Lays the day's items (in their order) into the sessions, around an
-// interview and your breaks: each free stretch takes the first items in order
+// Lays the day's items (in their order) into the sessions, around any
+// interviews and your breaks: each free stretch takes the first items in order
 // that fit (a shorter later item fills a gap a longer one can't); leftover
 // time in a stretch is Flex. Items that fit nowhere come back as `dropped`.
-export function layoutDay(items: PrepBlock[], template: DayTemplate, dayStart: number, interview: Interview | null, breaks: DayBreak[] = []): { rows: TimelineRow[]; dropped: PrepBlock[] } {
+export function layoutDay(items: PrepBlock[], template: DayTemplate, dayStart: number, interview: Interview | Interview[] | null, breaks: DayBreak[] = []): { rows: TimelineRow[]; dropped: PrepBlock[] } {
   const sessions = template.sessions.map(s => ({ ...s }))
   if (sessions.length) sessions[0].start = Math.min(dayStart, sessions[0].end)
-  const events: TimelineRow[] = interview ? [
-    { kind: 'warmup', label: 'Warm-up — stories, notes, the company', start: interview.start - WARMUP_MINUTES, end: interview.start },
-    { kind: 'interview', label: interview.label?.trim() || 'Interview', start: interview.start, end: interview.start + interview.minutes },
-    { kind: 'debrief', label: 'Debrief — write down every question', start: interview.start + interview.minutes, end: interview.start + interview.minutes + DEBRIEF_MINUTES },
-  ] : []
-  if (interview && sessions.length && events[0].start < sessions[0].start) sessions[0].start = events[0].start
+  const events = interviewRows(interviewsOf(interview))
+  if (events.length && sessions.length && events[0].start < sessions[0].start) sessions[0].start = events[0].start
   // A meal moved today ends the session before it and starts the next.
   for (const b of breaks) if (b.meal !== undefined && sessions[b.meal + 1]) {
     sessions[b.meal].end = Math.max(sessions[b.meal].start, b.start)
@@ -284,7 +317,7 @@ export function layoutDay(items: PrepBlock[], template: DayTemplate, dayStart: n
 // sent only when slots were moved (the full key order after the edit).
 export interface TodayPatch {
   startMin?: number
-  interview?: Interview | null
+  interview?: Interview[]
   breaks?: DayBreak[]
   remove?: string[]
   add?: { key: string; minutes: number; label?: string }[]

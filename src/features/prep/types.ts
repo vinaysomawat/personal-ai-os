@@ -83,8 +83,9 @@ export interface PrepSession {
   completed_at: string | null
   // Today's own start (Edit today), null = prep_settings.day_start_min.
   start_min: number | null
-  // Interview today: warm-up before, debrief after (dayplan.ts).
-  interview: Interview | null
+  // Interviews today: warm-up before, debrief after (dayplan.ts). A list; days
+  // saved earlier hold one object, so read it through interviewsOf().
+  interview: Interview | Interview[] | null
   // Your breaks today, fixed start / end (dayplan.ts), null = none.
   breaks: DayBreak[] | null
 }

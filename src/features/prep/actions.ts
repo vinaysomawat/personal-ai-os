@@ -6,11 +6,11 @@ import { askAI } from '@/lib/ai-gateway'
 import { formatOf, roundScore, type MockFormat, type MockItem, type MockReview, type MockRound } from './mock'
 import { COMPETENCIES } from './types'
 import type { PrepBlock, PrepSession, Story, StoryRehearsal } from './types'
-import { endFocus, getQuestionBank, interviewOf, loadPrepData, patchToday, startFocusOn, syncBankBlocks, toggleFocusPause } from './core'
+import { endFocus, getQuestionBank, interviewOf, loadPrepData, patchToday, prepCategories, startFocusOn, syncBankBlocks, toggleFocusPause } from './core'
 import { matchJD, type InterviewPlan, type InterviewPrep, type JdMatch } from './jd'
 import type { FocusSession } from './war'
 import { baseKey } from './hunt'
-import { ORDER, frontLoad, type DayTemplate, type TodayPatch } from './dayplan'
+import { MAX_INTERVIEWS, ORDER, addInterview, frontLoad, interviewsOf, interviewsOverlap, type DayTemplate, type TodayPatch } from './dayplan'
 import { ROADMAP, buildBlock, learnBlock, type RoadmapProgress, type RoadmapStepDone } from './roadmap'
 import { prepToday } from '@/lib/date'
 import { critiqueFollowUp, critiqueQuestion, critiqueStory, modelAnswer, SPOKEN_NOTE } from './critique'
@@ -63,14 +63,19 @@ export async function savePrepToday(patch: TodayPatch): Promise<PrepSession> {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) throw new Error('Not authenticated')
   if (patch.startMin !== undefined && !isMinute(patch.startMin)) throw new Error('Invalid start time')
-  const iv = patch.interview
-  if (iv && (!Number.isInteger(iv.start) || iv.start < 0 || iv.start > 1800 || !Number.isInteger(iv.minutes) || iv.minutes < 15 || iv.minutes > 240)) throw new Error('Invalid interview time')
+  const interviews = patch.interview === undefined ? undefined : interviewsOf(patch.interview)
+  if (interviews) {
+    if (interviews.length > MAX_INTERVIEWS) throw new Error(`Up to ${MAX_INTERVIEWS} interviews a day`)
+    if (interviews.some(iv => !Number.isInteger(iv.start) || iv.start < 0 || iv.start > 1800 || !Number.isInteger(iv.minutes) || iv.minutes < 15 || iv.minutes > 240)) throw new Error('Invalid interview time')
+    if (interviewsOverlap(interviews)) throw new Error('Interviews can\'t overlap')
+  }
   if (patch.breaks && (patch.breaks.length > 10 || patch.breaks.some(b => !Number.isInteger(b.start) || !Number.isInteger(b.end) || b.start < 0 || b.end > 1800 || b.end <= b.start || b.end - b.start > 240 || (b.meal !== undefined && (!Number.isInteger(b.meal) || b.meal < 0 || b.meal > 5))))) throw new Error('Each break or meal needs a start before its end (up to 4 hours)')
   if (patch.add && (patch.add.length > 30 || patch.add.some(a => !isMinutes(a.minutes) || !(a.key.startsWith('custom:') ? a.label?.trim() : (ORDER as readonly string[]).includes(a.key))))) throw new Error('Check the added slots')
   if (patch.minutes && Object.values(patch.minutes).some(m => !isMinutes(m))) throw new Error('Slots are 5–300 minutes')
   if (patch.order && new Set(patch.order).size !== patch.order.length) throw new Error('Each slot can appear once')
   return patchToday(supabase, user.id, {
     ...patch,
+    ...(interviews ? { interview: interviews.map(iv => ({ start: iv.start, minutes: iv.minutes, ...(iv.label?.trim() ? { label: iv.label.trim().slice(0, 100) } : {}) })) } : {}),
     ...(patch.breaks ? { breaks: patch.breaks.map(b => ({ start: b.start, end: b.end, ...(b.label?.trim() ? { label: b.label.trim() } : {}), ...(b.meal !== undefined ? { meal: b.meal } : {}) })) } : {}),
   })
 }
@@ -434,8 +439,8 @@ async function interviewPlan(userId: string, p: { company: string; role: string 
 export interface InterviewPrepInput { company: string; role: string; round: string; jd: string; date: string; startMin: number | null; minutes: number }
 
 // Paste a JD → the deterministic match (jd.ts), one AI plan, saved; an
-// interview today also re-shapes today's plan (its slot, its categories
-// first). Later days pick it up when their plan is built (core.ts).
+// interview today also re-shapes today's plan (adds its slot, all of today's
+// categories first). Later days pick it up when their plan is built (core.ts).
 export async function createInterviewPrep(input: InterviewPrepInput): Promise<{ prep: InterviewPrep; session: PrepSession | null; error: string | null }> {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -462,8 +467,11 @@ export async function createInterviewPrep(input: InterviewPrepInput): Promise<{ 
   if (input.date === prepToday()) {
     const { data: today } = await supabase.from('prep_sessions').select('*').eq('user_id', user.id).eq('date', input.date).maybeSingle()
     if (today) {
+      const { data: todayPreps } = await supabase.from('interview_preps').select('matched')
+        .eq('user_id', user.id).eq('interview_date', input.date).order('start_min', { ascending: true, nullsFirst: false })
+      const categories = prepCategories((todayPreps ?? []) as Pick<InterviewPrep, 'matched'>[])
       const { data: updated } = await supabase.from('prep_sessions')
-        .update({ blocks: frontLoad(today.blocks as PrepBlock[], matched.categories), ...(input.startMin !== null ? { interview: interviewOf(row) } : {}) })
+        .update({ blocks: frontLoad(today.blocks as PrepBlock[], categories), ...(input.startMin !== null ? { interview: addInterview(interviewsOf(today.interview), interviewOf(row)) } : {}) })
         .eq('id', today.id).select('*').single()
       session = (updated as PrepSession | null) ?? null
     }

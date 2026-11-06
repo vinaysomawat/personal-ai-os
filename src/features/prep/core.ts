@@ -4,7 +4,7 @@ import { createServiceClient } from '@/lib/supabase/service'
 import { prepToday, prepDaysAgo, toPrepDateStr, prepDayStartUtc } from '@/lib/date'
 import type { MockRound } from './mock'
 import { BANK_CATEGORIES, catOf, isRedoDue, type CategoryCoverage } from './hunt'
-import { DEFAULT_TEMPLATE, applyTodayPatch, frontLoad, layoutDay, patchTouchesBlocks, planItems, templateOf, type Interview, type TodayPatch } from './dayplan'
+import { DEFAULT_TEMPLATE, addInterview, applyTodayPatch, frontLoad, layoutDay, patchTouchesBlocks, planItems, templateOf, type Interview, type TodayPatch } from './dayplan'
 import type { InterviewPrep } from './jd'
 import type { RoadmapProgress, RoadmapStepDone } from './roadmap'
 import { computeReadinessMatrix, type CodingHistoryRow } from './readiness'
@@ -33,6 +33,10 @@ export function prepStreak(sessions: { date: string; completed_at: string | null
 // An interview prep's slot as the day's interview (warm-up / debrief around it).
 export const interviewOf = (p: Pick<InterviewPrep, 'start_min' | 'minutes' | 'company' | 'round'>): Interview =>
   ({ start: p.start_min ?? 0, minutes: p.minutes, label: `${p.company}${p.round ? ` · ${p.round}` : ''}` })
+
+// The matched categories of a day's preps, in order, without repeats.
+export const prepCategories = (preps: Pick<InterviewPrep, 'matched'>[]): string[] =>
+  [...new Set(preps.flatMap(p => p.matched?.categories ?? []))]
 
 // Everything the Prep page (and the Telegram coach) needs, building and
 // persisting today's plan on first load. Takes a client so the cookie-based
@@ -69,9 +73,10 @@ export async function loadPrepData(supabase: SupabaseClient, userId: string) {
   const weakness = topicWeakness(bank, today)
   const roadmapSteps = (stepsRes.data ?? []) as RoadmapStepDone[]
   const interviewPreps = (prepsRes.data ?? []) as InterviewPrep[]
-  // An interview prep for today shapes today's new plan (its slot, its
-  // categories first).
-  const todayPrep = interviewPreps.find(p => p.interview_date === today && p.start_min !== null) ?? null
+  // Interview preps for today shape today's new plan (their slots, their
+  // categories first, earliest interview's first).
+  const todayPreps = interviewPreps.filter(p => p.interview_date === today && p.start_min !== null).sort((a, b) => (a.start_min ?? 0) - (b.start_min ?? 0))
+  const todayCategories = prepCategories(todayPreps)
 
   let sessions = (sessionsRes.data ?? []) as PrepSession[]
   let todaySession = sessions.find(s => s.date === today) ?? null
@@ -84,9 +89,9 @@ export async function loadPrepData(supabase: SupabaseClient, userId: string) {
       mockDoneToday: mockRounds.some(r => toPrepDateStr(r.created_at) === today),
       roadmapSteps,
     })
-    const blocks = todayPrep?.matched ? frontLoad(planned, todayPrep.matched.categories) : planned
+    const blocks = todayCategories.length ? frontLoad(planned, todayCategories) : planned
     const { data: inserted } = await supabase.from('prep_sessions')
-      .upsert({ user_id: user.id, date: today, focus: 'Today', blocks, ...(todayPrep ? { interview: interviewOf(todayPrep) } : {}) }, { onConflict: 'user_id,date', ignoreDuplicates: true })
+      .upsert({ user_id: user.id, date: today, focus: 'Today', blocks, ...(todayPreps.length ? { interview: todayPreps.reduce<Interview[]>((list, p) => addInterview(list, interviewOf(p)), []) } : {}) }, { onConflict: 'user_id,date', ignoreDuplicates: true })
       .select('*')
     todaySession = ((inserted ?? [])[0] as PrepSession | undefined) ?? null
     if (!todaySession) {
@@ -97,7 +102,7 @@ export async function loadPrepData(supabase: SupabaseClient, userId: string) {
   }
 
   // Today on the clock: the plan's items laid into the template's sessions
-  // from today's start, around an interview (dayplan.ts).
+  // from today's start, around any interviews (dayplan.ts).
   const layout = layoutDay(todaySession?.blocks ?? [], template, todaySession?.start_min ?? settings.day_start_min, todaySession?.interview ?? null, todaySession?.breaks ?? [])
 
   return {
@@ -263,7 +268,7 @@ export async function patchToday(supabase: SupabaseClient, userId: string, patch
   if (!row) throw new Error('Open Prep once to build today\'s plan')
   const cols: Record<string, unknown> = {}
   if (patch.startMin !== undefined) cols.start_min = patch.startMin
-  if (patch.interview !== undefined) cols.interview = patch.interview
+  if (patch.interview !== undefined) cols.interview = patch.interview.length ? patch.interview : null
   if (patch.breaks !== undefined) cols.breaks = patch.breaks.length ? patch.breaks : null
   if (patchTouchesBlocks(patch)) {
     let blocks = applyTodayPatch(row.blocks as PrepBlock[], patch, row.date)

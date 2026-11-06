@@ -39,12 +39,12 @@ export function TodayHeader({ windowLabel, interviewAt, pace, blocks, onIntervie
     <Card padding="p-[var(--card-pad-sm)]">
       <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2">
         <div className="min-w-0">
-          <p className="text-[13px] font-bold text-fg-primary">Today <span className="font-normal text-fg-tertiary tabular-nums">· {windowLabel}{interviewAt ? ` · 🎤 interview ${interviewAt}` : ''}</span></p>
+          <p className="text-[13px] font-bold text-fg-primary">Today <span className="font-normal text-fg-tertiary tabular-nums">· {windowLabel}{interviewAt ? ` · 🎤 ${interviewAt}` : ''}</span></p>
           <p className={`text-[12.5px] mt-1 ${isGoodDay(blocks) ? 'text-good' : 'text-fg-secondary'}`}>{coachLine(pace, nowBlock(blocks), isGoodDay(blocks))}</p>
           <p className="text-[11.5px] text-fg-tertiary mt-0.5 tabular-nums"><span className={`font-semibold ${status === 'behind' ? 'text-risk' : status === 'ahead' ? 'text-good' : 'text-fg-secondary'}`}>{paceLabel(pace)}</span> · {pace.donePct}% of plan done · {pace.dayPct}% of the day gone · blocks {pace.blocksDone}/{pace.blocksTotal}</p>
         </div>
         <div className="flex flex-wrap gap-1.5">
-          <button onClick={onInterview} className={HEADER_BTN}>🎤 {interviewAt ? 'Interview' : 'Interview today'}</button>
+          <button onClick={onInterview} className={HEADER_BTN}>🎤 {interviewAt ? 'Interviews' : 'Interview today'}</button>
           <button onClick={onEditToday} className={HEADER_BTN}><Pencil size={11} /> Edit today</button>
           <button onClick={onEditDefault} className={HEADER_BTN}><Pencil size={11} /> Default plan</button>
         </div>

@@ -22,11 +22,11 @@ import type { RoadmapProgress, RoadmapStepDone } from '../roadmap'
 import { BANK_CATEGORIES, catOf } from '../hunt'
 import AnswerReview from './AnswerReview'
 import TimelineCard from './TimelineCard'
-import { liveTimeline } from '../timeline'
-import { applyTodayPatch, layoutDay, patchTouchesBlocks, type DayTemplate, type TodayPatch } from '../dayplan'
+import { interviewLine, liveTimeline } from '../timeline'
+import { applyTodayPatch, interviewsOf, layoutDay, patchTouchesBlocks, type DayTemplate, type TodayPatch } from '../dayplan'
 import { EditDefaultPlan, EditToday } from './DayEditor'
 import { FocusBar, TodayHeader } from './WarRoom'
-import { blockProgress, blockReached, canFinishBlock, dayPace, windowOf, clock, focusSeconds, focusedMinutes, prepHourNow, paceLabel, paceStatus, practicedToday, type FocusSession, type WarReadiness } from '../war'
+import { blockProgress, blockReached, canFinishBlock, dayPace, windowOf, focusSeconds, focusedMinutes, prepHourNow, paceLabel, paceStatus, practicedToday, type FocusSession, type WarReadiness } from '../war'
 import PageHeader, { HeaderChip } from '@/components/PageHeader'
 import StatCard from '@/components/StatCard'
 import { guard } from '@/lib/guard'
@@ -95,7 +95,7 @@ export default function PrepView(props: Props) {
   // Question blocks are time boxes: focused minutes or answers × minutes per question.
   const progressCtx = { answered: doneToday, focused: focusedMinutes(focusSessions, props.today), order: session?.blocks }
   // Today on the clock (dayplan.ts layoutDay) from the session's own start /
-  // interview, re-flowed on the minute tick.
+  // interviews, re-flowed on the minute tick.
   const planned = layoutDay(session?.blocks ?? [], props.template, session?.start_min ?? props.settings.day_start_min, session?.interview ?? null, session?.breaks ?? [])
   const dayWin = windowOf(planned.rows)
   const pace = dayPace(session?.blocks ?? [], prepHourNow(), progressCtx, dayWin)
@@ -115,7 +115,7 @@ export default function PrepView(props: Props) {
     setSession({
       ...session,
       ...(patch.startMin !== undefined ? { start_min: patch.startMin } : {}),
-      ...(patch.interview !== undefined ? { interview: patch.interview } : {}),
+      ...(patch.interview !== undefined ? { interview: patch.interview.length ? patch.interview : null } : {}),
       ...(patch.breaks !== undefined ? { breaks: patch.breaks.length ? patch.breaks : null } : {}),
       ...(patchTouchesBlocks(patch) ? { blocks: applyTodayPatch(session.blocks, patch, props.today) } : {}),
     })
@@ -275,11 +275,11 @@ export default function PrepView(props: Props) {
 
       {tab === 'today' && (
         <>
-          <TodayHeader windowLabel={dayWin.label} interviewAt={session?.interview ? clock(session.interview.start) : null} pace={pace} blocks={session?.blocks ?? []}
+          <TodayHeader windowLabel={dayWin.label} interviewAt={interviewLine(session?.interview)} pace={pace} blocks={session?.blocks ?? []}
             onInterview={() => setEditing('interview')} onEditToday={() => setEditing('items')} onEditDefault={() => setEditing('default')} />
           {editing === 'default' && <EditDefaultPlan template={props.template} dayStartMin={props.settings.day_start_min} onCancel={() => setEditing(null)} />}
           {session && (editing === 'items' || editing === 'interview') && (
-            <EditToday key={editing} template={props.template} startMin={session.start_min ?? props.settings.day_start_min} interview={session.interview}
+            <EditToday key={editing} template={props.template} startMin={session.start_min ?? props.settings.day_start_min} interview={interviewsOf(session.interview)}
               breaks={session.breaks ?? []} blocks={session.blocks} focus={editing} error={editError} onSave={saveToday} onCancel={() => { setEditing(null); setEditError(null) }} />
           )}
           {(session?.blocks.length ?? 0) > 0 && editing !== 'items' && editing !== 'interview' && (

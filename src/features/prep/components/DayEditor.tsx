@@ -6,7 +6,7 @@ import { GripVertical, Plus, Scissors, X } from 'lucide-react'
 import Card from '@/components/Card'
 import { modalCancelButtonClass, modalSaveButtonClass } from '@/components/Modal'
 import { savePrepTemplate } from '../actions'
-import { DEBRIEF_MINUTES, ORDER, PLAN_LABEL, WARMUP_MINUTES, layoutDay, mealsOf, type DayBreak, type DayTemplate, type Interview, type PlanKey, type TodayPatch } from '../dayplan'
+import { DEBRIEF_MINUTES, MAX_INTERVIEWS, ORDER, PLAN_LABEL, WARMUP_MINUTES, interviewsOf, interviewsOverlap, layoutDay, mealsOf, type DayBreak, type DayTemplate, type Interview, type PlanKey, type TodayPatch } from '../dayplan'
 import { clock, hm } from '../war'
 import { span } from '../timeline'
 import type { PrepBlock } from '../types'
@@ -34,10 +34,12 @@ type Item = { key: string; minutes: number; label: string; done: boolean }
 
 // Only what changed between the saved day and the draft (dayplan.ts
 // TodayPatch): the order is sent only when slots were moved.
-function diffToday(saved: { startMin: number; interview: Interview | null; breaks: DayBreak[]; blocks: PrepBlock[] }, draft: { startMin: number; interview: Interview | null; breaks: DayBreak[]; items: Item[] }): TodayPatch {
+// Interviews compared earliest first, with no difference between a blank and a missing name.
+const interviewKey = (list: Interview[]) => JSON.stringify(interviewsOf(list).map(iv => [iv.start, iv.minutes, iv.label?.trim() ?? '']))
+function diffToday(saved: { startMin: number; interview: Interview[]; breaks: DayBreak[]; blocks: PrepBlock[] }, draft: { startMin: number; interview: Interview[]; breaks: DayBreak[]; items: Item[] }): TodayPatch {
   const p: TodayPatch = {}
   if (draft.startMin !== saved.startMin) p.startMin = draft.startMin
-  if (JSON.stringify(draft.interview) !== JSON.stringify(saved.interview)) p.interview = draft.interview
+  if (interviewKey(draft.interview) !== interviewKey(saved.interview)) p.interview = interviewsOf(draft.interview)
   if (JSON.stringify(draft.breaks) !== JSON.stringify(saved.breaks)) p.breaks = draft.breaks
   const before = new Map(saved.blocks.map(b => [b.key, b]))
   const after = new Set(draft.items.map(i => i.key))
@@ -64,7 +66,7 @@ function diffToday(saved: { startMin: number; interview: Interview | null; break
 export function EditToday({ template, startMin, interview, breaks: savedBreaks, blocks, focus, error: saveError, onSave, onCancel }: {
   template: DayTemplate
   startMin: number
-  interview: Interview | null
+  interview: Interview[]
   breaks: DayBreak[]
   blocks: PrepBlock[]
   // Open with the interview section ready to fill (the Interview button).
@@ -76,7 +78,8 @@ export function EditToday({ template, startMin, interview, breaks: savedBreaks, 
   onCancel: () => void
 }) {
   const [start, setStart] = useState(startMin)
-  const [iv, setIv] = useState<Interview | null>(interview ?? (focus === 'interview' ? { start: Math.max(startMin + 60, 15 * 60), minutes: 60, label: '' } : null))
+  const [ivs, setIvs] = useState<Interview[]>(() => interview.length || focus !== 'interview' ? interview : [{ start: Math.max(startMin + 60, 15 * 60), minutes: 60, label: '' }])
+  const setIv = (i: number, p: Partial<Interview>) => setIvs(prev => prev.map((x, k) => k === i ? { ...x, ...p } : x))
   const [breaks, setBreaks] = useState<DayBreak[]>(() => savedBreaks.filter(b => b.meal === undefined))
   // Lunch / dinner for today — saved only where they differ from the default plan.
   const [meals, setMeals] = useState<DayBreak[]>(() => mealsOf(template, savedBreaks))
@@ -88,7 +91,7 @@ export function EditToday({ template, startMin, interview, breaks: savedBreaks, 
   const [items, setItems] = useState<Item[]>(() => blocks.map(b => ({ key: b.key, minutes: b.minutes, label: b.label, done: b.done })))
   const [adding, setAdding] = useState('')
   const [error, setError] = useState<string | null>(saveError)
-  const preview = useMemo(() => layoutDay(items.map(i => ({ key: i.key, label: i.label, minutes: i.minutes, done: i.done, detail: '', href: '' })), template, start, iv, allBreaks), [items, template, start, iv, allBreaks])
+  const preview = useMemo(() => layoutDay(items.map(i => ({ key: i.key, label: i.label, minutes: i.minutes, done: i.done, detail: '', href: '' })), template, start, ivs, allBreaks), [items, template, start, ivs, allBreaks])
   const used = new Set(items.map(i => i.key))
   // Every plan item can be added again as another slot (the mock is one a day).
   const addable = ORDER.filter(k => k !== 'mock' || !used.has(k))
@@ -126,9 +129,10 @@ export function EditToday({ template, startMin, interview, breaks: savedBreaks, 
   const save = () => {
     setError(null)
     if (items.some(i => i.key.startsWith('custom:') && !i.label.trim())) { setError('Name your own slots'); return }
+    if (interviewsOverlap(ivs)) { setError('Interviews can\'t overlap — change a time or a length'); return }
     if (breaks.some(b => b.end <= b.start)) { setError('Each break needs its end after its start'); return }
     if (meals.some(m => m.end <= m.start)) { setError('Each meal needs its end after its start'); return }
-    onSave(diffToday({ startMin, interview, breaks: savedBreaks, blocks }, { startMin: start, interview: iv, breaks: allBreaks, items }))
+    onSave(diffToday({ startMin, interview, breaks: savedBreaks, blocks }, { startMin: start, interview: ivs, breaks: allBreaks, items }))
   }
   const total = items.reduce((s, i) => s + i.minutes, 0)
   return (
@@ -142,17 +146,24 @@ export function EditToday({ template, startMin, interview, breaks: savedBreaks, 
             <span className="text-fg-tertiary">only the first session moves</span>
           </div>
           <div className="rounded-[9px] border border-border px-2.5 py-2">
-            <label className="flex items-center gap-2 text-[12.5px] font-semibold text-fg-primary">
-              <input type="checkbox" checked={!!iv} onChange={e => setIv(e.target.checked ? { start: Math.max(start + 60, 15 * 60), minutes: 60, label: '' } : null)} /> 🎤 Interview today
-            </label>
-            {iv && (
-              <div className="flex flex-wrap items-center gap-2 mt-1.5 text-[12px] text-fg-secondary">
-                <input type="time" step={300} value={toHHMM(iv.start)} onChange={e => e.target.value && setIv({ ...iv, start: prepMin(e.target.value) })} className={INPUT} aria-label="Interview time" />
-                <input type="number" min={15} max={240} step={15} value={iv.minutes} onChange={e => setIv({ ...iv, minutes: num(e.target.value, 60) })} className={`${INPUT} w-[64px]`} aria-label="Interview minutes" /> min
-                <input value={iv.label ?? ''} onChange={e => setIv({ ...iv, label: e.target.value })} placeholder="Company / round (optional)" className={`${INPUT} flex-1 min-w-[140px]`} />
-                <span className="w-full text-[11px] text-fg-tertiary">Adds a {WARMUP_MINUTES}-min warm-up before and a {DEBRIEF_MINUTES}-min debrief after; before your start time it starts the day early.</span>
-              </div>
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-[12.5px] font-semibold text-fg-primary">🎤 Interviews today</p>
+              <button disabled={ivs.length >= MAX_INTERVIEWS} onClick={() => { const last = ivs[ivs.length - 1]; setIvs(prev => [...prev, { start: last ? Math.min(last.start + last.minutes + 120, 1740) : Math.max(start + 60, 15 * 60), minutes: 60, label: '' }]) }}
+                className={`${modalCancelButtonClass} !py-[3px] inline-flex items-center gap-1 disabled:opacity-50`}><Plus size={12} /> Add interview</button>
+            </div>
+            {ivs.length > 0 && (
+              <ol className="flex flex-col gap-1 mt-1">
+                {ivs.map((iv, i) => (
+                  <li key={i} className="flex flex-wrap items-center gap-1.5 text-[12px] text-fg-secondary">
+                    <input type="time" step={300} value={toHHMM(iv.start)} onChange={e => e.target.value && setIv(i, { start: prepMin(e.target.value) })} className={INPUT} aria-label="Interview time" />
+                    <input type="number" min={15} max={240} step={15} value={iv.minutes} onChange={e => setIv(i, { minutes: num(e.target.value, 60) })} className={`${INPUT} w-[64px]`} aria-label="Interview minutes" /> min
+                    <input value={iv.label ?? ''} onChange={e => setIv(i, { label: e.target.value })} placeholder="Company / round (optional)" className={`${INPUT} flex-1 min-w-[140px]`} />
+                    <button onClick={() => setIvs(prev => prev.filter((_, k) => k !== i))} aria-label="Remove interview" className="text-fg-tertiary hover:text-risk"><X size={14} /></button>
+                  </li>
+                ))}
+              </ol>
             )}
+            <p className="text-[11px] text-fg-tertiary mt-1">Each adds a {WARMUP_MINUTES}-min warm-up before and a {DEBRIEF_MINUTES}-min debrief after, shortened if the next interview is close; a warm-up before your start time starts the day early.</p>
           </div>
           <div className="rounded-[9px] border border-border px-2.5 py-2">
             <div className="flex items-center justify-between gap-2">

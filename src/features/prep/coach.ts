@@ -1,7 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { loadPrepData } from './core'
 import { clock, hm, prepHourNow, nowBlock, readinessTier } from './war'
-import { liveTimeline, overHint, span, type TimelineRow } from './timeline'
+import { interviewLine, liveTimeline, overHint, span, type TimelineRow } from './timeline'
 
 // Prep messages for the Daily bot — deterministic, on demand only ("what now";
 // the scheduled coach messages are off). Also the "Still open" line the
@@ -20,9 +20,9 @@ export async function coachData(db: SupabaseClient, userId: string): Promise<Pre
 export function morningMessage(d: PrepData): string {
   const blocks = d.session?.blocks ?? []
   const now = nowBlock(blocks)
-  const iv = d.session?.interview
+  const interviews = interviewLine(d.session?.interview)
   return [
-    `🎯 *TODAY — ${d.window.label}*${iv ? ` · interview ${clock(iv.start)}` : ''}`,
+    `🎯 *TODAY — ${d.window.label}*${interviews ? ` · ${interviews}` : ''}`,
     `Readiness *${d.war.overall}%* — ${readinessTier(d.war).label}`,
     '',
     ...d.planned.filter(r => r.kind !== 'flex').map(r => `${r.kind === 'block' && r.done ? '✅' : clock(r.start)} ${r.label}${r.kind === 'block' ? ` — ${hm(r.end - r.start)}` : ''}`),

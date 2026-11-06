@@ -1,3 +1,4 @@
+import { interviewsOf, type Interview } from './dayplan'
 import { clock } from './war'
 
 // Today's timeline — deterministic, client-safe. dayplan.ts layoutDay() lays
@@ -72,6 +73,12 @@ export function liveTimeline(planned: TimelineRow[], now: number): Timeline {
   const current = rows.find(r => r.start <= now && now < r.end) ?? null
   const next = rows.find(r => r.start >= now && r !== current && !(r.kind === 'block' && r.done)) ?? null
   return { rows, current, next, start: plannedStart, end, over: Math.max(0, Math.round(end - plannedEnd)) }
+}
+
+// "interview 2:00pm" or "interviews 2:00pm, 5:00pm"; null with none.
+export function interviewLine(v: Interview | Interview[] | null | undefined): string | null {
+  const list = interviewsOf(v)
+  return list.length ? `interview${list.length > 1 ? 's' : ''} ${list.map(iv => clock(iv.start)).join(', ')}` : null
 }
 
 export const span = (r: Pick<TimelineRow, 'start' | 'end'>) => `${clock(r.start)}–${clock(r.end)}`
