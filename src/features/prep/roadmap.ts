@@ -8,8 +8,9 @@ import type { PrepBlock } from './types'
 // counted from BUILD_START; today's Learn / Build blocks follow the first
 // step of the week not ticked yet (roadmap_steps).
 
-// Day 1 of week 1 (IST date). Weeks run 7 days from here.
-export const BUILD_START = '2026-10-29'
+// Day 1 of week 1 (IST date). Weeks run 7 days from here. Set so week 4 starts
+// 2026-11-06: weeks 4–5 (RAG) come first, and weeks 2–3 stay open to do later.
+export const BUILD_START = '2026-10-16'
 
 export const PROJECT = { name: 'Job Copilot', pitch: 'paste a job description → it pulls out the skills, matches them to your notes, answers questions about your prep with citations, and later an agent tracks your applications' }
 
@@ -101,7 +102,7 @@ export const ROADMAP: RoadmapWeek[] = [
   },
   {
     week: 4, stage: 2, title: 'Embeddings',
-    goal: 'Your notes embedded in pgvector, with a ranked "related notes" list under each job',
+    goal: 'Your notes embedded in pgvector, with a ranked "related notes" list for any job description',
     concepts: [
       { term: 'Embedding', plain: 'A list of numbers that captures what a text means. Texts with similar meaning get vectors close together.' },
       { term: 'Cosine similarity', plain: 'How closely two vectors point the same way, from -1 to 1. Higher = more similar meaning.' },
@@ -109,11 +110,11 @@ export const ROADMAP: RoadmapWeek[] = [
       { term: 'pgvector', plain: 'A Postgres extension that stores vectors and finds the nearest ones, next to your normal data and RLS.' },
     ],
     steps: [
-      step('Add your notes', 'A notes table; paste 20–30 of your own notes (stories, tech notes, resume points); pick an embedding model and get its key', '20+ notes are stored', 2),
+      step('Add your notes', 'A free Supabase project with a notes table, RLS on, read and written only from your server; paste 20–30 of your own notes (stories, tech notes, resume points); pick an embedding model and get its key', '20+ notes are stored', 2),
       step('Embeddings by hand', 'A script that embeds 5 sentences and prints the cosine similarity of each pair — write the cosine function yourself', 'similar sentences score higher and you can say why', 1),
-      step('pgvector', 'Enable the vector extension, add an embedding column, and embed notes and jobs when they are saved', 'every row has an embedding', 3),
+      step('pgvector', 'Enable the vector extension, add an embedding column, and embed each note when it is saved', 'every note has an embedding', 3),
       step('Similarity search', 'A match_notes SQL function (order by embedding <=> query, limit 5) called with supabase.rpc', 'searching "leadership conflict" returns your right story', 0),
-      step('Related notes UI', 'Under each job, the 5 most related notes with their score, plus loading and empty states', 'it shows on a real job', 0),
+      step('Related notes UI', 'Paste a job description and show the 5 most related notes with their score, plus loading and empty states', 'it works on a real job description', 0),
     ],
     links: [{ label: 'Embeddings guide', href: 'https://docs.claude.com/en/docs/build-with-claude/embeddings' }, { label: 'Supabase vector columns', href: 'https://supabase.com/docs/guides/ai/vector-columns' }],
     interviewLine: 'Embeddings turn text into vectors so "near" means "similar in meaning"; I keep them in pgvector next to the data so filters and RLS still apply.',
@@ -133,7 +134,7 @@ export const ROADMAP: RoadmapWeek[] = [
       step('Retrieve → prompt', 'A /api/answer route: embed the question, fetch the top 5 chunks, build a prompt with numbered sources', 'you can log the exact prompt that was sent', 0),
       step('Grounded answers', 'System prompt rules: use only the sources, cite [n], say "Not in your notes" when they don\'t cover it', 'an off-topic question gets "Not in your notes"', 2),
       step('Citation chips', 'Render each [n] as a chip; hover shows the chunk, click opens the note', 'every answer shows clickable sources', 3),
-      step('Stream it', 'Reuse week 2\'s streaming: send the sources first, then the answer tokens', 'sources appear first and the answer streams after them', 0),
+      step('Stream it', 'Use client.messages.stream() in the route, read it in React with getReader() + TextDecoder, and send the sources first, then the answer tokens', 'sources appear first and the answer streams after them', 0),
     ],
     links: [{ label: 'Citations', href: 'https://docs.claude.com/en/docs/build-with-claude/citations' }, { label: 'Contextual retrieval', href: 'https://www.anthropic.com/news/contextual-retrieval' }],
     interviewLine: 'RAG is retrieve, then generate: I embed the question, pull the top chunks, and the model must cite them or say it doesn\'t know.',

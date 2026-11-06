@@ -3,6 +3,10 @@
 One line per shipped change, newest first. Sourced from commit messages —
 append here whenever you deploy, same cadence as the version bump.
 
+## 2026-11-06
+
+- The AI engineering path jumps to RAG: Learn and Build are on week 4 (Embeddings) from today and week 5 (RAG with citations) from Nov 13. Those weeks' steps no longer need the jobs table or streaming from weeks 2–3, which stay open to do later.
+
 ## 2026-11-04
 
 - Softened the Interview War Mode readiness verdict: "❌ NOT READY" (red, on the Dashboard, Prep page and every Daily bot morning message) is now "🧭 Building" (amber) — same % and blocker count, just not coded as a daily failing grade for what's the normal state through most of a prep arc.
