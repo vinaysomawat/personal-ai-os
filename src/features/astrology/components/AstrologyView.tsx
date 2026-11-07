@@ -4,10 +4,11 @@ import { useEffect, useState } from 'react'
 import { formatDistanceToNow } from 'date-fns'
 import { Pencil, Check, X } from 'lucide-react'
 import Card from '@/components/Card'
-import { upsertAstrologyProfile, getAstrologyReading, getStructuredDailyReading, getAstrologyCharacteristics, getAstrologyProfile } from '../actions'
+import { upsertAstrologyProfile, getStructuredDailyReading, getAstrologyCharacteristics, getAstrologyProfile } from '../actions'
 import { getCurrentDasha, getCurrentYogini } from '../chart-calculations'
 import { getRemediation } from '../remedies'
 import { todayIST } from '@/lib/date'
+import { useAIStream } from '@/lib/use-ai-stream'
 import KundliChart from './KundliChart'
 import { UI_HI } from '../i18n/hi'
 import type { Lang } from '../i18n/hi'
@@ -154,9 +155,15 @@ export default function AstrologyView({ initialProfile, huntMode = false }: { in
   const [chartMode, setChartMode] = useState<'d1' | 'd9'>('d1')
   const [characteristics, setCharacteristics] = useState<{ text: string; generatedAt: string } | null>(null)
   const { lang, toggleLang, t } = useAstrologyLang()
+  // The monthly or yearly reading being written; a failed one falls back to
+  // the Get reading button.
+  const reading = useAIStream()
+  const { reset: resetReading } = reading
+  const [streamPeriod, setStreamPeriod] = useState<'monthly' | 'yearly' | null>(null)
 
   const handleSaved = async () => {
     setProfile(await getAstrologyProfile())
+    resetReading()
     setReadings({})
     setDailyReading(null)
     setCharacteristics(null)
@@ -164,20 +171,21 @@ export default function AstrologyView({ initialProfile, huntMode = false }: { in
 
   const loadReading = async (period: ReadingPeriod) => {
     if (!profile) return
-    setReadingLoading(true)
     if (period === 'daily') {
+      setReadingLoading(true)
       setDailyReading(await getStructuredDailyReading(profile, lang))
-    } else {
-      const text = await getAstrologyReading(profile, period, lang)
-      setReadings(prev => ({ ...prev, [period]: text }))
+      setReadingLoading(false)
+      return
     }
-    setReadingLoading(false)
+    setStreamPeriod(period)
+    const { text, outcome } = await reading.start({ feature: 'astrology', period, lang })
+    if (outcome === 'done') setReadings(prev => ({ ...prev, [period]: text.trim() }))
   }
 
   const selectTab = (period: ReadingPeriod) => {
     setTab(period)
     const loaded = period === 'daily' ? dailyReading : readings[period]
-    if (!loaded) loadReading(period)
+    if (!loaded && !(reading.active && streamPeriod === period)) loadReading(period)
   }
 
   // Language change invalidates every cached reading (each language's copy
@@ -185,10 +193,11 @@ export default function AstrologyView({ initialProfile, huntMode = false }: { in
   // so switching languages re-fetches in the new one instead of showing a
   // stale English/Hindi mismatch against the tab pills.
   useEffect(() => {
+    resetReading()
     setReadings({})
     setDailyReading(null)
     setCharacteristics(null)
-  }, [lang])
+  }, [lang, resetReading])
 
   // Characteristics (astrology.md 3.8) is a stable, effectively-permanently-
   // cached read off the chart alone — auto-loaded on view, except in Job
@@ -303,6 +312,8 @@ export default function AstrologyView({ initialProfile, huntMode = false }: { in
                 </div>
                 {(() => {
                   const loaded = tab === 'daily' ? dailyReading : readings[tab]
+                  if (!loaded && streamPeriod === tab && reading.active && reading.text) return <p className="text-[12.5px] leading-[1.6] text-fg-secondary mb-3.5">{reading.text}</p>
+                  if (!loaded && streamPeriod === tab && reading.active) return <p className="text-sm text-fg-tertiary">{t('readingTransits', 'Reading the transits…')}</p>
                   if (readingLoading && !loaded) return <p className="text-sm text-fg-tertiary">{t('readingTransits', 'Reading the transits…')}</p>
                   if (!readingLoading && !loaded) {
                     return (

@@ -30,11 +30,12 @@ export function CodeBlock({ code }: { code: string }) {
 }
 
 // ```fenced``` → code block; `code` → monospace chip; *emphasis* dropped.
+// A fence still open (a reply being streamed) runs to the end of the text.
 export function Rich({ text }: { text: string }) {
   if (text.includes('```')) {
     return (
       <>
-        {text.split(/```[a-z]*\n?([\s\S]*?)```/).map((part, i) => i % 2
+        {text.split(/```[a-z]*\n?([\s\S]*?)(?:```|$)/).map((part, i) => i % 2
           ? <pre key={i} className="my-1.5 font-mono text-[11.5px] leading-snug bg-surface-1 border border-border rounded-[6px] px-2 py-1.5 overflow-x-auto whitespace-pre">{part.replace(/\n$/, '')}</pre>
           : <Rich key={i} text={part.replace(/^\n+|\n+$/g, '')} />)}
       </>

@@ -1,8 +1,9 @@
 'use server'
 
 import { createHash } from 'node:crypto'
+import { after } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/service'
-import { callClaude, SONNET_MODEL, HAIKU_MODEL, HAIKU_5_5_MODEL, type ImageInput } from '@/lib/anthropic'
+import { callClaude, streamClaude, SONNET_MODEL, HAIKU_MODEL, HAIKU_5_5_MODEL, type ImageInput } from '@/lib/anthropic'
 import { todayIST, istMidnightUtc, istDateStrToUtcMidnight } from '@/lib/date'
 
 export type AITask =
@@ -222,28 +223,66 @@ export async function askAIWithMeta(task: AITask, prompt: string, system?: strin
   const key = cacheable ? cacheKeyFor(config.model, system, prompt) : null
 
   if (key && !opts.bypassCache) {
-    try {
-      const { data: hit } = await db
-        .from('ai_cache')
-        .select('response, created_at')
-        .eq('cache_key', key)
-        .gt('expires_at', new Date().toISOString())
-        .maybeSingle()
-      if (hit) {
-        await logUsage(db, userId, task, config.model, 0, 0, 0, true)
-        return { text: hit.response, generatedAt: hit.created_at }
-      }
-    } catch {
-      // Cache read failure — fall through to a live call
-    }
+    const hit = await readCache(db, key, userId, task, config.model)
+    if (hit) return { text: hit.response, generatedAt: hit.created_at }
   }
 
+  const budgetScope = await budgetBlock(db, userId, task)
+  if (budgetScope) return { text: config.fallback, generatedAt: now(), budgetExhausted: true, budgetScope }
+
+  try {
+    const { text, inputTokens, outputTokens } = await callClaude(prompt, system, config.model, opts.image, config.tuning)
+    const cost = estimateCost(config.model, inputTokens, outputTokens)
+    await logUsage(db, userId, task, config.model, inputTokens, outputTokens, cost, false)
+    const generatedAt = now()
+
+    if (key && text) await writeCache(db, key, text, config.model, ttlSeconds!)
+
+    return { text, generatedAt }
+  } catch {
+    return { text: config.fallback, generatedAt: now() }
+  }
+}
+
+export async function askAI(task: AITask, prompt: string, system?: string, opts: AskAIOptions = {}): Promise<string> {
+  return (await askAIWithMeta(task, prompt, system, opts)).text
+}
+
+async function readCache(db: ServiceClient, key: string, userId: string, task: AITask, model: string): Promise<{ response: string; created_at: string } | null> {
+  try {
+    const { data: hit } = await db
+      .from('ai_cache')
+      .select('response, created_at')
+      .eq('cache_key', key)
+      .gt('expires_at', new Date().toISOString())
+      .maybeSingle()
+    if (hit) await logUsage(db, userId, task, model, 0, 0, 0, true)
+    return hit
+  } catch {
+    // Cache read failure — fall through to a live call
+    return null
+  }
+}
+
+async function writeCache(db: ServiceClient, key: string, text: string, model: string, ttlSeconds: number): Promise<void> {
+  try {
+    await db.from('ai_cache').upsert(
+      { cache_key: key, response: text, model, expires_at: new Date(Date.now() + ttlSeconds * 1000).toISOString() },
+      { onConflict: 'cache_key' }
+    )
+  } catch {
+    // Non-fatal: cache write failure just means the next identical call misses too
+  }
+}
+
+// Which spend ceiling blocks this task right now, if any.
+async function budgetBlock(db: ServiceClient, userId: string, task: AITask): Promise<'daily' | 'monthly' | null> {
   const todayStart = istMidnightUtc()
   const monthStart = istDateStrToUtcMidnight(todayIST().slice(0, 7) + '-01')
-  // Fail-open on a spend-lookup error (matches this function's own contract,
-  // restated in the try/catch below, that no page or cron job should ever
-  // break because an AI-adjacent call failed) — a transient DB blip here
-  // shouldn't itself block every AI call in the app for the rest of the day.
+  // Fail-open on a spend-lookup error (matches the gateway's contract that no
+  // page or cron job should ever break because an AI-adjacent call failed) —
+  // a transient DB blip here shouldn't itself block every AI call in the app
+  // for the rest of the day.
   let dailySpend = 0
   let monthlySpend = 0
   try {
@@ -258,37 +297,95 @@ export async function askAIWithMeta(task: AITask, prompt: string, system?: strin
   const isInteractive = INTERACTIVE_TASKS.has(task)
   const dailyLimit = isInteractive ? DAILY_BUDGET_USD : DAILY_BUDGET_USD * (1 - INTERACTIVE_RESERVE_FRACTION)
   const monthlyLimit = isInteractive ? MONTHLY_BUDGET_USD : MONTHLY_BUDGET_USD * (1 - INTERACTIVE_RESERVE_FRACTION)
-  if (dailySpend >= dailyLimit) {
-    return { text: config.fallback, generatedAt: now(), budgetExhausted: true, budgetScope: 'daily' }
-  }
-  if (monthlySpend >= monthlyLimit) {
-    return { text: config.fallback, generatedAt: now(), budgetExhausted: true, budgetScope: 'monthly' }
-  }
-
-  try {
-    const { text, inputTokens, outputTokens } = await callClaude(prompt, system, config.model, opts.image, config.tuning)
-    const cost = estimateCost(config.model, inputTokens, outputTokens)
-    await logUsage(db, userId, task, config.model, inputTokens, outputTokens, cost, false)
-    const generatedAt = now()
-
-    if (key && text) {
-      const expiresAt = new Date(Date.now() + ttlSeconds! * 1000).toISOString()
-      try {
-        await db.from('ai_cache').upsert(
-          { cache_key: key, response: text, model: config.model, expires_at: expiresAt },
-          { onConflict: 'cache_key' }
-        )
-      } catch {
-        // Non-fatal: cache write failure just means the next identical call misses too
-      }
-    }
-
-    return { text, generatedAt }
-  } catch {
-    return { text: config.fallback, generatedAt: now() }
-  }
+  if (dailySpend >= dailyLimit) return 'daily'
+  if (monthlySpend >= monthlyLimit) return 'monthly'
+  return null
 }
 
-export async function askAI(task: AITask, prompt: string, system?: string, opts: AskAIOptions = {}): Promise<string> {
-  return (await askAIWithMeta(task, prompt, system, opts)).text
+function textStream(text: string): ReadableStream<Uint8Array> {
+  return new ReadableStream({
+    start(controller) {
+      controller.enqueue(new TextEncoder().encode(text))
+      controller.close()
+    },
+  })
+}
+
+/**
+ * askAI's streaming twin for text shown as it's written, with the same model
+ * routing, cache, budget and usage log. A cache hit or the budget fallback
+ * arrives as one chunk. A failed call errors the stream instead of sending
+ * the fallback, so the reader keeps any partial text and can retry. Only a
+ * complete reply is cached.
+ *
+ * If the reader leaves, a cacheable reply still runs to the end, because the
+ * next request then gets it free; anything else is aborted to stop the spend,
+ * and its output tokens are estimated, since the final count never arrives.
+ *
+ * Call it from a route handler: it uses after() to finish logging once the
+ * response has ended.
+ */
+export async function streamAI(task: AITask, prompt: string, system?: string, opts: Pick<AskAIOptions, 'userId' | 'cacheTTLSeconds'> = {}): Promise<ReadableStream<Uint8Array>> {
+  const config = TASK_CONFIG[task]
+  const userId = opts.userId ?? process.env.SUPABASE_USER_ID
+  if (!userId) return textStream(config.fallback)
+
+  const db = createServiceClient()
+  const ttlSeconds = opts.cacheTTLSeconds !== undefined ? opts.cacheTTLSeconds : config.cacheTTLSeconds
+  const key = ttlSeconds !== null ? cacheKeyFor(config.model, system, prompt) : null
+
+  if (key) {
+    const hit = await readCache(db, key, userId, task, config.model)
+    if (hit) return textStream(hit.response)
+  }
+  if (await budgetBlock(db, userId, task)) return textStream(config.fallback)
+
+  const upstream = streamClaude(prompt, system, config.model, config.tuning)
+  const encoder = new TextEncoder()
+  let readerGone = false
+  let settle = () => {}
+  const settled = new Promise<void>(resolve => { settle = resolve })
+  after(() => settled)
+
+  return new ReadableStream<Uint8Array>({
+    async start(controller) {
+      let text = ''
+      let inputTokens = 0
+      let outputTokens = 0
+      let chars = 0
+      let complete = false
+      let failure: unknown = null
+      try {
+        for await (const event of upstream) {
+          if (event.type === 'message_start') inputTokens = event.message.usage.input_tokens
+          else if (event.type === 'message_delta') outputTokens = event.usage.output_tokens
+          else if (event.type === 'content_block_delta') {
+            if (event.delta.type === 'text_delta') {
+              text += event.delta.text
+              chars += event.delta.text.length
+              if (!readerGone) controller.enqueue(encoder.encode(event.delta.text))
+            } else if (event.delta.type === 'thinking_delta') {
+              chars += event.delta.thinking.length
+            }
+          }
+        }
+        complete = !upstream.aborted
+      } catch (e) {
+        failure = e
+      }
+      // Stopped early: about 4 characters a token.
+      const tokensOut = complete ? outputTokens : Math.max(outputTokens, Math.ceil(chars / 4))
+      await logUsage(db, userId, task, config.model, inputTokens, tokensOut, estimateCost(config.model, inputTokens, tokensOut), false)
+      if (complete && key && text) await writeCache(db, key, text, config.model, ttlSeconds!)
+      if (!readerGone) {
+        if (failure) controller.error(failure)
+        else controller.close()
+      }
+      settle()
+    },
+    cancel() {
+      readerGone = true
+      if (!key) upstream.abort()
+    },
+  })
 }

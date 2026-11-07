@@ -1,10 +1,7 @@
-'use server'
-
-import { askAI } from '@/lib/ai-gateway'
 import type { FinanceProfile, Loan, Investment, FinancialGoal } from '@/features/finance/types'
 import { loanOutstanding, runwayMonths } from '@/features/finance/calculations'
 
-interface FinancialContext {
+export interface FinancialContext {
   profile: FinanceProfile | null
   loans: Loan[]
   investments: Investment[]
@@ -12,7 +9,11 @@ interface FinancialContext {
   avgMonthlyExpense: number
 }
 
-export async function askFinanceAdvisor(question: string, ctx: FinancialContext): Promise<string> {
+export const FINANCE_ADVISOR_SYSTEM = `You are Vinay's personal finance advisor. Give sharp, specific, numbers-driven advice tailored to his exact situation.
+Reference his actual salary, EMIs, and investments. Be direct — don't hedge everything.
+If recommending an investment or loan decision, give a clear verdict with reasoning. Keep it under 200 words.`
+
+export function buildFinancePrompt(question: string, ctx: FinancialContext): string {
   const totalDebt = ctx.loans.reduce((s, l) => s + loanOutstanding(l), 0)
   const totalEMIs = ctx.loans.reduce((s, l) => s + l.emi, 0)
   const portfolio = ctx.investments.reduce((s, i) => s + i.current_value, 0)
@@ -23,7 +24,7 @@ export async function askFinanceAdvisor(question: string, ctx: FinancialContext)
   // same note on totalSpent/totalBudget in FinanceView.tsx).
   const freeCash = salary - ctx.avgMonthlyExpense
 
-  const context = `Vinay's financial snapshot:
+  return `Vinay's financial snapshot:
 - Monthly salary: ₹${salary.toLocaleString('en-IN')}
 - Monthly EMIs: ₹${totalEMIs.toLocaleString('en-IN')} (${ctx.loans.map(l => `${l.name}: ₹${l.emi.toLocaleString('en-IN')}/mo, ${l.remaining_months ?? '?'} months left`).join('; ') || 'none'})
 - Avg monthly expenses: ₹${ctx.avgMonthlyExpense.toLocaleString('en-IN')}
@@ -36,8 +37,4 @@ ${ctx.investments.map(i => `  • ${i.name} (${i.type}): invested ₹${i.investe
 - Emergency fund target: ${ctx.profile?.emergency_fund_months ?? 6} months of expenses = ₹${((ctx.profile?.emergency_fund_months ?? 6) * ctx.avgMonthlyExpense).toLocaleString('en-IN')}
 
 Question: ${question}`
-
-  return askAI('finance_advisor', context, `You are Vinay's personal finance advisor. Give sharp, specific, numbers-driven advice tailored to his exact situation.
-Reference his actual salary, EMIs, and investments. Be direct — don't hedge everything.
-If recommending an investment or loan decision, give a clear verdict with reasoning. Keep it under 200 words.`)
 }

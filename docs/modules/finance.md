@@ -13,4 +13,4 @@ Expenses and budgets scoped to the current calendar month. Tabs: **Expenses / Po
 - **Investments** — name, type, invested, current value (inline-editable, manual), sorted by current value with ₹ and % return.
 - **Financial goals** — name, target, current, target date (shows ₹/mo needed), priority.
 - **Spending History** (History tab) — 12-month bar chart + the selected month's category pie (recharts, lazy; Pie needs `isAnimationActive={false}`).
-- **Money Advisor** (header) — Q&A (`finance_advisor`, Sonnet, uncached) over salary, EMIs, 3-month average spend, free cash (`salary − avg spend`; EMIs already inside it), runway, portfolio, goals, emergency-fund target.
+- **Money Advisor** (header, `MoneyAdvisor.tsx`) — Q&A streamed as it's written, with Stop and Retry (`finance_advisor`, Sonnet, uncached) over salary, EMIs, 3-month average spend, free cash (`salary − avg spend`; EMIs already inside it), runway, portfolio, goals, emergency-fund target.

@@ -1,5 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { askAI } from '@/lib/ai-gateway'
+import { askAI, streamAI } from '@/lib/ai-gateway'
 import { CRITERIA, type PointStatus, type Rubric, type Scorecard } from './scorecard'
 
 // AI interviewer critique of one Question Bank answer — shared by the web
@@ -154,11 +154,11 @@ Cover every listed key point. Be technically precise and current as of React 19 
 // The Question Bank "Answer" button: a model answer per question. Same
 // prompt every time for a question, so the gateway caches it (model_answer,
 // one year) and only the first reveal costs anything.
-export async function modelAnswer(db: SupabaseClient, userId: string, questionId: string): Promise<string> {
+export async function streamModelAnswer(db: SupabaseClient, userId: string, questionId: string): Promise<ReadableStream<Uint8Array>> {
   const { data: q } = await db.from('coding_questions').select('title, answer_hints, category, body').eq('id', questionId).single()
   if (!q) throw new Error('Question not found')
   const prompt = `Category: ${q.category}\nInterview question: ${q.title}${q.answer_hints ? `\nKey points to cover: ${q.answer_hints}` : ''}${q.body ? `\n\nCode under review:\n${q.body}\n\nWrite the review a strong senior would give: issues ranked by severity, each with why it matters and the fix.` : ''}`
-  return (await askAI('model_answer', prompt, MODEL_ANSWER_SYSTEM, { userId })).trim()
+  return streamAI('model_answer', prompt, MODEL_ANSWER_SYSTEM, { userId })
 }
 
 // Rubric note for an answer dictated via Speak / a voice note.

@@ -33,6 +33,18 @@ export interface ImageInput {
 // search returns — only how many searches run). Every task now has the
 // model self-report a value (e.g. a URL) and fall back to null/unsure
 // rather than verifying it live.
+//
+// streamClaude below is the same call delivered as events, for streamAI().
+export function streamClaude(prompt: string, system: string | undefined, model: string, tuning: { maxTokens?: number; effort?: 'low' | 'medium' | 'high' } = {}) {
+  return anthropic.messages.stream({
+    model,
+    max_tokens: tuning.maxTokens ?? 4096,
+    system: system ?? 'You are a helpful personal AI assistant. Be concise, practical, and actionable.',
+    messages: [{ role: 'user', content: prompt }],
+    ...(tuning.effort ? { output_config: { effort: tuning.effort } } : {}),
+  })
+}
+
 export async function callClaude(prompt: string, system: string | undefined, model: string, image?: ImageInput, tuning: { maxTokens?: number; effort?: 'low' | 'medium' | 'high' } = {}): Promise<AIResult> {
   const content: Anthropic.MessageParam['content'] = image
     ? [

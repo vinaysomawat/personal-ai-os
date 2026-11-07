@@ -13,7 +13,7 @@ import { baseKey } from './hunt'
 import { MAX_INTERVIEWS, ORDER, addInterview, frontLoad, interviewsOf, interviewsOverlap, type DayTemplate, type TodayPatch } from './dayplan'
 import { ROADMAP, buildBlock, learnBlock, type RoadmapProgress, type RoadmapStepDone } from './roadmap'
 import { prepToday } from '@/lib/date'
-import { critiqueFollowUp, critiqueQuestion, critiqueStory, modelAnswer, SPOKEN_NOTE } from './critique'
+import { critiqueFollowUp, critiqueQuestion, critiqueStory, SPOKEN_NOTE } from './critique'
 import type { Rubric, Scorecard } from './scorecard'
 import { speechStats } from '@/lib/speech-stats'
 
@@ -119,15 +119,6 @@ export async function critiqueAnswer(questionId: string, answer: string, spoken 
   if (!user) throw new Error('Not authenticated')
   const { seconds, fillers } = speechStats(answer)
   return critiqueQuestion(supabase, user.id, questionId, answer, spoken ? SPOKEN_NOTE(seconds, fillers) : '')
-}
-
-// Model answer for a Question Bank question (the "Answer" button) — cached a
-// year per question by the gateway.
-export async function revealModelAnswer(questionId: string): Promise<string> {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) throw new Error('Not authenticated')
-  return modelAnswer(supabase, user.id, questionId)
 }
 
 // Grades the user's answer to a review's follow-up question. Practice only —

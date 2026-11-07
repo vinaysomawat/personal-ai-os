@@ -2,7 +2,7 @@
 
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
-import { askAI, askAIWithMeta } from '@/lib/ai-gateway'
+import { askAI, askAIWithMeta, streamAI } from '@/lib/ai-gateway'
 import { todayIST, istMidnightUtc, istDateStrToUtcMidnight } from '@/lib/date'
 import { getPlanetPositions, getAscendant, julianDay, julianDayNow } from './ephemeris'
 import { buildPlanetPositions, getRashi, computeVimshottariDasha, computeYoginiDasha, computeNavamsa, getCurrentDasha, getCurrentYogini } from './chart-calculations'
@@ -198,15 +198,22 @@ export async function getAstrologyReading(profile: AstrologyProfile, period: Rea
     return lines.join('\n\n')
   }
 
-  const { context } = await buildReadingContext(profile)
-  const prompt = `${context}\n\n${PERIOD_FRAMING[period]}`
+  const { prompt, system } = await proseReadingPrompt(profile, period, lang)
+  return askAI('astrology_reading', prompt, system, { cacheTTLSeconds: ttlForPeriod(period) })
+}
 
-  return askAI(
-    'astrology_reading',
-    prompt,
-    `You are a traditional Vedic astrology reader. Given a natal chart summary (including Navamsa/D9), the current Vimshottari and Yogini dasha periods, current planetary transits, and gochara house placements, write a short, specific horoscope reading — exactly 4 crisp sentences, each under 15 words and each making one point (theme, work/money, relationships/health, advice), grounded in the actual positions given (name the relevant planet/house briefly), not generic. Frame it as traditional guidance, not certainty. Plain text only, no markdown formatting. Under 70 words.${LANGUAGE_INSTRUCTION[lang]}`,
-    { cacheTTLSeconds: ttlForPeriod(period) }
-  )
+// The Astrology page's monthly and yearly readings, written as they arrive.
+export async function streamAstrologyReading(profile: AstrologyProfile, period: 'monthly' | 'yearly', lang: Lang = 'en'): Promise<ReadableStream<Uint8Array>> {
+  const { prompt, system } = await proseReadingPrompt(profile, period, lang)
+  return streamAI('astrology_reading', prompt, system, { cacheTTLSeconds: ttlForPeriod(period) })
+}
+
+async function proseReadingPrompt(profile: AstrologyProfile, period: ReadingPeriod, lang: Lang) {
+  const { context } = await buildReadingContext(profile)
+  return {
+    prompt: `${context}\n\n${PERIOD_FRAMING[period]}`,
+    system: `You are a traditional Vedic astrology reader. Given a natal chart summary (including Navamsa/D9), the current Vimshottari and Yogini dasha periods, current planetary transits, and gochara house placements, write a short, specific horoscope reading — exactly 4 crisp sentences, each under 15 words and each making one point (theme, work/money, relationships/health, advice), grounded in the actual positions given (name the relevant planet/house briefly), not generic. Frame it as traditional guidance, not certainty. Plain text only, no markdown formatting. Under 70 words.${LANGUAGE_INSTRUCTION[lang]}`,
+  }
 }
 
 function emptyDailyReading(chart: NatalChart, lang: Lang, chandrashtama = false): DailyReading {

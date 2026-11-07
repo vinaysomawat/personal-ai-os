@@ -5,6 +5,8 @@ append here whenever you deploy, same cadence as the version bump.
 
 ## 2026-11-07
 
+- AI replies now appear as they're written instead of all at once: Ask Brain, Money Advisor, Question Bank model answers, and monthly and yearly astrology readings. Brain, Money Advisor and model answers have Stop and Retry. Answer reviews, the daily reading and Telegram work as before.
+- Fixed a crash in Question Bank text when a code block had no closing fence.
 - Questions: the Coverage card shows how much coverage rose today, overall and per category. Only questions answered for the first time count, because repeats don't raise coverage.
 
 ## 2026-11-06

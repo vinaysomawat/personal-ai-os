@@ -1,13 +1,15 @@
 'use client'
 
-import { useMemo, useState, useTransition } from 'react'
+import { useCallback, useEffect, useMemo, useState, useTransition } from 'react'
 import { ArrowLeft, BookOpen, Check, ExternalLink, Sparkles } from 'lucide-react'
 import Card from '@/components/Card'
 import AnswerReview, { CodeBlock, Rich } from './AnswerReview'
 import { TopicLinks } from './TopicLinks'
 import MicButton, { appendText } from '@/components/MicButton'
 import { modalSaveButtonClass, modalCancelButtonClass } from '@/components/Modal'
-import { answerQuestion, critiqueAnswer, revealModelAnswer } from '../actions'
+import AIStreamControls from '@/components/AIStreamControls'
+import { useAIStream } from '@/lib/use-ai-stream'
+import { answerQuestion, critiqueAnswer } from '../actions'
 import { BANK_CATEGORIES, catOf, isRedoDue, redoSlots, type BankCategory } from '../hunt'
 import { toPrepDateStr } from '@/lib/date'
 import { hm, minutesPerQuestion } from '../war'
@@ -16,6 +18,26 @@ import type { Scorecard } from '../scorecard'
 import { guard } from '@/lib/guard'
 
 const DIFFICULTY_ORDER: Record<string, number> = { medium: 0, easy: 1, hard: 2 }
+
+// A question's model answer as it's written. Its own component so the long
+// question list doesn't re-render as text arrives. Leaving it (another
+// question, Hide) doesn't waste the answer: the server finishes and caches it.
+function ModelAnswerStream({ questionId, onDone }: { questionId: string; onDone: (id: string, text: string) => void }) {
+  const { text, status, start, stop } = useAIStream()
+  const run = useCallback(async () => {
+    const result = await start({ feature: 'model_answer', questionId })
+    if (result.outcome === 'done') onDone(questionId, result.text.trim())
+  }, [start, questionId, onDone])
+  useEffect(() => { run() }, [run])
+  return (
+    <>
+      {text
+        ? <div className="text-[12.5px] text-fg-primary leading-relaxed whitespace-pre-wrap mt-1"><Rich text={text} /></div>
+        : status === 'waiting' && <div className="space-y-1.5 mt-2">{[92, 80, 86, 60].map((w, i) => <div key={i} className="h-2.5 rounded bg-surface-1 animate-pulse" style={{ width: `${w}%` }} />)}</div>}
+      <AIStreamControls status={status} hasText={!!text} onStop={stop} onRetry={run} />
+    </>
+  )
+}
 
 
 // Weak answers due for a redo lead (lowest rating first), up to `redoFirst`
@@ -97,7 +119,6 @@ export function QuestionsTab({ bank, setBank, topic, onTopicChange: setTopic, bl
   const [modelAnswers, setModelAnswers] = useState<Record<string, string>>({})
   const [shownAnswer, setShownAnswer] = useState<string | null>(null)
   const [peeked, setPeeked] = useState<Set<string>>(() => new Set())
-  const [revealing, startReveal] = useTransition()
   const [showHints, setShowHints] = useState(false)
   const [, startTransition] = useTransition()
   const [reviewing, startReview] = useTransition()
@@ -145,12 +166,8 @@ export function QuestionsTab({ bank, setBank, topic, onTopicChange: setTopic, bl
     if (answerShown) { setShownAnswer(null); return }
     if (!currentFeedback) setPeeked(prev => new Set(prev).add(id))
     setShownAnswer(id)
-    if (modelAnswers[id]) return
-    startReveal(guard(async () => {
-      try { const text = await revealModelAnswer(id); setModelAnswers(prev => ({ ...prev, [id]: text })) }
-      catch (e) { setModelAnswers(prev => ({ ...prev, [id]: `Couldn't load the answer: ${e instanceof Error ? e.message : 'unknown error'}` })) }
-    }))
   }
+  const keepModelAnswer = useCallback((id: string, text: string) => setModelAnswers(prev => ({ ...prev, [id]: text })), [])
 
   const getFeedback = () => {
     if (!current || !reviewable) return
@@ -291,14 +308,14 @@ export function QuestionsTab({ bank, setBank, topic, onTopicChange: setTopic, bl
                     <BookOpen size={11} /> Model answer{category === 'behavioral' || category === 'ai-native' ? ' · an example — adapt it to your own experience' : ''}
                     {peekedNow && !currentFeedback && <span className="normal-case tracking-normal font-normal text-warn"> · read before answering: this attempt won&apos;t be rated</span>}
                   </p>
-                  {revealing && !modelAnswers[current.id]
-                    ? <div className="space-y-1.5 mt-2">{[92, 80, 86, 60].map((w, i) => <div key={i} className="h-2.5 rounded bg-surface-1 animate-pulse" style={{ width: `${w}%` }} />)}</div>
-                    : <p className="text-[12.5px] text-fg-primary leading-relaxed whitespace-pre-wrap mt-1"><Rich text={modelAnswers[current.id] ?? ''} /></p>}
+                  {modelAnswers[current.id]
+                    ? <div className="text-[12.5px] text-fg-primary leading-relaxed whitespace-pre-wrap mt-1"><Rich text={modelAnswers[current.id]} /></div>
+                    : <ModelAnswerStream key={current.id} questionId={current.id} onDone={keepModelAnswer} />}
                 </div>
               )}
               <div className="flex items-center gap-2 mt-3">
                 {!NO_MODEL_ANSWER.has(category) && (
-                  <button onClick={revealAnswer} disabled={revealing} title={currentFeedback ? 'Compare with a model answer' : 'Reading it first means this attempt won\'t be rated'}
+                  <button onClick={revealAnswer} title={currentFeedback ? 'Compare with a model answer' : 'Reading it first means this attempt won\'t be rated'}
                     className={`${modalCancelButtonClass} inline-flex items-center gap-1.5 !py-[7px] shrink-0`}>
                     <BookOpen size={13} /> {answerShown ? 'Hide answer' : 'Answer'}
                   </button>
