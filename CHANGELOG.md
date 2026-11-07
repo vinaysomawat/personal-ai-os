@@ -3,6 +3,10 @@
 One line per shipped change, newest first. Sourced from commit messages —
 append here whenever you deploy, same cadence as the version bump.
 
+## 2026-11-07
+
+- Questions: the Coverage card shows how much coverage rose today, overall and per category. Only questions answered for the first time count, because repeats don't raise coverage.
+
 ## 2026-11-06
 
 - The focus timer moved from the floating bar to the navbar and shows minutes instead of seconds. It now updates once a minute rather than every second, and not while the tab is hidden.

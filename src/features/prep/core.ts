@@ -181,7 +181,7 @@ const questionPool = unstable_cache(() => fetchAllQuestions(createServiceClient(
 export async function getQuestionBank(supabase: SupabaseClient, userId: string): Promise<BankQuestion[]> {
   const [questions, { data: progress }, { data: coding }] = await Promise.all([
     questionPool(),
-    supabase.from('question_progress').select('question_id, last_seen_at, last_answer, last_rating, last_rated_at').eq('user_id', userId),
+    supabase.from('question_progress').select('question_id, last_seen_at, last_answer, last_rating, last_rated_at, attempts').eq('user_id', userId),
     supabase.from('coding_daily_questions').select('question_id, completed_at').eq('user_id', userId).eq('completed', true),
   ])
   // Last practiced = the newer of a Question Bank / Mock Round answer and a
@@ -189,15 +189,17 @@ export async function getQuestionBank(supabase: SupabaseClient, userId: string):
   const lastSeen = new Map<string, string>()
   const answers = new Map<string, string | null>()
   const ratings = new Map<string, { last_rating: number | null; last_rated_at: string | null }>()
-  const touch = (id: string, at: string) => { if ((lastSeen.get(id) ?? '') < at) lastSeen.set(id, at) }
+  const attempts = new Map<string, number>()
+  const touch =(id: string, at: string) => { if ((lastSeen.get(id) ?? '') < at) lastSeen.set(id, at) }
   for (const c of coding ?? []) if (c.completed_at) touch(c.question_id, c.completed_at)
-  for (const p of progress ?? []) { touch(p.question_id, p.last_seen_at); answers.set(p.question_id, p.last_answer); ratings.set(p.question_id, { last_rating: p.last_rating ?? null, last_rated_at: p.last_rated_at ?? null }) }
+  for (const p of progress ?? []) { touch(p.question_id, p.last_seen_at); answers.set(p.question_id, p.last_answer); ratings.set(p.question_id, { last_rating: p.last_rating ?? null, last_rated_at: p.last_rated_at ?? null }); attempts.set(p.question_id, p.attempts) }
   return questions.filter(q => !isRetired(q)).map(q => ({
     ...q, topics: q.topics ?? [],
     last_seen_at: lastSeen.get(q.id) ?? null,
     last_answer: answers.get(q.id) ?? null,
     last_rating: ratings.get(q.id)?.last_rating ?? null,
     last_rated_at: ratings.get(q.id)?.last_rated_at ?? null,
+    attempts: attempts.get(q.id) ?? 0,
   }))
 }
 

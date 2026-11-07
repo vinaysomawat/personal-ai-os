@@ -72,6 +72,8 @@ export interface BankQuestion {
   // Round review.
   last_rating: number | null
   last_rated_at: string | null
+  // Times answered: 1 with last_seen_at today = new today, so coverage rose.
+  attempts?: number
 }
 
 export interface PrepSession {

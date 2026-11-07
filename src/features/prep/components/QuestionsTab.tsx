@@ -172,10 +172,14 @@ export function QuestionsTab({ bank, setBank, topic, onTopicChange: setTopic, bl
     const qs = bank.filter(q => q.category === key)
     const seen = qs.filter(q => q.last_seen_at).length
     const minutesPerQ = BANK_CATEGORIES.find(c => c.key === key)?.minutesPerQ ?? 0
-    return { total: qs.length, seen, leftMinutes: (qs.length - seen) * minutesPerQ }
+    // First answers today: only these raise coverage, a repeat doesn't.
+    const newToday = qs.filter(q => q.attempts === 1 && !!q.last_seen_at && toPrepDateStr(q.last_seen_at) === today).length
+    return { total: qs.length, seen, newToday, leftMinutes: (qs.length - seen) * minutesPerQ }
   }
-  const totals = BANK_CATEGORIES.reduce((acc, c) => { const s = stats(c.key); return { seen: acc.seen + s.seen, total: acc.total + s.total, leftMinutes: acc.leftMinutes + s.leftMinutes } }, { seen: 0, total: 0, leftMinutes: 0 })
+  const totals = BANK_CATEGORIES.reduce((acc, c) => { const s = stats(c.key); return { seen: acc.seen + s.seen, total: acc.total + s.total, newToday: acc.newToday + s.newToday, leftMinutes: acc.leftMinutes + s.leftMinutes } }, { seen: 0, total: 0, newToday: 0, leftMinutes: 0 })
   const totalPct = totals.total ? Math.round((totals.seen / totals.total) * 100) : 0
+  // Today's coverage gain, one decimal: 1 of 1,071 questions is +0.1%.
+  const gain = (newToday: number, total: number) => `+${Number(((newToday / total) * 100).toFixed(1))}%`
   // Time to answer every unseen question once, at the plan's minutes per question.
   const hrs = (min: number) => `${Math.ceil(min / 60)}h`
 
@@ -193,7 +197,7 @@ export function QuestionsTab({ bank, setBank, topic, onTopicChange: setTopic, bl
     const rating = feedback?.id === id && !peeked.has(id) ? feedback.rating : null
     const now = new Date().toISOString()
     advance(id)
-    setBank(prev => prev.map(q => q.id === id ? { ...q, last_seen_at: now, last_answer: text ?? q.last_answer, ...(rating !== null ? { last_rating: rating, last_rated_at: now } : {}) } : q))
+    setBank(prev => prev.map(q => q.id === id ? { ...q, last_seen_at: now, attempts: (q.attempts ?? 0) + 1, last_answer: text ?? q.last_answer, ...(rating !== null ? { last_rating: rating, last_rated_at: now } : {}) } : q))
     resetCard()
     startTransition(guard(async () => onGraded(await answerQuestion(id, text, rating))))
   }
@@ -319,7 +323,7 @@ export function QuestionsTab({ bank, setBank, topic, onTopicChange: setTopic, bl
         )}
       </Card>
 
-      <Card title="Coverage" action={<span className="text-[11px] text-fg-tertiary tabular-nums"><span className="text-[12.5px] font-semibold text-accent">{totalPct}%</span> · {totals.seen}/{totals.total} seen · ≈ {hrs(totals.leftMinutes)}</span>}>
+      <Card title="Coverage" action={<span className="text-[11px] text-fg-tertiary tabular-nums"><span className="text-[12.5px] font-semibold text-accent">{totalPct}%</span>{totals.newToday > 0 && <span className="font-semibold text-good"> {gain(totals.newToday, totals.total)} today</span>} · {totals.seen}/{totals.total} seen · ≈ {hrs(totals.leftMinutes)}</span>}>
         <div className="h-[7px] rounded-[3px] bg-border mb-3 flex overflow-hidden">
           <div className="h-full bg-accent" style={{ width: `${totalPct}%` }} />
         </div>
@@ -334,7 +338,7 @@ export function QuestionsTab({ bank, setBank, topic, onTopicChange: setTopic, bl
                   className={`w-full text-left rounded-[8px] ${selected ? 'bg-accent-soft ring-1 ring-accent/60 px-2 py-1.5' : ''}`}>
                   <div className="flex items-baseline justify-between text-[12.5px] gap-2">
                     <span className={selected ? 'font-semibold text-accent' : 'font-medium text-fg-primary'}>{c.label}</span>
-                    <span className="text-[11px] text-fg-tertiary tabular-nums">{s.seen}/{s.total} · {s.total ? Math.round((s.seen / s.total) * 100) : 0}%{s.leftMinutes ? ` · ≈ ${hrs(s.leftMinutes)}` : ''}</span>
+                    <span className="text-[11px] text-fg-tertiary tabular-nums">{s.seen}/{s.total} · {s.total ? Math.round((s.seen / s.total) * 100) : 0}%{s.newToday > 0 && <span className="font-semibold text-good" title={`${s.newToday} new today`}> {gain(s.newToday, s.total)}</span>}{s.leftMinutes ? ` · ≈ ${hrs(s.leftMinutes)}` : ''}</span>
                   </div>
                   <div className="h-[5px] rounded-[3px] bg-border mt-1 flex overflow-hidden">
                     <div className="h-full bg-good" style={{ width: `${s.total ? (s.seen / s.total) * 100 : 0}%` }} />
@@ -345,7 +349,7 @@ export function QuestionsTab({ bank, setBank, topic, onTopicChange: setTopic, bl
             )
           })}
         </ul>
-        <p className="text-[10.5px] text-fg-tertiary mt-3">Includes questions completed in Coding. Today: {today}.</p>
+        <p className="text-[10.5px] text-fg-tertiary mt-3">Includes questions completed in Coding. Green = gained today from new questions; repeats add nothing. Today: {today}.</p>
       </Card>
     </div>
   )
