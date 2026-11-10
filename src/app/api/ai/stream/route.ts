@@ -5,6 +5,7 @@ import { aiStreamRequest, type AIStreamRequest } from '@/features/ai/stream-requ
 import { buildFinancePrompt, FINANCE_ADVISOR_SYSTEM } from '@/features/ai/finance-prompt'
 import { buildBrainPrompt, buildContextSummary, BRAIN_SYSTEM_PROMPT } from '@/features/brain/prompts'
 import { streamModelAnswer } from '@/features/prep/critique'
+import { streamAnswerReview, streamFollowUpReview, streamStoryRehearsal } from '@/features/prep/actions'
 import { getAstrologyProfile, streamAstrologyReading } from '@/features/astrology/actions'
 import type { SupabaseClient } from '@supabase/supabase-js'
 
@@ -26,6 +27,12 @@ function streamFor(body: AIStreamRequest, supabase: SupabaseClient, userId: stri
         if (!profile) throw new Error('Astrology profile not set')
         return streamAstrologyReading(profile, body.period, body.lang)
       })
+    case 'review_answer':
+      return streamAnswerReview(body.questionId, body.answer, body.spoken)
+    case 'review_followup':
+      return streamFollowUpReview(body.rubric, body.original, body.followUp, body.answer, body.spoken)
+    case 'review_story':
+      return streamStoryRehearsal(body.competency, body.prompt, body.answer, body.storyId, body.spoken)
   }
 }
 
@@ -41,7 +48,7 @@ export async function POST(req: Request) {
     const stream = await streamFor(body.data, supabase, user.id)
     return new Response(stream, {
       headers: {
-        'Content-Type': 'text/plain; charset=utf-8',
+        'Content-Type': body.data.feature.startsWith('review_') ? 'application/x-ndjson; charset=utf-8' : 'text/plain; charset=utf-8',
         // Proxies must pass each chunk on as it arrives.
         'Cache-Control': 'no-cache, no-transform',
         'X-Accel-Buffering': 'no',

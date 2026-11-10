@@ -1,9 +1,10 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { after } from 'next/server'
 import { askAI, streamAI } from '@/lib/ai-gateway'
-import { CRITERIA, type PointStatus, type Rubric, type Scorecard } from './scorecard'
+import { CRITERIA, partialReview, type PointStatus, type ReviewEvent, type ReviewResult, type Rubric, type Scorecard } from './scorecard'
 
 // AI interviewer critique of one Question Bank answer — shared by the web
-// Question Bank (critiqueAnswer) and the Telegram voice drill. Plain module,
+// Question Bank (streamAnswerReview) and the Telegram voice drill. Plain module,
 // not 'use server', so it isn't a publicly callable action.
 //
 // The AI only judges (a JSON scorecard: key points covered/partial/missing
@@ -94,10 +95,13 @@ export function scorecardText(c: Scorecard): string {
   ].filter(Boolean).join('\n\n')
 }
 
-// Uncached (every answer differs). `note` adds rubric context (e.g. "this
-// answer was spoken"). A reply that isn't a valid scorecard (budget
-// fallback, malformed JSON) comes back as plain feedback with no rating.
-export async function critiqueQuestion(db: SupabaseClient, userId: string, questionId: string, answer: string, note = ''): Promise<{ rating: number | null; feedback: string; card: Scorecard | null }> {
+// What a review sends to the model.
+interface ReviewCall { task: 'answer_critique' | 'ai_native_critique' | 'story_critique'; rubric: Rubric; prompt: string }
+
+// `note` adds rubric context (e.g. "this answer was spoken"). A reply that
+// isn't a valid scorecard (budget fallback, malformed JSON) comes back as plain
+// feedback with no rating.
+export async function questionReview(db: SupabaseClient, questionId: string, answer: string, note = ''): Promise<ReviewCall> {
   const { data: q } = await db.from('coding_questions').select('title, answer_hints, category, body').eq('id', questionId).single()
   if (!q) throw new Error('Question not found')
   const rubric = rubricFor(q.category)
@@ -108,7 +112,13 @@ export async function critiqueQuestion(db: SupabaseClient, userId: string, quest
     : `\nKey points: ${q.answer_hints}`
   const body = q.body ? `\n\nCode under review:\n${q.body}` : ''
   const prompt = `Interview question: ${q.title}${hints}${body}${note ? `\n\n${note}` : ''}\n\nCandidate's answer:\n${answer}`
-  return grade(rubric === 'ai-native' ? 'ai_native_critique' : 'answer_critique', rubric, prompt, userId)
+  return { task: rubric === 'ai-native' ? 'ai_native_critique' : 'answer_critique', rubric, prompt }
+}
+
+// The Telegram drill and Mock Round grade without streaming.
+export async function critiqueQuestion(db: SupabaseClient, userId: string, questionId: string, answer: string, note = ''): Promise<ReviewResult> {
+  const call = await questionReview(db, questionId, answer, note)
+  return finishReview(call, await askAI(call.task, call.prompt, SYSTEMS[call.rubric], { userId }), userId)
 }
 
 export const rubricFor = (category: string): Rubric =>
@@ -116,16 +126,25 @@ export const rubricFor = (category: string): Rubric =>
 
 // Story Bank rehearsal: a STAR answer to a competency prompt, graded against
 // fixed STAR key points plus the competency's own signal.
-export async function critiqueStory(userId: string, competency: string, question: string, answer: string, note = ''): Promise<{ rating: number | null; feedback: string; card: Scorecard | null }> {
+export function storyReview(competency: string, question: string, answer: string, note = ''): ReviewCall {
   const points = ['clear situation and stakes', 'your task or role', 'specific actions you took (I, not we)', 'a measurable result', `shows ${competency.toLowerCase()}`, 'reflection or what you would do differently']
   const prompt = `Competency being assessed: ${competency}\nInterview question: ${question}\nKey points: ${points.join(' · ')}${note ? `\n\n${note}` : ''}\n\nCandidate's answer:\n${answer}`
-  return grade('story_critique', 'story', prompt, userId)
+  return { task: 'story_critique', rubric: 'story', prompt }
 }
 
-async function grade(task: 'answer_critique' | 'ai_native_critique' | 'story_critique', rubric: Rubric, prompt: string, userId: string): Promise<{ rating: number | null; feedback: string; card: Scorecard | null }> {
+// A follow-up question from a review, answered by the user: graded with the
+// same scorecard (key points derived — a follow-up has none listed). Story
+// follow-ups use the behavioral rubric; STAR points don't fit a follow-up.
+export function followUpReview(rubric: Rubric, original: string, followUp: string, answer: string, note = ''): ReviewCall {
+  const r: Rubric = rubric === 'story' ? 'behavioral' : rubric
+  const prompt = `Original interview question: ${original}\nFollow-up question (grade the answer to this): ${followUp}\nKey points: (none listed — derive them)${note ? `\n\n${note}` : ''}\n\nCandidate's answer:\n${answer}`
+  return { task: r === 'ai-native' ? 'ai_native_critique' : 'answer_critique', rubric: r, prompt }
+}
+
+async function finishReview({ task, rubric, prompt }: ReviewCall, reply: string, userId: string): Promise<ReviewResult> {
   // Reviews are cached a day per exact answer (ai-gateway), so a malformed
   // reply would stick: retry once fresh, which also overwrites the cache row.
-  let raw = await askAI(task, prompt, SYSTEMS[rubric], { userId })
+  let raw = reply
   let card = parseScorecard(raw, rubric)
   if (!card && raw.trim().startsWith('{')) {
     raw = await askAI(task, prompt, SYSTEMS[rubric], { userId, bypassCache: true })
@@ -137,13 +156,50 @@ async function grade(task: 'answer_critique' | 'ai_native_critique' | 'story_cri
   return { rating, feedback: scorecardText(card), card }
 }
 
-// A follow-up question from a review, answered by the user: graded with the
-// same scorecard (key points derived — a follow-up has none listed). Story
-// follow-ups use the behavioral rubric; STAR points don't fit a follow-up.
-export async function critiqueFollowUp(userId: string, rubric: Rubric, original: string, followUp: string, answer: string, note = ''): Promise<{ rating: number | null; feedback: string; card: Scorecard | null }> {
-  const r: Rubric = rubric === 'story' ? 'behavioral' : rubric
-  const prompt = `Original interview question: ${original}\nFollow-up question (grade the answer to this): ${followUp}\nKey points: (none listed — derive them)${note ? `\n\n${note}` : ''}\n\nCandidate's answer:\n${answer}`
-  return grade(r === 'ai-native' ? 'ai_native_critique' : 'answer_critique', r, prompt, userId)
+// A review as newline-separated JSON events (ReviewEvent): the finished parts
+// of the scorecard as they arrive, then the graded result. The grading and
+// `onGraded` run even if the reader leaves, so a rehearsal is still saved and
+// the reply is cached for the same answer. Call it from a route handler.
+export async function streamReview(call: ReviewCall, userId: string, onGraded?: (result: ReviewResult) => Promise<object>): Promise<ReadableStream<Uint8Array>> {
+  const source = await streamAI(call.task, call.prompt, SYSTEMS[call.rubric], { userId })
+  const encoder = new TextEncoder()
+  let readerGone = false
+  let settle = () => {}
+  const settled = new Promise<void>(resolve => { settle = resolve })
+  after(() => settled)
+
+  return new ReadableStream<Uint8Array>({
+    async start(controller) {
+      const send = (event: ReviewEvent) => { if (!readerGone) controller.enqueue(encoder.encode(JSON.stringify(event) + '\n')) }
+      try {
+        const reader = source.getReader()
+        const decoder = new TextDecoder()
+        let raw = ''
+        let lastSent = ''
+        for (;;) {
+          const { done, value } = await reader.read()
+          if (done) break
+          raw += decoder.decode(value, { stream: true })
+          const partial = partialReview(raw)
+          const key = JSON.stringify(partial)
+          if (partial && key !== lastSent) {
+            lastSent = key
+            send({ partial })
+          }
+        }
+        raw += decoder.decode()
+        const result = await finishReview(call, raw, userId)
+        const extra = onGraded ? await onGraded(result) : {}
+        send({ final: { ...result, ...extra } })
+        if (!readerGone) controller.close()
+      } catch (e) {
+        if (!readerGone) controller.error(e)
+      } finally {
+        settle()
+      }
+    },
+    cancel() { readerGone = true },
+  })
 }
 
 const MODEL_ANSWER_SYSTEM = `You are a senior frontend engineer showing a candidate what a strong spoken interview answer sounds like for a Senior Frontend Engineer role.

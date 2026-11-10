@@ -1,12 +1,12 @@
 'use client'
 
-import { Fragment, useState, useTransition } from 'react'
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { MessageCircleQuestion, Sparkles } from 'lucide-react'
 import MicButton, { appendText } from '@/components/MicButton'
 import { modalSaveButtonClass } from '@/components/Modal'
-import { critiqueFollowUpAnswer } from '../actions'
-import { CRITERIA, type PointStatus, type Rubric, type Scorecard } from '../scorecard'
-import { guard } from '@/lib/guard'
+import { useAIStream } from '@/lib/use-ai-stream'
+import type { AIStreamRequest } from '@/features/ai/stream-request'
+import { CRITERIA, type PartialReview, type PointStatus, type ReviewEvent, type Rubric, type Scorecard } from '../scorecard'
 
 const rateCls = (r: number) => r >= 8 ? 'text-good bg-good-soft' : r >= 6 ? 'text-warn bg-warn-soft' : 'text-risk bg-risk-soft'
 const VERDICT_CLS: Record<Scorecard['verdict'], string> = { Strong: 'text-good', Good: 'text-warn', 'Needs work': 'text-risk' }
@@ -80,30 +80,97 @@ export default function AnswerReview({ card, text, rating, stale, question }: { 
       </div>
       {card && (
         <>
-          <ul className="mt-2.5 grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1">
-            {card.points.map((p, i) => (
-              <li key={i} className="flex items-start gap-1.5 text-[12.5px] leading-snug min-w-0">
-                <span className={`font-bold shrink-0 w-[12px] text-center ${POINT[p.status].cls}`} aria-label={p.status}>{POINT[p.status].mark}</span>
-                <span className="min-w-0">
-                  <span className={p.status === 'covered' ? 'text-fg-primary' : 'text-fg-primary font-medium'}><Rich text={p.point} /></span>
-                  {p.note && <span className="text-fg-tertiary"> — <Rich text={p.note} /></span>}
-                </span>
-              </li>
-            ))}
-          </ul>
-          {card.fixes.length > 0 && (
-            <div className="mt-2.5">
-              <p className="text-[10.5px] font-bold uppercase tracking-[0.4px] text-warn">Fix next</p>
-              <ol className="text-[12.5px] text-fg-secondary leading-snug mt-1 flex flex-col gap-1 pl-4 list-decimal marker:text-fg-tertiary">
-                {card.fixes.map((x, i) => <li key={i}><Rich text={x} /></li>)}
-              </ol>
-            </div>
-          )}
+          <PointsAndFixes points={card.points} fixes={card.fixes} />
           {card.followUp && (
             <div className="mt-2.5 rounded-[8px] bg-surface-1 border border-border px-2.5 py-2">
               <p className="text-[10.5px] font-bold uppercase tracking-[0.4px] text-accent inline-flex items-center gap-1"><MessageCircleQuestion size={11} /> Follow-up they&apos;d ask</p>
               <p className="text-[12.5px] text-fg-primary leading-snug mt-0.5"><Rich text={card.followUp} /></p>
               {question && <FollowUpAnswer key={card.followUp} rubric={card.rubric} question={question} followUp={card.followUp} />}
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  )
+}
+
+function PointsAndFixes({ points, fixes }: Pick<Scorecard, 'points' | 'fixes'>) {
+  return (
+    <>
+      {points.length > 0 && (
+        <ul className="mt-2.5 grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1">
+          {points.map((p, i) => (
+            <li key={i} className="flex items-start gap-1.5 text-[12.5px] leading-snug min-w-0">
+              <span className={`font-bold shrink-0 w-[12px] text-center ${POINT[p.status].cls}`} aria-label={p.status}>{POINT[p.status].mark}</span>
+              <span className="min-w-0">
+                <span className={p.status === 'covered' ? 'text-fg-primary' : 'text-fg-primary font-medium'}><Rich text={p.point} /></span>
+                {p.note && <span className="text-fg-tertiary"> — <Rich text={p.note} /></span>}
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
+      {fixes.length > 0 && (
+        <div className="mt-2.5">
+          <p className="text-[10.5px] font-bold uppercase tracking-[0.4px] text-warn">Fix next</p>
+          <ol className="text-[12.5px] text-fg-secondary leading-snug mt-1 flex flex-col gap-1 pl-4 list-decimal marker:text-fg-tertiary">
+            {fixes.map((x, i) => <li key={i}><Rich text={x} /></li>)}
+          </ol>
+        </div>
+      )}
+    </>
+  )
+}
+
+const parseEvent = (line: string): ReviewEvent | null => {
+  try { return JSON.parse(line) } catch { return null }
+}
+
+export type ReviewFinal = Extract<ReviewEvent, { final: unknown }>['final']
+
+// A review being written: the card fills in as each part finishes, and the
+// rating comes with onDone (null if it failed). Its own component so the
+// screen around it doesn't re-render as text arrives. Keep it mounted until
+// onDone: unmounting ends the read, and counts as failed.
+export function ReviewStream({ request, onDone }: { request: AIStreamRequest; onDone: (result: ReviewFinal | null) => void }) {
+  const { text, start } = useAIStream()
+  const latestRun = useRef(0)
+
+  const onDoneRef = useRef(onDone)
+  useEffect(() => { onDoneRef.current = onDone })
+  const run = useCallback(async () => {
+    const thisRun = ++latestRun.current
+    const { text: full } = await start(request)
+    if (thisRun !== latestRun.current) return
+    const event = parseEvent(full.trimEnd().split('\n').at(-1) ?? '')
+    onDoneRef.current(event && 'final' in event ? event.final : null)
+  }, [start, request])
+  useEffect(() => { run() }, [run])
+
+  const partial = useMemo<PartialReview | null>(() => {
+    // The newest finished partial; the last lines may be unfinished or the final.
+    const lines = text.split('\n')
+    for (let i = lines.length - 1; i >= 0; i--) {
+      const event = parseEvent(lines[i])
+      if (event && 'partial' in event) return event.partial
+    }
+    return null
+  }, [text])
+
+  return (
+    <div role="status" className="mt-3 rounded-[10px] border border-accent/30 bg-accent-soft px-3 py-2.5">
+      <p className="text-[12px] text-fg-secondary inline-flex items-center gap-1.5">
+        <Sparkles size={12} className="text-accent animate-pulse" />
+        {partial ? 'Reviewing… the rating comes last' : 'Reading your answer…'}
+      </p>
+      {partial && (
+        <>
+          {partial.summary && <p className="text-[13px] text-fg-primary leading-snug mt-1.5"><Rich text={partial.summary} /></p>}
+          <PointsAndFixes points={partial.points} fixes={partial.fixes} />
+          {partial.followUp && (
+            <div className="mt-2.5 rounded-[8px] bg-surface-1 border border-border px-2.5 py-2">
+              <p className="text-[10.5px] font-bold uppercase tracking-[0.4px] text-accent inline-flex items-center gap-1"><MessageCircleQuestion size={11} /> Follow-up they&apos;d ask</p>
+              <p className="text-[12.5px] text-fg-primary leading-snug mt-0.5"><Rich text={partial.followUp} /></p>
             </div>
           )}
         </>
@@ -118,19 +185,12 @@ function FollowUpAnswer({ rubric, question, followUp }: { rubric: Rubric; questi
   const [text, setText] = useState('')
   const [spoken, setSpoken] = useState(false)
   const [result, setResult] = useState<{ answer: string; text: string; rating: number | null; card: Scorecard | null } | null>(null)
-  const [busy, start] = useTransition()
+  const [request, setRequest] = useState<Extract<AIStreamRequest, { feature: 'review_followup' }> | null>(null)
+  const busy = !!request
   const ready = text.trim().length >= 40
   const review = () => {
-    if (!ready) return
-    const answer = text.trim()
-    start(guard(async () => {
-      try {
-        const r = await critiqueFollowUpAnswer(rubric, question, followUp, answer, spoken)
-        setResult({ answer, text: r.feedback, rating: r.rating, card: r.card })
-      } catch (e) {
-        setResult({ answer, text: `Review failed: ${e instanceof Error ? e.message : 'unknown error'}`, rating: null, card: null })
-      }
-    }))
+    if (!ready || busy) return
+    setRequest({ feature: 'review_followup', rubric, original: question, followUp, answer: text.trim(), spoken })
   }
   if (!open) return <button onClick={() => setOpen(true)} className="mt-1.5 text-[11.5px] font-semibold text-accent hover:underline">Answer follow-up →</button>
   return (
@@ -147,7 +207,10 @@ function FollowUpAnswer({ rubric, question, followUp }: { rubric: Rubric; questi
           <Sparkles size={12} /> {busy ? 'Reviewing…' : result ? 'Re-review' : 'Review'}
         </button>
       </div>
-      {busy && <div className="space-y-1.5 mt-2">{[85, 65].map((w, i) => <div key={i} className="h-2.5 rounded bg-surface-2 animate-pulse" style={{ width: `${w}%` }} />)}</div>}
+      {request && <ReviewStream request={request} onDone={r => {
+        setResult({ answer: request.answer, text: r?.feedback ?? 'Review failed: the connection or server had a problem. Try again.', rating: r?.rating ?? null, card: r?.card ?? null })
+        setRequest(null)
+      }} />}
       {result && !busy && <AnswerReview card={result.card} text={result.text} rating={result.rating} stale={result.answer !== text.trim()} />}
     </div>
   )

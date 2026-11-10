@@ -3,6 +3,10 @@
 One line per shipped change, newest first. Sourced from commit messages —
 append here whenever you deploy, same cadence as the version bump.
 
+## 2026-11-10
+
+- Question Bank, follow-up and Story Bank reviews fill in as they're written: key points first, then the summary, fixes and follow-up, with the rating last. A failed Question Bank review offers Retry. Mock Round reviews still arrive at once.
+
 ## 2026-11-07
 
 - AI replies now appear as they're written instead of all at once: Ask Brain, Money Advisor, Question Bank model answers, and monthly and yearly astrology readings. Brain, Money Advisor and model answers have Stop and Retry. Answer reviews, the daily reading and Telegram work as before.

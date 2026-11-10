@@ -13,7 +13,7 @@ import { baseKey } from './hunt'
 import { MAX_INTERVIEWS, ORDER, addInterview, frontLoad, interviewsOf, interviewsOverlap, type DayTemplate, type TodayPatch } from './dayplan'
 import { ROADMAP, buildBlock, learnBlock, type RoadmapProgress, type RoadmapStepDone } from './roadmap'
 import { prepToday } from '@/lib/date'
-import { critiqueFollowUp, critiqueQuestion, critiqueStory, SPOKEN_NOTE } from './critique'
+import { critiqueQuestion, followUpReview, questionReview, storyReview, streamReview, SPOKEN_NOTE } from './critique'
 import type { Rubric, Scorecard } from './scorecard'
 import { speechStats } from '@/lib/speech-stats'
 
@@ -108,27 +108,26 @@ export async function savePrepTemplate(template: DayTemplate, dayStartMin: numbe
   revalidatePath('/dashboard')
 }
 
-// AI interviewer feedback on a typed Question Bank answer (reviewing the
-// user's own work — uncached, every answer differs): a scorecard whose 1–10
-// rating is computed in code (critique.ts). The rubric depends on the
-// category; `spoken` = dictated via Speak. Not stored; the answer and rating
-// are saved when you hit Next.
-export async function critiqueAnswer(questionId: string, answer: string, spoken = false): Promise<{ rating: number | null; feedback: string; card: Scorecard | null }> {
+// AI interviewer feedback on a typed Question Bank answer, streamed: a
+// scorecard whose 1–10 rating is computed in code (critique.ts). The rubric
+// depends on the category; `spoken` = dictated via Speak. Not stored; the
+// answer and rating are saved when you hit Next.
+export async function streamAnswerReview(questionId: string, answer: string, spoken = false): Promise<ReadableStream<Uint8Array>> {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) throw new Error('Not authenticated')
   const { seconds, fillers } = speechStats(answer)
-  return critiqueQuestion(supabase, user.id, questionId, answer, spoken ? SPOKEN_NOTE(seconds, fillers) : '')
+  return streamReview(await questionReview(supabase, questionId, answer, spoken ? SPOKEN_NOTE(seconds, fillers) : ''), user.id)
 }
 
 // Grades the user's answer to a review's follow-up question. Practice only —
 // nothing is stored and the original question's rating is untouched.
-export async function critiqueFollowUpAnswer(rubric: Rubric, original: string, followUp: string, answer: string, spoken = false): Promise<{ rating: number | null; feedback: string; card: Scorecard | null }> {
+export async function streamFollowUpReview(rubric: Rubric, original: string, followUp: string, answer: string, spoken = false): Promise<ReadableStream<Uint8Array>> {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) throw new Error('Not authenticated')
   const { seconds, fillers } = speechStats(answer)
-  return critiqueFollowUp(user.id, rubric, original, followUp, answer, spoken ? SPOKEN_NOTE(seconds, fillers) : '')
+  return streamReview(followUpReview(rubric, original, followUp, answer, spoken ? SPOKEN_NOTE(seconds, fillers) : ''), user.id)
 }
 
 // Records a Question Bank answer (the question counts as practiced); the
@@ -307,21 +306,22 @@ export async function deleteStory(id: string) {
 }
 
 // Story Bank rehearsal: graded with the shared scorecard (critique.ts,
-// `story` rubric) and stored with its computed rating.
-export async function rehearseStory(competency: string, prompt: string, answer: string, storyId: string | null, spoken = false): Promise<StoryRehearsal> {
+// `story` rubric) and stored with its computed rating. The page adds the saved
+// row to its own list, so nothing is revalidated.
+export async function streamStoryRehearsal(competency: string, prompt: string, answer: string, storyId: string | null, spoken = false): Promise<ReadableStream<Uint8Array>> {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) throw new Error('Not authenticated')
   const label = COMPETENCIES.find(c => c.key === competency)?.label ?? competency
   const { seconds, fillers } = speechStats(answer)
-  const { rating, feedback, card } = await critiqueStory(user.id, label, prompt, answer, spoken ? SPOKEN_NOTE(seconds, fillers) : '')
-  const { data, error } = await supabase.from('story_rehearsals')
-    .insert({ user_id: user.id, story_id: storyId, competency, prompt, answer, critique: feedback, rating, scorecard: card })
-    .select('id, story_id, competency, prompt, answer, critique, rating, scorecard, created_at').single()
-  if (error) throw new Error(error.message)
-  if (storyId) await supabase.from('stories').update({ last_rehearsed_at: new Date().toISOString() }).eq('id', storyId)
-  revalidatePath('/prep')
-  return data as StoryRehearsal
+  return streamReview(storyReview(label, prompt, answer, spoken ? SPOKEN_NOTE(seconds, fillers) : ''), user.id, async ({ rating, feedback, card }) => {
+    const { data, error } = await supabase.from('story_rehearsals')
+      .insert({ user_id: user.id, story_id: storyId, competency, prompt, answer, critique: feedback, rating, scorecard: card })
+      .select('id, story_id, competency, prompt, answer, critique, rating, scorecard, created_at').single()
+    if (error) throw new Error(error.message)
+    if (storyId) await supabase.from('stories').update({ last_rehearsed_at: new Date().toISOString() }).eq('id', storyId)
+    return { rehearsal: data as StoryRehearsal }
+  })
 }
 
 // ---------------- AI Engineer tab: roadmap progress ----------------

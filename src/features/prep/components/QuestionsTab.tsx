@@ -3,13 +3,14 @@
 import { useCallback, useEffect, useMemo, useState, useTransition } from 'react'
 import { ArrowLeft, BookOpen, Check, ExternalLink, Sparkles } from 'lucide-react'
 import Card from '@/components/Card'
-import AnswerReview, { CodeBlock, Rich } from './AnswerReview'
+import AnswerReview, { CodeBlock, ReviewStream, Rich, type ReviewFinal } from './AnswerReview'
 import { TopicLinks } from './TopicLinks'
 import MicButton, { appendText } from '@/components/MicButton'
 import { modalSaveButtonClass, modalCancelButtonClass } from '@/components/Modal'
 import AIStreamControls from '@/components/AIStreamControls'
 import { useAIStream } from '@/lib/use-ai-stream'
-import { answerQuestion, critiqueAnswer } from '../actions'
+import type { AIStreamRequest } from '@/features/ai/stream-request'
+import { answerQuestion } from '../actions'
 import { BANK_CATEGORIES, catOf, isRedoDue, redoSlots, type BankCategory } from '../hunt'
 import { toPrepDateStr } from '@/lib/date'
 import { hm, minutesPerQuestion } from '../war'
@@ -111,7 +112,10 @@ export function QuestionsTab({ bank, setBank, topic, onTopicChange: setTopic, bl
   // Below xl the list and the answer panel take turns; this shows the panel.
   const [open, setOpen] = useState(false)
   // `answer` is the text that was reviewed, so an edit marks the review stale.
-  const [feedback, setFeedback] = useState<{ id: string; answer: string; text: string; rating: number | null; card: Scorecard | null } | null>(null)
+  const [feedback, setFeedback] = useState<{ id: string; answer: string; text: string; rating: number | null; card: Scorecard | null; failed?: boolean } | null>(null)
+  // The review running now; a new object per run, so Retry starts again.
+  const [reviewRequest, setReviewRequest] = useState<Extract<AIStreamRequest, { feature: 'review_answer' }> | null>(null)
+  const reviewing = !!reviewRequest
   // Questions answered (partly) via Speak — graded as spoken answers.
   const [spokenIds, setSpokenIds] = useState<Set<string>>(() => new Set())
   // Model answers fetched this visit; `peeked` = revealed before any review,
@@ -121,7 +125,6 @@ export function QuestionsTab({ bank, setBank, topic, onTopicChange: setTopic, bl
   const [peeked, setPeeked] = useState<Set<string>>(() => new Set())
   const [showHints, setShowHints] = useState(false)
   const [, startTransition] = useTransition()
-  const [reviewing, startReview] = useTransition()
 
   const topics = useMemo(() => {
     const counts = new Map<string, number>()
@@ -173,15 +176,16 @@ export function QuestionsTab({ bank, setBank, topic, onTopicChange: setTopic, bl
     if (!current || !reviewable) return
     const id = current.id
     const text = answer.trim()
-    startReview(guard(async () => {
-      try {
-        const r = await critiqueAnswer(id, text, spokenIds.has(id))
-        setFeedback({ id, answer: text, text: r.feedback, rating: r.rating, card: r.card })
-      } catch (e) {
-        // A failed review mustn't block Next.
-        setFeedback({ id, answer: text, text: `Review failed: ${e instanceof Error ? e.message : 'unknown error'}`, rating: null, card: null })
-      }
-    }))
+    setReviewRequest({ feature: 'review_answer', questionId: id, answer: text, spoken: spokenIds.has(id) })
+  }
+  const reviewDone = (r: ReviewFinal | null) => {
+    if (!reviewRequest) return
+    const { questionId: id, answer: text } = reviewRequest
+    // A failed review mustn't block Next.
+    setFeedback(r
+      ? { id, answer: text, text: r.feedback, rating: r.rating, card: r.card }
+      : { id, answer: text, text: 'Review failed: the connection or server had a problem.', rating: null, card: null, failed: true })
+    setReviewRequest(null)
   }
   const select = (id: string) => { resetCard(); setSelectedId(id); setOpen(true) }
 
@@ -300,8 +304,10 @@ export function QuestionsTab({ bank, setBank, topic, onTopicChange: setTopic, bl
                 </span>
               </div>
               {showHints && current.answer_hints && <p className="text-[12px] text-fg-secondary mt-1.5">Cover: {current.answer_hints}</p>}
-              {reviewing && <div className="space-y-2 mt-3">{[90, 70, 80].map((w, i) => <div key={i} className="h-3 rounded bg-surface-2 animate-pulse" style={{ width: `${w}%` }} />)}</div>}
+              {/* Stays mounted on another question, so the review still lands on its own. */}
+              {reviewRequest && <div className={reviewRequest.questionId === current.id ? '' : 'hidden'}><ReviewStream request={reviewRequest} onDone={reviewDone} /></div>}
               {currentFeedback && !reviewing && <AnswerReview card={currentFeedback.card} text={currentFeedback.text} rating={currentFeedback.rating} stale={stale} question={current.title} />}
+              {currentFeedback?.failed && !reviewing && reviewable && <button onClick={getFeedback} className="text-[11.5px] font-semibold text-accent hover:underline mt-1.5">Retry review</button>}
               {answerShown && (
                 <div className="mt-3 rounded-[10px] border border-border bg-surface-2 px-3 py-2.5">
                   <p className="text-[10.5px] font-bold uppercase tracking-[0.4px] text-fg-tertiary inline-flex items-center gap-1">

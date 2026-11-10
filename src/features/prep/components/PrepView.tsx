@@ -11,7 +11,7 @@ import Modal, { modalLabelClass, modalInputClass, modalCancelButtonClass, modalS
 import { useEscapeKey } from '@/lib/use-escape-key'
 import { prepDaysAgo, toPrepDateStr } from '@/lib/date'
 import { formatOf, type MockRound } from '../mock'
-import { savePrepToday, endFocusSession, startFocusSession, toggleFocusSessionPause, saveStory, deleteStory, rehearseStory, type StoryInput } from '../actions'
+import { savePrepToday, endFocusSession, startFocusSession, toggleFocusSessionPause, saveStory, deleteStory, type StoryInput } from '../actions'
 import { COMPETENCIES, REHEARSAL_PROMPTS, type BankQuestion, type CompetencyKey, type PrepSession, type PrepSettings, type ReadinessCell, type Story, type StoryRehearsal } from '../types'
 import { QuestionsTab } from './QuestionsTab'
 import { MockTab } from './MockTab'
@@ -20,7 +20,8 @@ import { InterviewTab } from './InterviewTab'
 import type { InterviewPrep } from '../jd'
 import type { RoadmapProgress, RoadmapStepDone } from '../roadmap'
 import { BANK_CATEGORIES, catOf } from '../hunt'
-import AnswerReview from './AnswerReview'
+import AnswerReview, { ReviewStream } from './AnswerReview'
+import type { AIStreamRequest } from '@/features/ai/stream-request'
 import TimelineCard from './TimelineCard'
 import { interviewLine, liveTimeline } from '../timeline'
 import { applyTodayPatch, interviewsOf, layoutDay, patchTouchesBlocks, type DayTemplate, type TodayPatch } from '../dayplan'
@@ -352,7 +353,10 @@ function StoriesTab({ stories, rehearsals, covered, onSaved, onDeleted, onRehear
   const [retryPrompt, setRetryPrompt] = useState<string | null>(null)
   const [spoken, setSpoken] = useState(false)
   const [openRehearsal, setOpenRehearsal] = useState<string | null>(null)
-  const [busy, startTransition] = useTransition()
+  const [, startTransition] = useTransition()
+  const [request, setRequest] = useState<AIStreamRequest | null>(null)
+  const [reviewFailed, setReviewFailed] = useState(false)
+  const busy = !!request
 
   const prompts = REHEARSAL_PROMPTS[competency]
   const prompt = retryPrompt ?? prompts[promptIdx % prompts.length]
@@ -361,13 +365,10 @@ function StoriesTab({ stories, rehearsals, covered, onSaved, onDeleted, onRehear
   const pickCompetency = (key: CompetencyKey) => { setCompetency(key); setPromptIdx(0); setRetryPrompt(null); setLatest(null); setStoryId(tagged(key)[0]?.id ?? '') }
 
   const submitRehearsal = () => {
-    if (answer.trim().length < 40) return
+    if (answer.trim().length < 40 || busy) return
     setLatest(null)
-    startTransition(guard(async () => {
-      const r = await rehearseStory(competency, prompt, answer.trim(), storyId || null, spoken)
-      setLatest(r)
-      onRehearsed(r)
-    }))
+    setReviewFailed(false)
+    setRequest({ feature: 'review_story', competency, prompt, answer: answer.trim(), storyId: storyId || null, spoken })
   }
   const retry = (r: StoryRehearsal) => {
     setCompetency(r.competency as CompetencyKey); setRetryPrompt(r.prompt); setAnswer(r.answer)
@@ -419,7 +420,12 @@ function StoriesTab({ stories, rehearsals, covered, onSaved, onDeleted, onRehear
               <Sparkles size={13} /> {busy ? 'Reviewing…' : 'Get feedback'}
             </button>
           </div>
-          {busy && <div className="space-y-2 mt-3">{[90, 70, 80].map((w, i) => <div key={i} className="h-3 rounded bg-surface-2 animate-pulse" style={{ width: `${w}%` }} />)}</div>}
+          {request && <ReviewStream request={request} onDone={r => {
+            setRequest(null)
+            if (r?.rehearsal) { setLatest(r.rehearsal); onRehearsed(r.rehearsal) }
+            else setReviewFailed(true)
+          }} />}
+          {reviewFailed && !busy && <p role="alert" className="text-[11.5px] text-fg-tertiary mt-2">The review failed. Press Get feedback to try again.</p>}
           {latest && !busy && <AnswerReview card={latest.scorecard} text={latest.critique ?? ''} rating={latest.rating} question={latest.prompt} />}
           {rehearsals.length > 0 && (
             <div className="mt-4 pt-3 border-t border-surface-3">
