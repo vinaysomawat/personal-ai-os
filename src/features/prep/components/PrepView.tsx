@@ -9,8 +9,8 @@ import EmptyState from '@/components/EmptyState'
 import ConfirmDialog from '@/components/ConfirmDialog'
 import Modal, { modalLabelClass, modalInputClass, modalCancelButtonClass, modalSaveButtonClass } from '@/components/Modal'
 import { useEscapeKey } from '@/lib/use-escape-key'
-import { prepDaysAgo, toPrepDateStr } from '@/lib/date'
-import { formatOf, type MockRound } from '../mock'
+import { toPrepDateStr } from '@/lib/date'
+import type { MockRound } from '../mock'
 import { savePrepToday, endFocusSession, startFocusSession, toggleFocusSessionPause, saveStory, deleteStory, type StoryInput } from '../actions'
 import { COMPETENCIES, REHEARSAL_PROMPTS, type BankQuestion, type CompetencyKey, type PrepSession, type PrepSettings, type ReadinessCell, type Story, type StoryRehearsal } from '../types'
 import { QuestionsTab } from './QuestionsTab'
@@ -29,7 +29,6 @@ import { EditDefaultPlan, EditToday } from './DayEditor'
 import { FocusBar, TodayHeader } from './WarRoom'
 import { blockProgress, blockReached, canFinishBlock, dayPace, windowOf, focusSeconds, focusedMinutes, prepHourNow, paceLabel, paceStatus, practicedToday, type FocusSession, type WarReadiness } from '../war'
 import PageHeader, { HeaderChip } from '@/components/PageHeader'
-import StatCard from '@/components/StatCard'
 import { guard } from '@/lib/guard'
 
 export type PrepTab = 'today' | 'interview' | 'ai' | 'questions' | 'mock' | 'stories'
@@ -247,8 +246,6 @@ export default function PrepView(props: Props) {
     : null
   const canFinish = !activeBlock || canFinishBlock(activeBlock, progressCtx)
 
-  const lastRound = rounds[0] ?? null
-  const roundsThisWeek = rounds.filter(r => toPrepDateStr(r.created_at) >= prepDaysAgo(6)).length
   const coveredCompetencies = new Set(stories.filter(s => (s.strength ?? 3) >= 3).flatMap(s => s.competencies))
 
 
@@ -258,18 +255,12 @@ export default function PrepView(props: Props) {
       <PageHeader title="Prep" chips={<>
         <HeaderChip>🔥 {props.streak}-day prep streak</HeaderChip>
         {session && <HeaderChip tone="accent">🎯 {session.focus}</HeaderChip>}
+        {/* Pace as plain text, no box; the rest of the numbers are on hover. */}
+        <span title={`${pace.donePct}% done · ${pace.dayPct}% of the day gone · ${props.sessionsLast7}/7 full days`}
+          className={`text-[12.5px] font-semibold tabular-nums whitespace-nowrap ${PACE_CLS[paceStatus(pace)]}`}>
+          Pace: {paceLabel(pace)}
+        </span>
       </>} />
-
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-[var(--grid-gap-sm)]">
-        {/* Copy/color only, same underlying % and blocker count: "not ready"
-            read as a verdict rather than a progress marker, and the red
-            valueClassName made that reads as low here — expected for most
-            of a prep arc — look like an alarm every time this page opens. */}
-        <StatCard label="Interview readiness" value={`${props.war.overall}%`} sub={props.war.ready ? 'all gates passed' : `${props.war.interviewReady ? 'interview-ready' : 'building'} · ${props.war.blockers.length} blockers`} valueClassName={props.war.ready || props.war.interviewReady ? 'text-good' : 'text-warn'} />
-        <StatCard label="Mock rounds" value={roundsThisWeek} sub={lastRound ? `this week · last ${formatOf(lastRound.format).label} ${toPrepDateStr(lastRound.created_at).slice(5)}${lastRound.review?.score != null ? ` · ${lastRound.review.score}/10` : ''}` : 'this week · none yet'} />
-        <StatCard label="Story Bank" value={stories.length} sub={`${coveredCompetencies.size}/${COMPETENCIES.length} competencies covered`} />
-        <StatCard label="Pace" value={paceLabel(pace)} valueClassName={PACE_CLS[paceStatus(pace)]} sub={`${pace.donePct}% done · ${pace.dayPct}% of day gone · ${props.sessionsLast7}/7 full days`} />
-      </div>
 
       <PageTabs tabs={TABS} active={tab} onChange={setTab} />
 

@@ -5,6 +5,7 @@ append here whenever you deploy, same cadence as the version bump.
 
 ## 2026-11-10
 
+- Prep: the four stat tiles at the top are gone. Pace shows as one line of text beside the Prep heading, with the details on hover.
 - Question Bank, follow-up and Story Bank reviews fill in as they're written: key points first, then the summary, fixes and follow-up, with the rating last. A failed Question Bank review offers Retry. Mock Round reviews still arrive at once.
 
 ## 2026-11-07
