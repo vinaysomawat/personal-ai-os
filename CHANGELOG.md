@@ -3,6 +3,10 @@
 One line per shipped change, newest first. Sourced from commit messages —
 append here whenever you deploy, same cadence as the version bump.
 
+## 2026-11-13
+
+- Question Bank: Backend & APIs questions are pitched at a frontend-heavy full-stack engineer. 73 deep-infrastructure questions are rewritten as plain, practical ones (easy and medium only now), easy ones come first, and each keeps its progress.
+
 ## 2026-11-10
 
 - Prep: the four stat tiles at the top are gone. Pace shows as one line of text beside the Prep heading, with the details on hover.

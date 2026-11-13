@@ -1,8 +1,9 @@
 /**
  * Seeds the v4.1 (2026 market) Question Bank rows into the global
  * coding_questions pool with the service client — re-runnable: a row is
- * matched on (category, title); missing rows are inserted, existing rows get
- * their answer_hints / body / url / sort_order / topics refreshed.
+ * matched on (category, title), or on (category, was) for a renamed row;
+ * missing rows are inserted, existing rows get their title / difficulty /
+ * answer_hints / body / url / sort_order / topics refreshed.
  *
  *   node --env-file=.env.local scripts/seed-prep-2026.mjs [backend|code-review|system-design|resume|architecture|algorithm|javascript-functions|ui-coding|ai-engineering|quiz|ai-native ...]
  *
@@ -41,7 +42,8 @@ for (const category of wanted) {
       answer_hints: r.answer_hints, category, source: 'Prep additions', url: r.url ?? null,
       ...(r.body !== undefined ? { body: r.body } : {}),
     }
-    const id = byTitle.get(r.title)
+    // A renamed row carries its old title in `was`, so it keeps its id (and progress).
+    const id = byTitle.get(r.title) ?? (r.was ? byTitle.get(r.was) : undefined)
     const res = id
       ? await db.from('coding_questions').update(row).eq('id', id)
       : await db.from('coding_questions').insert(row)
