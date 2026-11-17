@@ -278,8 +278,16 @@ export async function syncBankBlocks(supabase: SupabaseClient, userId: string, c
 // columns, and a progress re-check only for question blocks whose minutes
 // changed or that were added (2 queries, in parallel) — not every block.
 export async function patchToday(supabase: SupabaseClient, userId: string, patch: TodayPatch): Promise<PrepSession> {
-  const { data: row } = await supabase.from('prep_sessions').select('*').eq('user_id', userId).eq('date', prepToday()).maybeSingle()
-  if (!row) throw new Error('Open Prep once to build today\'s plan')
+  let { data: row } = await supabase.from('prep_sessions').select('*').eq('user_id', userId).eq('date', prepToday()).maybeSingle()
+  if (!row) {
+    // A tab left open across the day's 4am rollover: its client state is
+    // still yesterday's session, so the server's "today" has no row yet.
+    // Build it the same way the page does on load, then apply the patch.
+    await loadPrepData(supabase, userId)
+    const { data: created } = await supabase.from('prep_sessions').select('*').eq('user_id', userId).eq('date', prepToday()).maybeSingle()
+    if (!created) throw new Error('Could not start today\'s plan — reload Prep and try again')
+    row = created
+  }
   const cols: Record<string, unknown> = {}
   if (patch.startMin !== undefined) cols.start_min = patch.startMin
   if (patch.interview !== undefined) cols.interview = patch.interview.length ? patch.interview : null
