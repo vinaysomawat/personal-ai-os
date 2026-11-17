@@ -118,23 +118,32 @@ export function blockFor(key: string, minutes: number, date: string, ctx: PlanCt
 const NIGHT_SLOT = 'apply~2'
 const APPLY_SPLIT_MIN = 20
 
+// A deliberate lighter day — Sunday, already the day with a different mock
+// (screen) instead of no mock day off: practice minutes (not job
+// applications, which stay full) ease off instead of the usual ~5h, so
+// "always on" doesn't mean every day is identical load.
+const LIGHTER_DAY_FACTOR = 0.7
+export const isLighterDay = (date: string) => new Date(`${date}T00:00:00Z`).getUTCDay() === 0
+
 // The recommended plan for a date: the template's keys in ORDER with their
-// minutes, the mock only on its scheduled days, then put in day order by
-// rotate().
+// minutes (eased on a lighter day), the mock only on its scheduled days,
+// then put in day order by rotate().
 export function planItems(date: string, template: DayTemplate, ctx: PlanCtx): PrepBlock[] {
   const minutes = template.minutes
   const out: PrepBlock[] = []
   const applyMinutes = minutes.apply ?? 0
   const splitApply = applyMinutes >= APPLY_SPLIT_MIN
   const firstApply = Math.ceil(applyMinutes / 10) * 5
+  const lighter = isLighterDay(date)
   for (const key of ORDER) {
     let m = minutes[key] ?? 0
     if (m <= 0) continue
     if (key === 'apply' && splitApply) m = firstApply
+    else if (lighter && key !== 'apply') m = Math.max(5, Math.round(m * LIGHTER_DAY_FACTOR / 5) * 5)
     const b = blockFor(key, m, date, ctx)
     if (b) out.push(b)
   }
-  const plan = speakLate(splitLong(rotate(out, ctx.coverage), date, ctx))
+  const plan = speakLate(splitLong(rotate(out, ctx.coverage, date), date, ctx))
   const night = splitApply ? blockFor(NIGHT_SLOT, applyMinutes - firstApply, date, ctx) : null
   return night ? [...plan, night] : plan
 }
@@ -196,13 +205,25 @@ function speakLate(blocks: PrepBlock[]): PrepBlock[] {
 const TALK = new Set(['system-design', 'architecture', 'ai-engineering', 'backend', 'resume', 'ai-native', 'quiz', 'angular', 'behavioral'])
 const isTalk = (b: PrepBlock) => b.key.startsWith('bank:') && TALK.has(catOf(b.key))
 
+// A small, date-seeded tiebreaker (±2 points) so categories within a couple
+// points of each other on coverage swap order from one day to the next,
+// instead of a stable sort always resolving the same way — without
+// overriding a real, bigger coverage gap. Same date + key always gives the
+// same jitter, so a reload doesn't reshuffle mid-day.
+const dayJitter = (date: string, key: string): number => {
+  let h = 0
+  for (const c of `${date}:${key}`) h = (h * 31 + c.charCodeAt(0)) >>> 0
+  return (h % 1000) / 1000 * 0.04 - 0.02
+}
+
 // Least-covered first, without two talk-through blocks in a row: the talk
-// blocks sorted by coverage (practised / total, ascending; ties keep ORDER)
-// alternate with the other items, the hands-on question blocks among those
-// also by coverage. Learn and Build stay together as one change of mode.
-// Talk blocks left over once the others run out go at the end.
-function rotate(blocks: PrepBlock[], coverage: CategoryCoverage[]): PrepBlock[] {
-  const pct = (b: PrepBlock) => { const c = coverage.find(x => `bank:${x.key}` === b.key); return c?.total ? c.seen / c.total : 1 }
+// blocks sorted by coverage (practised / total, ascending, jittered by the
+// day so near-ties don't always resolve the same way) alternate with the
+// other items, the hands-on question blocks among those also by coverage.
+// Learn and Build stay together as one change of mode. Talk blocks left
+// over once the others run out go at the end.
+function rotate(blocks: PrepBlock[], coverage: CategoryCoverage[], date: string): PrepBlock[] {
+  const pct = (b: PrepBlock) => { const c = coverage.find(x => `bank:${x.key}` === b.key); return (c?.total ? c.seen / c.total : 1) + dayJitter(date, b.key) }
   const talk = blocks.filter(isTalk).sort((a, b) => pct(a) - pct(b))
   const rest = blocks.filter(b => !isTalk(b))
   const slots = rest.flatMap((b, i) => b.key.startsWith('bank:') ? [i] : [])

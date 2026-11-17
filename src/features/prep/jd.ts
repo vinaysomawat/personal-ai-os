@@ -81,6 +81,10 @@ export interface JdMatch {
 const MAX_QUESTIONS = 24
 const PER_TARGET = 3
 
+// Normalized key a company guide is looked up / upserted by (also used by
+// the /interview-prep skill), so "Google", "google " and "GOOGLE" share one row.
+export const companyKey = (company: string) => company.trim().toLowerCase().replace(/\s+/g, ' ')
+
 export function matchJD(jd: string, bank: BankQuestion[], stories: Story[]): JdMatch {
   const text = jd.toLowerCase()
   const skills = SKILLS.map(s => ({ label: s.label, hits: (text.match(re(s.patterns)) ?? []).length, targets: s.targets }))
@@ -142,18 +146,8 @@ export function searchLinks(company: string, role: string | null, today: string)
   ]
 }
 
-// The AI half (interview_plan task, actions.ts) and the online research the
-// /interview-prep Claude Code skill writes into interview_preps.research.
-export interface InterviewPlan {
-  roleRead: string
-  focusAreas: { area: string; why: string }[]
-  rounds: { name: string; what: string }[]
-  questions: { q: string; type: string; why: string }[]
-  knownFor: string[]
-  askThem: string[]
-  prepareFor: string[]
-  timeline: { when: string; what: string }[]
-}
+// Online research, written by the /interview-prep Claude Code skill — once
+// per company, into company_guides.research, not per scheduled interview.
 export interface InterviewResearch {
   updatedAt: string
   summary?: string
@@ -161,17 +155,26 @@ export interface InterviewResearch {
   questions: { q: string; source?: string; count?: number }[]
   process?: string[]
 }
+// One company's guide, shared across every interview you have there.
+export interface CompanyGuide {
+  id: string
+  company: string
+  company_key: string
+  research: InterviewResearch | null
+  updated_at: string
+}
+// One scheduled interview. The JD is optional — when pasted, `matched` is
+// the deterministic bonus (your own bank questions/stories for it); the
+// company's guide (above) carries the researched process and questions.
 export interface InterviewPrep {
   id: string
   company: string
   role: string | null
   round: string | null
-  jd: string
+  jd: string | null
   interview_date: string
   start_min: number | null
   minutes: number
   matched: JdMatch | null
-  plan: InterviewPlan | null
-  research: InterviewResearch | null
   created_at: string
 }

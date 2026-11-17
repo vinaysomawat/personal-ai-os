@@ -23,7 +23,6 @@ export type AITask =
   | 'answer_critique'
   | 'mock_round_review'
   | 'model_answer'
-  | 'interview_plan'
 
 interface TaskConfig {
   model: string
@@ -88,9 +87,6 @@ const TASK_CONFIG: Record<AITask, TaskConfig> = {
   // prompt is fixed per question, so it's generated once and cached a year;
   // Sonnet because this is what gets studied (Haiku drifted to dated idioms).
   model_answer:           { model: SONNET_MODEL,  cacheTTLSeconds: ONE_YEAR,   fallback: BUDGET_FALLBACK },
-  // Prep Interview tab — a JD → prep plan (JSON). Haiku 5.5 at low effort
-  // (~$0.002 a plan); the same JD + inputs reuse the cached plan for a week.
-  interview_plan:         { model: HAIKU_5_5_MODEL, cacheTTLSeconds: SEVEN_DAYS, fallback: BUDGET_FALLBACK, tuning: { maxTokens: 16000, effort: 'low' } },
 }
 
 // Static per-model pricing, USD per 1M tokens (Sonnet 4.6 / Haiku 4.5 /
@@ -131,7 +127,7 @@ const MONTHLY_BUDGET_USD = Number(process.env.AI_MONTHLY_BUDGET_USD ?? 50)
 // reserve too — a digest or forecast can't starve them.
 const INTERACTIVE_TASKS: ReadonlySet<AITask> = new Set([
   'telegram_intent', 'telegram_vision',
-  'answer_critique', 'ai_native_critique', 'story_critique', 'mock_round_review', 'model_answer', 'interview_plan',
+  'answer_critique', 'ai_native_critique', 'story_critique', 'mock_round_review', 'model_answer',
 ])
 const INTERACTIVE_RESERVE_FRACTION = 0.3
 

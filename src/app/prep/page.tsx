@@ -29,6 +29,7 @@ export default async function PrepPage({ searchParams }: { searchParams: Promise
       roadmap={data.roadmap}
       roadmapSteps={data.roadmapSteps}
       interviewPreps={data.interviewPreps}
+      companyGuides={data.companyGuides}
     />
   )
 }

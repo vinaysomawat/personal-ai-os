@@ -58,6 +58,10 @@ function buildQueue(bank: BankQuestion[], category: string, topic: string, today
 }
 
 const rateCls = (r: number) => r >= 8 ? 'text-good bg-good-soft' : r >= 6 ? 'text-warn bg-warn-soft' : 'text-risk bg-risk-soft'
+// Under this earned share, a category gets the "work through these in
+// order" framing instead of just more volume — structure for where you're
+// actually weak, not a judgement on the category.
+const WEAK_EARNED_RATIO = 0.3
 // Answers shorter than this are "solved elsewhere" — no review needed.
 const REVIEW_MIN = 40
 // Coding problems keep their "Open the problem" link; no prose model answer.
@@ -235,10 +239,29 @@ export function QuestionsTab({ bank, setBank, topic, onTopicChange: setTopic, bl
 
   const q = planned
   const cs = stats(category)
+  const isWeakCategory = cs.total > 0 && cs.earned / cs.total < WEAK_EARNED_RATIO
+  const queuePos = current ? queue.findIndex(x => x.id === current.id) : -1
+
+  // A random pick weighted toward categories you've earned the least of
+  // (not just "seen the least" — see Coverage's earned count), so it's not
+  // just more of whatever's already easy. Deterministic once picked, not
+  // re-rolled on every render.
+  const surpriseMe = () => {
+    const weights = BANK_CATEGORIES.map(c => { const s = stats(c.key); return { key: c.key, w: (s.total ? 1 - s.earned / s.total : 1) + 0.15 } })
+    const total = weights.reduce((s, w) => s + w.w, 0)
+    let r = Math.random() * total
+    const pick = weights.find(w => (r -= w.w) <= 0) ?? weights[0]
+    setCategory(pick.key); setTopic(''); resetCard(); setSelectedId(null); setOpen(true)
+  }
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-[1fr_340px] gap-[var(--grid-gap)] items-start">
-      <Card title="Sprint" action={<span className="text-[11px] text-fg-tertiary tabular-nums">{`${doneToday[category] ?? 0} answered today · `}{q && q.minutes ? `${hm(q.minutes)} planned · ` : ''}{queue.length} questions{cs.leftMinutes ? ` · ≈ ${hrs(cs.leftMinutes)} to complete` : ''}</span>}>
+      <Card title="Sprint" action={
+        <span className="inline-flex items-center gap-2">
+          <button onClick={surpriseMe} className="text-[11px] font-semibold text-accent hover:underline">🎲 Surprise me</button>
+          <span className="text-[11px] text-fg-tertiary tabular-nums">{`${doneToday[category] ?? 0} answered today · `}{q && q.minutes ? `${hm(q.minutes)} planned · ` : ''}{queue.length} questions{cs.leftMinutes ? ` · ≈ ${hrs(cs.leftMinutes)} to complete` : ''}</span>
+        </span>
+      }>
         <div className="flex flex-wrap gap-1.5 mb-2.5">
           {BANK_CATEGORIES.map(c => {
             const cq = planFor(c.key)
@@ -257,6 +280,12 @@ export function QuestionsTab({ bank, setBank, topic, onTopicChange: setTopic, bl
           <option value="">All topics</option>
           {topics.map(([t, n]) => <option key={t} value={t}>{t} ({n})</option>)}
         </select>
+
+        {isWeakCategory && current && (
+          <p className="rounded-[8px] border border-l-[3px] border-l-accent border-surface-3 bg-accent-soft px-2.5 py-1.5 mb-3 text-[12px] text-fg-primary">
+            📍 Starter path — {cs.earned}/{cs.total} earned here so far{queuePos >= 0 ? `, question ${queuePos + 1} of ${queue.length}` : ''}. Work through these in order rather than skipping around.
+          </p>
+        )}
 
         {!current ? (
           <div className="text-center py-8">

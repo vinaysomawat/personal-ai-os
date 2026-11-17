@@ -11,7 +11,6 @@ Every AI call goes through `askAI(task, prompt, system?, opts?)` / `askAIWithMet
 | `answer_critique` | Haiku 5.5 (low) | 1d | Question Bank, voice drill, follow-up answers |
 | `ai_native_critique` | Haiku 5.5 (low) | 1d | Question Bank, voice drill (AI-native), follow-up answers (AI-native) |
 | `model_answer` | Sonnet | 1 year | Question Bank "Answer" button (one model answer per question) |
-| `interview_plan` | Haiku 5.5 (`claude-haiku-5-5`, effort low, 16K max tokens) | 7d | Prep → Interview tab (JD → prep plan JSON) |
 | `story_critique` | Haiku 5.5 (low) | 1d | Story Bank rehearsal |
 | `mock_round_review` | Haiku 5.5 (low) | none | Mock Round |
 | `finance_advisor` | Sonnet | none | Money Advisor, Finance bot |

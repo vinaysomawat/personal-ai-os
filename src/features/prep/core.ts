@@ -6,7 +6,7 @@ import type { MockRound } from './mock'
 import { BANK_CATEGORIES, catOf, isRedoDue, type CategoryCoverage } from './hunt'
 import { isRetired } from './retired-questions'
 import { DEFAULT_TEMPLATE, addInterview, applyTodayPatch, frontLoad, layoutDay, patchTouchesBlocks, planItems, templateOf, type Interview, type TodayPatch } from './dayplan'
-import type { InterviewPrep } from './jd'
+import type { CompanyGuide, InterviewPrep } from './jd'
 import type { RoadmapProgress, RoadmapStepDone } from './roadmap'
 import { computeReadinessMatrix, type CodingHistoryRow } from './readiness'
 import { blockProgress, windowOf, blockReached, canFinishBlock, categoryGap, dayPace, focusedMinutes, minutesPerQuestion, type ProgressCtx, isGoodDay, focusSeconds, nowBlock, revisionQueue, topicWeakness, warReadiness, type FocusSession } from './war'
@@ -47,7 +47,7 @@ export async function loadPrepData(supabase: SupabaseClient, userId: string) {
   const today = prepToday()
 
   // One round of parallel reads (settings and the bank included).
-  const [mockRes, storiesRes, rehearsalsRes, codingRes, sessionsRes, focusRes, roadmapRes, stepsRes, prepsRes, settings, bank] = await Promise.all([
+  const [mockRes, storiesRes, rehearsalsRes, codingRes, sessionsRes, focusRes, roadmapRes, stepsRes, prepsRes, guidesRes, settings, bank] = await Promise.all([
     supabase.from('mock_rounds').select('id, format, items, duration_seconds, created_at, review').eq('user_id', user.id).order('created_at', { ascending: false }).limit(500),
     supabase.from('stories').select('*').eq('user_id', user.id).order('updated_at', { ascending: false }),
     supabase.from('story_rehearsals').select('id, story_id, competency, prompt, answer, critique, rating, scorecard, created_at').eq('user_id', user.id).order('created_at', { ascending: false }).limit(10),
@@ -60,6 +60,8 @@ export async function loadPrepData(supabase: SupabaseClient, userId: string) {
     supabase.from('roadmap_steps').select('week, step, done_at').eq('user_id', user.id),
     // Interview tab: the latest preps (empty until the migration runs).
     supabase.from('interview_preps').select('*').eq('user_id', user.id).order('interview_date', { ascending: false }).order('created_at', { ascending: false }).limit(20),
+    // Interview tab: every company guide, researched or not (empty until the migration runs).
+    supabase.from('company_guides').select('*').eq('user_id', user.id).order('updated_at', { ascending: false }),
     getPrepSettings(supabase, user.id),
     getQuestionBank(supabase, user.id),
   ])
@@ -76,6 +78,7 @@ export async function loadPrepData(supabase: SupabaseClient, userId: string) {
   const weakness = topicWeakness(bank, today)
   const roadmapSteps = (stepsRes.data ?? []) as RoadmapStepDone[]
   const interviewPreps = (prepsRes.data ?? []) as InterviewPrep[]
+  const companyGuides = (guidesRes.data ?? []) as CompanyGuide[]
   // Interview preps for today shape today's new plan (their slots, their
   // categories first, earliest interview's first).
   const todayPreps = interviewPreps.filter(p => p.interview_date === today && p.start_min !== null).sort((a, b) => (a.start_min ?? 0) - (b.start_min ?? 0))
@@ -124,6 +127,7 @@ export async function loadPrepData(supabase: SupabaseClient, userId: string) {
       return { date, score: s?.blocks.length ? dayPace(s.blocks, 99).donePct : null, good: !!s && isGoodDay(s.blocks) }
     }),
     interviewPreps,
+    companyGuides,
     mockRounds,
     // War Mode (all deterministic, war.ts).
     war: warReadiness(readiness, mockRounds),

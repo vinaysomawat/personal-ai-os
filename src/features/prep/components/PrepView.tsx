@@ -17,7 +17,7 @@ import { QuestionsTab } from './QuestionsTab'
 import { MockTab } from './MockTab'
 import { AiTab } from './AiTab'
 import { InterviewTab } from './InterviewTab'
-import type { InterviewPrep } from '../jd'
+import type { CompanyGuide, InterviewPrep } from '../jd'
 import type { RoadmapProgress, RoadmapStepDone } from '../roadmap'
 import { BANK_CATEGORIES, catOf } from '../hunt'
 import AnswerReview, { ReviewStream } from './AnswerReview'
@@ -61,10 +61,14 @@ interface Props {
   roadmap: RoadmapProgress[]
   roadmapSteps: RoadmapStepDone[]
   interviewPreps: InterviewPrep[]
+  companyGuides: CompanyGuide[]
 }
 
 // A focus session shown before the server has saved it (optimistic start).
 const TEMP_FOCUS = 'tmp-'
+// Streak days worth calling out — the header chip swaps to a trophy on
+// these, same data as the plain streak, no new tracking.
+const STREAK_MILESTONES = [3, 7, 14, 21, 30, 50, 75, 100, 150, 200, 365]
 
 export default function PrepView(props: Props) {
   const [tab, setTab] = useState<PrepTab>(props.initialTab)
@@ -77,6 +81,7 @@ export default function PrepView(props: Props) {
   const [rehearsals, setRehearsals] = useState(props.rehearsals)
   const [roadmap, setRoadmap] = useState(props.roadmap)
   const [interviewPreps, setInterviewPreps] = useState(props.interviewPreps)
+  const [companyGuides, setCompanyGuides] = useState(props.companyGuides)
   const [, startTransition] = useTransition()
 
   const [focusSessions, setFocusSessions] = useState(props.focusSessions)
@@ -253,7 +258,7 @@ export default function PrepView(props: Props) {
   return (
     <div className="space-y-3">
       <PageHeader title="Prep" chips={<>
-        <HeaderChip>🔥 {props.streak}-day prep streak</HeaderChip>
+        <HeaderChip>{STREAK_MILESTONES.includes(props.streak) ? `🏆 ${props.streak}-day milestone` : `🔥 ${props.streak}-day prep streak`}</HeaderChip>
         {session && <HeaderChip tone="accent">🎯 {session.focus}</HeaderChip>}
         {/* Pace as plain text, no box; the rest of the numbers are on hover. */}
         <span title={`${pace.donePct}% done · ${pace.dayPct}% of the day gone · ${props.sessionsLast7}/7 full days`}
@@ -281,7 +286,7 @@ export default function PrepView(props: Props) {
         </>
       )}
 
-      {tab === 'interview' && <InterviewTab preps={interviewPreps} setPreps={setInterviewPreps} today={props.today} onOpenTopic={openTopic} onSession={setSession} />}
+      {tab === 'interview' && <InterviewTab preps={interviewPreps} setPreps={setInterviewPreps} guides={companyGuides} setGuides={setCompanyGuides} today={props.today} onOpenTopic={openTopic} onSession={setSession} />}
 
       {tab === 'ai' && <AiTab today={props.today} progress={roadmap} setProgress={setRoadmap} steps={props.roadmapSteps} bank={bank} onOpenTopic={openTopic} />}
 
