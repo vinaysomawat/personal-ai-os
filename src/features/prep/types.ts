@@ -74,6 +74,10 @@ export interface BankQuestion {
   last_rated_at: string | null
   // Times answered: 1 with last_seen_at today = new today, so coverage rose.
   attempts?: number
+  // Set the first time the model answer or key points were ever revealed for
+  // this question (never cleared) — a rating taken after this is excluded
+  // from Coverage's "earned" count, the readiness matrix and the gates.
+  revealed_at: string | null
 }
 
 export interface PrepSession {

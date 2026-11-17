@@ -42,6 +42,9 @@ export interface CategoryCoverage {
   label: string
   total: number
   seen: number
+  // Seen and rated ≥7 on an attempt before ever revealing the answer/key
+  // points — real mastery, not just exposure (isRedoDue/revealed_at below).
+  earned: number
   doneToday: number
   // Weak answers due for a redo today (redoDue below).
   redoDue: number

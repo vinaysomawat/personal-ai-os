@@ -163,13 +163,19 @@ export function QuestionsTab({ bank, setBank, topic, onTopicChange: setTopic, bl
   // Every real answer gets reviewed before Next — unless the model answer was
   // read first, which makes this attempt study, not a rated answer.
   const needsReview = reviewable && !currentFeedback && !peekedNow
+  // Both reveal buttons (the model answer and the key-points toggle) are
+  // disabled until a real attempt is typed (reviewable), and either one
+  // taints this question — unless it's opened to compare *after* a genuine
+  // review, which doesn't mark it (peeked only when !currentFeedback).
+  const markPeeked = () => { if (current && !currentFeedback) setPeeked(prev => new Set(prev).add(current.id)) }
   const revealAnswer = () => {
     if (!current) return
     const id = current.id
     if (answerShown) { setShownAnswer(null); return }
-    if (!currentFeedback) setPeeked(prev => new Set(prev).add(id))
+    markPeeked()
     setShownAnswer(id)
   }
+  const toggleHints = () => { markPeeked(); setShowHints(v => !v) }
   const keepModelAnswer = useCallback((id: string, text: string) => setModelAnswers(prev => ({ ...prev, [id]: text })), [])
 
   const getFeedback = () => {
@@ -192,12 +198,15 @@ export function QuestionsTab({ bank, setBank, topic, onTopicChange: setTopic, bl
   const stats = (key: string) => {
     const qs = bank.filter(q => q.category === key)
     const seen = qs.filter(q => q.last_seen_at).length
+    // Seen *and* rated ≥7 on an attempt before ever revealing the answer or
+    // key points — real mastery, not just exposure.
+    const earned = qs.filter(q => q.last_seen_at && q.last_rating !== null && q.last_rating >= 7 && !q.revealed_at).length
     const minutesPerQ = BANK_CATEGORIES.find(c => c.key === key)?.minutesPerQ ?? 0
     // First answers today: only these raise coverage, a repeat doesn't.
     const newToday = qs.filter(q => q.attempts === 1 && !!q.last_seen_at && toPrepDateStr(q.last_seen_at) === today).length
-    return { total: qs.length, seen, newToday, leftMinutes: (qs.length - seen) * minutesPerQ }
+    return { total: qs.length, seen, earned, newToday, leftMinutes: (qs.length - seen) * minutesPerQ }
   }
-  const totals = BANK_CATEGORIES.reduce((acc, c) => { const s = stats(c.key); return { seen: acc.seen + s.seen, total: acc.total + s.total, newToday: acc.newToday + s.newToday, leftMinutes: acc.leftMinutes + s.leftMinutes } }, { seen: 0, total: 0, newToday: 0, leftMinutes: 0 })
+  const totals = BANK_CATEGORIES.reduce((acc, c) => { const s = stats(c.key); return { seen: acc.seen + s.seen, earned: acc.earned + s.earned, total: acc.total + s.total, newToday: acc.newToday + s.newToday, leftMinutes: acc.leftMinutes + s.leftMinutes } }, { seen: 0, earned: 0, total: 0, newToday: 0, leftMinutes: 0 })
   const totalPct = totals.total ? Math.round((totals.seen / totals.total) * 100) : 0
   // Today's coverage gain, one decimal: 1 of 1,071 questions is +0.1%.
   const gain = (newToday: number, total: number) => `+${Number(((newToday / total) * 100).toFixed(1))}%`
@@ -216,11 +225,12 @@ export function QuestionsTab({ bank, setBank, topic, onTopicChange: setTopic, bl
     const id = current.id
     const text = answer.trim() || null
     const rating = feedback?.id === id && !peeked.has(id) ? feedback.rating : null
+    const revealed = peeked.has(id)
     const now = new Date().toISOString()
     advance(id)
-    setBank(prev => prev.map(q => q.id === id ? { ...q, last_seen_at: now, attempts: (q.attempts ?? 0) + 1, last_answer: text ?? q.last_answer, ...(rating !== null ? { last_rating: rating, last_rated_at: now } : {}) } : q))
+    setBank(prev => prev.map(q => q.id === id ? { ...q, last_seen_at: now, attempts: (q.attempts ?? 0) + 1, last_answer: text ?? q.last_answer, revealed_at: q.revealed_at ?? (revealed ? now : null), ...(rating !== null ? { last_rating: rating, last_rated_at: now } : {}) } : q))
     resetCard()
-    startTransition(guard(async () => onGraded(await answerQuestion(id, text, rating))))
+    startTransition(guard(async () => onGraded(await answerQuestion(id, text, rating, revealed))))
   }
 
   const q = planned
@@ -296,7 +306,10 @@ export function QuestionsTab({ bank, setBank, topic, onTopicChange: setTopic, bl
                     {category === 'quiz' ? 'Check the answer' : 'Open the problem'} <ExternalLink size={11} />
                   </a>
                 ) : current.answer_hints ? (
-                  <button onClick={() => setShowHints(v => !v)} className="text-[11.5px] text-accent hover:underline">{showHints ? 'Hide' : 'Show'} {category === 'quiz' ? 'key points' : category === 'ui-coding' ? 'requirements' : 'expected areas'}</button>
+                  <button onClick={toggleHints} disabled={!showHints && !reviewable} title={reviewable ? undefined : 'Type your attempt first'}
+                    className="text-[11.5px] text-accent hover:underline disabled:opacity-40 disabled:no-underline disabled:cursor-not-allowed">
+                    {showHints ? 'Hide' : 'Show'} {category === 'quiz' ? 'key points' : category === 'ui-coding' ? 'requirements' : 'expected areas'}
+                  </button>
                 ) : <span />}
                 <span className="inline-flex items-center gap-2 min-w-0">
                   <MicButton key={current.id} onText={text => { setAnswer(appendText(answer, text)); setSpokenIds(prev => new Set(prev).add(current.id)) }} />
@@ -321,15 +334,16 @@ export function QuestionsTab({ bank, setBank, topic, onTopicChange: setTopic, bl
               )}
               <div className="flex items-center gap-2 mt-3">
                 {!NO_MODEL_ANSWER.has(category) && (
-                  <button onClick={revealAnswer} title={currentFeedback ? 'Compare with a model answer' : 'Reading it first means this attempt won\'t be rated'}
-                    className={`${modalCancelButtonClass} inline-flex items-center gap-1.5 !py-[7px] shrink-0`}>
+                  <button onClick={revealAnswer} disabled={!answerShown && !reviewable}
+                    title={!reviewable ? 'Type your attempt first' : currentFeedback ? 'Compare with a model answer' : 'Reading it first means this attempt won\'t count toward readiness'}
+                    className={`${modalCancelButtonClass} inline-flex items-center gap-1.5 !py-[7px] shrink-0 disabled:opacity-40 disabled:cursor-not-allowed`}>
                     <BookOpen size={13} /> {answerShown ? 'Hide answer' : 'Answer'}
                   </button>
                 )}
                 <span className="text-[11px] text-fg-tertiary min-w-0">
                   {stale && reviewable ? <button onClick={getFeedback} disabled={reviewing} className="text-accent hover:underline inline-flex items-center gap-1"><Sparkles size={11} /> Re-review edited answer</button>
                     : !answer.trim() ? 'Nothing typed — Skip won\'t count it'
-                    : needsReview ? 'AI review runs before Next' : peekedNow && !currentFeedback ? 'Studied — not rated' : !reviewable && !currentFeedback ? 'Type a few sentences to get an AI review' : null}
+                    : needsReview ? 'AI review runs before Next' : peekedNow && !currentFeedback ? 'Studied — not rated' : !reviewable && !currentFeedback ? 'Type a few sentences to get an AI review' : current.revealed_at && !peekedNow ? 'Revealed before — rated, but won\'t count toward readiness' : null}
                 </span>
                 {needsReview || reviewing ? (
                   <button onClick={getFeedback} disabled={reviewing} className={`${modalSaveButtonClass} inline-flex items-center gap-1.5 !py-[7px] ml-auto`}>
@@ -347,9 +361,12 @@ export function QuestionsTab({ bank, setBank, topic, onTopicChange: setTopic, bl
       </Card>
 
       <Card title="Coverage" action={<span className="text-[11px] text-fg-tertiary tabular-nums"><span className="text-[12.5px] font-semibold text-accent">{totalPct}%</span>{totals.newToday > 0 && <span className="font-semibold text-good"> {gain(totals.newToday, totals.total)} today</span>} · {totals.seen}/{totals.total} seen · ≈ {hrs(totals.leftMinutes)}</span>}>
-        <div className="h-[7px] rounded-[3px] bg-border mb-3 flex overflow-hidden">
+        <div className="h-[7px] rounded-[3px] bg-border mb-1 flex overflow-hidden">
           <div className="h-full bg-accent" style={{ width: `${totalPct}%` }} />
         </div>
+        <p className="text-[10.5px] text-fg-tertiary mb-3 tabular-nums" title="Seen and rated ≥7 on an attempt before ever revealing the answer or key points">
+          <span className="font-semibold text-good">{totals.total ? Math.round((totals.earned / totals.total) * 100) : 0}%</span> actually earned (no reveal) · {totals.earned}/{totals.total}
+        </p>
         <ul className="flex flex-col gap-2.5">
           {[...BANK_CATEGORIES].sort((a, b) => Number(b.key === category) - Number(a.key === category)).map(c => {
             const s = stats(c.key)
@@ -366,6 +383,7 @@ export function QuestionsTab({ bank, setBank, topic, onTopicChange: setTopic, bl
                   <div className="h-[5px] rounded-[3px] bg-border mt-1 flex overflow-hidden">
                     <div className="h-full bg-good" style={{ width: `${s.total ? (s.seen / s.total) * 100 : 0}%` }} />
                   </div>
+                  <p className="text-[10px] text-fg-tertiary mt-0.5 tabular-nums" title="Seen and rated ≥7 before ever revealing the answer or key points">{s.earned}/{s.total} earned</p>
                   {cq && cq.minutes > 0 && <p className={`text-[10.5px] mt-0.5 tabular-nums ${cq.done ? 'text-good' : 'text-fg-tertiary'}`}>{cq.done ? '✓ ' : ''}{hm(cq.minutes)} planned today</p>}
                 </button>
               </li>

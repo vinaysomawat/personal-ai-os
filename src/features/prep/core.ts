@@ -67,7 +67,9 @@ export async function loadPrepData(supabase: SupabaseClient, userId: string) {
 
   const stories = (storiesRes.data ?? []) as Story[]
   const readiness = computeReadinessMatrix((codingRes.data ?? []) as unknown as CodingHistoryRow[], stories, coverage.find(c => c.key === 'ai-native') ?? null,
-    bank.filter(q => q.last_rating !== null).map(q => ({ category: q.category, topics: q.topics, rating: q.last_rating! })))
+    // A question whose answer or key points were ever revealed can't be used
+    // as a trustworthy readiness signal, even if it was reviewed afterward.
+    bank.filter(q => q.last_rating !== null && !q.revealed_at).map(q => ({ category: q.category, topics: q.topics, rating: q.last_rating! })))
   // Empty (not an error) until the mock_rounds migration has run.
   const template = templateOf(settings.day_template)
   const mockRounds = (mockRes.data ?? []) as MockRound[]
@@ -181,7 +183,7 @@ const questionPool = unstable_cache(() => fetchAllQuestions(createServiceClient(
 export async function getQuestionBank(supabase: SupabaseClient, userId: string): Promise<BankQuestion[]> {
   const [questions, { data: progress }, { data: coding }] = await Promise.all([
     questionPool(),
-    supabase.from('question_progress').select('question_id, last_seen_at, last_answer, last_rating, last_rated_at, attempts').eq('user_id', userId),
+    supabase.from('question_progress').select('question_id, last_seen_at, last_answer, last_rating, last_rated_at, attempts, revealed_at').eq('user_id', userId),
     supabase.from('coding_daily_questions').select('question_id, completed_at').eq('user_id', userId).eq('completed', true),
   ])
   // Last practiced = the newer of a Question Bank / Mock Round answer and a
@@ -190,9 +192,10 @@ export async function getQuestionBank(supabase: SupabaseClient, userId: string):
   const answers = new Map<string, string | null>()
   const ratings = new Map<string, { last_rating: number | null; last_rated_at: string | null }>()
   const attempts = new Map<string, number>()
+  const revealed = new Map<string, string | null>()
   const touch =(id: string, at: string) => { if ((lastSeen.get(id) ?? '') < at) lastSeen.set(id, at) }
   for (const c of coding ?? []) if (c.completed_at) touch(c.question_id, c.completed_at)
-  for (const p of progress ?? []) { touch(p.question_id, p.last_seen_at); answers.set(p.question_id, p.last_answer); ratings.set(p.question_id, { last_rating: p.last_rating ?? null, last_rated_at: p.last_rated_at ?? null }); attempts.set(p.question_id, p.attempts) }
+  for (const p of progress ?? []) { touch(p.question_id, p.last_seen_at); answers.set(p.question_id, p.last_answer); ratings.set(p.question_id, { last_rating: p.last_rating ?? null, last_rated_at: p.last_rated_at ?? null }); attempts.set(p.question_id, p.attempts); revealed.set(p.question_id, p.revealed_at ?? null) }
   return questions.filter(q => !isRetired(q)).map(q => ({
     ...q, topics: q.topics ?? [],
     last_seen_at: lastSeen.get(q.id) ?? null,
@@ -200,6 +203,7 @@ export async function getQuestionBank(supabase: SupabaseClient, userId: string):
     last_rating: ratings.get(q.id)?.last_rating ?? null,
     last_rated_at: ratings.get(q.id)?.last_rated_at ?? null,
     attempts: attempts.get(q.id) ?? 0,
+    revealed_at: revealed.get(q.id) ?? null,
   }))
 }
 
@@ -209,6 +213,9 @@ export function bankCoverage(bank: BankQuestion[], today: string): CategoryCover
     return {
       key: cat.key, label: cat.label, total: qs.length,
       seen: qs.filter(q => q.last_seen_at).length,
+      // Seen *and* rated ≥7 on an attempt before the answer/key points were
+      // ever revealed — the real mastery number, not just exposure.
+      earned: qs.filter(q => q.last_seen_at && q.last_rating !== null && q.last_rating >= 7 && !q.revealed_at).length,
       doneToday: qs.filter(q => q.last_seen_at && toPrepDateStr(q.last_seen_at) === today).length,
       redoDue: qs.filter(q => isRedoDue(q, today)).length,
     }

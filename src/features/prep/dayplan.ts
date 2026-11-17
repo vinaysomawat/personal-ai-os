@@ -81,7 +81,7 @@ export interface PlanCtx {
   // Ticked roadmap steps — Learn / Build follow the week's next step.
   roadmapSteps?: RoadmapStepDone[]
 }
-const EMPTY_COVERAGE = (key: BankCategory): CategoryCoverage => ({ key, label: BANK_CATEGORIES.find(c => c.key === key)?.label ?? key, total: 0, seen: 0, doneToday: 0, redoDue: 0 })
+const EMPTY_COVERAGE = (key: BankCategory): CategoryCoverage => ({ key, label: BANK_CATEGORIES.find(c => c.key === key)?.label ?? key, total: 0, seen: 0, earned: 0, doneToday: 0, redoDue: 0 })
 
 // One plan item: a question block (redo guide and gap from coverage), Learn /
 // Build (the roadmap week; no longer planned, kept for slots on older days), the day's scheduled mock, or your own slot (`custom:<id>`, its label

@@ -132,14 +132,14 @@ export async function streamFollowUpReview(rubric: Rubric, original: string, fol
 
 // Records a Question Bank answer (the question counts as practiced); the
 // matching question block auto-completes once its planned minutes are reached.
-export async function answerQuestion(questionId: string, answer: string | null, rating: number | null = null): Promise<PrepSession | null> {
+export async function answerQuestion(questionId: string, answer: string | null, rating: number | null = null, revealed = false): Promise<PrepSession | null> {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) throw new Error('Not authenticated')
 
   const [{ data: q }, { data: prev }] = await Promise.all([
     supabase.from('coding_questions').select('id, category').eq('id', questionId).single(),
-    supabase.from('question_progress').select('attempts, last_answer').eq('user_id', user.id).eq('question_id', questionId).maybeSingle(),
+    supabase.from('question_progress').select('attempts, last_answer, revealed_at').eq('user_id', user.id).eq('question_id', questionId).maybeSingle(),
   ])
   if (!q) throw new Error('Question not found')
   const { error } = await supabase.from('question_progress').upsert({
@@ -147,6 +147,9 @@ export async function answerQuestion(questionId: string, answer: string | null, 
     attempts: (prev?.attempts ?? 0) + 1, last_answer: answer || prev?.last_answer || null, last_seen_at: new Date().toISOString(),
     // The AI review's rating, when one was run before Next.
     ...(rating !== null ? { last_rating: rating, last_rated_at: new Date().toISOString() } : {}),
+    // Set once, the first time the answer or key points were revealed
+    // without a genuine review first; never cleared once set.
+    ...(prev?.revealed_at ? {} : revealed ? { revealed_at: new Date().toISOString() } : {}),
   }, { onConflict: 'user_id,question_id' })
   if (error) throw new Error(error.message)
 
