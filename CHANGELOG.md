@@ -3,6 +3,13 @@
 One line per shipped change, newest first. Sourced from commit messages —
 append here whenever you deploy, same cadence as the version bump.
 
+## 2026-11-17
+
+- Prep: fixed Edit Today crashing when a tab had been left open across the day's 4am rollover.
+- Question Bank: revealing the model answer or key points now requires typing a real attempt first (40+ chars), and doing so without a prior review permanently excludes that question's rating from Coverage, readiness and the gates. A new "earned" number in Coverage shows real mastery separately from raw exposure.
+- Interview tab rebuilt around company guides: pick or add a company, see its researched process/questions (shared across every interview you have there), then optionally schedule an interview. The JD paste is now optional and the generic per-JD AI plan is gone.
+- Prep day plan: category order now varies slightly day to day instead of always resolving the same way, Sundays ease practice minutes ~30%, and the Question Bank gained a "Starter path" banner for weak categories and a "Surprise me" button. The streak chip calls out round-number milestones.
+
 ## 2026-11-13
 
 - Question Bank: Backend & APIs questions are pitched at a frontend-heavy full-stack engineer. 73 deep-infrastructure questions are rewritten as plain, practical ones (easy and medium only now), easy ones come first, and each keeps its progress.
