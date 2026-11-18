@@ -3,6 +3,10 @@
 One line per shipped change, newest first. Sourced from commit messages —
 append here whenever you deploy, same cadence as the version bump.
 
+## 2026-11-18
+
+- Prep: fixed answers, Telegram drills and mock round saves silently failing to tick a block when a tab had been left open across the day's 4am rollover (same root cause as yesterday's Edit Today fix, in the shared block-update path).
+
 ## 2026-11-17
 
 - Prep: fixed Edit Today crashing when a tab had been left open across the day's 4am rollover.
