@@ -227,7 +227,14 @@ export function bankCoverage(bank: BankQuestion[], today: string): CategoryCover
 }
 
 export async function updateBlocks(supabase: SupabaseClient, userId: string, date: string, fn: (blocks: PrepBlock[]) => PrepBlock[], closeActive = true): Promise<PrepSession | null> {
-  const { data } = await supabase.from('prep_sessions').select('*').eq('user_id', userId).eq('date', date).maybeSingle()
+  let { data } = await supabase.from('prep_sessions').select('*').eq('user_id', userId).eq('date', date).maybeSingle()
+  if (!data && date === prepToday()) {
+    // Same stale-tab-across-rollover case as patchToday(): answering a
+    // question, a drill or a mock round shouldn't silently fail to tick a
+    // block just because no row exists yet for the server's new "today".
+    await loadPrepData(supabase, userId)
+    data = (await supabase.from('prep_sessions').select('*').eq('user_id', userId).eq('date', date).maybeSingle()).data
+  }
   if (!data) return null
   const prev = data.blocks as PrepBlock[]
   const blocks = fn(prev)
