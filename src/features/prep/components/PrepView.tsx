@@ -49,6 +49,7 @@ interface Props {
   session: PrepSession | null
   streak: number
   sessionsLast7: number
+  recentScores: { date: string; score: number | null; good: boolean }[]
   mockRounds: MockRound[]
   war: WarReadiness
   focusSessions: FocusSession[]
@@ -69,6 +70,23 @@ const TEMP_FOCUS = 'tmp-'
 // Streak days worth calling out — the header chip swaps to a trophy on
 // these, same data as the plain streak, no new tracking.
 const STREAK_MILESTONES = [3, 7, 14, 21, 30, 50, 75, 100, 150, 200, 365]
+
+// Last 7 of recentScores (13 days, oldest first) as small dots beside the
+// streak chip — a good day filled, a day worked but short of "good" faint,
+// an idle day hollow. Same signal as the streak number, at a glance; no new
+// data, recentScores was already computed and just wasn't wired to a view.
+function WeekDots({ days }: { days: Props['recentScores'] }) {
+  return (
+    <span className="flex items-center gap-[3px]">
+      {days.slice(-7).map(({ date, score, good }) => (
+        <span key={date}
+          title={`${new Date(`${date}T00:00:00Z`).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}: ${good ? 'good day' : score !== null ? 'worked, not a full day' : 'no session'}`}
+          className={`w-[7px] h-[7px] rounded-full shrink-0 ${good ? 'bg-good' : score !== null ? 'bg-warn' : 'bg-surface-2 border border-border'}`}
+        />
+      ))}
+    </span>
+  )
+}
 
 export default function PrepView(props: Props) {
   const [tab, setTab] = useState<PrepTab>(props.initialTab)
@@ -259,6 +277,7 @@ export default function PrepView(props: Props) {
     <div className="space-y-3">
       <PageHeader title="Prep" chips={<>
         <HeaderChip>{STREAK_MILESTONES.includes(props.streak) ? `🏆 ${props.streak}-day milestone` : `🔥 ${props.streak}-day prep streak`}</HeaderChip>
+        <WeekDots days={props.recentScores} />
         {session && <HeaderChip tone="accent">🎯 {session.focus}</HeaderChip>}
         {/* Pace as plain text, no box; the rest of the numbers are on hover. */}
         <span title={`${pace.donePct}% done · ${pace.dayPct}% of the day gone · ${props.sessionsLast7}/7 full days`}
