@@ -2,6 +2,10 @@ import { NextRequest, NextResponse } from 'next/server'
 import { handleUpdate, isValidModule } from '@/features/telegram/handler'
 import type { TelegramUpdate } from '@/lib/telegram/types'
 
+// A /quiz category tap generates up to 8 quiz items with one AI call before
+// replying, and drill answers are AI-graded inline — give both room.
+export const maxDuration = 60
+
 export async function POST(req: NextRequest, { params }: { params: Promise<{ module: string }> }) {
   const { module } = await params
 

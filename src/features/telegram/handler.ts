@@ -1,10 +1,11 @@
 import { createServiceClient } from '@/lib/supabase/service'
-import { sendMessage, answerCallbackQuery, editMessageReplyMarkup } from '@/lib/telegram/send'
+import { sendMessage, sendHtmlMessage, sendQuizPoll, answerCallbackQuery, editMessageReplyMarkup } from '@/lib/telegram/send'
 import { askAIWithMeta } from '@/lib/ai-gateway'
 import { transcribeVoice } from '@/lib/telegram/transcribe'
 import { downloadTelegramFile } from '@/lib/telegram/download'
 import { isUndoableTable, UNDO_LABEL } from '@/lib/telegram/buttons'
-import type { TelegramUpdate, InlineButton } from '@/lib/telegram/types'
+import type { TelegramUpdate, InlineButton, ModuleReply } from '@/lib/telegram/types'
+import type { ButtonIO, QuizChat } from './quiz'
 import type { ImageInput } from '@/lib/anthropic'
 import { todayIST, istMidnightUtc } from '@/lib/date'
 
@@ -71,6 +72,42 @@ function extractActions(raw: string): Record<string, unknown>[] {
   }
 }
 
+// The chat-sending side of a module's IO (quiz questions, polls, replies).
+function chatIO(token: string, chatId: number): QuizChat {
+  return {
+    send: async r => sendMessage(token, chatId, typeof r === 'string' ? r : r.text, typeof r === 'string' ? undefined : { buttons: r.buttons }),
+    sendHtml: async (html, buttons) => sendHtmlMessage(token, chatId, html, { buttons }),
+    sendPoll: async p => {
+      const sent = await sendQuizPoll(token, {
+        chat_id: chatId, type: 'quiz', is_anonymous: false,
+        question: p.question, options: p.options.map(text => ({ text })),
+        correct_option_id: p.correctIndex, explanation: p.explanation,
+      })
+      return sent ? { pollId: sent.poll.id, messageId: sent.message_id } : null
+    },
+  }
+}
+
+// A tap on a quiz poll option. A poll_answer carries no chat, only the user —
+// in a private chat the user id is the chat id, so that's the gate and the
+// reply target.
+async function handlePollAnswer(moduleName: ModuleName, update: TelegramUpdate): Promise<void> {
+  const pa = update.poll_answer!
+  const chatId = pa.user?.id
+  const allowedId = process.env.TELEGRAM_ALLOWED_CHAT_ID
+  if (!chatId || (allowedId && String(chatId) !== allowedId)) return
+  const token = MODULE_TOKENS[moduleName]
+  const userId = process.env.SUPABASE_USER_ID
+  const mod = MODULES[moduleName] as { handlePollAnswer?: (p: string, o: number[], db: ReturnType<typeof createServiceClient>, u: string, chat: QuizChat) => Promise<void> }
+  if (!token || !userId || !mod.handlePollAnswer) return
+  const chat = chatIO(token, chatId)
+  try {
+    await mod.handlePollAnswer(pa.poll_id, pa.option_ids, createServiceClient(), userId, chat)
+  } catch (err) {
+    await chat.send(`❌ Quiz error: ${err instanceof Error ? err.message : 'Unknown error'}`)
+  }
+}
+
 // Handles inline-keyboard button presses (e.g. "↩️ Undo" on a logged entry).
 // Bypasses AI classification entirely — the callback_data already encodes
 // exactly what to do.
@@ -106,13 +143,34 @@ async function handleCallbackQuery(moduleName: ModuleName, update: TelegramUpdat
       await answerCallbackQuery(token, cq.id)
     }
   } else {
-    await answerCallbackQuery(token, cq.id)
+    // Module-owned buttons (Daily bot: quiz:...). The module drives the
+    // Telegram side effects through `io` so it can ack before slow work.
+    const mod = MODULES[moduleName] as { handleCallback?: (d: string, db: ReturnType<typeof createServiceClient>, u: string, io: ButtonIO) => Promise<boolean> }
+    const userId = process.env.SUPABASE_USER_ID
+    let acked = false
+    const io: ButtonIO = {
+      ...chatIO(token, chatId),
+      ack: async toast => { if (acked) return; acked = true; await answerCallbackQuery(token, cq.id, toast) },
+      clearButtons: async () => { if (cq.message) await editMessageReplyMarkup(token, chatId, cq.message.message_id) },
+    }
+    try {
+      if (mod.handleCallback && userId) await mod.handleCallback(data, createServiceClient(), userId, io)
+    } catch (err) {
+      await io.ack('❌ Something went wrong')
+      await io.send(`❌ Error: ${err instanceof Error ? err.message : 'Unknown error'}`)
+    }
+    // Every callback query must be answered, or the button spins until timeout.
+    await io.ack()
   }
 }
 
 export async function handleUpdate(moduleName: ModuleName, update: TelegramUpdate): Promise<void> {
   if (update.callback_query) {
     await handleCallbackQuery(moduleName, update)
+    return
+  }
+  if (update.poll_answer) {
+    await handlePollAnswer(moduleName, update)
     return
   }
 
@@ -166,6 +224,23 @@ export async function handleUpdate(moduleName: ModuleName, update: TelegramUpdat
     text = msg.caption?.trim() || '(photo)'
   } else {
     text = msg.text!.trim()
+  }
+
+  // Slash commands (Daily bot: /quiz) — deterministic, so they run before the
+  // AI cap and preIntercept (a pending drill would otherwise eat "/quiz" as
+  // its answer).
+  const handleCommand = (mod as { handleCommand?: (t: string) => Promise<ModuleReply | null> }).handleCommand
+  if (handleCommand && msg.text && text.startsWith('/')) {
+    const reply = await handleCommand(text)
+    if (reply) {
+      await sendMessage(token, chatId, typeof reply === 'string' ? reply : reply.text, typeof reply === 'string' ? undefined : { buttons: reply.buttons })
+      try {
+        await db.from('telegram_logs').insert({ module: moduleName, telegram_chat_id: chatId, message: text, action_taken: { action: 'command' }, response: typeof reply === 'string' ? reply : reply.text })
+      } catch {
+        // Non-fatal: log failure shouldn't affect user
+      }
+      return
+    }
   }
 
   if ((await todaysCallCount(db)) >= DAILY_AI_CALL_CAP) {

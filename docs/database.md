@@ -18,6 +18,9 @@ Standard: `user_id uuid references auth.users` + select/insert/update/delete RLS
 | `stories` | title, competencies text[], situation, task, action, result, metrics, strength (1–5), last_rehearsed_at |
 | `story_rehearsals` | story_id (nullable), competency, prompt, answer, critique (text), rating (1–10, computed), scorecard (jsonb `Scorecard`) |
 | `telegram_drills` | question_id → coding_questions, asked_at, answered_at, transcript, rating (1–10), critique |
+| `quiz_items` | question_id → coding_questions (cascade), kind (`mcq` / `descriptive`, unique per question+kind), stem (≤300), options text[] (MCQ: 2–10), correct_index (MCQ, within options), note (≤200, the poll explanation), short_answer (descriptive: the spoiler) — the AI-generated quiz version of a bank question, made once and reused. **Global, no user_id**; RLS on with no policies (service-role only) |
+| `quiz_sessions` | category, item_ids uuid[] (question order), current_index, status (`active` / `done` / `abandoned`), started_at, finished_at — one Telegram `/quiz` run; partial unique index allows one `active` session per user |
+| `quiz_answers` | session_id → quiz_sessions (cascade), item_id → quiz_items (cascade), position (unique per session), poll_id (unique, MCQ), message_id, correct (MCQ), self_grade (0 / 0.5 / 1, descriptive), answered_at — Telegram-only scoring, never written to `question_progress` |
 | `career_profile` | current_role, current_company, current_salary, target_role, years_experience, bio (one row) — read by Ask Brain's context; no in-app editor |
 | `skills` | name, category, level |
 | `expenses` | amount, category, description, date |

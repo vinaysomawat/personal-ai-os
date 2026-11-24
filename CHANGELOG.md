@@ -3,6 +3,11 @@
 One line per shipped change, newest first. Sourced from commit messages —
 append here whenever you deploy, same cadence as the version bump.
 
+## 2026-11-24
+
+- Telegram: new /quiz on the Daily bot — pick a category (or Mixed), get 6 multiple-choice polls that show right/wrong and a short note on tap, then 2 descriptive questions with a hidden answer you grade yourself, and a score at the end. Scored on Telegram only; it doesn't affect Prep progress.
+- Telegram: fixed the "↩️ Undo" buttons doing nothing — the bots were never subscribed to button taps.
+
 ## 2026-11-18
 
 - Prep: fixed answers, Telegram drills and mock round saves silently failing to tick a block when a tab had been left open across the day's 4am rollover (same root cause as yesterday's Edit Today fix, in the shared block-update path).

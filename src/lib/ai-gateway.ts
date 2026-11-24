@@ -23,6 +23,7 @@ export type AITask =
   | 'answer_critique'
   | 'mock_round_review'
   | 'model_answer'
+  | 'quiz_generate'
 
 interface TaskConfig {
   model: string
@@ -87,6 +88,10 @@ const TASK_CONFIG: Record<AITask, TaskConfig> = {
   // prompt is fixed per question, so it's generated once and cached a year;
   // Sonnet because this is what gets studied (Haiku drifted to dated idioms).
   model_answer:           { model: SONNET_MODEL,  cacheTTLSeconds: ONE_YEAR,   fallback: BUDGET_FALLBACK },
+  // Telegram /quiz — turns bank questions into MCQ / descriptive quiz items
+  // (JSON). Each result is stored in quiz_items and reused forever, so the
+  // table is the cache: the prompt differs per quiz and is never re-sent.
+  quiz_generate:          { model: HAIKU_5_5_MODEL, cacheTTLSeconds: null, fallback: '[]', tuning: LOW },
 }
 
 // Static per-model pricing, USD per 1M tokens (Sonnet 4.6 / Haiku 4.5 /
@@ -128,6 +133,7 @@ const MONTHLY_BUDGET_USD = Number(process.env.AI_MONTHLY_BUDGET_USD ?? 50)
 const INTERACTIVE_TASKS: ReadonlySet<AITask> = new Set([
   'telegram_intent', 'telegram_vision',
   'answer_critique', 'ai_native_critique', 'story_critique', 'mock_round_review', 'model_answer',
+  'quiz_generate',
 ])
 const INTERACTIVE_RESERVE_FRACTION = 0.3
 

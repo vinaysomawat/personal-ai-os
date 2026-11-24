@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { ModuleReply } from '@/lib/telegram/types'
+import type { ButtonIO, QuizChat } from '@/features/telegram/quiz'
 
 // The "Daily" bot. Module key stays 'planner' (it's the registered webhook
 // path /api/telegram/planner and the TELEGRAM_BOT_TOKEN_PLANNER env var);
@@ -38,6 +39,29 @@ Rules:
 export async function preIntercept(text: string, db: SupabaseClient, userId: string, spoken: boolean): Promise<string | null> {
   const { answerPendingDrill } = await import('@/features/prep/drill')
   return answerPendingDrill(db, userId, text, spoken)
+}
+
+// Slash commands, matched deterministically before the AI cap, preIntercept
+// and intent parsing (no AI call, and never swallowed as a drill answer).
+export async function handleCommand(text: string): Promise<ModuleReply | null> {
+  const { isQuizCommand, quizPicker } = await import('@/features/telegram/quiz')
+  if (isQuizCommand(text)) return quizPicker()
+  return null
+}
+
+// Inline-button taps this module owns, keyed by callback_data prefix.
+// A tap on a quiz poll option (the only polls this bot sends).
+export async function handlePollAnswer(pollId: string, optionIds: number[], db: SupabaseClient, userId: string, chat: QuizChat): Promise<void> {
+  const { handlePollAnswer: onPollAnswer } = await import('@/features/telegram/quiz-run')
+  await onPollAnswer(db, chat, userId, pollId, optionIds)
+}
+
+// Returns false when the tap isn't one of this module's buttons.
+export async function handleCallback(data: string, db: SupabaseClient, userId: string, io: ButtonIO): Promise<boolean> {
+  const { QUIZ_CALLBACK_PREFIX, handleQuizCallback } = await import('@/features/telegram/quiz')
+  if (!data.startsWith(QUIZ_CALLBACK_PREFIX)) return false
+  await handleQuizCallback(data, db, userId, io)
+  return true
 }
 
 const mm = (s: number) => `${Math.floor(s / 60)}m`
@@ -116,6 +140,6 @@ export async function execute(action: Record<string, unknown>, db: SupabaseClien
       return `🗑️ Removed reminder: "${reminder.label}"`
     }
     default:
-      return `*Daily Bot — What I can do:*\n• "how was my week" (digest)\n• "how was my month" (monthly digest)\n• "remind me to log weight every morning"\n• "show my reminders"\n• "start" / "pause" / "done" (Prep focus sessions)\n• "what now" (today\'s War Mode mission)\n• "drill" / "drill system design" / "drill behavioral" / "drill backend" / "drill resume" / "drill architecture" / "drill rag" (a spoken-answer rep, rated)\n\nI also send the Prep Coach: the 7:30am mission, a 6:30pm nudge if you\'re behind, and the 1:05am day review (with your reminders and anything still open).`
+      return `*Daily Bot — What I can do:*\n• "how was my week" (digest)\n• "how was my month" (monthly digest)\n• "remind me to log weight every morning"\n• "show my reminders"\n• "start" / "pause" / "done" (Prep focus sessions)\n• "what now" (today\'s War Mode mission)\n• "drill" / "drill system design" / "drill behavioral" / "drill backend" / "drill resume" / "drill architecture" / "drill rag" (a spoken-answer rep, rated)\n• /quiz (8 questions — 6 multiple choice + 2 descriptive, scored at the end)\n\nI also send the Prep Coach: the 7:30am mission, a 6:30pm nudge if you\'re behind, and the 1:05am day review (with your reminders and anything still open).`
   }
 }
